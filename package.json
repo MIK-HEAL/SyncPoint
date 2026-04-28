@@ -1,0 +1,26 @@
+{
+  "name": "syncpoint-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SyncPoint - Local multi-agent collaboration state layer",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:server": "pnpm --filter syncpoint-server dev",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:core": "pnpm --filter syncpoint-core test",
+    "test:server": "pnpm --filter syncpoint-server test",
+    "test:sdk": "pnpm --filter syncpoint-sdk test",
+    "test:cli": "pnpm --filter syncpoint-cli test"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

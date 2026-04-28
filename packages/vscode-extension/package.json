@@ -1,0 +1,92 @@
+{
+  "name": "syncpoint-vscode",
+  "displayName": "SyncPoint",
+  "description": "Multi-agent collaboration state layer for VS Code / Cursor",
+  "version": "0.1.0",
+  "publisher": "syncpoint",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "type": "module",
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "syncpoint",
+          "title": "SyncPoint",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "syncpoint": [
+        {
+          "id": "syncpoint-agents",
+          "name": "Agents"
+        },
+        {
+          "id": "syncpoint-tasks",
+          "name": "Tasks"
+        },
+        {
+          "id": "syncpoint-checkpoints",
+          "name": "Checkpoints"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "syncpoint.startServer",
+        "title": "SyncPoint: Start Server"
+      },
+      {
+        "command": "syncpoint.registerAgent",
+        "title": "SyncPoint: Register Agent"
+      },
+      {
+        "command": "syncpoint.createTask",
+        "title": "SyncPoint: Create Task"
+      },
+      {
+        "command": "syncpoint.refreshStatus",
+        "title": "SyncPoint: Refresh Status"
+      },
+      {
+        "command": "syncpoint.resumePrompt",
+        "title": "SyncPoint: Resume Prompt"
+      },
+      {
+        "command": "syncpoint.copyResumePrompt",
+        "title": "SyncPoint: Copy Resume Prompt"
+      },
+      {
+        "command": "syncpoint.writeRulesFile",
+        "title": "SyncPoint: Write Rules File"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@trpc/client": "^11.0.0",
+    "syncpoint-core": "workspace:*",
+    "syncpoint-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "typescript": "^5.5.0",
+    "vitest": "^3.2.4"
+  }
+}

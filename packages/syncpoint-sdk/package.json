@@ -1,0 +1,23 @@
+{
+  "name": "syncpoint-sdk",
+  "version": "0.1.0",
+  "description": "SyncPoint SDK — typed client library for AI tools and extensions",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "syncpoint-core": "workspace:*",
+    "syncpoint-server": "workspace:*",
+    "@trpc/client": "^11.0.0",
+    "@trpc/server": "^11.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  }
+}

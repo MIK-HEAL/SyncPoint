@@ -1,0 +1,684 @@
+/**
+ * MCP tools — state-mutating operations exposed to LLM clients.
+ * All tools delegate to application layer use cases.
+ */
+
+import { z } from "zod";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  loopStatus, loopResume, loopCheckpoint, loopHandoff,
+  pmAdd, pmApprove, pmSearch, pmExport,
+  prepareContext, getContextPolicyInfo,
+  orchCreateSession, orchAssignRole, orchPlanTask,
+  orchRequestReview, orchSubmitReview,
+  orchGetSessionStatus, orchAdvanceSession,
+  rwCreateChecklistItem, rwUpdateChecklistItem, rwListChecklist,
+  rwAddEvidence, rwListEvidence,
+  rwRequestChanges, rwAddressChange,
+  rwEvaluateGate, rwApproveReview, rwBlockReview,
+  rwPrepareReviewPacket,
+  pbGetNextAction, pbCaptureEvidence, pbGetActiveSession,
+} from "syncpoint-server/application";
+import { getResumeContext } from "syncpoint-server/repositories";
+import { formatResumePrompt, ProjectMemoryCreateSchema, ContextIntent, ContextRole, OrchestratorRole, ReviewVerdict, EvidenceKind, PlaybookActionKind } from "syncpoint-core";
+import type { ChecklistItemStatus } from "syncpoint-core";
+import { safeError } from "./errors.js";
+import { formatToolResult } from "./format.js";
+
+function ok(data: object) {
+  return { content: [{ type: "text" as const, text: formatToolResult(data as Record<string, unknown>) }] };
+}
+
+function fail(err: unknown) {
+  return { content: [{ type: "text" as const, text: safeError(err) }], isError: true as const };
+}
+
+export function registerTools(server: McpServer): void {
+  // ── syncpoint_loop_status ──
+  server.registerTool(
+    "syncpoint_loop_status",
+    {
+      title: "Loop Status",
+      description: "Get current agent and task status",
+      inputSchema: { agentId: z.string(), taskId: z.string().optional() },
+    },
+    async ({ agentId, taskId }) => {
+      try { return ok(loopStatus({ agentId, taskId })); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_loop_resume ──
+  server.registerTool(
+    "syncpoint_loop_resume",
+    {
+      title: "Loop Resume",
+      description: "Resume a task — enforces context policy, generates adapter files and prompt",
+      inputSchema: {
+        agentId: z.string(),
+        taskId: z.string(),
+        provider: z.string().optional(),
+        format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),
+      },
+    },
+    async ({ agentId, taskId, provider, format }) => {
+      try { return ok(loopResume({ agentId, taskId, provider, format })); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_loop_checkpoint ──
+  server.registerTool(
+    "syncpoint_loop_checkpoint",
+    {
+      title: "Loop Checkpoint",
+      description: "Save a checkpoint and context capsule for the current work session",
+      inputSchema: {
+        agentId: z.string(),
+        taskId: z.string(),
+        summary: z.string(),
+        progress: z.string().optional(),
+        nextSteps: z.string().optional(),
+        risks: z.string().optional(),
+        blockers: z.string().optional(),
+        goal: z.string().optional(),
+        phase: z.string().optional(),
+        completed: z.string().optional(),
+        remaining: z.string().optional(),
+        workingFiles: z.string().optional(),
+        resumePrompt: z.string().optional(),
+        needSync: z.boolean().optional(),
+        provider: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try { return ok(loopCheckpoint(input)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_loop_handoff ──
+  server.registerTool(
+    "syncpoint_loop_handoff",
+    {
+      title: "Loop Handoff",
+      description: "Hand off a task from one agent to another",
+      inputSchema: {
+        taskId: z.string(),
+        fromAgentId: z.string(),
+        toAgentId: z.string(),
+        context: z.string(),
+        autoAccept: z.boolean().optional(),
+        provider: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try { return ok(loopHandoff(input)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_resume_context_get ──
+  server.registerTool(
+    "syncpoint_resume_context_get",
+    {
+      title: "Get Resume Context",
+      description: "Retrieve full resume context for a task+agent pair, including formatted prompt",
+      inputSchema: {
+        taskId: z.string(),
+        agentId: z.string(),
+        format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),
+      },
+    },
+    async ({ taskId, agentId, format }) => {
+      try {
+        const ctx = getResumeContext(taskId, agentId);
+        const prompt = formatResumePrompt(ctx, format ?? "system-prompt");
+        return ok({ ...ctx, resumePrompt: prompt });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_project_memory_search ──
+  server.registerTool(
+    "syncpoint_project_memory_search",
+    {
+      title: "Search Project Memory",
+      description: "Search approved project memories by keyword",
+      inputSchema: { query: z.string() },
+    },
+    async ({ query }) => {
+      try {
+        const results = pmSearch(query);
+        return ok({ count: results.length, results });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_project_memory_add ──
+  server.registerTool(
+    "syncpoint_project_memory_add",
+    {
+      title: "Add Project Memory",
+      description: "Add a new project memory note (created as draft, needs approval to enter context)",
+      inputSchema: {
+        category: z.enum(["overview", "architecture", "decision", "convention", "risk", "gotcha", "glossary", "file-map", "integration"]),
+        title: z.string(),
+        content: z.string(),
+        scope: z.enum(["project", "domain", "task", "file"]).optional(),
+        tags: z.string().optional(),
+        sourceType: z.enum(["human", "agent", "checkpoint", "handoff", "doc"]).optional(),
+        confidence: z.enum(["low", "medium", "high"]).optional(),
+        taskId: z.string().nullable().optional(),
+        createdBy: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try {
+        const data = ProjectMemoryCreateSchema.parse({
+          ...input,
+          scope: input.scope ?? "project",
+          tags: input.tags ?? "",
+          sourceType: input.sourceType ?? "agent",
+          sourceRef: "",
+          confidence: input.confidence ?? "medium",
+          taskId: input.taskId ?? null,
+          createdBy: input.createdBy ?? "mcp",
+        });
+        const mem = pmAdd(data);
+        return ok({
+          ok: true,
+          operation: "project_memory_add",
+          id: mem.id,
+          status: mem.status,
+          nextSuggestedAction: `Approve with syncpoint_project_memory_approve(id: "${mem.id}")`,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_project_memory_approve ──
+  server.registerTool(
+    "syncpoint_project_memory_approve",
+    {
+      title: "Approve Project Memory",
+      description: "Approve a draft project memory (makes it available in agent resume context)",
+      inputSchema: {
+        id: z.string(),
+        updatedBy: z.string().optional(),
+      },
+    },
+    async ({ id, updatedBy }) => {
+      try {
+        const mem = pmApprove(id, updatedBy);
+        return ok({
+          ok: true,
+          operation: "project_memory_approve",
+          id: mem.id,
+          status: mem.status,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_project_memory_export ──
+  server.registerTool(
+    "syncpoint_project_memory_export",
+    {
+      title: "Export Project Memory",
+      description: "Export all approved project memories to .syncpoint/project-memory.md",
+      inputSchema: { outputPath: z.string().optional() },
+    },
+    async ({ outputPath }) => {
+      try {
+        const result = pmExport(outputPath);
+        return ok({
+          ok: true,
+          operation: "project_memory_export",
+          path: result.path,
+          count: result.count,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_context_prepare ──
+  server.registerTool(
+    "syncpoint_context_prepare",
+    {
+      title: "Prepare Context",
+      description: "Prepare role-aware context for a given intent. Enforces hard/soft/none gate. Returns full PreparedContext with prompt.",
+      inputSchema: {
+        intent: z.enum(ContextIntent.options),
+        role: z.enum(ContextRole.options),
+        taskId: z.string().optional(),
+        agentId: z.string().optional(),
+      },
+    },
+    async ({ intent, role, taskId, agentId }) => {
+      try {
+        const prepared = prepareContext({ intent, role, taskId, agentId });
+        return ok(prepared);
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_context_policy_info ──
+  server.registerTool(
+    "syncpoint_context_policy_info",
+    {
+      title: "Context Policy Info",
+      description: "List all available context intents, roles, and their policies (gate mode, required/included sections)",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return ok(getContextPolicyInfo());
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_architect_onboarding ──
+  server.registerTool(
+    "syncpoint_architect_onboarding",
+    {
+      title: "Architect Onboarding",
+      description: "Prepare architect-level context with project memory, task list, and planning guidance",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const prepared = prepareContext({ intent: "architect-plan", role: "architect" });
+        return ok(prepared);
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_reviewer_context ──
+  server.registerTool(
+    "syncpoint_reviewer_context",
+    {
+      title: "Reviewer Context",
+      description: "Prepare reviewer context for a task — includes contract, checkpoint, capsule, and review checklist",
+      inputSchema: {
+        taskId: z.string(),
+        agentId: z.string(),
+      },
+    },
+    async ({ taskId, agentId }) => {
+      try {
+        const prepared = prepareContext({ intent: "review", role: "reviewer", taskId, agentId });
+        return ok(prepared);
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_create ──
+  server.registerTool(
+    "syncpoint_session_create",
+    {
+      title: "Create Orchestration Session",
+      description: "Create a new orchestration session with optional architect role assignment",
+      inputSchema: {
+        title: z.string(),
+        description: z.string().optional(),
+        architectId: z.string().optional(),
+      },
+    },
+    async ({ title, description, architectId }) => {
+      try {
+        const result = orchCreateSession({ title, description, architectId, createdBy: "mcp" });
+        return ok(result);
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_status ──
+  server.registerTool(
+    "syncpoint_session_status",
+    {
+      title: "Session Status",
+      description: "Get full orchestration session status including roles, assignments, reviews, decisions",
+      inputSchema: {
+        sessionId: z.string(),
+      },
+    },
+    async ({ sessionId }) => {
+      try {
+        return ok(orchGetSessionStatus(sessionId));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_assign_role ──
+  server.registerTool(
+    "syncpoint_session_assign_role",
+    {
+      title: "Assign Role",
+      description: "Assign a role (architect/executor/reviewer/owner) to an agent within a session",
+      inputSchema: {
+        sessionId: z.string(),
+        agentId: z.string(),
+        role: OrchestratorRole,
+      },
+    },
+    async ({ sessionId, agentId, role }) => {
+      try {
+        return ok(orchAssignRole({ sessionId, agentId, role }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_plan_task ──
+  server.registerTool(
+    "syncpoint_session_plan_task",
+    {
+      title: "Plan Task",
+      description: "Plan a task assignment within a session — assigns task to an executor",
+      inputSchema: {
+        sessionId: z.string(),
+        taskId: z.string(),
+        assigneeAgentId: z.string(),
+        notes: z.string().optional(),
+      },
+    },
+    async ({ sessionId, taskId, assigneeAgentId, notes }) => {
+      try {
+        return ok(orchPlanTask({ sessionId, taskId, assigneeAgentId, assignedBy: "mcp", notes }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_request_review ──
+  server.registerTool(
+    "syncpoint_session_request_review",
+    {
+      title: "Request Review",
+      description: "Request a review for a completed task within a session",
+      inputSchema: {
+        sessionId: z.string(),
+        taskId: z.string(),
+        reviewerAgentId: z.string(),
+        scope: z.string().optional(),
+      },
+    },
+    async ({ sessionId, taskId, reviewerAgentId, scope }) => {
+      try {
+        return ok(orchRequestReview({ sessionId, taskId, reviewerAgentId, requestedBy: "mcp", scope }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_review_decide ──
+  server.registerTool(
+    "syncpoint_session_review_decide",
+    {
+      title: "Submit Review Decision",
+      description: "Submit a review verdict: approved, request-changes, or rejected",
+      inputSchema: {
+        reviewRequestId: z.string(),
+        verdict: ReviewVerdict,
+        summary: z.string(),
+        requestedChanges: z.string().optional(),
+      },
+    },
+    async ({ reviewRequestId, verdict, summary, requestedChanges }) => {
+      try {
+        return ok(orchSubmitReview({ reviewRequestId, verdict, summary, requestedChanges, decidedBy: "mcp" }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_advance ──
+  server.registerTool(
+    "syncpoint_session_advance",
+    {
+      title: "Advance Session",
+      description: "Advance session status based on current assignments and review state",
+      inputSchema: {
+        sessionId: z.string(),
+      },
+    },
+    async ({ sessionId }) => {
+      try {
+        return ok(orchAdvanceSession(sessionId));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── Review Workflow Tools ────────────────────────────
+
+  server.registerTool(
+    "syncpoint_review_checklist_add",
+    {
+      title: "Add Checklist Item",
+      description: "Add a checklist item to a review request",
+      inputSchema: {
+        reviewRequestId: z.string(),
+        title: z.string(),
+        description: z.string().optional(),
+        required: z.boolean().optional(),
+      },
+    },
+    async ({ reviewRequestId, title, description, required }) => {
+      try {
+        return ok(rwCreateChecklistItem({ reviewRequestId, title, description, required }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_checklist_update",
+    {
+      title: "Update Checklist Item",
+      description: "Update a checklist item status (PASSED, FAILED, WAIVED, OPEN)",
+      inputSchema: {
+        itemId: z.string(),
+        status: z.enum(["OPEN", "PASSED", "FAILED", "WAIVED"]),
+        notes: z.string().optional(),
+      },
+    },
+    async ({ itemId, status, notes }) => {
+      try {
+        return ok(rwUpdateChecklistItem(itemId, status as ChecklistItemStatus, { notes }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_evidence_add",
+    {
+      title: "Add Review Evidence",
+      description: "Record evidence (build, test, typecheck, manual, etc.) for a review",
+      inputSchema: {
+        reviewRequestId: z.string(),
+        kind: EvidenceKind,
+        title: z.string(),
+        content: z.string(),
+        metadataJson: z.string().optional(),
+      },
+    },
+    async ({ reviewRequestId, kind, title, content, metadataJson }) => {
+      try {
+        return ok(rwAddEvidence({ reviewRequestId, kind, title, content, metadataJson }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_evidence_list",
+    {
+      title: "List Review Evidence",
+      description: "List all evidence for a review request",
+      inputSchema: {
+        reviewRequestId: z.string(),
+      },
+    },
+    async ({ reviewRequestId }) => {
+      try {
+        return ok(rwListEvidence(reviewRequestId));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_changes_request",
+    {
+      title: "Request Changes",
+      description: "Create a change request for a review — blocks approval gate",
+      inputSchema: {
+        reviewRequestId: z.string(),
+        summary: z.string(),
+        items: z.string().optional(),
+      },
+    },
+    async ({ reviewRequestId, summary, items }) => {
+      try {
+        return ok(rwRequestChanges({ reviewRequestId, summary, items }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_changes_address",
+    {
+      title: "Address Change Request",
+      description: "Mark a change request as addressed",
+      inputSchema: {
+        changeRequestId: z.string(),
+        evidenceId: z.string().optional(),
+      },
+    },
+    async ({ changeRequestId, evidenceId }) => {
+      try {
+        return ok(rwAddressChange({ changeRequestId, evidenceId }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_gate",
+    {
+      title: "Evaluate Approval Gate",
+      description: "Check if a review passes the approval gate",
+      inputSchema: {
+        reviewRequestId: z.string(),
+      },
+    },
+    async ({ reviewRequestId }) => {
+      try {
+        return ok(rwEvaluateGate(reviewRequestId));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_approve",
+    {
+      title: "Approve Review",
+      description: "Approve a review (gate must be PASSED)",
+      inputSchema: {
+        reviewRequestId: z.string(),
+        summary: z.string(),
+      },
+    },
+    async ({ reviewRequestId, summary }) => {
+      try {
+        return ok(rwApproveReview({ reviewRequestId, summary }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_block",
+    {
+      title: "Block Review",
+      description: "Block a review with optional change request",
+      inputSchema: {
+        reviewRequestId: z.string(),
+        summary: z.string(),
+        requestedChanges: z.string().optional(),
+      },
+    },
+    async ({ reviewRequestId, summary, requestedChanges }) => {
+      try {
+        return ok(rwBlockReview({ reviewRequestId, summary, requestedChanges }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_review_packet",
+    {
+      title: "Review Packet",
+      description: "Get full review packet including checklist, evidence, changes, gate, and context",
+      inputSchema: {
+        reviewRequestId: z.string(),
+      },
+    },
+    async ({ reviewRequestId }) => {
+      try {
+        return ok(rwPrepareReviewPacket(reviewRequestId));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── Playbook Tools ───────────────────────────────
+
+  server.registerTool(
+    "syncpoint_next_action",
+    {
+      title: "Next Action",
+      description: "Get the next recommended action for an agent in a session",
+      inputSchema: {
+        sessionId: z.string(),
+        agentId: z.string(),
+      },
+    },
+    async ({ sessionId, agentId }) => {
+      try {
+        return ok(pbGetNextAction({ sessionId, agentId }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_capture_evidence",
+    {
+      title: "Capture Evidence",
+      description: "Record command output (build/test/lint) as review evidence",
+      inputSchema: {
+        reviewRequestId: z.string(),
+        command: z.string(),
+        output: z.string(),
+        exitCode: z.number().optional(),
+        kind: EvidenceKind.optional(),
+      },
+    },
+    async ({ reviewRequestId, command, output, exitCode, kind }) => {
+      try {
+        return ok(pbCaptureEvidence({ reviewRequestId, command, output, exitCode, kind }));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_active_session",
+    {
+      title: "Active Session",
+      description: "Find the active session for an agent and return next actions",
+      inputSchema: {
+        agentId: z.string(),
+      },
+    },
+    async ({ agentId }) => {
+      try {
+        const result = pbGetActiveSession(agentId);
+        if (!result) {
+          return { content: [{ type: "text" as const, text: JSON.stringify({ active: false }) }] };
+        }
+        return ok(result);
+      } catch (e) { return fail(e); }
+    }
+  );
+}

@@ -1,0 +1,353 @@
+/**
+ * Database connection and Drizzle ORM setup for SyncPoint.
+ */
+
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import path from "node:path";
+import os from "node:os";
+import fs from "node:fs";
+import * as schema from "./schema.js";
+
+export const SYNCPOINT_DIR_NAME = ".syncpoint";
+const DEFAULT_DB_NAME = "syncpoint.db";
+
+/**
+ * Walk up from cwd looking for an existing .syncpoint/ directory.
+ * Returns the first match, or null if none found.
+ */
+export function findProjectSyncpointDir(from: string = process.cwd()): string | null {
+  let dir = path.resolve(from);
+  const { root } = path.parse(dir);
+  const fallbackDir = path.resolve(os.homedir(), SYNCPOINT_DIR_NAME);
+  while (true) {
+    const candidate = path.join(dir, SYNCPOINT_DIR_NAME);
+    if (
+      path.resolve(candidate) !== fallbackDir &&
+      fs.existsSync(candidate) &&
+      fs.statSync(candidate).isDirectory()
+    ) {
+      return candidate;
+    }
+    if (dir === root) break;
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+let sqlite: Database.Database | null = null;
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+
+/**
+ * Returns true if the DB resolves to a project-local .syncpoint/ (not ~/.syncpoint fallback).
+ */
+export function isProjectLocal(): boolean {
+  if (process.env.SYNCPOINT_DB_DIR) return true;
+  return findProjectSyncpointDir() !== null;
+}
+
+/**
+ * Returns the resolved .syncpoint directory path (project-local or fallback).
+ */
+export function getSyncpointDir(): string {
+  if (process.env.SYNCPOINT_DB_DIR) return process.env.SYNCPOINT_DB_DIR;
+  const projectDir = findProjectSyncpointDir();
+  if (projectDir) return projectDir;
+  return path.join(os.homedir(), SYNCPOINT_DIR_NAME);
+}
+
+export function getDbPath(): string {
+  // 1. Explicit env var wins
+  if (process.env.SYNCPOINT_DB_DIR) {
+    const dir = process.env.SYNCPOINT_DB_DIR;
+    fs.mkdirSync(dir, { recursive: true });
+    return path.join(dir, DEFAULT_DB_NAME);
+  }
+  // 2. Walk up to find project-local .syncpoint/
+  const projectDir = findProjectSyncpointDir();
+  if (projectDir) {
+    return path.join(projectDir, DEFAULT_DB_NAME);
+  }
+  // 3. Fallback to ~/.syncpoint/
+  const fallback = path.join(os.homedir(), SYNCPOINT_DIR_NAME);
+  fs.mkdirSync(fallback, { recursive: true });
+  return path.join(fallback, DEFAULT_DB_NAME);
+}
+
+/**
+ * Initialize a .syncpoint/ directory in the given (or current) directory.
+ * Returns the created directory path.
+ */
+export function initSyncpointDir(baseDir: string = process.cwd()): string {
+  const dir = path.join(path.resolve(baseDir), SYNCPOINT_DIR_NAME);
+  fs.mkdirSync(dir, { recursive: true });
+  // Create the DB to ensure schema exists
+  const dbPath = path.join(dir, DEFAULT_DB_NAME);
+  const db = new Database(dbPath);
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = ON");
+  runMigrations(db);
+  db.close();
+  return dir;
+}
+
+export type SyncPointDb = ReturnType<typeof drizzle<typeof schema>>;
+
+export function getDb(): SyncPointDb {
+  if (_db) return _db;
+  sqlite = new Database(getDbPath());
+  sqlite.pragma("journal_mode = WAL");
+  sqlite.pragma("foreign_keys = ON");
+  _db = drizzle(sqlite, { schema });
+  runMigrations(sqlite);
+  return _db;
+}
+
+export function getRawDb(): Database.Database {
+  getDb();
+  return sqlite!;
+}
+
+export function closeDb(): void {
+  if (sqlite) {
+    sqlite.close();
+    sqlite = null;
+    _db = null;
+  }
+}
+
+export function runMigrations(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent (
+      id              TEXT PRIMARY KEY,
+      name            TEXT NOT NULL,
+      provider        TEXT NOT NULL,
+      role            TEXT NOT NULL,
+      status          TEXT NOT NULL DEFAULT 'IDLE',
+      current_task_id TEXT,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS task (
+      id              TEXT PRIMARY KEY,
+      title           TEXT NOT NULL,
+      description     TEXT NOT NULL DEFAULT '',
+      status          TEXT NOT NULL DEFAULT 'OPEN',
+      owner_agent_id  TEXT REFERENCES agent(id),
+      parent_task_id  TEXT REFERENCES task(id),
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS checkpoint (
+      id                   TEXT PRIMARY KEY,
+      task_id              TEXT NOT NULL REFERENCES task(id),
+      agent_id             TEXT NOT NULL REFERENCES agent(id),
+      summary              TEXT NOT NULL,
+      progress             TEXT NOT NULL DEFAULT '',
+      current_understanding TEXT NOT NULL DEFAULT '',
+      changed_files        TEXT NOT NULL DEFAULT '',
+      risks                TEXT NOT NULL DEFAULT '',
+      blockers             TEXT NOT NULL DEFAULT '',
+      next_steps           TEXT NOT NULL DEFAULT '',
+      need_sync            INTEGER NOT NULL DEFAULT 0,
+      created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS diary_entry (
+      id          TEXT PRIMARY KEY,
+      agent_id    TEXT NOT NULL REFERENCES agent(id),
+      task_id     TEXT NOT NULL REFERENCES task(id),
+      entry_type  TEXT NOT NULL DEFAULT 'NOTE',
+      content     TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS handoff (
+      id               TEXT PRIMARY KEY,
+      from_agent_id    TEXT NOT NULL REFERENCES agent(id),
+      to_agent_id      TEXT NOT NULL REFERENCES agent(id),
+      task_id          TEXT NOT NULL REFERENCES task(id),
+      context_summary  TEXT NOT NULL,
+      status           TEXT NOT NULL DEFAULT 'PENDING',
+      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS peer_contract (
+      id               TEXT PRIMARY KEY,
+      task_id          TEXT NOT NULL REFERENCES task(id),
+      title            TEXT NOT NULL DEFAULT '',
+      participants     TEXT NOT NULL DEFAULT '',
+      scope            TEXT NOT NULL DEFAULT '',
+      responsibilities TEXT NOT NULL DEFAULT '',
+      interface_spec   TEXT NOT NULL DEFAULT '',
+      file_boundaries  TEXT NOT NULL DEFAULT '',
+      dependencies     TEXT NOT NULL DEFAULT '',
+      test_plan        TEXT NOT NULL DEFAULT '',
+      risks            TEXT NOT NULL DEFAULT '',
+      status           TEXT NOT NULL DEFAULT 'DRAFT',
+      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS context_capsule (
+      id                   TEXT PRIMARY KEY,
+      task_id              TEXT NOT NULL REFERENCES task(id),
+      agent_id             TEXT NOT NULL REFERENCES agent(id),
+      checkpoint_id        TEXT NOT NULL REFERENCES checkpoint(id),
+      goal                 TEXT NOT NULL DEFAULT '',
+      current_phase        TEXT NOT NULL DEFAULT '',
+      confirmed_decisions  TEXT NOT NULL DEFAULT '',
+      interface_contract   TEXT NOT NULL DEFAULT '',
+      working_files        TEXT NOT NULL DEFAULT '',
+      completed_work       TEXT NOT NULL DEFAULT '',
+      remaining_work       TEXT NOT NULL DEFAULT '',
+      risks                TEXT NOT NULL DEFAULT '',
+      blockers             TEXT NOT NULL DEFAULT '',
+      next_steps           TEXT NOT NULL DEFAULT '',
+      resume_prompt        TEXT NOT NULL DEFAULT '',
+      created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS event (
+      id           TEXT PRIMARY KEY,
+      event_type   TEXT NOT NULL,
+      entity_type  TEXT NOT NULL,
+      entity_id    TEXT NOT NULL,
+      detail       TEXT NOT NULL DEFAULT '',
+      created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_memory (
+      id           TEXT PRIMARY KEY,
+      scope        TEXT NOT NULL DEFAULT 'project',
+      category     TEXT NOT NULL,
+      title        TEXT NOT NULL,
+      content      TEXT NOT NULL,
+      tags         TEXT NOT NULL DEFAULT '',
+      source_type  TEXT NOT NULL DEFAULT 'human',
+      source_ref   TEXT NOT NULL DEFAULT '',
+      status       TEXT NOT NULL DEFAULT 'draft',
+      confidence   TEXT NOT NULL DEFAULT 'medium',
+      task_id      TEXT,
+      created_by   TEXT NOT NULL DEFAULT '',
+      updated_by   TEXT NOT NULL DEFAULT '',
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS pinned_memory (
+      id          TEXT PRIMARY KEY,
+      key         TEXT NOT NULL UNIQUE,
+      content     TEXT NOT NULL,
+      scope       TEXT NOT NULL DEFAULT 'project',
+      task_id     TEXT REFERENCES task(id),
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS orchestration_session (
+      id            TEXT PRIMARY KEY,
+      title         TEXT NOT NULL,
+      description   TEXT NOT NULL DEFAULT '',
+      status        TEXT NOT NULL DEFAULT 'PLANNING',
+      architect_id  TEXT,
+      created_by    TEXT NOT NULL DEFAULT '',
+      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS role_profile (
+      id            TEXT PRIMARY KEY,
+      session_id    TEXT NOT NULL REFERENCES orchestration_session(id),
+      agent_id      TEXT NOT NULL REFERENCES agent(id),
+      role          TEXT NOT NULL,
+      capabilities  TEXT NOT NULL DEFAULT '',
+      assigned_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS task_assignment (
+      id                TEXT PRIMARY KEY,
+      session_id        TEXT NOT NULL REFERENCES orchestration_session(id),
+      task_id           TEXT NOT NULL REFERENCES task(id),
+      assignee_agent_id TEXT NOT NULL REFERENCES agent(id),
+      assigned_by       TEXT NOT NULL DEFAULT '',
+      status            TEXT NOT NULL DEFAULT 'PROPOSED',
+      notes             TEXT NOT NULL DEFAULT '',
+      created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS review_request (
+      id                TEXT PRIMARY KEY,
+      session_id        TEXT NOT NULL REFERENCES orchestration_session(id),
+      task_id           TEXT NOT NULL REFERENCES task(id),
+      reviewer_agent_id TEXT NOT NULL REFERENCES agent(id),
+      requested_by      TEXT NOT NULL DEFAULT '',
+      scope             TEXT NOT NULL DEFAULT '',
+      status            TEXT NOT NULL DEFAULT 'PENDING',
+      created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS review_decision (
+      id                 TEXT PRIMARY KEY,
+      review_request_id  TEXT NOT NULL REFERENCES review_request(id),
+      verdict            TEXT NOT NULL,
+      summary            TEXT NOT NULL,
+      requested_changes  TEXT NOT NULL DEFAULT '',
+      decided_by         TEXT NOT NULL DEFAULT '',
+      created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS review_checklist_item (
+      id                 TEXT PRIMARY KEY,
+      review_request_id  TEXT NOT NULL REFERENCES review_request(id),
+      title              TEXT NOT NULL,
+      description        TEXT NOT NULL DEFAULT '',
+      required           INTEGER NOT NULL DEFAULT 1,
+      status             TEXT NOT NULL DEFAULT 'OPEN',
+      notes              TEXT NOT NULL DEFAULT '',
+      updated_by         TEXT NOT NULL DEFAULT '',
+      created_at         TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS review_evidence (
+      id                 TEXT PRIMARY KEY,
+      review_request_id  TEXT NOT NULL REFERENCES review_request(id),
+      kind               TEXT NOT NULL,
+      title              TEXT NOT NULL,
+      content            TEXT NOT NULL,
+      metadata_json      TEXT NOT NULL DEFAULT '',
+      created_by         TEXT NOT NULL DEFAULT '',
+      created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS change_request (
+      id                 TEXT PRIMARY KEY,
+      review_request_id  TEXT NOT NULL REFERENCES review_request(id),
+      summary            TEXT NOT NULL,
+      items              TEXT NOT NULL DEFAULT '',
+      status             TEXT NOT NULL DEFAULT 'OPEN',
+      evidence_id        TEXT,
+      requested_by       TEXT NOT NULL DEFAULT '',
+      addressed_by       TEXT NOT NULL DEFAULT '',
+      created_at         TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS approval_record (
+      id                 TEXT PRIMARY KEY,
+      review_request_id  TEXT NOT NULL REFERENCES review_request(id),
+      decision           TEXT NOT NULL,
+      summary            TEXT NOT NULL,
+      requested_changes  TEXT NOT NULL DEFAULT '',
+      waiver_reason      TEXT NOT NULL DEFAULT '',
+      decided_by         TEXT NOT NULL DEFAULT '',
+      created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+}

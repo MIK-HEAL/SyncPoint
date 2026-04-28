@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.syncpoint/
+.vscode/
+drizzle/
+*.db
+
+# Prevent stale compiled artifacts in src/
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts.map
+
+PLan/
+.tmp/
