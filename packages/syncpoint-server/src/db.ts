@@ -349,5 +349,38 @@ export function runMigrations(db: Database.Database): void {
       decided_by         TEXT NOT NULL DEFAULT '',
       created_at         TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS wake_request (
+      id                  TEXT PRIMARY KEY,
+      session_id          TEXT NOT NULL REFERENCES orchestration_session(id),
+      target_agent_id     TEXT NOT NULL REFERENCES agent(id),
+      target_role         TEXT NOT NULL,
+      action              TEXT NOT NULL,
+      reason              TEXT NOT NULL,
+      trigger_event_type  TEXT NOT NULL,
+      trigger_entity_id   TEXT NOT NULL,
+      task_id             TEXT,
+      review_request_id   TEXT,
+      prompt_hint         TEXT NOT NULL DEFAULT '',
+      mcp_tool_hint       TEXT NOT NULL DEFAULT '',
+      cli_hint            TEXT NOT NULL DEFAULT '',
+      runner_mode         TEXT NOT NULL DEFAULT 'manual',
+      status              TEXT NOT NULL DEFAULT 'QUEUED',
+      result_summary      TEXT NOT NULL DEFAULT '',
+      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS file_claim (
+      id          TEXT PRIMARY KEY,
+      agent_id    TEXT NOT NULL REFERENCES agent(id),
+      task_id     TEXT NOT NULL REFERENCES task(id),
+      session_id  TEXT NOT NULL DEFAULT '',
+      paths       TEXT NOT NULL,
+      mode        TEXT NOT NULL DEFAULT 'exclusive',
+      status      TEXT NOT NULL DEFAULT 'ACTIVE',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      released_at TEXT NOT NULL DEFAULT ''
+    );
   `);
 }

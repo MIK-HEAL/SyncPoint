@@ -216,3 +216,41 @@ export type {
   NextAction,
   SessionSnapshot,
 } from "./playbook-engine.js";
+
+// Wake Engine
+export {
+  WakeRequestStatus,
+  WAKE_REQUEST_TRANSITIONS,
+  WakeRunnerMode,
+  WakeRequestSchema,
+  WakeRequestCreateSchema,
+  OrchestrationEventType,
+  DEFAULT_WAKE_RULES,
+  computeWakeTargets,
+  validateWakeRequestTransition,
+} from "./wake.js";
+
+export type {
+  WakeRequest,
+  WakeRequestCreate,
+  WakeRule,
+  WakeTarget,
+  WakeContext,
+} from "./wake.js";
+
+// FileClaim / Conflict Awareness
+export {
+  FileClaimStatus,
+  FileClaimMode,
+  FileClaimSchema,
+  FileClaimCreateSchema,
+  parseClaimPaths,
+  pathsOverlap,
+  detectConflicts,
+} from "./file-claim.js";
+
+export type {
+  FileClaim,
+  FileClaimCreate,
+  FileConflict,
+} from "./file-claim.js";

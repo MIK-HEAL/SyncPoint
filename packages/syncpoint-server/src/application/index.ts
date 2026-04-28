@@ -123,3 +123,39 @@ export type {
   CaptureEvidenceResult,
   ActiveSessionResult,
 } from "./playbook-service.js";
+
+// Wake Engine
+export {
+  wakeEngineStart,
+  wakeEngineStop,
+  wakeEngineStats,
+  processOrchestrationEvent,
+  wakeList,
+  wakeGet,
+  wakeAck,
+  wakeStart,
+  wakeDone,
+  wakeFail,
+  wakeSkip,
+  wakeNext,
+} from "./wake-engine-service.js";
+
+export type {
+  WakeEngineOptions,
+  WakeEngineStats,
+  WakeListInput,
+} from "./wake-engine-service.js";
+
+// FileClaim / Conflict Awareness
+export {
+  fcClaimFiles,
+  fcReleaseClaim,
+  fcListClaims,
+  fcDetectConflicts,
+} from "./file-claim-service.js";
+
+export type {
+  ClaimFilesInput,
+  ClaimFilesResult,
+  ListClaimsInput,
+} from "./file-claim-service.js";

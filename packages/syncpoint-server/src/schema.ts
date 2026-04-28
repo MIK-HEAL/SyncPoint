@@ -262,6 +262,43 @@ export const approvalRecords = sqliteTable("approval_record", {
   createdAt: text("created_at").notNull(),
 });
 
+// ── WakeRequest ──────────────────────────────────────
+
+export const wakeRequests = sqliteTable("wake_request", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => orchestrationSessions.id),
+  targetAgentId: text("target_agent_id").notNull().references(() => agents.id),
+  targetRole: text("target_role").notNull(),
+  action: text("action").notNull(),
+  reason: text("reason").notNull(),
+  triggerEventType: text("trigger_event_type").notNull(),
+  triggerEntityId: text("trigger_entity_id").notNull(),
+  taskId: text("task_id"),
+  reviewRequestId: text("review_request_id"),
+  promptHint: text("prompt_hint").notNull().default(""),
+  mcpToolHint: text("mcp_tool_hint").notNull().default(""),
+  cliHint: text("cli_hint").notNull().default(""),
+  runnerMode: text("runner_mode").notNull().default("manual"),
+  status: text("status").notNull().default("QUEUED"),
+  resultSummary: text("result_summary").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ── FileClaim ─────────────────────────────────────────
+
+export const fileClaims = sqliteTable("file_claim", {
+  id: text("id").primaryKey(),
+  agentId: text("agent_id").notNull().references(() => agents.id),
+  taskId: text("task_id").notNull().references(() => tasks.id),
+  sessionId: text("session_id").notNull().default(""),
+  paths: text("paths").notNull(),
+  mode: text("mode").notNull().default("exclusive"),
+  status: text("status").notNull().default("ACTIVE"),
+  createdAt: text("created_at").notNull(),
+  releasedAt: text("released_at").notNull().default(""),
+});
+
 // ── PinnedMemory ──────────────────────────────────────
 
 export const pinnedMemories = sqliteTable("pinned_memory", {

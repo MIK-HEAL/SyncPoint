@@ -2,9 +2,9 @@
 
 # 🔄 SyncPoint
 
-**Local Multi-Agent Collaboration Protocol**
+**AI Agent Synchronization Protocol**
 
-*让多个 AI Agent 在本地项目中有序协作 — 共享状态、检查点、交接、审批，全部离线运行。*
+*防止多个 AI 编程助手在同一项目里漂移 — 同步状态、检查点、文件边界、冲突感知和交接协议，全部本地运行。*
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-≥20-green?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -15,11 +15,26 @@
 
 ---
 
-## 💡 What is SyncPoint?
+## The Problem
 
-> **SyncPoint 不是一个运行模型的 runtime，而是为多个编辑器 AI Agent 提供统一的协作协议层。**
+When you run multiple AI agents (Codex, Claude, Cursor…) on the same codebase, they have no idea what each other is doing. They edit the same files, duplicate work, produce conflicting changes, and lose context across sessions. The more agents you add, the worse it gets.
 
-当你在 VS Code / Cursor 里同时使用多个 AI（Codex、Claude、Copilot…），它们彼此不知道对方在做什么。SyncPoint 解决这个问题：
+**SyncPoint makes them stop and synchronize at the right moments — instead of drifting apart.**
+
+## 🎯 Core Principle
+
+SyncPoint is **not** a multi-agent runtime, workflow builder, or memory platform.
+
+It is a **synchronization protocol** — every feature answers four questions:
+
+```text
+1. 谁在改什么？        Who is changing what?
+2. 什么时候必须同步？   When must they synchronize?
+3. 同步要确认什么？     What must be confirmed at sync?
+4. 确认后谁继续？      Who continues after confirmation?
+```
+
+## Core Primitives
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
@@ -29,22 +44,34 @@
        │                  │                  │
        └──────────────────┼──────────────────┘
                           │
-                 ┌────────▼────────┐
-                 │   SyncPoint     │
-                 │   Protocol      │
-                 │                 │
-                 │  • 身份注册      │
-                 │  • 任务分配      │
-                 │  • 进度检查点    │
-                 │  • 上下文胶囊    │
-                 │  • 交接/审批     │
-                 │  • 项目记忆      │
-                 └────────┬────────┘
+              ┌───────────▼───────────┐
+              │     SyncPoint         │
+              │  Synchronization      │
+              │     Protocol          │
+              │                       │
+              │  • Sync State         │
+              │  • Checkpoint         │
+              │  • Conflict Awareness │
+              │  • Handoff / Resume   │
+              │  • Wake (sync verbs)  │
+              └───────────┬───────────┘
                           │
-                 ┌────────▼────────┐
-                 │  SQLite (local) │
-                 └─────────────────┘
+              ┌───────────▼───────────┐
+              │    SQLite (local)     │
+              └───────────────────────┘
 ```
+
+| Primitive | What it does | Sync question it answers |
+|-----------|-------------|-------------------------|
+| **Sync State** | Shared record of who is working, on what, and current status | *Who is changing what?* |
+| **Checkpoint / Capsule** | Compress long context into minimal task-relevant snapshot | *What must be confirmed at sync?* |
+| **Conflict Awareness** | Detect overlapping file claims and flag sync boundaries | *When must they synchronize?* |
+| **Handoff / Resume** | Structured context transfer between agents | *Who continues after confirmation?* |
+| **Wake** | Notify agents at sync points (plan, accept, checkpoint, sync, review, handoff, resume, approve) | *Who continues after confirmation?* |
+
+Session orchestration, review workflow, project memory, auto-wake, MCP/CLI — these are all supporting capabilities that serve the same core: **keep agents synchronized, not autonomous.**
+
+> See [Core Synchronization](docs/core-synchronization.md) for the full protocol design.
 
 ---
 
@@ -307,6 +334,6 @@ syncpoint demo mvp                 # 体验完整流程
 
 <div align="center">
 
-**SyncPoint** — 让你的 AI 军团协同作战，而非各自为政。
+**SyncPoint** — AI Agent Synchronization Protocol. Keep them in sync, not in chaos.
 
 </div>

@@ -27,3 +27,11 @@ export {
   createChangeRequest, getChangeRequest, listChangeRequests, updateChangeRequestStatus,
   createApprovalRecord, listApprovalRecords,
 } from "./review-workflow-repository.js";
+export {
+  createWakeRequest, getWakeRequest, listWakeRequests, listWakeRequestsByAgent,
+  listQueuedWakeRequests, updateWakeRequestStatus, hasActiveWakeForAgent,
+} from "./wake-repository.js";
+export {
+  createFileClaim, getFileClaim, releaseFileClaim,
+  listFileClaims, listActiveFileClaims,
+} from "./file-claim-repository.js";

@@ -11,6 +11,7 @@ import { appRouter } from "./router.js";
 import { getDb, closeDb, getDbPath } from "./db.js";
 import { SyncPointEventBus } from "./event-bus.js";
 import type { SyncPointEventData } from "./event-bus.js";
+import { wakeEngineStart, wakeEngineStop } from "./application/wake-engine-service.js";
 
 const DEFAULT_PORT = 8765;
 
@@ -73,17 +74,22 @@ export function startServer(port = DEFAULT_PORT): http.Server {
     trpcHandler(req, res);
   });
 
+  // Start Wake Engine (auto-wake orchestration)
+  wakeEngineStart();
+
   server.listen(port, () => {
     console.log(`SyncPoint server running at http://127.0.0.1:${port}`);
     console.log(`  Database:   ${getDbPath()}`);
     console.log(`  tRPC API:  http://127.0.0.1:${port}/trpc/...`);
     console.log(`  SSE events: http://127.0.0.1:${port}/events`);
+    console.log(`  Wake Engine: active`);
     console.log(`  Status:     http://127.0.0.1:${port}/status`);
   });
 
   // Graceful shutdown
   const shutdown = () => {
     console.log("\nShutting down SyncPoint server...");
+    wakeEngineStop();
     closeDb();
     server.close();
     process.exit(0);

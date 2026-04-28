@@ -115,3 +115,21 @@ export {
   createApprovalRecord,
   listApprovalRecords,
 } from "./repositories/review-workflow-repository.js";
+
+export {
+  createWakeRequest,
+  getWakeRequest,
+  listWakeRequests,
+  listWakeRequestsByAgent,
+  listQueuedWakeRequests,
+  updateWakeRequestStatus,
+  hasActiveWakeForAgent,
+} from "./repositories/wake-repository.js";
+
+export {
+  createFileClaim,
+  getFileClaim,
+  releaseFileClaim,
+  listFileClaims,
+  listActiveFileClaims,
+} from "./repositories/file-claim-repository.js";

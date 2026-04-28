@@ -10,7 +10,8 @@ import {
   pmAdd, pmApprove, pmSearch, pmExport,
   prepareContext, getContextPolicyInfo,
   orchCreateSession, orchAssignRole, orchPlanTask,
-  orchRequestReview, orchSubmitReview,
+  orchAcceptAssignment, orchStartAssignment, orchCompleteAssignment,
+  orchRequestReview, orchStartReview, orchSubmitReview,
   orchGetSessionStatus, orchAdvanceSession,
   rwCreateChecklistItem, rwUpdateChecklistItem, rwListChecklist,
   rwAddEvidence, rwListEvidence,
@@ -18,6 +19,8 @@ import {
   rwEvaluateGate, rwApproveReview, rwBlockReview,
   rwPrepareReviewPacket,
   pbGetNextAction, pbCaptureEvidence, pbGetActiveSession,
+  wakeList, wakeGet, wakeNext, wakeAck, wakeStart, wakeDone, wakeFail, wakeSkip, wakeEngineStats,
+  fcClaimFiles, fcReleaseClaim, fcListClaims, fcDetectConflicts,
 } from "syncpoint-server/application";
 import { getResumeContext } from "syncpoint-server/repositories";
 import { formatResumePrompt, ProjectMemoryCreateSchema, ContextIntent, ContextRole, OrchestratorRole, ReviewVerdict, EvidenceKind, PlaybookActionKind } from "syncpoint-core";
@@ -389,6 +392,48 @@ export function registerTools(server: McpServer): void {
     }
   );
 
+  // ── syncpoint_session_accept ──
+  server.registerTool(
+    "syncpoint_session_accept",
+    {
+      title: "Accept Assignment",
+      description: "Accept a task assignment — agent confirms they will work on it",
+      inputSchema: { assignmentId: z.string() },
+    },
+    async ({ assignmentId }) => {
+      try { return ok(orchAcceptAssignment(assignmentId)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_start ──
+  server.registerTool(
+    "syncpoint_session_start",
+    {
+      title: "Start Assignment",
+      description: "Start working on an accepted task assignment",
+      inputSchema: { assignmentId: z.string() },
+    },
+    async ({ assignmentId }) => {
+      try { return ok(orchStartAssignment(assignmentId)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_complete ──
+  server.registerTool(
+    "syncpoint_session_complete",
+    {
+      title: "Complete Assignment",
+      description: "Mark a task assignment as completed",
+      inputSchema: { assignmentId: z.string() },
+    },
+    async ({ assignmentId }) => {
+      try { return ok(orchCompleteAssignment(assignmentId)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
   // ── syncpoint_session_request_review ──
   server.registerTool(
     "syncpoint_session_request_review",
@@ -406,6 +451,20 @@ export function registerTools(server: McpServer): void {
       try {
         return ok(orchRequestReview({ sessionId, taskId, reviewerAgentId, requestedBy: "mcp", scope }));
       } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_session_start_review ──
+  server.registerTool(
+    "syncpoint_session_start_review",
+    {
+      title: "Start Review",
+      description: "Start a review — reviewer picks up the review request",
+      inputSchema: { reviewRequestId: z.string() },
+    },
+    async ({ reviewRequestId }) => {
+      try { return ok(orchStartReview(reviewRequestId)); }
+      catch (e) { return fail(e); }
     }
   );
 
@@ -678,6 +737,228 @@ export function registerTools(server: McpServer): void {
           return { content: [{ type: "text" as const, text: JSON.stringify({ active: false }) }] };
         }
         return ok(result);
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════
+  // Wake Engine Tools
+  // ═══════════════════════════════════════════════════════
+
+  server.registerTool(
+    "syncpoint_wake_list",
+    {
+      title: "Wake List",
+      description: "List wake requests. Filter by session, agent, or status.",
+      inputSchema: {
+        sessionId: z.string().optional(),
+        agentId: z.string().optional(),
+        status: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try { return ok({ wakeRequests: wakeList(input) }); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_wake_next",
+    {
+      title: "Wake Next",
+      description: "Get the next queued wake request for an agent. Returns the action the agent should perform next.",
+      inputSchema: {
+        agentId: z.string(),
+      },
+    },
+    async ({ agentId }) => {
+      try {
+        const wake = wakeNext(agentId);
+        if (!wake) {
+          return { content: [{ type: "text" as const, text: JSON.stringify({ hasWake: false, message: "No pending wake requests." }) }] };
+        }
+        return ok({ hasWake: true, ...wake });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_wake_ack",
+    {
+      title: "Wake Acknowledge",
+      description: "Acknowledge a wake request — marks it as dispatched.",
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      try { return ok(wakeAck(id)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_wake_start",
+    {
+      title: "Wake Start",
+      description: "Mark a wake request as running — the agent has started executing the action.",
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      try { return ok(wakeStart(id)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_wake_done",
+    {
+      title: "Wake Done",
+      description: "Mark a wake request as done — the agent has completed the action.",
+      inputSchema: {
+        id: z.string(),
+        resultSummary: z.string().optional(),
+      },
+    },
+    async ({ id, resultSummary }) => {
+      try { return ok(wakeDone(id, resultSummary)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_wake_fail",
+    {
+      title: "Wake Fail",
+      description: "Mark a wake request as failed.",
+      inputSchema: {
+        id: z.string(),
+        resultSummary: z.string().optional(),
+      },
+    },
+    async ({ id, resultSummary }) => {
+      try { return ok(wakeFail(id, resultSummary)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_wake_skip",
+    {
+      title: "Wake Skip",
+      description: "Skip a wake request — marks it as skipped (not applicable).",
+      inputSchema: {
+        id: z.string(),
+        resultSummary: z.string().optional(),
+      },
+    },
+    async ({ id, resultSummary }) => {
+      try { return ok(wakeSkip(id, resultSummary)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_wake_stats",
+    {
+      title: "Wake Engine Stats",
+      description: "Get wake engine statistics — events processed, wake requests created, etc.",
+    },
+    async () => {
+      try { return ok(wakeEngineStats()); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════
+  // FileClaim / Conflict Awareness Tools
+  // ═══════════════════════════════════════════════════════
+
+  server.registerTool(
+    "syncpoint_file_claim",
+    {
+      title: "Claim Files",
+      description: "Declare file ownership for a task. Returns the claim and any detected conflicts with other agents. Use this BEFORE modifying files to prevent uncoordinated parallel edits.",
+      inputSchema: {
+        agentId: z.string(),
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+        paths: z.string().describe("Comma-separated file paths or glob patterns, e.g. 'src/auth.ts, src/api/*'"),
+        mode: z.enum(["exclusive", "shared"]).optional().describe("exclusive = only this agent may modify; shared = aware of overlap"),
+      },
+    },
+    async ({ agentId, taskId, sessionId, paths, mode }) => {
+      try {
+        const result = fcClaimFiles({ agentId, taskId, sessionId, paths, mode });
+        if (result.conflicts.length > 0) {
+          return ok({
+            claim: result.claim,
+            warning: `${result.conflicts.length} conflict(s) detected — consider creating a sync gate`,
+            conflicts: result.conflicts.map(c => ({
+              overlap: c.overlappingPath,
+              agentA: c.claimA.agentId,
+              agentB: c.claimB.agentId,
+              isHardConflict: c.isHardConflict,
+            })),
+          });
+        }
+        return ok({ claim: result.claim, conflicts: [] });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_file_release",
+    {
+      title: "Release File Claim",
+      description: "Release a file claim — marks it as released so the files are no longer owned by this agent.",
+      inputSchema: { claimId: z.string() },
+    },
+    async ({ claimId }) => {
+      try { return ok(fcReleaseClaim(claimId)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_file_list",
+    {
+      title: "List File Claims",
+      description: "List file claims. Filter by agent, task, session, or status.",
+      inputSchema: {
+        agentId: z.string().optional(),
+        taskId: z.string().optional(),
+        sessionId: z.string().optional(),
+        status: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try { return ok({ claims: fcListClaims(input) }); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_file_conflicts",
+    {
+      title: "Detect File Conflicts",
+      description: "Check for overlapping file claims among active agents. Returns all conflict pairs with overlap details.",
+      inputSchema: {
+        sessionId: z.string().optional(),
+      },
+    },
+    async ({ sessionId }) => {
+      try {
+        const conflicts = fcDetectConflicts(sessionId);
+        return ok({
+          hasConflicts: conflicts.length > 0,
+          count: conflicts.length,
+          hardConflicts: conflicts.filter(c => c.isHardConflict).length,
+          conflicts: conflicts.map(c => ({
+            overlap: c.overlappingPath,
+            agentA: c.claimA.agentId,
+            agentB: c.claimB.agentId,
+            isHardConflict: c.isHardConflict,
+          })),
+        });
       } catch (e) { return fail(e); }
     }
   );

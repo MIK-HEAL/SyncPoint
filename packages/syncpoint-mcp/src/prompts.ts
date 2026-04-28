@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { formatResumePrompt } from "syncpoint-core";
 import { getResumeContext } from "syncpoint-server/repositories";
-import { pmList, prepareContext, orchGetSessionStatus, rwPrepareReviewPacket, pbGetNextAction } from "syncpoint-server/application";
+import { pmList, prepareContext, orchGetSessionStatus, rwPrepareReviewPacket, pbGetNextAction, wakeNext, wakeList } from "syncpoint-server/application";
 import { formatProjectMemorySummary } from "./format.js";
 
 export function registerPrompts(server: McpServer): void {
@@ -214,7 +214,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_executor_resume",
     {
       title: "Executor Resume",
-      description: "Resume prompt specifically for executor role — includes hard gate enforcement and full task context.",
+      description: "Resume an executor at a sync point — includes checkpoint context, file boundaries, and hard gate enforcement.",
       argsSchema: {
         taskId: z.string().describe("Task ID"),
         agentId: z.string().describe("Agent ID"),
@@ -249,7 +249,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_reviewer_checklist",
     {
       title: "Reviewer Checklist",
-      description: "Review context for a task — includes contract, checkpoint, capsule, and a review checklist.",
+      description: "Review sync gate — contract terms, checkpoint evidence, capsule context, and approval checklist.",
       argsSchema: {
         taskId: z.string().describe("Task ID"),
         agentId: z.string().describe("Agent ID"),
@@ -270,7 +270,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_architect_briefing",
     {
       title: "Architect Briefing",
-      description: "Architect-level project briefing with project memory, task overview, and planning guidance.",
+      description: "Architect sync briefing — project memory, task boundaries, agent assignments, and coordination guidance.",
     },
     () => {
       const prepared = prepareContext({ intent: "architect-plan", role: "architect" });
@@ -421,7 +421,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_session_playbook",
     {
       title: "Session Playbook",
-      description: "Generate a role-specific playbook prompt with session status and next actions.",
+      description: "Role-specific sync playbook — what sync points need your attention and what actions to take.",
       argsSchema: {
         sessionId: z.string().describe("Orchestration session ID"),
         agentId: z.string().describe("Agent ID to generate playbook for"),
@@ -444,25 +444,27 @@ export function registerPrompts(server: McpServer): void {
       // Role-specific guidance
       lines.push("## Your Role");
       if (agentRoles.includes("architect")) {
-        lines.push("As **Architect**, you are responsible for:");
-        lines.push("- Decomposing work into tasks and assigning them");
-        lines.push("- Advancing the session through phases");
-        lines.push("- Requesting reviews when tasks are completed");
-        lines.push("- Monitoring overall progress");
+        lines.push("As **Architect**, your sync responsibilities are:");
+        lines.push("- Decompose work into tasks with clear file boundaries");
+        lines.push("- Ensure each task has an owner — no uncoordinated parallel edits");
+        lines.push("- Advance the session only when all sync gates are cleared");
+        lines.push("- Request reviews at completion sync points");
+        lines.push("- Monitor for file conflicts between agents");
       }
       if (agentRoles.includes("executor")) {
-        lines.push("As **Executor**, you are responsible for:");
-        lines.push("- Accepting and starting assigned tasks");
-        lines.push("- Creating regular checkpoints during work");
-        lines.push("- Completing assignments when done");
-        lines.push("- Addressing change requests from reviewers");
+        lines.push("As **Executor**, your sync responsibilities are:");
+        lines.push("- Accept assignments to confirm you own the work scope");
+        lines.push("- Checkpoint regularly so other agents see your progress");
+        lines.push("- Declare file claims before modifying shared files");
+        lines.push("- Stop and sync when you encounter file conflicts");
+        lines.push("- Complete assignments to trigger the review sync point");
       }
       if (agentRoles.includes("reviewer")) {
-        lines.push("As **Reviewer**, you are responsible for:");
-        lines.push("- Starting assigned reviews");
-        lines.push("- Adding checklist items and evidence");
-        lines.push("- Evaluating the approval gate");
-        lines.push("- Approving or blocking with change requests");
+        lines.push("As **Reviewer**, your sync responsibilities are:");
+        lines.push("- Start reviews promptly — other agents may be blocked waiting");
+        lines.push("- Verify evidence and checklist items at the approval gate");
+        lines.push("- Approve to unblock the next phase, or block with specific change requests");
+        lines.push("- Your decision is a sync gate — it determines who continues");
       }
       lines.push("");
 
@@ -486,6 +488,66 @@ export function registerPrompts(server: McpServer): void {
         if (a.cliHint) lines.push(`CLI: \`${a.cliHint}\``);
         if (a.mcpToolHint) lines.push(`MCP Tool: \`${a.mcpToolHint}\``);
         lines.push("");
+      }
+
+      return {
+        messages: [
+          { role: "user" as const, content: { type: "text" as const, text: lines.join("\n") } },
+        ],
+      };
+    }
+  );
+
+  // ── syncpoint_wake_briefing ──
+  server.registerPrompt(
+    "syncpoint_wake_briefing",
+    {
+      title: "Wake Briefing",
+      description: "Check for pending sync obligations. Shows the next wake request — a specific synchronization point that requires your attention.",
+      argsSchema: {
+        agentId: z.string().describe("Agent ID to check for wake requests"),
+      },
+    },
+    ({ agentId }) => {
+      const wake = wakeNext(agentId);
+      if (!wake) {
+        return {
+          messages: [
+            { role: "user" as const, content: { type: "text" as const, text: "No pending wake requests. You are idle." } },
+          ],
+        };
+      }
+
+      const lines: string[] = [];
+      lines.push("# SyncPoint Wake Briefing");
+      lines.push("");
+      lines.push("You are being woken because a **synchronization point** requires your attention.");
+      lines.push("This is not a request to run autonomously — it is a specific sync obligation.");
+      lines.push("");
+      lines.push(`**Wake ID**: ${wake.id}`);
+      lines.push(`**Sync Action**: ${wake.action}`);
+      lines.push(`**Role**: ${wake.targetRole}`);
+      lines.push(`**Reason**: ${wake.reason}`);
+      lines.push(`**Session**: ${wake.sessionId}`);
+      if (wake.taskId) lines.push(`**Task**: ${wake.taskId}`);
+      if (wake.reviewRequestId) lines.push(`**Review**: ${wake.reviewRequestId}`);
+      lines.push("");
+
+      lines.push("## Instructions");
+      lines.push("");
+      lines.push("1. **Acknowledge** this wake request: `syncpoint_wake_ack { id: \"" + wake.id + "\" }`");
+      lines.push("2. **Start** executing: `syncpoint_wake_start { id: \"" + wake.id + "\" }`");
+      if (wake.mcpToolHint) {
+        lines.push(`3. **Execute** the action using: \`${wake.mcpToolHint}\``);
+      }
+      if (wake.cliHint) {
+        lines.push(`   CLI alternative: \`${wake.cliHint}\``);
+      }
+      lines.push(`4. **Complete**: \`syncpoint_wake_done { id: "${wake.id}", resultSummary: "..." }\``);
+      lines.push("");
+
+      if (wake.promptHint) {
+        lines.push(`**Tip**: Use the \`${wake.promptHint}\` prompt for detailed role-specific guidance.`);
       }
 
       return {

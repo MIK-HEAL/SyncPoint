@@ -1,19 +1,16 @@
 # SyncPoint MVP Showcase
 
-This is the shortest path to show SyncPoint as a working MVP.
+This is the shortest path to show SyncPoint as a working synchronization protocol.
 
 ## What To Show
 
-SyncPoint is a local collaboration protocol layer for editor agents.
-The MVP demonstrates:
+SyncPoint prevents multiple AI coding agents from drifting apart in the same project. The MVP demonstrates that agents **stop and synchronize** at the right moments — instead of silently diverging:
 
-- Project memory approved before execution context
-- Architect, Executor, and Reviewer roles in one session
-- Task assignment and contract approval
-- Checkpoint and context capsule
-- Evidence-backed review
-- Approval gate
-- Final session completion
+- **Sync State**: Agents register, get assigned roles, and share a single source of truth
+- **Checkpoint**: Executor saves structured progress so others can see current state
+- **Review Gate**: Reviewer cannot approve without evidence — this is a sync barrier
+- **Phase Transitions**: Session advances only when all sync conditions are met
+- **Context Capsule**: Compressed task context prevents drift on resume
 
 ## One-Command Demo
 
@@ -45,13 +42,13 @@ node packages/syncpoint-cli/dist/main.js demo mvp --project <projectDir>
 ## Talk Track
 
 ```text
-1. These are not free-running agents.
-2. SyncPoint gives agents a shared collaboration protocol.
-3. The Architect creates durable project memory and a session.
-4. The Executor gets a scoped task and writes checkpoint/capsule context.
-5. The Reviewer cannot approve without evidence.
-6. The approval gate turns review from opinion into auditable state.
-7. CLI and MCP use the same application layer, so editor agents can run this flow too.
+1. The core problem: multiple AI agents editing the same codebase with no coordination.
+2. SyncPoint is a synchronization protocol, not a runtime — it makes agents stop and sync.
+3. Every feature answers: who is changing what, when must they sync, what to confirm, who continues.
+4. The Architect decomposes tasks with clear file boundaries — preventing uncoordinated parallel edits.
+5. The Executor checkpoints progress — this is a sync point, not just a save.
+6. The Reviewer is a sync gate — the session cannot advance without evidence-backed approval.
+7. CLI and MCP use the same protocol layer, so editor agents obey the same sync rules.
 ```
 
 ## Useful Follow-Up Commands
@@ -67,13 +64,14 @@ syncpoint review gate --review <reviewRequestId>
 ## What This MVP Is Not
 
 ```text
-It is not an autonomous model scheduler.
-It is not a cloud collaboration platform.
-It is not a UI-first product yet.
+It is not a multi-agent runtime — it does not run models.
+It is not a workflow builder — no visual DAGs or LangGraph.
+It is not a memory platform — memory serves sync context.
+It is not an auto-pilot — wake requests are sync notifications, not "keep working" triggers.
 ```
 
 The current MVP is deliberately narrower:
 
 ```text
-protocol layer + local state + CLI/MCP adapter + evidence-based review
+synchronization protocol + local state + CLI/MCP adapter + evidence-based sync gates
 ```

@@ -159,7 +159,7 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
             action: "accept-assignment",
             reason: `Assignment ${a.id} is proposed. Accept it to begin.`,
             cliHint: `syncpoint session accept --assignment ${a.id}`,
-            mcpToolHint: "syncpoint_session_accept_assignment",
+            mcpToolHint: "syncpoint_session_accept",
             priority: 1,
             targetIds: { assignmentId: a.id, taskId: a.taskId },
           });
@@ -168,7 +168,7 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
             action: "start-work",
             reason: `Assignment ${a.id} is accepted. Start working on it.`,
             cliHint: `syncpoint session start --assignment ${a.id}`,
-            mcpToolHint: "syncpoint_session_start_assignment",
+            mcpToolHint: "syncpoint_session_start",
             priority: 1,
             targetIds: { assignmentId: a.id, taskId: a.taskId },
           });
@@ -199,7 +199,7 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
               action: "complete-assignment",
               reason: `Task ${a.taskId} is in progress. Complete if done.`,
               cliHint: `syncpoint session complete --assignment ${a.id}`,
-              mcpToolHint: "syncpoint_session_complete_assignment",
+              mcpToolHint: "syncpoint_session_complete",
               priority: 2,
               targetIds: { assignmentId: a.id, taskId: a.taskId },
             });

@@ -14,6 +14,7 @@ import { pinnedMemoryRouter } from "./routers/memory-router.js";
 import { resumeContextRouter, eventRouter, adapterRouter } from "./routers/context-router.js";
 import { loopRouter } from "./routers/loop-router.js";
 import { projectMemoryRouter } from "./routers/project-memory-router.js";
+import { wakeRouter } from "./routers/wake-router.js";
 
 // ── Root router ────────────────────────────────────────
 
@@ -31,6 +32,7 @@ export const appRouter = t.router({
   adapter: adapterRouter,
   loop: loopRouter,
   projectMemory: projectMemoryRouter,
+  wake: wakeRouter,
 });
 
 export type AppRouter = typeof appRouter;
