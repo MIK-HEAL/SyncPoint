@@ -304,3 +304,43 @@ export type {
   ModeSyncRule,
   ModeActionVerdict,
 } from "./relationship-mode.js";
+
+// SyncTransaction
+export {
+  SyncTransactionStatus,
+  SYNC_TX_TRANSITIONS,
+  validateSyncTxTransition,
+  SyncTransactionSchema,
+  SyncTransactionCreateSchema,
+  parseTxIdList,
+  allApproved,
+  hasRejection,
+  pendingApprovers,
+  isTxTerminal,
+  isTxBlocking,
+} from "./sync-transaction.js";
+
+export type {
+  SyncTransaction,
+  SyncTransactionCreate,
+} from "./sync-transaction.js";
+
+// PatchProposal
+export {
+  PatchProposalStatus,
+  validatePatchTransition,
+  PatchProposalSchema,
+  PatchProposalCreateSchema,
+  extractTouchedFiles,
+  isValidPatchFormat,
+  findUncoveredFiles,
+  findConflictingClaims,
+  runPatchChecks,
+} from "./patch-proposal.js";
+
+export type {
+  PatchProposal,
+  PatchProposalCreate,
+  PatchCheckItem,
+  PatchCheckResult,
+} from "./patch-proposal.js";

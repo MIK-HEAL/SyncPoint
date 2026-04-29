@@ -177,3 +177,38 @@ export type {
   SyncGateStatusResult,
   AgentBlockCheck,
 } from "./sync-gate-service.js";
+
+// SyncTransaction
+export {
+  stxCreate,
+  stxApprove,
+  stxReject,
+  stxResolve,
+  stxCancel,
+  stxStatus,
+  stxList,
+  stxListActive,
+} from "./sync-transaction-service.js";
+
+export type {
+  SyncTxCreateInput,
+  SyncTxStatusResult,
+} from "./sync-transaction-service.js";
+
+// PatchProposal
+export {
+  ppPropose,
+  ppSubmit,
+  ppCheck,
+  ppApprove,
+  ppReject,
+  ppApply,
+  ppCancel,
+  ppStatus,
+  ppList,
+} from "./patch-proposal-service.js";
+
+export type {
+  PatchProposeInput,
+  PatchStatusResult,
+} from "./patch-proposal-service.js";

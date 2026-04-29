@@ -11,6 +11,13 @@ import {
   sgStatus,
   sgList,
   sgCheckAgent,
+  stxCreate,
+  stxApprove,
+  stxReject,
+  stxResolve,
+  stxCancel,
+  stxStatus,
+  stxList,
 } from "syncpoint-server/application";
 
 function csv(value?: string): string[] {
@@ -150,6 +157,106 @@ export function registerSyncCommands(program: Command): void {
         if (block.blockingGates.length) {
           console.log(`  Gates: ${block.blockingGates.map(g => g.id).join(", ")}`);
         }
+      }
+    });
+
+  // ── Sync Transaction subcommands ──
+  const tx = sync
+    .command("tx")
+    .description("Manage sync transactions (checkpoint approval flows)");
+
+  tx
+    .command("create")
+    .description("Create a sync transaction for a checkpoint")
+    .requiredOption("--checkpoint <id>", "Checkpoint ID")
+    .requiredOption("--approvers <agentIds>", "Comma-separated approver agent IDs")
+    .requiredOption("--session <sessionId>", "Session ID")
+    .requiredOption("--task <taskId>", "Task ID")
+    .requiredOption("--agent <agentId>", "Requesting agent ID")
+    .option("--json", "Output JSON")
+    .action((opts) => {
+      const result = stxCreate({
+        sessionId: opts.session,
+        taskId: opts.task,
+        checkpointId: opts.checkpoint,
+        requestingAgentId: opts.agent,
+        requiredApproverIds: csv(opts.approvers),
+      });
+      if (opts.json) { print(result, true); return; }
+      console.log(`SyncTransaction created: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`  Gate: ${result.tx.gateId}`);
+      console.log(`  Pending: ${result.pending.join(", ") || "none"}`);
+    });
+
+  tx
+    .command("status")
+    .description("Show sync transaction status")
+    .requiredOption("--tx <txId>", "Transaction ID")
+    .option("--json", "Output JSON")
+    .action((opts) => {
+      const result = stxStatus(opts.tx);
+      if (opts.json) { print(result, true); return; }
+      console.log(`SyncTransaction: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`  Gate: ${result.tx.gateId}`);
+      console.log(`  Checkpoint: ${result.tx.checkpointId}`);
+      console.log(`  Approved: ${result.tx.approvedByIds || "none"}`);
+      console.log(`  Rejected: ${result.tx.rejectedByIds || "none"}`);
+      console.log(`  Pending: ${result.pending.join(", ") || "none"}`);
+      console.log(`  Blocking: ${result.isBlocking ? "yes" : "no"}`);
+    });
+
+  tx
+    .command("approve")
+    .description("Approve a sync transaction")
+    .requiredOption("--tx <txId>", "Transaction ID")
+    .requiredOption("--agent <agentId>", "Approving agent ID")
+    .option("--summary <text>", "Approval summary", "")
+    .option("--json", "Output JSON")
+    .action((opts) => {
+      const result = stxApprove(opts.tx, opts.agent, opts.summary);
+      if (opts.json) { print(result, true); return; }
+      console.log(`SyncTransaction approved by ${opts.agent}: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`  Pending: ${result.pending.join(", ") || "none"}`);
+    });
+
+  tx
+    .command("reject")
+    .description("Reject a sync transaction")
+    .requiredOption("--tx <txId>", "Transaction ID")
+    .requiredOption("--agent <agentId>", "Rejecting agent ID")
+    .option("--reason <text>", "Rejection reason", "")
+    .option("--json", "Output JSON")
+    .action((opts) => {
+      const result = stxReject(opts.tx, opts.agent, opts.reason);
+      if (opts.json) { print(result, true); return; }
+      console.log(`SyncTransaction rejected by ${opts.agent}: ${result.tx.id} [${result.tx.status}]`);
+    });
+
+  tx
+    .command("resolve")
+    .description("Resolve a sync transaction (releases bound SyncGate)")
+    .requiredOption("--tx <txId>", "Transaction ID")
+    .option("--summary <text>", "Decision summary", "")
+    .option("--json", "Output JSON")
+    .action((opts) => {
+      const result = stxResolve(opts.tx, opts.summary);
+      if (opts.json) { print(result, true); return; }
+      console.log(`SyncTransaction resolved: ${result.tx.id} [${result.tx.status}]`);
+    });
+
+  tx
+    .command("list")
+    .description("List sync transactions")
+    .option("--session <sessionId>", "Filter by session")
+    .option("--task <taskId>", "Filter by task")
+    .option("--status <status>", "Filter by status")
+    .option("--json", "Output JSON")
+    .action((opts) => {
+      const txs = stxList({ sessionId: opts.session, taskId: opts.task, status: opts.status });
+      if (opts.json) { print(txs, true); return; }
+      console.log(`SyncTransactions: ${txs.length}`);
+      for (const t of txs) {
+        console.log(`  ${t.id} [${t.status}] task=${t.taskId} checkpoint=${t.checkpointId}`);
       }
     });
 }

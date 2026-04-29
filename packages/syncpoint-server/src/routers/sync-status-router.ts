@@ -7,7 +7,9 @@
 import { z } from "zod";
 import * as repo from "../repositories.js";
 import { sgListActive, sgList } from "../application/sync-gate-service.js";
+import { isAgentBlocked } from "syncpoint-core";
 import { fcListClaims, fcDetectConflicts } from "../application/file-claim-service.js";
+import { stxListActive } from "../application/sync-transaction-service.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const syncStatusRouter = t.router({
@@ -50,11 +52,7 @@ export const syncStatusRouter = t.router({
 
       // Agent work summary
       const agentSummary = agents.map(a => {
-        const blocked = gates.some(g => {
-          const required = g.requiredAgentIds?.split(",") ?? [];
-          const acked = g.ackedAgentIds?.split(",").filter(Boolean) ?? [];
-          return required.includes(a.id) && !acked.includes(a.id);
-        });
+        const blocked = gates.some(g => isAgentBlocked(g, a.id));
 
         return {
           id: a.id,
@@ -69,6 +67,13 @@ export const syncStatusRouter = t.router({
           pendingWakes: wakeRequests.filter(w => w.targetAgentId === a.id).length,
         };
       });
+
+      // Active sync transactions
+      const activeTransactions = stxListActive(
+        input?.sessionId || input?.taskId
+          ? { sessionId: input?.sessionId, taskId: input?.taskId }
+          : undefined
+      );
 
       return {
         agents: agentSummary,
@@ -96,6 +101,17 @@ export const syncStatusRouter = t.router({
           cancelled: allGates.filter(g => g.status === "CANCELLED").length,
         },
         pendingWakes: wakeRequests.length,
+        activeTransactions: activeTransactions.map(tx => ({
+          id: tx.id,
+          taskId: tx.taskId,
+          checkpointId: tx.checkpointId,
+          requestingAgentId: tx.requestingAgentId,
+          status: tx.status,
+          requiredApproverIds: tx.requiredApproverIds,
+          approvedByIds: tx.approvedByIds,
+          rejectedByIds: tx.rejectedByIds,
+          gateId: tx.gateId,
+        })),
       };
     }),
 });

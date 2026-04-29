@@ -22,6 +22,8 @@ import {
   wakeList, wakeGet, wakeNext, wakeAck, wakeStart, wakeDone, wakeFail, wakeSkip, wakeEngineStats,
   fcClaimFiles, fcReleaseClaim, fcListClaims, fcDetectConflicts,
   sgRequest, sgAck, sgResolve, sgCancel, sgStatus, sgList, sgListActive, sgCheckAgent,
+  stxCreate, stxApprove, stxReject, stxResolve, stxCancel, stxStatus, stxList,
+  ppPropose, ppSubmit, ppCheck, ppApprove, ppReject, ppApply, ppCancel, ppStatus, ppList,
 } from "syncpoint-server/application";
 import { getResumeContext } from "syncpoint-server/repositories";
 import { formatResumePrompt, ProjectMemoryCreateSchema, ContextIntent, ContextRole, OrchestratorRole, ReviewVerdict, EvidenceKind, PlaybookActionKind } from "syncpoint-core";
@@ -892,9 +894,13 @@ export function registerTools(server: McpServer): void {
       try {
         const result = fcClaimFiles({ agentId, taskId, sessionId, paths, mode });
         if (result.conflicts.length > 0) {
+          const hardCount = result.conflicts.filter(c => c.isHardConflict).length;
           return ok({
             claim: result.claim,
-            warning: `${result.conflicts.length} conflict(s) detected — consider creating a sync gate`,
+            warning: hardCount > 0 && result.gateId
+              ? `${result.conflicts.length} conflict(s) detected — SyncGate ${result.gateId} auto-created for ${hardCount} hard conflict(s). Agents must sync before continuing.`
+              : `${result.conflicts.length} conflict(s) detected — consider creating a sync gate`,
+            gateId: result.gateId,
             conflicts: result.conflicts.map(c => ({
               overlap: c.overlappingPath,
               agentA: c.claimA.agentId,
@@ -1121,6 +1127,264 @@ export function registerTools(server: McpServer): void {
           });
         }
         return ok({ blocked: false, message: "Agent is not blocked by any sync gate." });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // SyncTransaction Tools
+  // ═══════════════════════════════════════════════════════
+
+  server.registerTool(
+    "syncpoint_sync_transaction_create",
+    {
+      title: "Create Sync Transaction",
+      description: "Create a sync transaction for a checkpoint. Automatically creates a bound SyncGate. The requesting agent is blocked until all approvers approve and the transaction is resolved.",
+      inputSchema: {
+        sessionId: z.string(),
+        taskId: z.string(),
+        checkpointId: z.string(),
+        requestingAgentId: z.string(),
+        requiredApproverIds: z.array(z.string()).min(1).describe("Agent IDs that must approve"),
+      },
+    },
+    async (input) => {
+      try {
+        const result = stxCreate(input);
+        return ok({
+          tx: result.tx,
+          pending: result.pending,
+          isBlocking: result.isBlocking,
+          gateId: result.tx.gateId,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_transaction_status",
+    {
+      title: "Sync Transaction Status",
+      description: "Get detailed status of a sync transaction — pending approvers, approval/rejection state, blocking state.",
+      inputSchema: { txId: z.string() },
+    },
+    async ({ txId }) => {
+      try {
+        const result = stxStatus(txId);
+        return ok({
+          tx: result.tx,
+          pending: result.pending,
+          allApproved: result.allApproved,
+          hasRejection: result.hasRejection,
+          isBlocking: result.isBlocking,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_transaction_approve",
+    {
+      title: "Approve Sync Transaction",
+      description: "Approve a sync transaction as a required approver. When all approvers approve, the transaction advances to APPROVED.",
+      inputSchema: {
+        txId: z.string(),
+        agentId: z.string(),
+        summary: z.string().optional().describe("Approval summary"),
+      },
+    },
+    async ({ txId, agentId, summary }) => {
+      try {
+        const result = stxApprove(txId, agentId, summary);
+        return ok({
+          tx: result.tx,
+          pending: result.pending,
+          allApproved: result.allApproved,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_transaction_reject",
+    {
+      title: "Reject Sync Transaction",
+      description: "Reject a sync transaction. The requesting agent remains blocked. A follow-up action is required before the transaction can be resolved.",
+      inputSchema: {
+        txId: z.string(),
+        agentId: z.string(),
+        reason: z.string().optional().describe("Rejection reason"),
+      },
+    },
+    async ({ txId, agentId, reason }) => {
+      try {
+        const result = stxReject(txId, agentId, reason);
+        return ok({ tx: result.tx });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_transaction_resolve",
+    {
+      title: "Resolve Sync Transaction",
+      description: "Resolve a sync transaction and release the bound SyncGate. The requesting agent may now resume work.",
+      inputSchema: {
+        txId: z.string(),
+        decisionSummary: z.string().optional(),
+      },
+    },
+    async ({ txId, decisionSummary }) => {
+      try {
+        const result = stxResolve(txId, decisionSummary);
+        return ok({ tx: result.tx });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // PatchProposal Tools
+  // ═══════════════════════════════════════════════════════
+
+  server.registerTool(
+    "syncpoint_patch_propose",
+    {
+      title: "Propose Patch",
+      description: "Create a draft patch proposal. Submit a unified diff and SyncPoint will extract touched files and check ownership/conflicts before allowing application.",
+      inputSchema: {
+        sessionId: z.string(),
+        taskId: z.string(),
+        agentId: z.string(),
+        title: z.string(),
+        summary: z.string().optional(),
+        patchText: z.string().describe("Unified diff patch text"),
+      },
+    },
+    async (input) => {
+      try {
+        const result = ppPropose(input);
+        return ok({ proposal: result });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_patch_submit",
+    {
+      title: "Submit Patch",
+      description: "Submit a draft patch for ownership/conflict checking. Auto-runs checks and moves to SUBMITTED or CONFLICTING.",
+      inputSchema: { patchId: z.string() },
+    },
+    async ({ patchId }) => {
+      try {
+        const result = ppSubmit(patchId);
+        return ok({
+          proposal: result.proposal,
+          checkResult: result.checkResult,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_patch_check",
+    {
+      title: "Check Patch",
+      description: "Run ownership/conflict checks on a patch proposal without changing its status.",
+      inputSchema: { patchId: z.string() },
+    },
+    async ({ patchId }) => {
+      try {
+        const result = ppCheck(patchId);
+        return ok({
+          proposal: result.proposal,
+          checkResult: result.checkResult,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_patch_approve",
+    {
+      title: "Approve Patch",
+      description: "Approve a submitted patch proposal. The patch can then be applied.",
+      inputSchema: {
+        patchId: z.string(),
+        agentId: z.string(),
+        summary: z.string().optional(),
+      },
+    },
+    async ({ patchId, agentId, summary }) => {
+      try {
+        return ok({ proposal: ppApprove(patchId, agentId, summary) });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_patch_reject",
+    {
+      title: "Reject Patch",
+      description: "Reject a submitted patch proposal. The agent can fix and resubmit.",
+      inputSchema: {
+        patchId: z.string(),
+        agentId: z.string(),
+        reason: z.string().optional(),
+      },
+    },
+    async ({ patchId, agentId, reason }) => {
+      try {
+        return ok({ proposal: ppReject(patchId, agentId, reason) });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_patch_apply",
+    {
+      title: "Apply Patch",
+      description: "Mark an approved patch as applied.",
+      inputSchema: { patchId: z.string() },
+    },
+    async ({ patchId }) => {
+      try {
+        return ok({ proposal: ppApply(patchId) });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_patch_status",
+    {
+      title: "Patch Status",
+      description: "Get patch proposal status with check results.",
+      inputSchema: { patchId: z.string() },
+    },
+    async ({ patchId }) => {
+      try {
+        const result = ppStatus(patchId);
+        return ok({
+          proposal: result.proposal,
+          checkResult: result.checkResult,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_patch_list",
+    {
+      title: "List Patches",
+      description: "List patch proposals. Filter by session, task, agent, or status.",
+      inputSchema: {
+        sessionId: z.string().optional(),
+        taskId: z.string().optional(),
+        agentId: z.string().optional(),
+        status: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try {
+        return ok({ proposals: ppList(input) });
       } catch (e) { return fail(e); }
     }
   );

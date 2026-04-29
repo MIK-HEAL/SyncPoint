@@ -29,6 +29,7 @@ import { logEvent } from "../repositories/_shared.js";
 import { processOrchestrationEvent } from "./wake-engine-service.js";
 import { prepareContext } from "./context-policy-service.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
+import { RelationshipMode } from "syncpoint-core";
 import type { PreparedContext } from "syncpoint-core";
 
 /**
@@ -202,6 +203,20 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
   if (blockCheck.blocked) {
     const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
     throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting work.`);
+  }
+
+  // P7: peer-contract requires file claims before starting work
+  const session = repo.getSession(ta0.sessionId);
+  if ((session as any).relationshipMode === RelationshipMode.PEER_CONTRACT) {
+    const claims = repo.listActiveFileClaims(ta0.sessionId);
+    const agentClaims = claims.filter(c => c.agentId === ta0.assigneeAgentId);
+    if (agentClaims.length === 0) {
+      throw new Error(
+        `peer-contract mode requires file claims before starting work. ` +
+        `Agent ${ta0.assigneeAgentId} has no active file claims. ` +
+        `Use 'syncpoint file claim' first.`
+      );
+    }
   }
 
   const ta = repo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.IN_PROGRESS);

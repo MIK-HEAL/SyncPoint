@@ -384,6 +384,39 @@ export function runMigrations(db: Database.Database): void {
       released_at TEXT NOT NULL DEFAULT ''
     );
 
+    CREATE TABLE IF NOT EXISTS patch_proposal (
+      id                      TEXT PRIMARY KEY,
+      session_id              TEXT NOT NULL,
+      task_id                 TEXT NOT NULL,
+      agent_id                TEXT NOT NULL,
+      title                   TEXT NOT NULL,
+      summary                 TEXT NOT NULL DEFAULT '',
+      patch_text              TEXT NOT NULL,
+      touched_files           TEXT NOT NULL DEFAULT '',
+      related_claim_ids       TEXT NOT NULL DEFAULT '',
+      status                  TEXT NOT NULL DEFAULT 'DRAFT',
+      check_result            TEXT NOT NULL DEFAULT '',
+      decision_summary        TEXT NOT NULL DEFAULT '',
+      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_transaction (
+      id                      TEXT PRIMARY KEY,
+      session_id              TEXT NOT NULL,
+      task_id                 TEXT NOT NULL,
+      checkpoint_id           TEXT NOT NULL,
+      requesting_agent_id     TEXT NOT NULL,
+      required_approver_ids   TEXT NOT NULL,
+      approved_by_ids         TEXT NOT NULL DEFAULT '',
+      rejected_by_ids         TEXT NOT NULL DEFAULT '',
+      gate_id                 TEXT NOT NULL DEFAULT '',
+      status                  TEXT NOT NULL DEFAULT 'OPEN',
+      decision_summary        TEXT NOT NULL DEFAULT '',
+      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS sync_gate (
       id                      TEXT PRIMARY KEY,
       session_id              TEXT NOT NULL DEFAULT '',

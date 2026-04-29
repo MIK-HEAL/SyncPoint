@@ -142,3 +142,21 @@ export {
   listSyncGates,
   listActiveSyncGates,
 } from "./repositories/sync-gate-repository.js";
+
+export {
+  createPatchProposal,
+  getPatchProposal,
+  updatePatchProposal,
+  listPatchProposals,
+} from "./repositories/patch-proposal-repository.js";
+
+export {
+  createSyncTransaction,
+  getSyncTransaction,
+  updateSyncTransactionStatus,
+  updateSyncTransactionApprovedBy,
+  updateSyncTransactionRejectedBy,
+  updateSyncTransactionGateId,
+  listSyncTransactions,
+  listActiveSyncTransactions,
+} from "./repositories/sync-transaction-repository.js";

@@ -320,6 +320,43 @@ export const syncGates = sqliteTable("sync_gate", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// ── SyncTransaction ──────────────────────────────────
+
+export const syncTransactions = sqliteTable("sync_transaction", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  taskId: text("task_id").notNull(),
+  checkpointId: text("checkpoint_id").notNull(),
+  requestingAgentId: text("requesting_agent_id").notNull(),
+  requiredApproverIds: text("required_approver_ids").notNull(),
+  approvedByIds: text("approved_by_ids").notNull().default(""),
+  rejectedByIds: text("rejected_by_ids").notNull().default(""),
+  gateId: text("gate_id").notNull().default(""),
+  status: text("status").notNull().default("OPEN"),
+  decisionSummary: text("decision_summary").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ── PatchProposal ────────────────────────────────────
+
+export const patchProposals = sqliteTable("patch_proposal", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  taskId: text("task_id").notNull(),
+  agentId: text("agent_id").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull().default(""),
+  patchText: text("patch_text").notNull(),
+  touchedFiles: text("touched_files").notNull().default(""),
+  relatedClaimIds: text("related_claim_ids").notNull().default(""),
+  status: text("status").notNull().default("DRAFT"),
+  checkResult: text("check_result").notNull().default(""),
+  decisionSummary: text("decision_summary").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 // ── PinnedMemory ──────────────────────────────────────
 
 export const pinnedMemories = sqliteTable("pinned_memory", {

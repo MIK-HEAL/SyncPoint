@@ -16,6 +16,8 @@ import { loopRouter } from "./routers/loop-router.js";
 import { projectMemoryRouter } from "./routers/project-memory-router.js";
 import { wakeRouter } from "./routers/wake-router.js";
 import { syncStatusRouter } from "./routers/sync-status-router.js";
+import { syncTransactionRouter } from "./routers/sync-transaction-router.js";
+import { patchProposalRouter } from "./routers/patch-proposal-router.js";
 
 // ── Root router ────────────────────────────────────────
 
@@ -35,6 +37,8 @@ export const appRouter = t.router({
   projectMemory: projectMemoryRouter,
   wake: wakeRouter,
   syncStatus: syncStatusRouter,
+  syncTransaction: syncTransactionRouter,
+  patchProposal: patchProposalRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -8,11 +8,12 @@
  *   fcDetectConflicts — detect overlapping file claims
  */
 
-import { detectConflicts, FileClaimStatus } from "syncpoint-core";
+import { detectConflicts, FileClaimStatus, SyncGateReason } from "syncpoint-core";
 import type { FileClaim, FileClaimCreate, FileConflict } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import { EventType } from "syncpoint-core";
+import { sgRequest } from "./sync-gate-service.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -23,11 +24,15 @@ export interface ClaimFilesInput {
   /** Comma-separated file paths or glob patterns */
   paths: string;
   mode?: "exclusive" | "shared";
+  /** If true, auto-create SyncGate on hard conflict (default: true) */
+  autoGate?: boolean;
 }
 
 export interface ClaimFilesResult {
   claim: FileClaim;
   conflicts: FileConflict[];
+  /** Gate ID if a SyncGate was auto-created for a hard conflict */
+  gateId?: string;
 }
 
 export interface ListClaimsInput {
@@ -82,7 +87,37 @@ export function fcClaimFiles(input: ClaimFilesInput): ClaimFilesResult {
     );
   }
 
-  return { claim, conflicts };
+  // Auto-create SyncGate for hard conflicts
+  let gateId: string | undefined;
+  const hardConflicts = conflicts.filter(c => c.isHardConflict);
+  if (hardConflicts.length > 0 && (input.autoGate !== false)) {
+    // Collect unique agent IDs from the other side of each hard conflict
+    const otherAgents = new Set<string>();
+    const relatedClaimIds = new Set<string>();
+    const overlappingFiles: string[] = [];
+    for (const c of hardConflicts) {
+      const other = c.claimA.id === claim.id ? c.claimB : c.claimA;
+      otherAgents.add(other.agentId);
+      relatedClaimIds.add(c.claimA.id);
+      relatedClaimIds.add(c.claimB.id);
+      overlappingFiles.push(c.overlappingPath);
+    }
+    // Both the claiming agent and conflicting agents must sync
+    const requiredAgentIds = [input.agentId, ...otherAgents];
+    const gateResult = sgRequest({
+      sessionId: input.sessionId,
+      taskId: input.taskId,
+      requestedByAgentId: input.agentId,
+      requiredAgentIds,
+      reason: SyncGateReason.FILE_CONFLICT,
+      description: `File ownership conflict: ${overlappingFiles.join("; ")}`,
+      relatedFiles: overlappingFiles.join(","),
+      relatedClaimIds: [...relatedClaimIds].join(","),
+    });
+    gateId = gateResult.gate.id;
+  }
+
+  return { claim, conflicts, gateId };
 }
 
 /**
