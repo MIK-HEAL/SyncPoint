@@ -149,6 +149,7 @@ export const orchestrationSessions = sqliteTable("orchestration_session", {
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
   status: text("status").notNull().default("PLANNING"),
+  relationshipMode: text("relationship_mode").notNull().default("manager-delegate"),
   architectId: text("architect_id"),
   createdBy: text("created_by").notNull().default(""),
   createdAt: text("created_at").notNull(),
@@ -297,6 +298,26 @@ export const fileClaims = sqliteTable("file_claim", {
   status: text("status").notNull().default("ACTIVE"),
   createdAt: text("created_at").notNull(),
   releasedAt: text("released_at").notNull().default(""),
+});
+
+// ── SyncGate ──────────────────────────────────────────
+
+export const syncGates = sqliteTable("sync_gate", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull().default(""),
+  taskId: text("task_id").notNull(),
+  requestedByAgentId: text("requested_by_agent_id").notNull(),
+  requiredAgentIds: text("required_agent_ids").notNull(),
+  ackedAgentIds: text("acked_agent_ids").notNull().default(""),
+  reason: text("reason").notNull().default("manual_request"),
+  description: text("description").notNull().default(""),
+  relatedFiles: text("related_files").notNull().default(""),
+  relatedCheckpointId: text("related_checkpoint_id").notNull().default(""),
+  relatedClaimIds: text("related_claim_ids").notNull().default(""),
+  status: text("status").notNull().default("NEEDS_SYNC"),
+  decisionSummary: text("decision_summary").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 // ── PinnedMemory ──────────────────────────────────────

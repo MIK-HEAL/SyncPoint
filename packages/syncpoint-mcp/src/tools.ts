@@ -21,6 +21,7 @@ import {
   pbGetNextAction, pbCaptureEvidence, pbGetActiveSession,
   wakeList, wakeGet, wakeNext, wakeAck, wakeStart, wakeDone, wakeFail, wakeSkip, wakeEngineStats,
   fcClaimFiles, fcReleaseClaim, fcListClaims, fcDetectConflicts,
+  sgRequest, sgAck, sgResolve, sgCancel, sgStatus, sgList, sgListActive, sgCheckAgent,
 } from "syncpoint-server/application";
 import { getResumeContext } from "syncpoint-server/repositories";
 import { formatResumePrompt, ProjectMemoryCreateSchema, ContextIntent, ContextRole, OrchestratorRole, ReviewVerdict, EvidenceKind, PlaybookActionKind } from "syncpoint-core";
@@ -250,17 +251,18 @@ export function registerTools(server: McpServer): void {
     "syncpoint_context_prepare",
     {
       title: "Prepare Context",
-      description: "Prepare role-aware context for a given intent. Enforces hard/soft/none gate. Returns full PreparedContext with prompt.",
+      description: "Prepare role-aware context for a given intent. Enforces hard/soft/none gate. Accepts optional relationshipMode to adjust policy.",
       inputSchema: {
         intent: z.enum(ContextIntent.options),
         role: z.enum(ContextRole.options),
         taskId: z.string().optional(),
         agentId: z.string().optional(),
+        relationshipMode: z.enum(["manager-delegate", "peer-contract", "handoff-resume"]).optional(),
       },
     },
-    async ({ intent, role, taskId, agentId }) => {
+    async ({ intent, role, taskId, agentId, relationshipMode }) => {
       try {
-        const prepared = prepareContext({ intent, role, taskId, agentId });
+        const prepared = prepareContext({ intent, role, taskId, agentId, relationshipMode });
         return ok(prepared);
       } catch (e) { return fail(e); }
     }
@@ -321,16 +323,17 @@ export function registerTools(server: McpServer): void {
     "syncpoint_session_create",
     {
       title: "Create Orchestration Session",
-      description: "Create a new orchestration session with optional architect role assignment",
+      description: "Create a new orchestration session with optional architect role assignment. Specify relationshipMode to define coordination pattern.",
       inputSchema: {
         title: z.string(),
         description: z.string().optional(),
         architectId: z.string().optional(),
+        relationshipMode: z.enum(["manager-delegate", "peer-contract", "handoff-resume"]).optional().describe("Coordination pattern: manager-delegate (default), peer-contract, or handoff-resume"),
       },
     },
-    async ({ title, description, architectId }) => {
+    async ({ title, description, architectId, relationshipMode }) => {
       try {
-        const result = orchCreateSession({ title, description, architectId, createdBy: "mcp" });
+        const result = orchCreateSession({ title, description, architectId, relationshipMode, createdBy: "mcp" });
         return ok(result);
       } catch (e) { return fail(e); }
     }
@@ -959,6 +962,165 @@ export function registerTools(server: McpServer): void {
             isHardConflict: c.isHardConflict,
           })),
         });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════
+  // SyncGate Tools
+  // ═══════════════════════════════════════════════════════
+
+  server.registerTool(
+    "syncpoint_sync_request",
+    {
+      title: "Request Sync Gate",
+      description: "Create a synchronization barrier. All required agents must acknowledge before work can continue. Use when a file conflict is detected, a phase transition needs coordination, or manual sync is needed.",
+      inputSchema: {
+        taskId: z.string(),
+        requestedByAgentId: z.string(),
+        requiredAgentIds: z.array(z.string()).min(1).describe("Agent IDs that must acknowledge"),
+        sessionId: z.string().optional(),
+        reason: z.enum(["file_conflict", "phase_transition", "manual_request", "checkpoint_required", "context_drift"]).optional(),
+        description: z.string().optional(),
+        relatedFiles: z.string().optional(),
+        relatedCheckpointId: z.string().optional(),
+        relatedClaimIds: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try {
+        const result = sgRequest(input);
+        return ok({
+          gate: result.gate,
+          pending: result.pending,
+          isBlocking: result.isBlocking,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_ack",
+    {
+      title: "Acknowledge Sync Gate",
+      description: "Acknowledge a sync gate as a required agent. Once all required agents acknowledge, the gate can be resolved.",
+      inputSchema: {
+        gateId: z.string(),
+        agentId: z.string(),
+        summary: z.string().optional().describe("Optional summary of what was confirmed"),
+      },
+    },
+    async ({ gateId, agentId, summary }) => {
+      try {
+        const result = sgAck(gateId, agentId, summary);
+        return ok({
+          gate: result.gate,
+          pending: result.pending,
+          allAcknowledged: result.allAcknowledged,
+          isBlocking: result.isBlocking,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_resolve",
+    {
+      title: "Resolve Sync Gate",
+      description: "Resolve a sync gate after all agents have acknowledged. Agents may now continue.",
+      inputSchema: {
+        gateId: z.string(),
+        decisionSummary: z.string().optional(),
+      },
+    },
+    async ({ gateId, decisionSummary }) => {
+      try {
+        const result = sgResolve(gateId, decisionSummary);
+        return ok({ gate: result.gate });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_cancel",
+    {
+      title: "Cancel Sync Gate",
+      description: "Cancel a sync gate that is no longer needed.",
+      inputSchema: {
+        gateId: z.string(),
+        reason: z.string().optional(),
+      },
+    },
+    async ({ gateId, reason }) => {
+      try { return ok(sgCancel(gateId, reason)); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_status",
+    {
+      title: "Sync Gate Status",
+      description: "Get detailed status of a sync gate — pending agents, acknowledgements, blocking state.",
+      inputSchema: { gateId: z.string() },
+    },
+    async ({ gateId }) => {
+      try {
+        const result = sgStatus(gateId);
+        return ok({
+          gate: result.gate,
+          pending: result.pending,
+          allAcknowledged: result.allAcknowledged,
+          isBlocking: result.isBlocking,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_list",
+    {
+      title: "List Sync Gates",
+      description: "List sync gates. Filter by task, session, or status.",
+      inputSchema: {
+        taskId: z.string().optional(),
+        sessionId: z.string().optional(),
+        status: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try { return ok({ gates: sgList(input) }); }
+      catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_check_agent",
+    {
+      title: "Check Agent Sync Block",
+      description: "Check if an agent is blocked by any active sync gate. Call this before starting work, resuming, or executing a wake request.",
+      inputSchema: {
+        agentId: z.string(),
+        taskId: z.string().optional(),
+        sessionId: z.string().optional(),
+      },
+    },
+    async ({ agentId, taskId, sessionId }) => {
+      try {
+        const result = sgCheckAgent(agentId, { taskId, sessionId });
+        if (result.blocked) {
+          return ok({
+            blocked: true,
+            message: `Agent is blocked by ${result.blockingGates.length} sync gate(s). Acknowledge or wait for resolution before continuing.`,
+            gates: result.blockingGates.map(g => ({
+              id: g.id,
+              reason: g.reason,
+              description: g.description,
+              pending: g.requiredAgentIds,
+            })),
+          });
+        }
+        return ok({ blocked: false, message: "Agent is not blocked by any sync gate." });
       } catch (e) { return fail(e); }
     }
   );

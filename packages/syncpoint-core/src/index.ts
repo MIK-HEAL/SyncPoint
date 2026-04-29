@@ -121,7 +121,9 @@ export {
   ContextPolicyCheckSchema,
   PreparedContextSchema,
   CONTEXT_POLICIES,
+  MODE_CONTEXT_OVERRIDES,
   getContextPolicy,
+  getContextPolicyForMode,
   listContextIntents,
   listContextRoles,
 } from "./context-policy.js";
@@ -130,6 +132,7 @@ export type {
   ContextPolicy,
   ContextPolicyCheck,
   PreparedContext,
+  RelationshipModeStr,
 } from "./context-policy.js";
 
 // Orchestration Layer
@@ -226,6 +229,7 @@ export {
   WakeRequestCreateSchema,
   OrchestrationEventType,
   DEFAULT_WAKE_RULES,
+  SYNC_VERB_WHITELIST,
   computeWakeTargets,
   validateWakeRequestTransition,
 } from "./wake.js";
@@ -254,3 +258,49 @@ export type {
   FileClaimCreate,
   FileConflict,
 } from "./file-claim.js";
+
+// SyncGate
+export {
+  SyncGateStatus,
+  SyncGateReason,
+  SYNC_GATE_TRANSITIONS,
+  validateSyncGateTransition,
+  SyncGateSchema,
+  SyncGateCreateSchema,
+  SyncGateAckSchema,
+  parseIdList,
+  allAcked,
+  pendingAgents,
+  isAgentBlocked,
+} from "./sync-gate.js";
+
+export type {
+  SyncGate,
+  SyncGateCreate,
+  SyncGateAck,
+} from "./sync-gate.js";
+
+// Relationship Mode
+export {
+  RelationshipMode,
+  RelationshipModeSchema,
+  MODE_PHASE_FLOW,
+  MODE_SYNC_RULES,
+  MODE_WAKE_VERBS,
+  REQUIRED_BEFORE_START,
+  RECOMMENDED_ACTIONS,
+  FORBIDDEN_ACTIONS,
+  isValidWakeVerb,
+  getSyncRules,
+  getPhaseFlow,
+  getModeDescription,
+  isModeActionAllowed,
+  getRequiredBeforeStart,
+  getRecommendedActions,
+  getForbiddenActions,
+} from "./relationship-mode.js";
+
+export type {
+  ModeSyncRule,
+  ModeActionVerdict,
+} from "./relationship-mode.js";

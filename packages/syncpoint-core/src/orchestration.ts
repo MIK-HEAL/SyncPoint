@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { RelationshipMode } from "./relationship-mode.js";
 
 // ── Enums ────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ export const OrchestrationSessionSchema = z.object({
   title: z.string().min(1),
   description: z.string().default(""),
   status: z.nativeEnum(SessionStatus).default(SessionStatus.PLANNING),
+  relationshipMode: z.nativeEnum(RelationshipMode).default(RelationshipMode.MANAGER_DELEGATE),
   architectId: nanoid12.nullable().default(null),
   createdBy: z.string().default(""),
   createdAt: isoDate,
@@ -88,6 +90,7 @@ export type OrchestrationSession = z.infer<typeof OrchestrationSessionSchema>;
 export const OrchestrationSessionCreateSchema = z.object({
   title: z.string().min(1),
   description: z.string().default(""),
+  relationshipMode: z.nativeEnum(RelationshipMode).default(RelationshipMode.MANAGER_DELEGATE),
   architectId: nanoid12.nullable().default(null),
   createdBy: z.string().default(""),
 });

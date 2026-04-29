@@ -115,6 +115,7 @@ export function pbGetNextAction(input: NextActionInput): NextActionResult {
     })),
     gates,
     openChanges,
+    relationshipMode: (status.session as any).relationshipMode ?? undefined,
   };
 
   const actions = computeNextActions(snap);

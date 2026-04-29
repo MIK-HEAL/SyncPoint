@@ -18,6 +18,7 @@ import {
   orchCancelSession,
 } from "syncpoint-server/application";
 import type { OrchestratorRole, ReviewVerdict } from "syncpoint-core";
+import { RelationshipMode } from "syncpoint-core";
 
 export function registerSessionCommands(program: Command): void {
   const session = program
@@ -31,11 +32,17 @@ export function registerSessionCommands(program: Command): void {
     .requiredOption("--title <title>", "Session title")
     .option("--description <desc>", "Session description")
     .option("--architect <agentId>", "Architect agent ID")
+    .option("--mode <mode>", "Relationship mode: manager-delegate|peer-contract|handoff-resume", "manager-delegate")
     .option("--json", "Output JSON")
     .action((opts) => {
+      const validModes = Object.values(RelationshipMode) as string[];
+      if (!validModes.includes(opts.mode)) {
+        throw new Error(`Invalid mode: ${opts.mode}. Must be one of: ${validModes.join(", ")}`);
+      }
       const result = orchCreateSession({
         title: opts.title,
         description: opts.description,
+        relationshipMode: opts.mode,
         architectId: opts.architect,
         createdBy: "cli",
       });
@@ -44,6 +51,7 @@ export function registerSessionCommands(program: Command): void {
       } else {
         console.log(`Session created: ${result.session.id} [${result.session.status}]`);
         console.log(`  Title: ${result.session.title}`);
+        console.log(`  Mode: ${result.session.relationshipMode}`);
         if (result.architectRole) {
           console.log(`  Architect: ${result.architectRole.agentId}`);
         }
@@ -62,6 +70,7 @@ export function registerSessionCommands(program: Command): void {
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(`Session: ${result.session.title} [${result.session.status}]`);
+        console.log(`  Mode: ${result.session.relationshipMode}`);
         console.log(`  Roles: ${result.roles.map(r => `${r.agentId}=${r.role}`).join(", ") || "none"}`);
         console.log(`  Assignments: ${result.assignments.length}`);
         console.log(`  Reviews: ${result.reviews.length}`);

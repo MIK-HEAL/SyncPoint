@@ -173,12 +173,26 @@ Pinned Memory  = 当前任务/项目的高优先级规则，进入 resume contex
 
 ```powershell
 syncpoint session create --title "MVP 展示闭环" --architect <architectAgentId>
+syncpoint session create --title "MVP 展示闭环" --architect <architectAgentId> --mode peer-contract
 syncpoint session assign-role --session <sessionId> --agent <agentId> --role architect
 syncpoint session assign-role --session <sessionId> --agent <agentId> --role executor
 syncpoint session assign-role --session <sessionId> --agent <agentId> --role reviewer
 syncpoint session assign-role --session <sessionId> --agent <agentId> --role owner
 syncpoint session status --session <sessionId>
 ```
+
+`--mode` 可选值（默认 `manager-delegate`）：
+
+```text
+manager-delegate  = Architect 管理、Executor 执行、Reviewer 验收（默认）
+peer-contract     = 对等协作，Executor 先 claim-files 再开始，定期 sync-checkpoint
+handoff-resume    = 顺序交接，用 handoff / capsule 在 Agent 间传递上下文
+```
+
+每种模式决定：
+- 哪些动作是 **必须的**（required before start）
+- 哪些动作是 **推荐的**（recommended）
+- 哪些动作是 **禁止的**（forbidden，不会出现在 playbook / wake 里）
 
 编排角色：
 
@@ -326,7 +340,7 @@ Reviewer   = 验收、证据、approval gate
 创建：
 
 ```powershell
-$session = syncpoint session create --title "登录模块 MVP" --architect <architectAgentId> --json | ConvertFrom-Json
+$session = syncpoint session create --title "登录模块 MVP" --architect <architectAgentId> --mode manager-delegate --json | ConvertFrom-Json
 
 syncpoint session assign-role --session $session.session.id --agent <executorAgentId> --role executor
 syncpoint session assign-role --session $session.session.id --agent <reviewerAgentId> --role reviewer
@@ -391,7 +405,7 @@ syncpoint loop handoff --task <taskId> --from <oldAgentId> --to <newAgentId> --c
 
 ```powershell
 syncpoint session cancel --session <sessionId>
-syncpoint session create --title "新的协作结构" --architect <architectAgentId>
+syncpoint session create --title "新的协作结构" --architect <architectAgentId> --mode peer-contract
 ```
 
 ## 4. 如何创建 Project Memory
@@ -518,7 +532,7 @@ syncpoint knowledge export
 ### 5.3 创建 session
 
 ```powershell
-syncpoint session create --title "MVP 操作验证" --architect <ARCH>
+syncpoint session create --title "MVP 操作验证" --architect <ARCH> --mode manager-delegate
 syncpoint session assign-role --session <sessionId> --agent <EXEC> --role executor
 syncpoint session assign-role --session <sessionId> --agent <REV> --role reviewer
 ```

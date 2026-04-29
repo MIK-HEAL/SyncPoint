@@ -67,3 +67,29 @@ describe("CLI flow", () => {
     expect(out).toContain("1");
   });
 });
+
+describe("CLI session --mode", () => {
+  let sessionId: string;
+
+  it("session create --mode peer-contract", () => {
+    const out = cli('session create --title "Mode test" --mode peer-contract --json');
+    const result = JSON.parse(out);
+    expect(result.session.relationshipMode).toBe("peer-contract");
+    sessionId = result.session.id;
+  });
+
+  it("session status shows mode", () => {
+    const out = cli(`session status --session ${sessionId}`);
+    expect(out).toContain("Mode: peer-contract");
+  });
+
+  it("session create with default mode", () => {
+    const out = cli('session create --title "Default mode" --json');
+    const result = JSON.parse(out);
+    expect(result.session.relationshipMode).toBe("manager-delegate");
+  });
+
+  it("session create with invalid mode throws", () => {
+    expect(() => cli('session create --title "Bad" --mode invalid-mode')).toThrow();
+  });
+});

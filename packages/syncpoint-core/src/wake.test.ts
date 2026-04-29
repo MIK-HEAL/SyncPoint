@@ -3,8 +3,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { computeWakeTargets, DEFAULT_WAKE_RULES, OrchestrationEventType, validateWakeRequestTransition, WakeRequestStatus } from "./wake.js";
-import type { WakeContext } from "./wake.js";
+import { computeWakeTargets, DEFAULT_WAKE_RULES, SYNC_VERB_WHITELIST, OrchestrationEventType, validateWakeRequestTransition, WakeRequestStatus } from "./wake.js";
+import type { WakeContext, WakeRule } from "./wake.js";
+import { RelationshipMode } from "./relationship-mode.js";
 
 function makeCtx(overrides: Partial<WakeContext> = {}): WakeContext {
   return {
@@ -140,5 +141,160 @@ describe("DEFAULT_WAKE_RULES structure", () => {
     expect(triggers).toContain(OrchestrationEventType.ASSIGNMENT_COMPLETED);
     expect(triggers).toContain(OrchestrationEventType.REVIEW_REQUESTED);
     expect(triggers).toContain(OrchestrationEventType.REVIEW_APPROVED);
+  });
+
+  it("all default wake rule actions are in SYNC_VERB_WHITELIST", () => {
+    for (const rule of DEFAULT_WAKE_RULES) {
+      expect(SYNC_VERB_WHITELIST).toContain(rule.action);
+    }
+  });
+});
+
+// ── P4: Sync verb enforcement ──
+
+describe("SYNC_VERB_WHITELIST", () => {
+  it("blocks non-sync verbs (e.g. start-work, complete-assignment)", () => {
+    expect(SYNC_VERB_WHITELIST).not.toContain("start-work");
+    expect(SYNC_VERB_WHITELIST).not.toContain("complete-assignment");
+  });
+
+  it("allows sync-semantic verbs", () => {
+    expect(SYNC_VERB_WHITELIST).toContain("plan-tasks");
+    expect(SYNC_VERB_WHITELIST).toContain("accept-assignment");
+    expect(SYNC_VERB_WHITELIST).toContain("request-review");
+    expect(SYNC_VERB_WHITELIST).toContain("advance-session");
+    expect(SYNC_VERB_WHITELIST).toContain("claim-files");
+    expect(SYNC_VERB_WHITELIST).toContain("sync-checkpoint");
+  });
+});
+
+describe("computeWakeTargets rejects non-sync verbs", () => {
+  it("custom rule with start-work action is filtered out", () => {
+    const customRules: WakeRule[] = [
+      {
+        trigger: OrchestrationEventType.SESSION_ADVANCED,
+        targetRole: "executor",
+        action: "start-work" as any,
+        reason: "Auto-start work",
+        priority: 1,
+        sessionStatus: "EXECUTING",
+      },
+    ];
+    const targets = computeWakeTargets(
+      makeCtx({ triggerEventType: OrchestrationEventType.SESSION_ADVANCED, sessionStatus: "EXECUTING" }),
+      customRules,
+    );
+    expect(targets).toHaveLength(0);
+  });
+});
+
+describe("computeWakeTargets with relationshipMode", () => {
+  it("handoff-resume mode blocks review wake", () => {
+    const targets = computeWakeTargets(
+      makeCtx({
+        triggerEventType: OrchestrationEventType.REVIEW_REQUESTED,
+        sessionStatus: "REVIEWING",
+        relationshipMode: RelationshipMode.HANDOFF_RESUME,
+      }),
+    );
+    expect(targets).toHaveLength(0);
+  });
+
+  it("handoff-resume mode blocks address-changes wake", () => {
+    const targets = computeWakeTargets(
+      makeCtx({
+        triggerEventType: OrchestrationEventType.REVIEW_BLOCKED,
+        sessionStatus: "EXECUTING",
+        relationshipMode: RelationshipMode.HANDOFF_RESUME,
+      }),
+    );
+    expect(targets).toHaveLength(0);
+  });
+
+  it("manager-delegate mode allows review wake", () => {
+    const targets = computeWakeTargets(
+      makeCtx({
+        triggerEventType: OrchestrationEventType.REVIEW_REQUESTED,
+        sessionStatus: "REVIEWING",
+        relationshipMode: RelationshipMode.MANAGER_DELEGATE,
+      }),
+    );
+    expect(targets.length).toBeGreaterThan(0);
+    expect(targets[0].action).toBe("start-review");
+  });
+
+  it("manager-delegate mode blocks custom sync-checkpoint rule", () => {
+    const customRules: WakeRule[] = [
+      {
+        trigger: OrchestrationEventType.ASSIGNMENT_STARTED,
+        targetRole: "executor",
+        action: "sync-checkpoint" as any,
+        reason: "Sync after start",
+        priority: 1,
+      },
+    ];
+    const targets = computeWakeTargets(
+      makeCtx({
+        triggerEventType: OrchestrationEventType.ASSIGNMENT_STARTED,
+        sessionStatus: "EXECUTING",
+        relationshipMode: RelationshipMode.MANAGER_DELEGATE,
+      }),
+      customRules,
+    );
+    expect(targets).toHaveLength(0);
+  });
+
+  it("peer-contract mode allows review wake", () => {
+    const targets = computeWakeTargets(
+      makeCtx({
+        triggerEventType: OrchestrationEventType.REVIEW_REQUESTED,
+        sessionStatus: "REVIEWING",
+        relationshipMode: RelationshipMode.PEER_CONTRACT,
+      }),
+    );
+    expect(targets.length).toBeGreaterThan(0);
+    expect(targets[0].action).toBe("start-review");
+  });
+
+  it("peer-contract mode allows claim-files custom rule", () => {
+    const customRules: WakeRule[] = [
+      {
+        trigger: OrchestrationEventType.ASSIGNMENT_ACCEPTED,
+        targetRole: "executor",
+        action: "claim-files" as any,
+        reason: "Claim files after accepting",
+        priority: 1,
+      },
+    ];
+    const targets = computeWakeTargets(
+      makeCtx({
+        triggerEventType: OrchestrationEventType.ASSIGNMENT_ACCEPTED,
+        sessionStatus: "EXECUTING",
+        relationshipMode: RelationshipMode.PEER_CONTRACT,
+      }),
+      customRules,
+    );
+    expect(targets.length).toBeGreaterThan(0);
+    expect(targets[0].action).toBe("claim-files");
+  });
+
+  it("without mode, all default rules apply", () => {
+    const targets = computeWakeTargets(makeCtx());
+    expect(targets.length).toBeGreaterThan(0);
+  });
+
+  it("all three modes produce different results for REVIEW_REQUESTED", () => {
+    const ctx = (mode: RelationshipMode) => makeCtx({
+      triggerEventType: OrchestrationEventType.REVIEW_REQUESTED,
+      sessionStatus: "REVIEWING",
+      relationshipMode: mode,
+    });
+    const md = computeWakeTargets(ctx(RelationshipMode.MANAGER_DELEGATE));
+    const pc = computeWakeTargets(ctx(RelationshipMode.PEER_CONTRACT));
+    const hr = computeWakeTargets(ctx(RelationshipMode.HANDOFF_RESUME));
+
+    expect(md.length).toBeGreaterThan(0);
+    expect(pc.length).toBeGreaterThan(0);
+    expect(hr).toHaveLength(0);
   });
 });

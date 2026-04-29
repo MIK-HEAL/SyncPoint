@@ -102,7 +102,14 @@ Different collaboration patterns have different sync rules:
 | **peer-contract** | Two agents agree on interface boundaries | contract → parallel work → checkpoint sync → merge |
 | **handoff-resume** | One agent passes work to another | capsule → handoff → accept → resume |
 
-The relationship mode determines when sync gates fire and what evidence is required.
+The relationship mode determines:
+
+1. **Wake verbs allowed** — each mode defines which sync actions are valid (see `MODE_WAKE_VERBS`)
+2. **Playbook suggestions** — `peer-contract` suggests `claim-files` before work; `handoff-resume` suggests `handoff`
+3. **Context policy** — `peer-contract` requires `approved-contract` in context; `handoff-resume` adds `handoff-context` and relaxes review gates
+4. **Phase flow** — each mode defines its expected phase progression (see `MODE_PHASE_FLOWS`)
+
+The mode is set at session creation and applies for the session's lifetime.
 
 ---
 

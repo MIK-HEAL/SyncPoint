@@ -5,10 +5,12 @@
 
 import {
   getContextPolicy,
+  getContextPolicyForMode,
   CONTEXT_POLICIES,
   listContextIntents,
   listContextRoles,
 } from "syncpoint-core";
+import type { RelationshipModeStr } from "syncpoint-core";
 import type {
   ContextIntent,
   ContextRole,
@@ -32,6 +34,7 @@ export interface PrepareContextInput {
   role: ContextRole;
   taskId?: string;
   agentId?: string;
+  relationshipMode?: RelationshipModeStr;
 }
 
 export interface ContextPolicyInfo {
@@ -343,7 +346,7 @@ function formatMemoryReviewPrompt(
  * Prepare context for a given intent+role, enforcing the appropriate gate.
  */
 export function prepareContext(input: PrepareContextInput): PreparedContext {
-  const policy = getContextPolicy(input.intent);
+  const policy = getContextPolicyForMode(input.intent, input.relationshipMode);
   const allSections = [...policy.requiredSections, ...policy.includeSections];
   const checks: ContextPolicyCheck[] = [];
   const missingSections: ContextSection[] = [];

@@ -28,6 +28,7 @@ import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import { processOrchestrationEvent } from "./wake-engine-service.js";
 import { prepareContext } from "./context-policy-service.js";
+import { sgCheckAgent } from "./sync-gate-service.js";
 import type { PreparedContext } from "syncpoint-core";
 
 /**
@@ -50,6 +51,7 @@ function orchEvent(eventType: EventType, entityType: string, entityId: string, d
 export interface CreateSessionInput {
   title: string;
   description?: string;
+  relationshipMode?: string;
   architectId?: string;
   createdBy?: string;
 }
@@ -118,6 +120,7 @@ export function orchCreateSession(input: CreateSessionInput): CreateSessionResul
   const session = repo.createSession({
     title: input.title,
     description: input.description ?? "",
+    relationshipMode: (input.relationshipMode as any) ?? undefined,
     architectId: input.architectId ?? null,
     createdBy: input.createdBy ?? "",
   });
@@ -193,6 +196,14 @@ export function orchAcceptAssignment(assignmentId: string): TaskAssignment {
  * Start working on an assigned task.
  */
 export function orchStartAssignment(assignmentId: string): TaskAssignment {
+  // SyncGate hard gate — block start if agent has unacknowledged gates
+  const ta0 = repo.getTaskAssignment(assignmentId);
+  const blockCheck = sgCheckAgent(ta0.assigneeAgentId, { taskId: ta0.taskId });
+  if (blockCheck.blocked) {
+    const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
+    throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting work.`);
+  }
+
   const ta = repo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.IN_PROGRESS);
   orchEvent(EventType.ASSIGNMENT_STARTED, "task_assignment", ta.id);
   // Also move task to IN_PROGRESS if it's in a pre-work state

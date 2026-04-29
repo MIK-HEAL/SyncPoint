@@ -225,6 +225,77 @@ export function getContextPolicy(intent: ContextIntent): ContextPolicy {
   return CONTEXT_POLICIES[intent];
 }
 
+// ── Mode-aware policy overrides ─────────────────────
+
+export type RelationshipModeStr = "manager-delegate" | "peer-contract" | "handoff-resume";
+
+/**
+ * Mode-specific additions to context policies.
+ * Each entry lists extra required/included sections to merge with the base policy.
+ */
+export const MODE_CONTEXT_OVERRIDES: Record<RelationshipModeStr, Partial<Record<ContextIntent, {
+  addRequired?: ContextSection[];
+  addInclude?: ContextSection[];
+  gateMode?: ContextGateMode;
+}>>> = {
+  "manager-delegate": {
+    // Default — no overrides
+  },
+  "peer-contract": {
+    execute: {
+      addRequired: ["approved-contract"],
+      addInclude: [],
+    },
+    resume: {
+      addRequired: ["approved-contract"],
+      addInclude: [],
+    },
+  },
+  "handoff-resume": {
+    execute: {
+      addInclude: ["handoff-context"],
+    },
+    resume: {
+      addRequired: ["latest-capsule"],
+      addInclude: ["handoff-context"],
+    },
+    review: {
+      gateMode: "none",
+    },
+  },
+};
+
+/**
+ * Get context policy for an intent, adjusted for the session's relationship mode.
+ * Merges base policy with mode-specific overrides.
+ */
+export function getContextPolicyForMode(
+  intent: ContextIntent,
+  mode?: RelationshipModeStr,
+): ContextPolicy {
+  const base = { ...CONTEXT_POLICIES[intent] };
+  if (!mode) return base;
+
+  const overrides = MODE_CONTEXT_OVERRIDES[mode]?.[intent];
+  if (!overrides) return base;
+
+  if (overrides.gateMode) {
+    base.gateMode = overrides.gateMode;
+  }
+  if (overrides.addRequired?.length) {
+    base.requiredSections = [
+      ...new Set([...base.requiredSections, ...overrides.addRequired]),
+    ] as ContextSection[];
+  }
+  if (overrides.addInclude?.length) {
+    base.includeSections = [
+      ...new Set([...base.includeSections, ...overrides.addInclude]),
+    ] as ContextSection[];
+  }
+
+  return base;
+}
+
 /**
  * List all supported intents.
  */

@@ -24,6 +24,7 @@ import type { SyncPointEventData } from "../event-bus.js";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import { EventType } from "syncpoint-core";
+import { sgCheckAgent } from "./sync-gate-service.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -209,6 +210,7 @@ function resolveSessionContext(data: SyncPointEventData): WakeContext | null {
       sessionId,
       sessionStatus: sessionStatus!,
       roleBindings: roles.map(r => ({ agentId: r.agentId, role: r.role })),
+      relationshipMode: (session as any).relationshipMode ?? undefined,
     };
   } catch {
     return null;
@@ -303,6 +305,13 @@ export function wakeAck(id: string): WakeRequest {
 }
 
 export function wakeStart(id: string): WakeRequest {
+  // SyncGate hard gate — block start if agent has unacknowledged gates
+  const wr = repo.getWakeRequest(id);
+  const blockCheck = sgCheckAgent(wr.targetAgentId, { taskId: wr.taskId ?? undefined });
+  if (blockCheck.blocked) {
+    const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
+    throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting wake.`);
+  }
   return repo.updateWakeRequestStatus(id, WakeRequestStatus.RUNNING);
 }
 
@@ -327,8 +336,13 @@ export function wakeSkip(id: string, resultSummary?: string): WakeRequest {
 /**
  * Get the next QUEUED wake request for a specific agent.
  * Used by MCP/editor agents to poll for work.
+ * Returns null if the agent is blocked by a sync gate.
  */
 export function wakeNext(agentId: string): WakeRequest | null {
+  // SyncGate hard gate — if agent is blocked, return null (no wake dispatched)
+  const blockCheck = sgCheckAgent(agentId);
+  if (blockCheck.blocked) return null;
+
   const all = repo.listWakeRequestsByAgent(agentId);
   const queued = all.filter(w => w.status === WakeRequestStatus.QUEUED);
   return queued.length > 0 ? queued[0] : null;

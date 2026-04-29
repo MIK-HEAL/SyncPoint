@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🔄 SyncPoint
+# SyncPoint
 
 **AI Agent Synchronization Protocol**
 
-*防止多个 AI 编程助手在同一项目里漂移 — 同步状态、检查点、文件边界、冲突感知和交接协议，全部本地运行。*
+*让多个 AI 编程助手在同一个项目里停在正确的同步点，确认边界、交接上下文，再继续工作。*
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-≥20-green?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -15,108 +15,191 @@
 
 ---
 
-## The Problem
+## The Core Idea
 
-When you run multiple AI agents (Codex, Claude, Cursor…) on the same codebase, they have no idea what each other is doing. They edit the same files, duplicate work, produce conflicting changes, and lose context across sessions. The more agents you add, the worse it gets.
+Multiple AI coding agents are powerful, but they do not naturally share state. Codex may edit a file while Claude plans a conflicting change; Cursor may review stale work; a handoff may lose the real context.
 
-**SyncPoint makes them stop and synchronize at the right moments — instead of drifting apart.**
+Most systems try to solve this by adding more automation.
 
-## 🎯 Core Principle
-
-SyncPoint is **not** a multi-agent runtime, workflow builder, or memory platform.
-
-It is a **synchronization protocol** — every feature answers four questions:
+SyncPoint takes the opposite path:
 
 ```text
-1. 谁在改什么？        Who is changing what?
-2. 什么时候必须同步？   When must they synchronize?
-3. 同步要确认什么？     What must be confirmed at sync?
-4. 确认后谁继续？      Who continues after confirmation?
+Make agents stop at the right moments.
+Make them synchronize.
+Only then let the next agent continue.
 ```
 
-## Core Primitives
+The core innovation is **protocol-level synchronization truncation**.
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  Codex      │    │  Claude     │    │  Cursor     │
-│  (Architect)│    │  (Executor) │    │  (Reviewer) │
-└──────┬──────┘    └──────┬──────┘    └──────┬──────┘
-       │                  │                  │
-       └──────────────────┼──────────────────┘
-                          │
-              ┌───────────▼───────────┐
-              │     SyncPoint         │
-              │  Synchronization      │
-              │     Protocol          │
-              │                       │
-              │  • Sync State         │
-              │  • Checkpoint         │
-              │  • Conflict Awareness │
-              │  • Handoff / Resume   │
-              │  • Wake (sync verbs)  │
-              └───────────┬───────────┘
-                          │
-              ┌───────────▼───────────┐
-              │    SQLite (local)     │
-              └───────────────────────┘
+It does not run models. It does not schedule infinite autonomous loops. It creates enforceable sync boundaries around AI work:
+
+```text
+work about to continue
+  -> check shared sync state
+  -> detect unresolved gate / conflict / handoff / review
+  -> block continuation
+  -> require acknowledgement or resolution
+  -> allow the right agent to continue
 ```
 
-| Primitive | What it does | Sync question it answers |
-|-----------|-------------|-------------------------|
-| **Sync State** | Shared record of who is working, on what, and current status | *Who is changing what?* |
-| **Checkpoint / Capsule** | Compress long context into minimal task-relevant snapshot | *What must be confirmed at sync?* |
-| **Conflict Awareness** | Detect overlapping file claims and flag sync boundaries | *When must they synchronize?* |
-| **Handoff / Resume** | Structured context transfer between agents | *Who continues after confirmation?* |
-| **Wake** | Notify agents at sync points (plan, accept, checkpoint, sync, review, handoff, resume, approve) | *Who continues after confirmation?* |
+## Why This Matters
 
-Session orchestration, review workflow, project memory, auto-wake, MCP/CLI — these are all supporting capabilities that serve the same core: **keep agents synchronized, not autonomous.**
+AI agents drift when they lack shared constraints:
 
-> See [Core Synchronization](docs/core-synchronization.md) for the full protocol design.
+| Drift Problem | What Happens Without SyncPoint | SyncPoint Response |
+|--------------|--------------------------------|-------------------|
+| File collision | Two agents edit the same file or interface | FileClaim + conflict awareness |
+| Context loss | A new agent resumes from stale chat history | Checkpoint + Context Capsule |
+| Unclear handoff | Nobody knows who continues next | Handoff / Resume protocol |
+| Premature work | An agent keeps working through unresolved conflict | SyncGate hard truncation |
+| Runaway automation | Wake becomes a generic auto-runner | Wake limited to sync verbs |
 
----
+SyncPoint is not trying to make agents more autonomous. It makes them **less likely to drift**.
 
-## 🏗️ Architecture
+## The Innovation: Sync Truncation
 
+SyncPoint turns "needs sync" from a vague status into a hard protocol gate.
+
+```text
+NEEDS_SYNC
+  -> SYNC_REQUESTED
+  -> SYNC_ACKED
+  -> READY_TO_CONTINUE
 ```
+
+Important rule:
+
+```text
+SYNC_ACKED still blocks.
+Only READY_TO_CONTINUE or CANCELLED releases the gate.
+```
+
+This means acknowledgement is not enough. The sync point must be resolved before affected agents can continue.
+
+### Where The Gate Is Enforced
+
+SyncGate is not just a record in the database. It blocks the continuation paths agents actually use:
+
+| Entry Point | Effect |
+|------------|--------|
+| `loopResume()` | Prevents an agent from resuming blocked work |
+| `orchStartAssignment()` | Prevents starting an assignment through session orchestration |
+| `wakeNext()` | Suppresses dispatch while the agent is blocked |
+| `wakeStart()` | Prevents a queued wake from running through a blocked gate |
+
+So the mechanism is **protocol-level hard truncation**:
+
+```text
+If agents use SyncPoint's CLI / MCP / tRPC application services,
+they cannot continue through an unresolved SyncGate.
+```
+
+It is not an OS-level file lock and it does not forcibly stop a model process that bypasses SyncPoint. The design goal is to make SyncPoint the shared coordination layer that editors and agents call before continuing.
+
+## The Four Protocol Questions
+
+Every core feature exists to answer one of four questions:
+
+```text
+1. Who is changing what?
+2. When must they synchronize?
+3. What must be confirmed at sync?
+4. Who continues after confirmation?
+```
+
+| Primitive | Role In The Truncation Mechanism |
+|-----------|----------------------------------|
+| **Sync State** | Shared local source of truth: agents, tasks, sessions, roles, status |
+| **FileClaim** | Declares file ownership before work begins |
+| **Conflict Awareness** | Detects overlapping claims and marks sync boundaries |
+| **SyncGate** | Blocks continuation until the sync point is resolved |
+| **Checkpoint** | Captures progress, risks, decisions, and next steps |
+| **Context Capsule** | Compresses resume context so the next agent starts with the right state |
+| **Handoff / Resume** | Makes continuation explicit when work moves between agents |
+| **Wake** | Notifies the right agent at sync points only |
+| **Relationship Mode** | Applies different sync rules to manager/delegate, peer, and handoff flows |
+
+## What Wake Is Not
+
+Wake is deliberately constrained. It is not a general runner.
+
+Wake may notify agents to do synchronization work:
+
+```text
+plan
+accept
+checkpoint
+sync
+review
+handoff
+resume
+approve
+```
+
+Wake should not mean:
+
+```text
+keep working forever
+auto-run arbitrary tasks
+turn SyncPoint into a LangGraph clone
+```
+
+Every wake request must have a synchronization reason: confirm responsibility, resolve conflict, transfer context, review evidence, or approve continuation.
+
+## Relationship Modes
+
+Not all AI collaboration has the same synchronization rules. SyncPoint makes the relationship explicit:
+
+| Mode | Pattern | Sync Behavior |
+|------|---------|---------------|
+| `manager-delegate` | Architect plans, executor works, reviewer approves | plan -> accept -> checkpoint -> review -> approve |
+| `peer-contract` | Peers work in parallel with boundaries | contract -> claim files -> checkpoint sync -> merge/review |
+| `handoff-resume` | One agent passes work to another | capsule -> handoff -> accept -> resume |
+
+Relationship Mode changes playbook suggestions, wake filtering, and context policy. For example, `peer-contract` requires file claiming before start-work is suggested.
+
+## Architecture
+
+```text
 packages/
-├── syncpoint-core       # 协议类型、状态机、Zod schemas
-├── syncpoint-server     # tRPC + Drizzle ORM + SQLite + SSE
-├── syncpoint-cli        # Commander CLI 命令行工具
-├── syncpoint-sdk        # Typed tRPC client + SSE listener
-├── syncpoint-mcp        # MCP stdio adapter（连接编辑器 Agent）
-└── vscode-extension     # VS Code/Cursor 侧边栏面板
+├── syncpoint-core       # protocol types, state machines, pure rules
+├── syncpoint-server     # local application services, SQLite, tRPC, SSE
+├── syncpoint-cli        # human/operator command line
+├── syncpoint-mcp        # editor-agent adapter through MCP
+├── syncpoint-sdk        # typed client for integrations
+└── vscode-extension     # editor sync status view
 ```
 
-| 模块 | 职责 | 核心技术 |
-|------|------|----------|
-| **Core** | 定义协议规则 | Zod, TypeScript |
-| **Server** | 本地 API + 事件流 | tRPC, Drizzle, SQLite, SSE |
-| **CLI** | 人类操作入口 | Commander.js |
-| **SDK** | Agent 程序调用 | tRPC Client |
-| **MCP** | 编辑器 AI 调用 | Model Context Protocol |
-| **VS Code** | 可视化面板 | VS Code Extension API |
+The important boundary:
 
----
+```text
+syncpoint-core defines the protocol.
+syncpoint-server enforces it.
+CLI / MCP / SDK / editor UI are entry points into the same rules.
+```
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1. 安装与构建
+### 1. Build
 
 ```bash
-git clone <repo-url> && cd syncpoint
+git clone <repo-url> && cd SyncPoint
 pnpm install
 pnpm build
-pnpm typecheck && pnpm test   # 验证一切正常
+pnpm typecheck
+pnpm test
 ```
 
-### 2. 初始化项目
+### 2. Initialize A Project
 
 ```bash
 cd <your-project>
-syncpoint init                 # 创建 .syncpoint/syncpoint.db
+syncpoint init
 ```
 
-### 3. 注册 Agent
+This creates local SyncPoint state under `.syncpoint/`.
+
+### 3. Register Agents
 
 ```bash
 syncpoint agent add --name codex-arch --provider codex --role manager
@@ -124,81 +207,48 @@ syncpoint agent add --name claude-exec --provider claude-code --role backend
 syncpoint agent add --name cursor-rev --provider cursor --role reviewer
 ```
 
-### 4. 创建 Session 并分配角色
+### 4. Create A Session With A Relationship Mode
 
 ```bash
-syncpoint session create --title "Build Auth Module" --architect <archId>
-syncpoint session assign-role --session <sid> --agent <execId> --role executor
-syncpoint session assign-role --session <sid> --agent <revId> --role reviewer
+syncpoint session create \
+  --title "Build Auth Module" \
+  --architect <architectAgentId> \
+  --mode peer-contract
 ```
 
-### 5. 一键体验完整流程
+Available modes:
+
+```text
+manager-delegate
+peer-contract
+handoff-resume
+```
+
+### 5. Create And Resolve A SyncGate
 
 ```bash
-syncpoint demo mvp             # 生成完整的 session 示例到 .syncpoint/mvp-demo.md
+syncpoint sync request \
+  --task <taskId> \
+  --agent <requestingAgentId> \
+  --required <agentA,agentB> \
+  --reason file_conflict \
+  --description "Both agents need src/auth.ts"
+
+syncpoint sync ack --gate <gateId> --agent <agentA>
+syncpoint sync ack --gate <gateId> --agent <agentB>
+
+syncpoint sync resolve \
+  --gate <gateId> \
+  --summary "Agent A owns src/auth.ts; Agent B owns src/api/auth.ts"
 ```
 
----
+Until the gate is resolved, affected agents cannot continue through SyncPoint's resume / start / wake paths.
 
-## 🧠 Core Concepts
+## Connecting Editors Through MCP
 
-### 协作生命周期
+SyncPoint exposes the same protocol to editor agents through Model Context Protocol.
 
-```
-注册 Agent → 创建 Session → 分配角色 → 拆分任务
-    → Executor 执行 + Checkpoint → Reviewer 审批 → 完成
-```
-
-| 概念 | 说明 |
-|------|------|
-| **Session** | 一次协作会话，绑定多个 Agent 的角色（architect / executor / reviewer / owner） |
-| **Task** | 具体工作项，有完整的状态机驱动 |
-| **Checkpoint** | 进度快照 — 包含摘要、风险、阻塞点 |
-| **Context Capsule** | 压缩的任务上下文，减少 token 消耗和上下文漂移 |
-| **Handoff** | Agent 之间的结构化交接，附带上下文摘要 |
-| **Peer Contract** | Agent 之间的协作协议（DRAFT → REVIEWING → APPROVED） |
-| **Pinned Memory** | 高优先级规则（全局/项目/任务级别） |
-| **Project Memory** | 长期项目知识库，可审阅、可导出为 `.md` |
-| **Review Workflow** | Checklist + Evidence + Approval Gate |
-| **Playbook** | 告诉每个 Agent「下一步该做什么」 |
-
----
-
-## 🔀 State Machines
-
-### Task 状态流转
-
-```
-OPEN → ASSIGNED → NEEDS_CONTRACT → CONTRACT_REVIEW → READY_TO_WORK → IN_PROGRESS
-                                   ↘ NEEDS_CONTRACT (rejected)
-IN_PROGRESS → NEEDS_SYNC | BLOCKED | REVIEWING → DONE
-Any → CANCELLED
-```
-
-### Contract 驱动 Task
-
-| Contract 事件 | Task 自动变为 |
-|--------------|--------------|
-| 创建 Contract | `NEEDS_CONTRACT` |
-| 提交审阅 | `CONTRACT_REVIEW` |
-| 审批通过 | `READY_TO_WORK` |
-| 审批拒绝 | `NEEDS_CONTRACT` |
-
-### Review Workflow
-
-```
-ChecklistItem:  OPEN → PASSED | FAILED | WAIVED
-ChangeRequest:  OPEN → ADDRESSED | REJECTED | CANCELLED
-ApprovalGate:   ✅ PASSED（当必选项完成 + 证据存在 + 无未关闭变更）
-```
-
----
-
-## 🔌 Connecting Editors (MCP)
-
-SyncPoint 通过 **Model Context Protocol (MCP)** 让编辑器内的 AI 直接调用协议。
-
-### Cursor — `.cursor/mcp.json`
+### Cursor `.cursor/mcp.json`
 
 ```json
 {
@@ -214,7 +264,7 @@ SyncPoint 通过 **Model Context Protocol (MCP)** 让编辑器内的 AI 直接�
 }
 ```
 
-### VS Code — `.vscode/mcp.json`
+### VS Code `.vscode/mcp.json`
 
 ```json
 {
@@ -231,109 +281,67 @@ SyncPoint 通过 **Model Context Protocol (MCP)** 让编辑器内的 AI 直接�
 }
 ```
 
-### 环境变量
+## Current Status
 
-| 变量 | 说明 |
-|------|------|
-| `SYNCPOINT_PROJECT_ROOT` | 目标项目根目录 |
-| `SYNCPOINT_DB_DIR` | 自定义数据库目录 |
-| `SYNCPOINT_MEMORY_PATH` | 自定义 project-memory.md 导出位置 |
+Implemented core synchronization capabilities:
 
----
-
-## 🖥️ Server
-
-```bash
-syncpoint server start --port 8765
+```text
+Synchronization narrative
+FileClaim / conflict awareness
+SyncGate hard truncation
+Relationship Mode convergence
+Wake limited to sync verbs
+CLI + MCP sync tools
+Local SQLite state
+SSE event stream
+Editor sync status foundation
 ```
 
-| Endpoint | 说明 |
+Next core work:
+
+```text
+FileClaim conflict -> automatic SyncGate
+Wake semantic source binding
+Editor Sync View refinement
+SDK / CLI hardening
+```
+
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [Core Synchronization](docs/core-synchronization.md) | Protocol design and sync primitives |
+| [Local Operations Guide](docs/local-operations-guide.md) | Local multi-agent operating guide |
+| [Session Playbook](docs/session-playbook.md) | End-to-end session flow |
+| [Review Workflow](docs/review-workflow.md) | Evidence-backed review and approval |
+| [MVP Showcase](docs/mvp-showcase.md) | Demo flow |
+
+## Database Location
+
+SyncPoint stores state locally:
+
+| Priority | Path |
 |----------|------|
-| `http://127.0.0.1:8765/trpc/...` | tRPC API |
-| `http://127.0.0.1:8765/events` | SSE 实时事件流 |
-| `http://127.0.0.1:8765/status` | 健康检查 |
+| 1 | `SYNCPOINT_DB_DIR` |
+| 2 | `.syncpoint/syncpoint.db` under the project |
+| 3 | `~/.syncpoint/syncpoint.db` fallback |
 
----
-
-## 📡 API Overview (tRPC)
-
-| Router | Procedures |
-|--------|-----------|
-| `agent` | `create` · `list` · `get` · `updateStatus` |
-| `task` | `create` · `list` · `get` · `assign` · `updateStatus` |
-| `checkpoint` | `create` · `list` |
-| `handoff` | `create` · `accept` · `reject` |
-| `contract` | `create` · `get` · `getForTask` · `updateStatus` |
-| `capsule` | `create` · `list` · `getLatest` |
-| `pinnedMemory` | `create` · `get` · `list` · `update` · `delete` |
-| `resumeContext` | `get` · `enforce` |
-| `event` | `list` |
-
----
-
-## 🧪 Testing
-
-```bash
-pnpm test                                # 全部测试
-
-pnpm --filter syncpoint-core test        # 28 state machine tests
-pnpm --filter syncpoint-server test      # 51 unit + e2e tests
-pnpm --filter syncpoint-vscode test      # 4 extension integration tests
-```
-
----
-
-## 📂 Database Location
-
-SyncPoint 按以下优先级寻找数据库：
-
-| 优先级 | 路径 |
-|--------|------|
-| 1️⃣ | `SYNCPOINT_DB_DIR` 环境变量 |
-| 2️⃣ | 项目本地 `.syncpoint/syncpoint.db`（从 cwd 向上查找） |
-| 3️⃣ | `~/.syncpoint/syncpoint.db`（全局 fallback） |
-
----
-
-## 📚 Documentation
-
-| 文档 | 说明 |
-|------|------|
-| [Local Operations Guide](docs/local-operations-guide.md) | 本地多模型操作完整指南 |
-| [Session Playbook](docs/session-playbook.md) | 端到端 Session 流程 |
-| [Review Workflow](docs/review-workflow.md) | 审阅 + 证据 + 审批门 |
-| [MVP Showcase](docs/mvp-showcase.md) | 一键演示命令 |
-| [CLI Agent Loop](docs/cli-agent-loop.md) | Agent 循环操作详解 |
-
----
-
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Language | TypeScript 5.5 (strict) |
-| API | tRPC v11 |
-| Database | better-sqlite3 + Drizzle ORM |
+|-------|------------|
+| Language | TypeScript |
+| API | tRPC |
+| Database | SQLite + Drizzle ORM |
 | Validation | Zod |
-| Events | Node EventEmitter + SSE |
-| Testing | Vitest |
-| Package Manager | pnpm workspace |
-| Editor Integration | Model Context Protocol (MCP) |
-
----
-
-## ⚡ TL;DR
-
-```bash
-pnpm install && pnpm build        # 构建
-syncpoint init                     # 初始化
-syncpoint demo mvp                 # 体验完整流程
-```
+| Events | EventEmitter + SSE |
+| Tests | Vitest |
+| Editor Integration | MCP |
 
 ---
 
 <div align="center">
 
-**SyncPoint** — AI Agent Synchronization Protocol. Keep them in sync, not in chaos.
+**SyncPoint** keeps AI agents synchronized by making them stop, confirm, and continue through explicit protocol gates.
 
 </div>

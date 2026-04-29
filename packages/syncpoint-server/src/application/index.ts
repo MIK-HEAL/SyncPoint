@@ -159,3 +159,21 @@ export type {
   ClaimFilesResult,
   ListClaimsInput,
 } from "./file-claim-service.js";
+
+// SyncGate
+export {
+  sgRequest,
+  sgAck,
+  sgResolve,
+  sgCancel,
+  sgStatus,
+  sgList,
+  sgListActive,
+  sgCheckAgent,
+} from "./sync-gate-service.js";
+
+export type {
+  SyncGateRequestInput,
+  SyncGateStatusResult,
+  AgentBlockCheck,
+} from "./sync-gate-service.js";

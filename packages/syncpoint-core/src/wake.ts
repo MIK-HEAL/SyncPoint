@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import type { PlaybookActionKind } from "./playbook-engine.js";
+import { RelationshipMode, isValidWakeVerb, MODE_WAKE_VERBS, isModeActionAllowed } from "./relationship-mode.js";
 
 // ── WakeRequest Status ─────────────────────────────────
 
@@ -194,12 +195,28 @@ export interface WakeTarget {
   priority: number;
 }
 
+/**
+ * Every valid wake action must have synchronization semantics:
+ * it requires confirmation, handoff, review, or conflict resolution.
+ * This whitelist prevents "infinite auto-work" wakes.
+ */
+export const SYNC_VERB_WHITELIST: readonly string[] = [
+  "plan", "accept", "checkpoint", "sync", "review",
+  "handoff", "resume", "approve",
+  // Mapped playbook actions
+  "plan-tasks", "accept-assignment", "start-review",
+  "request-review", "advance-session", "address-changes",
+  "claim-files", "sync-checkpoint",
+] as const;
+
 export interface WakeContext {
   triggerEventType: string;
   sessionId: string;
   sessionStatus: string;
   /** All roles in the session, for resolving who to wake */
   roleBindings: Array<{ agentId: string; role: string }>;
+  /** Relationship mode — if set, wake actions are filtered by mode's allowed verbs */
+  relationshipMode?: RelationshipMode;
 }
 
 /**
@@ -222,6 +239,15 @@ export function computeWakeTargets(
     // Check if the target role exists in the session
     const hasRole = ctx.roleBindings.some(rb => rb.role === rule.targetRole);
     if (!hasRole) continue;
+
+    // P4: Sync verb enforcement — only allow sync-semantic actions
+    if (!SYNC_VERB_WHITELIST.includes(rule.action)) continue;
+
+    // P4: Mode-aware verb filtering — if mode is set, filter by mode's allowed verbs
+    if (ctx.relationshipMode && !isValidWakeVerb(ctx.relationshipMode, rule.action)) continue;
+
+    // P3: Unified mode enforcement — block actions that FORBIDDEN_ACTIONS disallows
+    if (ctx.relationshipMode && isModeActionAllowed(ctx.relationshipMode, rule.action) === "blocked") continue;
 
     targets.push({
       targetRole: rule.targetRole,

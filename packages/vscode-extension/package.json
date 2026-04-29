@@ -36,6 +36,10 @@
         {
           "id": "syncpoint-checkpoints",
           "name": "Checkpoints"
+        },
+        {
+          "id": "syncpoint-sync-status",
+          "name": "Sync Status"
         }
       ]
     },

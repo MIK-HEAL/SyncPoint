@@ -8,6 +8,7 @@ import type { SessionSnapshot } from "./playbook-engine.js";
 import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus } from "./orchestration.js";
 import { ApprovalGateStatus } from "./review-workflow.js";
 import type { ApprovalGateResult } from "./review-workflow.js";
+import { RelationshipMode } from "./relationship-mode.js";
 
 function makeSnap(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   return {
@@ -231,5 +232,103 @@ describe("priority ordering", () => {
     for (let i = 1; i < actions.length; i++) {
       expect(actions[i].priority).toBeGreaterThanOrEqual(actions[i - 1].priority);
     }
+  });
+});
+
+// ── Relationship Mode ──
+
+describe("relationship mode: peer-contract", () => {
+  it("suggests claim-files but NOT start-work for ACCEPTED assignment (claim is prerequisite)", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      relationshipMode: RelationshipMode.PEER_CONTRACT,
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.ACCEPTED }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).toContain("claim-files");
+    expect(kinds).not.toContain("start-work");
+  });
+
+  it("suggests sync-checkpoint for IN_PROGRESS assignment", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      relationshipMode: RelationshipMode.PEER_CONTRACT,
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.IN_PROGRESS }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).toContain("sync-checkpoint");
+  });
+
+  it("does NOT suggest handoff for IN_PROGRESS assignment", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      relationshipMode: RelationshipMode.PEER_CONTRACT,
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.IN_PROGRESS }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).not.toContain("handoff");
+  });
+});
+
+describe("relationship mode: handoff-resume", () => {
+  it("suggests handoff for IN_PROGRESS assignment", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      relationshipMode: RelationshipMode.HANDOFF_RESUME,
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.IN_PROGRESS }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).toContain("handoff");
+  });
+
+  it("does NOT suggest claim-files for ACCEPTED assignment", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      relationshipMode: RelationshipMode.HANDOFF_RESUME,
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.ACCEPTED }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).not.toContain("claim-files");
+  });
+
+  it("does NOT suggest sync-checkpoint for IN_PROGRESS assignment", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      relationshipMode: RelationshipMode.HANDOFF_RESUME,
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.IN_PROGRESS }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).not.toContain("sync-checkpoint");
+  });
+});
+
+describe("relationship mode: manager-delegate (default)", () => {
+  it("does NOT suggest claim-files, sync-checkpoint, or handoff", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.IN_PROGRESS }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).not.toContain("claim-files");
+    expect(kinds).not.toContain("sync-checkpoint");
+    expect(kinds).not.toContain("handoff");
+  });
+
+  it("suggests checkpoint and complete-assignment for IN_PROGRESS", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.IN_PROGRESS }],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).toContain("checkpoint");
+    expect(kinds).toContain("complete-assignment");
   });
 });

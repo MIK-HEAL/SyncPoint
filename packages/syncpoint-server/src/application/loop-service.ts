@@ -11,6 +11,7 @@ import {
 } from "syncpoint-core";
 import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext } from "syncpoint-core";
 import * as repo from "../repositories.js";
+import { sgCheckAgent } from "./sync-gate-service.js";
 
 // ── Types ────────────────────────────────────────────
 
@@ -182,6 +183,13 @@ export function loopBoot(input: LoopBootInput): LoopBootResult {
 export function loopResume(input: LoopResumeInput): LoopResumeResult {
   const agent = repo.getAgent(input.agentId);
   const task = repo.getTask(input.taskId);
+
+  // 0. SyncGate hard gate — block resume if agent has unacknowledged gates
+  const blockCheck = sgCheckAgent(agent.id, { taskId: task.id });
+  if (blockCheck.blocked) {
+    const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
+    throw new LoopError(EXIT.STATE_INVALID, `Agent blocked by sync gate(s): ${gateIds}. Acknowledge before resuming.`);
+  }
 
   // 1. Enforce context policy (hard gate)
   const policy = repo.enforceContextPolicy(task.id, agent.id);

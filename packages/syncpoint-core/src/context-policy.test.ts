@@ -10,6 +10,7 @@ import {
   ContextSection,
   CONTEXT_POLICIES,
   getContextPolicy,
+  getContextPolicyForMode,
   listContextIntents,
   listContextRoles,
 } from "./context-policy.js";
@@ -119,5 +120,74 @@ describe("listContextIntents", () => {
 describe("listContextRoles", () => {
   it("should return all 6 roles", () => {
     expect(listContextRoles()).toHaveLength(6);
+  });
+});
+
+// ── Mode-aware context policy ──
+
+describe("getContextPolicyForMode", () => {
+  it("returns base policy when no mode is given", () => {
+    const p = getContextPolicyForMode("execute");
+    expect(p).toEqual(getContextPolicy("execute"));
+  });
+
+  it("manager-delegate has no overrides", () => {
+    const p = getContextPolicyForMode("execute", "manager-delegate");
+    expect(p).toEqual(getContextPolicy("execute"));
+  });
+
+  it("peer-contract adds approved-contract as required for execute", () => {
+    const p = getContextPolicyForMode("execute", "peer-contract");
+    expect(p.requiredSections).toContain("approved-contract");
+    // Also still has base required sections
+    expect(p.requiredSections).toContain("task");
+    expect(p.requiredSections).toContain("agent");
+  });
+
+  it("peer-contract adds approved-contract as required for resume", () => {
+    const p = getContextPolicyForMode("resume", "peer-contract");
+    expect(p.requiredSections).toContain("approved-contract");
+  });
+
+  it("handoff-resume adds handoff-context to execute includes", () => {
+    const p = getContextPolicyForMode("execute", "handoff-resume");
+    expect(p.includeSections).toContain("handoff-context");
+  });
+
+  it("handoff-resume downgrades review gate to none", () => {
+    const p = getContextPolicyForMode("review", "handoff-resume");
+    expect(p.gateMode).toBe("none");
+    // Base is soft
+    expect(getContextPolicy("review").gateMode).toBe("soft");
+  });
+
+  it("handoff-resume resume requires latest-capsule and includes handoff-context", () => {
+    const p = getContextPolicyForMode("resume", "handoff-resume");
+    expect(p.requiredSections).toContain("latest-capsule");
+    expect(p.includeSections).toContain("handoff-context");
+  });
+
+  it("mode with no override for intent returns base", () => {
+    const p = getContextPolicyForMode("architect-plan", "peer-contract");
+    expect(p).toEqual(getContextPolicy("architect-plan"));
+  });
+
+  it("three modes produce different execute policies", () => {
+    const md = getContextPolicyForMode("execute", "manager-delegate");
+    const pc = getContextPolicyForMode("execute", "peer-contract");
+    const hr = getContextPolicyForMode("execute", "handoff-resume");
+
+    // peer-contract adds approved-contract as required
+    expect(pc.requiredSections).toContain("approved-contract");
+    expect(md.requiredSections).not.toContain("approved-contract");
+
+    // handoff-resume adds handoff-context to includes
+    expect(hr.includeSections).toContain("handoff-context");
+    expect(md.includeSections).not.toContain("handoff-context");
+
+    // All three share the same base gate mode
+    expect(md.gateMode).toBe("hard");
+    expect(pc.gateMode).toBe("hard");
+    expect(hr.gateMode).toBe("hard");
   });
 });

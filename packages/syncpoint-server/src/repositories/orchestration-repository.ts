@@ -37,6 +37,7 @@ export function createSession(input: OrchestrationSessionCreate): OrchestrationS
     title: input.title,
     description: input.description ?? "",
     status: SessionStatus.PLANNING,
+    relationshipMode: input.relationshipMode ?? "manager-delegate",
     architectId: input.architectId ?? null,
     createdBy: input.createdBy ?? "",
     createdAt: ts,

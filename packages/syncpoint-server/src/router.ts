@@ -15,6 +15,7 @@ import { resumeContextRouter, eventRouter, adapterRouter } from "./routers/conte
 import { loopRouter } from "./routers/loop-router.js";
 import { projectMemoryRouter } from "./routers/project-memory-router.js";
 import { wakeRouter } from "./routers/wake-router.js";
+import { syncStatusRouter } from "./routers/sync-status-router.js";
 
 // ── Root router ────────────────────────────────────────
 
@@ -33,6 +34,7 @@ export const appRouter = t.router({
   loop: loopRouter,
   projectMemory: projectMemoryRouter,
   wake: wakeRouter,
+  syncStatus: syncStatusRouter,
 });
 
 export type AppRouter = typeof appRouter;

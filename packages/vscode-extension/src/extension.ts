@@ -142,6 +142,136 @@ class CheckpointItem extends vscode.TreeItem {
   }
 }
 
+// ── Sync Status tree data provider ──────────────────────
+
+interface SyncSection {
+  kind: "header";
+  label: string;
+  icon: string;
+  children: SyncLeaf[];
+}
+
+interface SyncLeaf {
+  label: string;
+  description: string;
+  icon: string;
+  tooltip?: string;
+}
+
+class SyncStatusProvider implements vscode.TreeDataProvider<SyncSection | SyncLeaf> {
+  private _onDidChange = new vscode.EventEmitter<void>();
+  readonly onDidChangeTreeData = this._onDidChange.event;
+  private _sections: SyncSection[] = [];
+
+  refresh(): void {
+    this._loadData().then(() => this._onDidChange.fire());
+  }
+
+  getTreeItem(element: SyncSection | SyncLeaf): vscode.TreeItem {
+    if ("children" in element) {
+      const item = new vscode.TreeItem(
+        `${element.label} (${element.children.length})`,
+        element.children.length > 0
+          ? vscode.TreeItemCollapsibleState.Expanded
+          : vscode.TreeItemCollapsibleState.None
+      );
+      item.iconPath = new vscode.ThemeIcon(element.icon);
+      return item;
+    }
+    const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+    item.description = element.description;
+    item.iconPath = new vscode.ThemeIcon(element.icon);
+    if (element.tooltip) item.tooltip = element.tooltip;
+    return item;
+  }
+
+  getChildren(element?: SyncSection | SyncLeaf): (SyncSection | SyncLeaf)[] {
+    if (!element) return this._sections;
+    if ("children" in element) return element.children;
+    return [];
+  }
+
+  private async _loadData(): Promise<void> {
+    try {
+      const data = await client.syncStatus.overview.query();
+      const sections: SyncSection[] = [];
+
+      // 1. Agents — who is working, who is blocked
+      sections.push({
+        kind: "header",
+        label: "Agents",
+        icon: "robot",
+        children: data.agents.map((a: any) => ({
+          label: a.blocked ? `\u26D4 ${a.name}` : a.name,
+          description: a.blocked ? "BLOCKED" : `${a.status} \u2022 wakes: ${a.pendingWakes}`,
+          icon: a.blocked ? "error" : "person",
+          tooltip: a.claimedFiles.length
+            ? `Claimed: ${a.claimedFiles.join(", ")}`
+            : undefined,
+        })),
+      });
+
+      // 2. Active Sessions
+      sections.push({
+        kind: "header",
+        label: "Sessions",
+        icon: "symbol-event",
+        children: data.activeSessions.map((s: any) => ({
+          label: s.title,
+          description: `${s.status} \u2022 ${s.relationshipMode}`,
+          icon: "window",
+        })),
+      });
+
+      // 3. Sync Gates
+      sections.push({
+        kind: "header",
+        label: "Sync Gates",
+        icon: "shield",
+        children: data.activeGates.map((g: any) => ({
+          label: g.description || g.reason || g.id,
+          description: `${g.status} \u2022 ${g.reason}`,
+          icon: "warning",
+          tooltip: `Required: ${g.requiredAgentIds}\nAcked: ${g.ackedAgentIds || "none"}`,
+        })),
+      });
+
+      // 4. File Claims
+      sections.push({
+        kind: "header",
+        label: "File Claims",
+        icon: "file-symlink-file",
+        children: data.claims.map((c: any) => ({
+          label: c.paths,
+          description: `by ${c.agentId}`,
+          icon: "lock",
+        })),
+      });
+
+      // 5. Conflicts
+      sections.push({
+        kind: "header",
+        label: "Conflicts",
+        icon: "flame",
+        children: data.conflicts.map((c: any) => ({
+          label: c.path ?? c.overlappingPaths?.join(", ") ?? "conflict",
+          description: `agents: ${c.claimIds?.join(", ") ?? "?"}`,
+          icon: "error",
+        })),
+      });
+
+      this._sections = sections;
+    } catch {
+      this._sections = [{
+        kind: "header",
+        label: "(server not running)",
+        icon: "warning",
+        children: [],
+      }];
+    }
+  }
+}
+
 // ── Resume context picker ─────────────────────────────
 
 async function pickResumeContext(): Promise<ResumeContext | undefined> {
@@ -185,11 +315,13 @@ export function activate(context: vscode.ExtensionContext) {
   const agentsProvider = new AgentsProvider();
   const tasksProvider = new TasksProvider();
   const checkpointsProvider = new CheckpointsProvider();
+  const syncStatusProvider = new SyncStatusProvider();
 
   // Register tree views
   vscode.window.registerTreeDataProvider("syncpoint-agents", agentsProvider);
   vscode.window.registerTreeDataProvider("syncpoint-tasks", tasksProvider);
   vscode.window.registerTreeDataProvider("syncpoint-checkpoints", checkpointsProvider);
+  vscode.window.registerTreeDataProvider("syncpoint-sync-status", syncStatusProvider);
 
   // Commands
   context.subscriptions.push(
@@ -247,6 +379,7 @@ export function activate(context: vscode.ExtensionContext) {
       agentsProvider.refresh();
       tasksProvider.refresh();
       checkpointsProvider.refresh();
+      syncStatusProvider.refresh();
     }),
 
     vscode.commands.registerCommand("syncpoint.resumePrompt", async () => {
@@ -305,7 +438,11 @@ export function activate(context: vscode.ExtensionContext) {
     agentsProvider.refresh();
     tasksProvider.refresh();
     checkpointsProvider.refresh();
+    syncStatusProvider.refresh();
   });
+
+  // Initial load for sync status
+  syncStatusProvider.refresh();
 }
 
 export function deactivate() {

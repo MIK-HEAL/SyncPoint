@@ -35,3 +35,7 @@ export {
   createFileClaim, getFileClaim, releaseFileClaim,
   listFileClaims, listActiveFileClaims,
 } from "./file-claim-repository.js";
+export {
+  createSyncGate, getSyncGate, updateSyncGateStatus, updateSyncGateAckedAgents,
+  listSyncGates, listActiveSyncGates,
+} from "./sync-gate-repository.js";

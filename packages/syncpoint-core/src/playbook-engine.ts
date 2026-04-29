@@ -10,6 +10,7 @@ import { z } from "zod";
 import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus } from "./orchestration.js";
 import { ApprovalGateStatus } from "./review-workflow.js";
 import type { ApprovalGateResult } from "./review-workflow.js";
+import { RelationshipMode, MODE_SYNC_RULES, isModeActionAllowed } from "./relationship-mode.js";
 
 // ── Action Kinds ────────────────────────────────────
 
@@ -37,6 +38,10 @@ export const PlaybookActionKind = z.enum([
   // Shared actions
   "request-review",
   "handoff",
+
+  // Mode-specific sync actions
+  "claim-files",
+  "sync-checkpoint",
 
   // Terminal / informational
   "wait",
@@ -88,6 +93,9 @@ export interface SessionSnapshot {
 
   /** Open change request count per review request */
   openChanges: Record<string, number>;
+
+  /** Relationship mode for this session (optional, defaults to manager-delegate) */
+  relationshipMode?: RelationshipMode;
 }
 
 // ── Pure Computation ────────────────────────────────
@@ -149,6 +157,10 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
     }
   }
 
+  // ── Mode rules ──
+  const mode = snap.relationshipMode ?? RelationshipMode.MANAGER_DELEGATE;
+  const syncRules = MODE_SYNC_RULES[mode];
+
   // ── EXECUTING phase ──
   if (sessionStatus === SessionStatus.EXECUTING) {
     // Executor: accept / start / complete assignments
@@ -164,14 +176,27 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
             targetIds: { assignmentId: a.id, taskId: a.taskId },
           });
         } else if (a.status === TaskAssignmentStatus.ACCEPTED) {
-          actions.push({
-            action: "start-work",
-            reason: `Assignment ${a.id} is accepted. Start working on it.`,
-            cliHint: `syncpoint session start --assignment ${a.id}`,
-            mcpToolHint: "syncpoint_session_start",
-            priority: 1,
-            targetIds: { assignmentId: a.id, taskId: a.taskId },
-          });
+          // peer-contract: claim files before starting work
+          if (syncRules.requiresFileClaim) {
+            actions.push({
+              action: "claim-files",
+              reason: `Mode ${mode}: claim file ownership before starting work on task ${a.taskId}.`,
+              cliHint: `syncpoint file claim --agent ${agentId} --task ${a.taskId} --paths "src/..."`,
+              mcpToolHint: "syncpoint_file_claim",
+              priority: 1,
+              targetIds: { assignmentId: a.id, taskId: a.taskId },
+            });
+            // claim-files is required before start — don't suggest start-work yet
+          } else {
+            actions.push({
+              action: "start-work",
+              reason: `Assignment ${a.id} is accepted. Start working on it.`,
+              cliHint: `syncpoint session start --assignment ${a.id}`,
+              mcpToolHint: "syncpoint_session_start",
+              priority: 1,
+              targetIds: { assignmentId: a.id, taskId: a.taskId },
+            });
+          }
         } else if (a.status === TaskAssignmentStatus.IN_PROGRESS) {
           // Check for open change requests addressed to this task
           const relatedReview = snap.reviews.find(r => r.taskId === a.taskId);
@@ -195,6 +220,28 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
               priority: 2,
               targetIds: { assignmentId: a.id, taskId: a.taskId },
             });
+            // peer-contract: suggest sync checkpoint for parallel coordination
+            if (syncRules.requiresSyncGate) {
+              actions.push({
+                action: "sync-checkpoint",
+                reason: `Mode ${mode}: consider requesting sync if file overlap detected.`,
+                cliHint: `syncpoint sync request --task ${a.taskId} --agent ${agentId} --reason "checkpoint_required"`,
+                mcpToolHint: "syncpoint_sync_request",
+                priority: 2,
+                targetIds: { assignmentId: a.id, taskId: a.taskId },
+              });
+            }
+            // handoff-resume: suggest handoff instead of complete
+            if (mode === RelationshipMode.HANDOFF_RESUME) {
+              actions.push({
+                action: "handoff",
+                reason: `Mode ${mode}: hand off to next agent when ready.`,
+                cliHint: `syncpoint loop handoff --task ${a.taskId} --from ${agentId} --to <nextAgentId>`,
+                mcpToolHint: "syncpoint_loop_handoff",
+                priority: 2,
+                targetIds: { assignmentId: a.id, taskId: a.taskId },
+              });
+            }
             actions.push({
               action: "complete-assignment",
               reason: `Task ${a.taskId} is in progress. Complete if done.`,
@@ -313,10 +360,13 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
     }
   }
 
-  // Sort by priority
-  actions.sort((a, b) => a.priority - b.priority);
+  // Filter out actions that are blocked by the current mode
+  const filtered = actions.filter(a => isModeActionAllowed(mode, a.action) !== "blocked");
 
-  if (actions.length === 0) {
+  // Sort by priority
+  filtered.sort((a, b) => a.priority - b.priority);
+
+  if (filtered.length === 0) {
     return [{
       action: "wait",
       reason: "No actionable items for this agent right now.",
@@ -327,5 +377,5 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
     }];
   }
 
-  return actions;
+  return filtered;
 }

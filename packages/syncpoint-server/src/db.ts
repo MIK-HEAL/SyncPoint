@@ -249,14 +249,15 @@ export function runMigrations(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS orchestration_session (
-      id            TEXT PRIMARY KEY,
-      title         TEXT NOT NULL,
-      description   TEXT NOT NULL DEFAULT '',
-      status        TEXT NOT NULL DEFAULT 'PLANNING',
-      architect_id  TEXT,
-      created_by    TEXT NOT NULL DEFAULT '',
-      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+      id                  TEXT PRIMARY KEY,
+      title               TEXT NOT NULL,
+      description         TEXT NOT NULL DEFAULT '',
+      status              TEXT NOT NULL DEFAULT 'PLANNING',
+      relationship_mode   TEXT NOT NULL DEFAULT 'manager-delegate',
+      architect_id        TEXT,
+      created_by          TEXT NOT NULL DEFAULT '',
+      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS role_profile (
@@ -381,6 +382,24 @@ export function runMigrations(db: Database.Database): void {
       status      TEXT NOT NULL DEFAULT 'ACTIVE',
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       released_at TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_gate (
+      id                      TEXT PRIMARY KEY,
+      session_id              TEXT NOT NULL DEFAULT '',
+      task_id                 TEXT NOT NULL,
+      requested_by_agent_id   TEXT NOT NULL,
+      required_agent_ids      TEXT NOT NULL,
+      acked_agent_ids         TEXT NOT NULL DEFAULT '',
+      reason                  TEXT NOT NULL DEFAULT 'manual_request',
+      description             TEXT NOT NULL DEFAULT '',
+      related_files           TEXT NOT NULL DEFAULT '',
+      related_checkpoint_id   TEXT NOT NULL DEFAULT '',
+      related_claim_ids       TEXT NOT NULL DEFAULT '',
+      status                  TEXT NOT NULL DEFAULT 'NEEDS_SYNC',
+      decision_summary        TEXT NOT NULL DEFAULT '',
+      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 }

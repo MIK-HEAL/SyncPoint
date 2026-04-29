@@ -18,6 +18,7 @@ import { registerSessionCommands } from "./commands/session.js";
 import { registerReviewCommands } from "./commands/review.js";
 import { registerPlaybookCommands } from "./commands/playbook.js";
 import { registerDemoCommands } from "./commands/demo.js";
+import { registerSyncCommands } from "./commands/sync.js";
 
 const program = new Command();
 let keepDbOpen = false;
@@ -63,6 +64,7 @@ registerLoopCommand(program);
 registerSessionCommands(program);
 registerReviewCommands(program);
 registerPlaybookCommands(program);
+registerSyncCommands(program);
 registerDemoCommands(program);
 
 // ── Parse ────────────────────────────────────────────

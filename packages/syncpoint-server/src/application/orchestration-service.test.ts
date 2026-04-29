@@ -22,7 +22,9 @@ import {
   orchAdvanceSession,
   orchCancelSession,
 } from "./orchestration-service.js";
-import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus } from "syncpoint-core";
+import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus, RelationshipMode, getContextPolicyForMode } from "syncpoint-core";
+import { pbGetNextAction } from "./playbook-service.js";
+import { prepareContext } from "./context-policy-service.js";
 
 let tmpDir: string;
 let architectId: string;
@@ -265,5 +267,165 @@ describe("No transition when conditions not met", () => {
 
     const advance = orchAdvanceSession(sess.session.id);
     expect(advance.transitioned).toBe(false);
+  });
+});
+
+// ── P3: Relationship Mode ──
+
+describe("Relationship Mode integration", () => {
+  it("creates session with default manager-delegate mode", () => {
+    const sess = orchCreateSession({ title: "Default mode test", createdBy: "test" });
+    expect(sess.session.relationshipMode).toBe("manager-delegate");
+  });
+
+  it("creates session with peer-contract mode", () => {
+    const sess = orchCreateSession({
+      title: "Peer contract test",
+      relationshipMode: "peer-contract",
+      createdBy: "test",
+    });
+    expect(sess.session.relationshipMode).toBe("peer-contract");
+  });
+
+  it("creates session with handoff-resume mode", () => {
+    const sess = orchCreateSession({
+      title: "Handoff resume test",
+      relationshipMode: "handoff-resume",
+      createdBy: "test",
+    });
+    expect(sess.session.relationshipMode).toBe("handoff-resume");
+  });
+
+  it("peer-contract mode: playbook suggests claim-files for accepted assignment", () => {
+    const task = repo.createTask({ title: "Peer task", description: "" });
+    const sess = orchCreateSession({
+      title: "Peer playbook test",
+      relationshipMode: "peer-contract",
+      architectId: architectId,
+      createdBy: "test",
+    });
+    orchAssignRole({ sessionId: sess.session.id, agentId: executorId, role: "executor" as any });
+    orchPlanTask({
+      sessionId: sess.session.id,
+      taskId: task.id,
+      assigneeAgentId: executorId,
+      assignedBy: architectId,
+    });
+    orchAdvanceSession(sess.session.id); // → EXECUTING
+    orchAcceptAssignment(
+      repo.listTaskAssignments(sess.session.id).find(a => a.assigneeAgentId === executorId)!.id
+    );
+
+    const result = pbGetNextAction({ sessionId: sess.session.id, agentId: executorId });
+    const kinds = result.actions.map(a => a.action);
+    expect(kinds).toContain("claim-files");
+  });
+
+  it("handoff-resume mode: playbook suggests handoff for in-progress assignment", () => {
+    const task = repo.createTask({ title: "Handoff task", description: "" });
+    const sess = orchCreateSession({
+      title: "Handoff playbook test",
+      relationshipMode: "handoff-resume",
+      architectId: architectId,
+      createdBy: "test",
+    });
+    orchAssignRole({ sessionId: sess.session.id, agentId: executorId, role: "executor" as any });
+    orchPlanTask({
+      sessionId: sess.session.id,
+      taskId: task.id,
+      assigneeAgentId: executorId,
+      assignedBy: architectId,
+    });
+    orchAdvanceSession(sess.session.id);
+    const taId = repo.listTaskAssignments(sess.session.id).find(a => a.assigneeAgentId === executorId)!.id;
+    orchAcceptAssignment(taId);
+    orchStartAssignment(taId);
+
+    const result = pbGetNextAction({ sessionId: sess.session.id, agentId: executorId });
+    const kinds = result.actions.map(a => a.action);
+    expect(kinds).toContain("handoff");
+    expect(kinds).not.toContain("sync-checkpoint");
+  });
+
+  it("manager-delegate mode: no claim-files or handoff hints", () => {
+    const task = repo.createTask({ title: "Delegate task", description: "" });
+    const sess = orchCreateSession({
+      title: "Delegate playbook test",
+      architectId: architectId,
+      createdBy: "test",
+    });
+    orchAssignRole({ sessionId: sess.session.id, agentId: executorId, role: "executor" as any });
+    orchPlanTask({
+      sessionId: sess.session.id,
+      taskId: task.id,
+      assigneeAgentId: executorId,
+      assignedBy: architectId,
+    });
+    orchAdvanceSession(sess.session.id);
+    const taId = repo.listTaskAssignments(sess.session.id).find(a => a.assigneeAgentId === executorId)!.id;
+    orchAcceptAssignment(taId);
+    orchStartAssignment(taId);
+
+    const result = pbGetNextAction({ sessionId: sess.session.id, agentId: executorId });
+    const kinds = result.actions.map(a => a.action);
+    expect(kinds).not.toContain("claim-files");
+    expect(kinds).not.toContain("handoff");
+    expect(kinds).not.toContain("sync-checkpoint");
+  });
+});
+
+// ── P3 convergence: context-policy + mode end-to-end ──
+
+describe("Context policy mode-awareness (e2e)", () => {
+  it("peer-contract context requires approved-contract for execute", () => {
+    const policy = getContextPolicyForMode("execute", "peer-contract");
+    expect(policy.requiredSections).toContain("approved-contract");
+
+    // prepareContext should include the contract requirement
+    const task = repo.createTask({ title: "Peer ctx task", description: "" });
+    const prepared = prepareContext({
+      intent: "execute",
+      role: "executor",
+      taskId: task.id,
+      agentId: executorId,
+      relationshipMode: "peer-contract",
+    });
+    // approved-contract is required but no contract exists → missing
+    expect(prepared.missingSections).toContain("approved-contract");
+  });
+
+  it("manager-delegate context does NOT require approved-contract for execute", () => {
+    const task = repo.createTask({ title: "Delegate ctx task", description: "" });
+    const prepared = prepareContext({
+      intent: "execute",
+      role: "executor",
+      taskId: task.id,
+      agentId: executorId,
+      relationshipMode: "manager-delegate",
+    });
+    // approved-contract is only included (not required) in base execute
+    expect(prepared.missingSections).not.toContain("approved-contract");
+  });
+
+  it("handoff-resume downgrades review gate to none", () => {
+    const policy = getContextPolicyForMode("review", "handoff-resume");
+    expect(policy.gateMode).toBe("none");
+
+    const task = repo.createTask({ title: "Handoff review task", description: "" });
+    const prepared = prepareContext({
+      intent: "review",
+      role: "reviewer",
+      taskId: task.id,
+      agentId: reviewerId,
+      relationshipMode: "handoff-resume",
+    });
+    // Even with missing sections, ready=true because gateMode is none
+    expect(prepared.ready).toBe(true);
+  });
+
+  it("handoff-resume resume includes handoff-context", () => {
+    const policy = getContextPolicyForMode("resume", "handoff-resume");
+    expect(policy.includeSections).toContain("handoff-context");
+    expect(policy.requiredSections).toContain("latest-capsule");
   });
 });

@@ -133,3 +133,12 @@ export {
   listFileClaims,
   listActiveFileClaims,
 } from "./repositories/file-claim-repository.js";
+
+export {
+  createSyncGate,
+  getSyncGate,
+  updateSyncGateStatus,
+  updateSyncGateAckedAgents,
+  listSyncGates,
+  listActiveSyncGates,
+} from "./repositories/sync-gate-repository.js";
