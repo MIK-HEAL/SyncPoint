@@ -212,3 +212,17 @@ export type {
   PatchProposeInput,
   PatchStatusResult,
 } from "./patch-proposal-service.js";
+
+// SyncStatus (read-model / aggregation)
+export {
+  buildOverview,
+  buildSnapshot,
+  buildScopeFilter,
+  classifyBlockers,
+} from "./sync-status-service.js";
+
+export type {
+  OverviewInput,
+  SnapshotInput,
+  UnifiedBlocker,
+} from "./sync-status-service.js";
