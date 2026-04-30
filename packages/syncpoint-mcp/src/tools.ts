@@ -63,19 +63,21 @@ export function registerTools(server: McpServer): void {
     "syncpoint_loop_resume",
     {
       title: "Loop Resume",
-      description: "Resume a task — enforces context policy, generates adapter files and prompt. agentId is optional if connection is identity-bound.",
+      description: "Resume a task — enforces context policy, generates adapter files and prompt. agentId is optional if connection is identity-bound. contextMode: capsule-first (default), capsule-only (no raw checkpoint/project memory), capsule-locked (hard-block on any validation failure).",
       inputSchema: {
         agentId: z.string().optional(),
         taskId: z.string(),
         provider: z.string().optional(),
         format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),
+        contextMode: z.enum(["capsule-first", "capsule-only", "capsule-locked"]).optional(),
+        sessionId: z.string().optional(),
       },
     },
-    async ({ agentId, taskId, provider, format }) => {
+    async ({ agentId, taskId, provider, format, contextMode, sessionId }) => {
       try {
         const resolved = resolveBoundAgentId(agentId);
         if (!resolved) return fail(new Error("agentId required (no bound identity)"));
-        return ok(loopResume({ agentId: resolved, taskId, provider, format }));
+        return ok(loopResume({ agentId: resolved, taskId, provider, format, contextMode: contextMode as any, sessionId }));
       } catch (e) { return fail(e); }
     }
   );

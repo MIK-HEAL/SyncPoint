@@ -8,10 +8,12 @@ import {
   TaskStatus,
   buildAdapterInstruction,
   formatResumePrompt,
+  DEFAULT_CONTEXT_MODE,
 } from "syncpoint-core";
-import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext } from "syncpoint-core";
+import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
+import { assembleProtocolGate, validateCapsule, formatProtocolGatePrompt, formatCapsuleReality, formatValidationNotes } from "./protocol-gate-service.js";
 
 // ── Types ────────────────────────────────────────────
 
@@ -38,6 +40,8 @@ export interface LoopResumeInput {
   taskId: string;
   provider?: string;
   format?: PromptFormat;
+  contextMode?: ContextMode;
+  sessionId?: string;
 }
 
 export interface LoopResumeResult {
@@ -49,6 +53,10 @@ export interface LoopResumeResult {
   filesWritten: string[];
   files: Record<string, string>;
   prompt: string;
+  contextMode: string;
+  protocolGateBlocked: boolean;
+  capsuleValid: boolean;
+  validationNotes: string[];
 }
 
 export interface LoopCheckpointInput {
@@ -183,8 +191,12 @@ export function loopBoot(input: LoopBootInput): LoopBootResult {
 export function loopResume(input: LoopResumeInput): LoopResumeResult {
   const agent = repo.getAgent(input.agentId);
   const task = repo.getTask(input.taskId);
+  const mode: ContextMode = input.contextMode ?? DEFAULT_CONTEXT_MODE;
 
-  // 0. SyncGate hard gate — block resume if agent has unacknowledged gates
+  // 0. Protocol Gate — assemble all collaboration rules
+  const protocolGate = assembleProtocolGate(agent.id, task.id, input.sessionId);
+
+  // 0a. SyncGate hard gate — block resume if agent has unacknowledged gates
   const blockCheck = sgCheckAgent(agent.id, { taskId: task.id });
   if (blockCheck.blocked) {
     const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
@@ -197,6 +209,21 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     throw new LoopError(EXIT.CONTEXT_POLICY, `Context not ready: ${policy.warnings.join("; ")}`);
   }
 
+  // 1a. Capsule validation — agent-scoped checkpoint
+  const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
+  const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
+  const capsuleVal = validateCapsule(latestCapsule, latestCheckpoint, task.id, agent.id);
+
+  // 1b. capsule-locked mode hard-blocks on any validation failure or protocol gate violation
+  if (mode === "capsule-locked") {
+    if (protocolGate.blocked) {
+      throw new LoopError(EXIT.CONTEXT_POLICY, `Protocol gate blocked (locked mode): ${protocolGate.hardBlockers.join("; ")}`);
+    }
+    if (!capsuleVal.valid) {
+      throw new LoopError(EXIT.CONTEXT_POLICY, `Capsule validation failed (locked mode): ${capsuleVal.notes.join("; ")}`);
+    }
+  }
+
   // 2. Ensure task is IN_PROGRESS
   const freshTask = repo.getTask(task.id);
   if (freshTask.status === "READY_TO_WORK" || freshTask.status === "NEEDS_SYNC") {
@@ -205,12 +232,73 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
 
   // 3. Generate adapter files
   const ctx = repo.getResumeContext(task.id, agent.id);
+  ctx.contextMode = mode;
   const provider = input.provider ?? agent.name;
   const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "resume" as AdapterLifecycleEvent);
 
-  // 4. Format prompt
+  // 4. Build three-layer prompt
   const format = input.format ?? "system-prompt";
-  const prompt = formatResumePrompt(ctx, format);
+  let prompt: string;
+
+  if (format === "system-prompt") {
+    // P12 three-layer prompt structure
+    const sections: string[] = [];
+
+    sections.push("You are resuming work on a task managed by SyncPoint.");
+    sections.push("Below is the ONLY context you should use. Do NOT rely on prior conversation history.");
+    sections.push("");
+
+    // Layer 1: Protocol Gate
+    const gatePrompt = formatProtocolGatePrompt(protocolGate);
+    if (gatePrompt) sections.push(gatePrompt);
+
+    // Layer 2: Capsule Reality
+    sections.push(`## Task: ${ctx.task.title}`);
+    sections.push(`- ID: ${ctx.task.id}`);
+    sections.push(`- Status: ${ctx.task.status}`);
+    sections.push(`- Your role: ${ctx.agent.name} (${ctx.agent.role})`);
+    sections.push("");
+
+    if (ctx.latestCapsule) {
+      const capsulePrompt = formatCapsuleReality(ctx.latestCapsule as any);
+      if (capsulePrompt) sections.push(capsulePrompt);
+    }
+
+    // Include project knowledge in capsule-first mode only
+    if (mode === "capsule-first" && ctx.projectMemories && ctx.projectMemories.length > 0) {
+      sections.push("## Project Knowledge");
+      for (const m of ctx.projectMemories) {
+        sections.push(`### ${m.title} [${m.category}]`);
+        sections.push(m.content);
+        sections.push("");
+      }
+    }
+
+    // Include checkpoint in capsule-first mode only
+    if (mode === "capsule-first" && ctx.latestCheckpoint) {
+      sections.push("## Latest Checkpoint");
+      sections.push(`- ${ctx.latestCheckpoint.summary}`);
+      if (ctx.latestCheckpoint.progress) sections.push(`- Progress: ${ctx.latestCheckpoint.progress}`);
+      if (ctx.latestCheckpoint.nextSteps) sections.push(`- Next: ${ctx.latestCheckpoint.nextSteps}`);
+      if (ctx.latestCheckpoint.needSync) sections.push("- ⚠ Sync required before continuing");
+      sections.push("");
+    }
+
+    // Layer 3: Validation Notes
+    const valPrompt = formatValidationNotes(capsuleVal);
+    if (valPrompt) sections.push(valPrompt);
+
+    if (ctx.warnings.length > 0) {
+      sections.push("## Warnings");
+      for (const w of ctx.warnings) sections.push(`- ${w}`);
+      sections.push("");
+    }
+
+    prompt = sections.join("\n");
+  } else {
+    // Non-system-prompt formats use legacy formatter
+    prompt = formatResumePrompt(ctx, format);
+  }
 
   return {
     ok: true,
@@ -221,6 +309,10 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     filesWritten: Object.keys(instruction.files),
     files: instruction.files,
     prompt,
+    contextMode: mode,
+    protocolGateBlocked: protocolGate.blocked,
+    capsuleValid: capsuleVal.valid,
+    validationNotes: capsuleVal.notes,
   };
 }
 

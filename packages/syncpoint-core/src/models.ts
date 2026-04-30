@@ -198,6 +198,17 @@ export const ContextCapsuleSchema = z.object({
   blockers: z.string().default(""),
   nextSteps: z.string().default(""),
   resumePrompt: z.string().default(""),
+  // P12 extended capsule fields
+  intentScope: z.string().default(""),
+  nonGoals: z.string().default(""),
+  verifiedFacts: z.string().default(""),
+  unverifiedClaims: z.string().default(""),
+  evidenceRefs: z.string().default(""),
+  activeConstraints: z.string().default(""),
+  doNotTouch: z.string().default(""),
+  handoffInstructions: z.string().default(""),
+  validationStatus: z.string().default(""),
+  staleReason: z.string().default(""),
   createdAt: isoDate,
 });
 
@@ -218,9 +229,18 @@ export const ContextCapsuleCreateSchema = z.object({
   blockers: z.string().default(""),
   nextSteps: z.string().default(""),
   resumePrompt: z.string().default(""),
+  // P12 extended capsule fields (all optional for backward compat)
+  intentScope: z.string().optional().default(""),
+  nonGoals: z.string().optional().default(""),
+  verifiedFacts: z.string().optional().default(""),
+  unverifiedClaims: z.string().optional().default(""),
+  evidenceRefs: z.string().optional().default(""),
+  activeConstraints: z.string().optional().default(""),
+  doNotTouch: z.string().optional().default(""),
+  handoffInstructions: z.string().optional().default(""),
 });
 
-export type ContextCapsuleCreate = z.infer<typeof ContextCapsuleCreateSchema>;
+export type ContextCapsuleCreate = z.input<typeof ContextCapsuleCreateSchema>;
 
 // ── Event ──────────────────────────────────────────────
 

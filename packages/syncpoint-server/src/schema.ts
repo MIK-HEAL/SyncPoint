@@ -124,6 +124,17 @@ export const contextCapsules = sqliteTable("context_capsule", {
   blockers: text("blockers").notNull().default(""),
   nextSteps: text("next_steps").notNull().default(""),
   resumePrompt: text("resume_prompt").notNull().default(""),
+  // P12 extended capsule fields
+  intentScope: text("intent_scope").notNull().default(""),
+  nonGoals: text("non_goals").notNull().default(""),
+  verifiedFacts: text("verified_facts").notNull().default(""),
+  unverifiedClaims: text("unverified_claims").notNull().default(""),
+  evidenceRefs: text("evidence_refs").notNull().default(""),
+  activeConstraints: text("active_constraints").notNull().default(""),
+  doNotTouch: text("do_not_touch").notNull().default(""),
+  handoffInstructions: text("handoff_instructions").notNull().default(""),
+  validationStatus: text("validation_status").notNull().default(""),
+  staleReason: text("stale_reason").notNull().default(""),
   createdAt: text("created_at").notNull(),
 });
 

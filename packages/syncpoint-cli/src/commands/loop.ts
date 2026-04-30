@@ -2,7 +2,7 @@
  * CLI: syncpoint loop — composite agent workflow commands.
  */
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -80,6 +80,8 @@ export function registerLoopCommand(program: Command): void {
         .requiredOption("--task <taskId>", "Task ID")
         .option("--provider <provider>", "Editor provider override")
         .option("--format <format>", "Prompt output format: system-prompt|cursorrules|agents-md|clipboard", "system-prompt")
+        .addOption(new Option("--context-mode <mode>", "Context mode").choices(["capsule-first", "capsule-only", "capsule-locked"]))
+        .option("--session <sessionId>", "Session ID for protocol gate scoping")
         .option("--json", "Machine-readable JSON output")
         .action(async (opts) => {
           const isJson = !!opts.json;
@@ -89,6 +91,8 @@ export function registerLoopCommand(program: Command): void {
               taskId: opts.task,
               provider: opts.provider,
               format: opts.format,
+              contextMode: opts.contextMode,
+              sessionId: opts.session,
             });
             writeFiles(result.files);
 

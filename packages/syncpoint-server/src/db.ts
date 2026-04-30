@@ -209,6 +209,16 @@ export function runMigrations(db: Database.Database): void {
       blockers             TEXT NOT NULL DEFAULT '',
       next_steps           TEXT NOT NULL DEFAULT '',
       resume_prompt        TEXT NOT NULL DEFAULT '',
+      intent_scope         TEXT NOT NULL DEFAULT '',
+      non_goals            TEXT NOT NULL DEFAULT '',
+      verified_facts       TEXT NOT NULL DEFAULT '',
+      unverified_claims    TEXT NOT NULL DEFAULT '',
+      evidence_refs        TEXT NOT NULL DEFAULT '',
+      active_constraints   TEXT NOT NULL DEFAULT '',
+      do_not_touch         TEXT NOT NULL DEFAULT '',
+      handoff_instructions TEXT NOT NULL DEFAULT '',
+      validation_status    TEXT NOT NULL DEFAULT '',
+      stale_reason         TEXT NOT NULL DEFAULT '',
       created_at           TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -454,5 +464,17 @@ export function runMigrations(db: Database.Database): void {
   const addColumn = (table: string, col: string, def: string) => {
     try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); } catch { /* already exists */ }
   };
+  // P11 runtime identity
   addColumn("agent", "runtime_id", "TEXT");
+  // P12 extended capsule fields
+  addColumn("context_capsule", "intent_scope", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "non_goals", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "verified_facts", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "unverified_claims", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "evidence_refs", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "active_constraints", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "do_not_touch", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "handoff_instructions", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "validation_status", "TEXT NOT NULL DEFAULT ''");
+  addColumn("context_capsule", "stale_reason", "TEXT NOT NULL DEFAULT ''");
 }

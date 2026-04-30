@@ -43,8 +43,14 @@ export function formatResumePrompt(
 
 // ── system-prompt ─────────────────────────────────────
 
+/** Check if mode restricts to capsule-only content (no raw checkpoint/project memory) */
+function isCapsuleRestricted(ctx: ResumeContext): boolean {
+  return ctx.contextMode === "capsule-only" || ctx.contextMode === "capsule-locked";
+}
+
 function formatSystemPrompt(ctx: ResumeContext): string {
   const lines: string[] = [];
+  const restricted = isCapsuleRestricted(ctx);
 
   lines.push("You are resuming work on a task managed by SyncPoint.");
   lines.push("Below is the ONLY context you should use. Do NOT rely on prior conversation history.");
@@ -58,7 +64,7 @@ function formatSystemPrompt(ctx: ResumeContext): string {
     lines.push("");
   }
 
-  if (ctx.projectMemories && ctx.projectMemories.length > 0) {
+  if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
     lines.push("## Project Knowledge");
     for (const m of ctx.projectMemories) {
       lines.push(`### ${m.title} [${m.category}]`);
@@ -101,7 +107,7 @@ function formatSystemPrompt(ctx: ResumeContext): string {
     }
   }
 
-  if (ctx.latestCheckpoint) {
+  if (!restricted && ctx.latestCheckpoint) {
     lines.push("## Latest Checkpoint");
     lines.push(`- ${ctx.latestCheckpoint.summary}`);
     if (ctx.latestCheckpoint.progress) lines.push(`- Progress: ${ctx.latestCheckpoint.progress}`);
@@ -130,6 +136,7 @@ function formatSystemPrompt(ctx: ResumeContext): string {
 
 function formatCursorRules(ctx: ResumeContext): string {
   const lines: string[] = [];
+  const restricted = isCapsuleRestricted(ctx);
 
   lines.push("# SyncPoint Resume Context");
   lines.push("# Auto-generated — do not edit manually");
@@ -147,7 +154,7 @@ function formatCursorRules(ctx: ResumeContext): string {
     lines.push("");
   }
 
-  if (ctx.projectMemories && ctx.projectMemories.length > 0) {
+  if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
     lines.push("## Project Knowledge");
     for (const m of ctx.projectMemories) {
       lines.push(`## ${m.title} [${m.category}]`);
@@ -185,7 +192,7 @@ function formatCursorRules(ctx: ResumeContext): string {
     }
   }
 
-  if (ctx.latestCheckpoint) {
+  if (!restricted && ctx.latestCheckpoint) {
     lines.push("## Checkpoint");
     lines.push(ctx.latestCheckpoint.summary);
     if (ctx.latestCheckpoint.needSync) lines.push("⚠ SYNC REQUIRED");
@@ -199,6 +206,7 @@ function formatCursorRules(ctx: ResumeContext): string {
 
 function formatAgentsMd(ctx: ResumeContext): string {
   const lines: string[] = [];
+  const restricted = isCapsuleRestricted(ctx);
 
   lines.push("# AGENTS.md — SyncPoint Project Knowledge");
   lines.push("");
@@ -215,7 +223,7 @@ function formatAgentsMd(ctx: ResumeContext): string {
     lines.push("");
   }
 
-  if (ctx.projectMemories && ctx.projectMemories.length > 0) {
+  if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
     lines.push("## Project Knowledge");
     lines.push("");
     for (const m of ctx.projectMemories) {
@@ -292,7 +300,29 @@ function formatAgentsMd(ctx: ResumeContext): string {
 // ── checkpoint-md ─────────────────────────────────────
 
 function formatCheckpointMd(ctx: ResumeContext): string {
-  // This is essentially the raw resumePrompt already built by the server
+  if (isCapsuleRestricted(ctx)) {
+    // In capsule-only/locked mode, build a capsule-only checkpoint doc
+    const lines: string[] = [];
+    lines.push(`# Checkpoint — ${ctx.task.title}`);
+    lines.push("");
+    if (ctx.latestCapsule) {
+      lines.push(`**Goal**: ${ctx.latestCapsule.goal}`);
+      lines.push(`**Phase**: ${ctx.latestCapsule.currentPhase}`);
+      if (ctx.latestCapsule.remainingWork) lines.push(`**Remaining**: ${ctx.latestCapsule.remainingWork}`);
+      if (ctx.latestCapsule.nextSteps) lines.push(`**Next**: ${ctx.latestCapsule.nextSteps}`);
+      if (ctx.latestCapsule.blockers) lines.push(`**Blockers**: ${ctx.latestCapsule.blockers}`);
+      lines.push("");
+      if (ctx.latestCapsule.resumePrompt) {
+        lines.push("## Resume Instructions");
+        lines.push(ctx.latestCapsule.resumePrompt);
+        lines.push("");
+      }
+    } else {
+      lines.push("⚠ No capsule available.");
+    }
+    return lines.join("\n");
+  }
+  // Legacy: raw resumePrompt (may contain project knowledge + checkpoint)
   return ctx.resumePrompt;
 }
 

@@ -256,6 +256,15 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
       blockers: capsule.blockers,
       nextSteps: capsule.nextSteps,
       resumePrompt: capsule.resumePrompt,
+      // P12 extended fields
+      intentScope: (capsule as any).intentScope ?? "",
+      nonGoals: (capsule as any).nonGoals ?? "",
+      verifiedFacts: (capsule as any).verifiedFacts ?? "",
+      unverifiedClaims: (capsule as any).unverifiedClaims ?? "",
+      evidenceRefs: (capsule as any).evidenceRefs ?? "",
+      activeConstraints: (capsule as any).activeConstraints ?? "",
+      doNotTouch: (capsule as any).doNotTouch ?? "",
+      handoffInstructions: (capsule as any).handoffInstructions ?? "",
       createdAt: capsule.createdAt,
     } : null,
     latestCheckpoint: checkpoint ? {
@@ -272,6 +281,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
     projectMemories: projectMems,
     resumePrompt,
     warnings,
+    contextMode: "capsule-first",
     generatedAt: now(),
   };
 }

@@ -91,6 +91,15 @@ export const ResumeContextSchema = z.object({
     blockers: z.string(),
     nextSteps: z.string(),
     resumePrompt: z.string(),
+    // P12 extended fields
+    intentScope: z.string().default(""),
+    nonGoals: z.string().default(""),
+    verifiedFacts: z.string().default(""),
+    unverifiedClaims: z.string().default(""),
+    evidenceRefs: z.string().default(""),
+    activeConstraints: z.string().default(""),
+    doNotTouch: z.string().default(""),
+    handoffInstructions: z.string().default(""),
     createdAt: z.string(),
   }).nullable(),
   /** Latest checkpoint (null if none) */
@@ -120,6 +129,8 @@ export const ResumeContextSchema = z.object({
   resumePrompt: z.string(),
   /** Warnings or required actions before resume */
   warnings: z.array(z.string()),
+  /** P12: Context mode used for this resume */
+  contextMode: z.string().default("capsule-first"),
   generatedAt: z.string(),
 });
 

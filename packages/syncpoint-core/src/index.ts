@@ -361,3 +361,20 @@ export type {
   BoundIdentity,
   IdentityEnv,
 } from "./runtime.js";
+
+// Capsule Dominant Context
+export {
+  ContextMode,
+  DEFAULT_CONTEXT_MODE,
+  ProtocolRuleSchema,
+  ProtocolGateSummarySchema,
+  CapsuleValidationSchema,
+  CapsuleExtendedFieldsSchema,
+} from "./capsule-context.js";
+
+export type {
+  ProtocolRule,
+  ProtocolGateSummary,
+  CapsuleValidation,
+  CapsuleExtendedFields,
+} from "./capsule-context.js";

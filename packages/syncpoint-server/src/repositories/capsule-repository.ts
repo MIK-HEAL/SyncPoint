@@ -32,6 +32,15 @@ export function createCapsule(data: ContextCapsuleCreate): ContextCapsule {
     blockers: data.blockers,
     nextSteps: data.nextSteps,
     resumePrompt: data.resumePrompt,
+    // P12 extended fields
+    intentScope: data.intentScope ?? "",
+    nonGoals: data.nonGoals ?? "",
+    verifiedFacts: data.verifiedFacts ?? "",
+    unverifiedClaims: data.unverifiedClaims ?? "",
+    evidenceRefs: data.evidenceRefs ?? "",
+    activeConstraints: data.activeConstraints ?? "",
+    doNotTouch: data.doNotTouch ?? "",
+    handoffInstructions: data.handoffInstructions ?? "",
     createdAt: ts,
   }).run();
   logEvent(EventType.CAPSULE_CREATED, "capsule", id);

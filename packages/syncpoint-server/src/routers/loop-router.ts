@@ -32,6 +32,8 @@ export const loopRouter = t.router({
       taskId: z.string(),
       provider: z.string().optional(),
       format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),
+      contextMode: z.enum(["capsule-first", "capsule-only", "capsule-locked"]).optional(),
+      sessionId: z.string().optional(),
     }))
     .mutation(({ input }) => {
       const result = loopResume(input);

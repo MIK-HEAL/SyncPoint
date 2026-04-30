@@ -28,6 +28,7 @@ export {
 export {
   createCheckpoint,
   listCheckpoints,
+  getLatestCheckpointForAgent,
   createDiaryEntry,
   listDiaryEntries,
 } from "./repositories/checkpoint-repository.js";
@@ -61,6 +62,7 @@ export {
   listPinnedMemories,
   updatePinnedMemory,
   deletePinnedMemory,
+  collectPinnedMemories,
 } from "./repositories/memory-repository.js";
 
 export {

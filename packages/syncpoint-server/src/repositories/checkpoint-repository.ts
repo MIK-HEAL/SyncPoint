@@ -2,7 +2,7 @@
  * Checkpoint + DiaryEntry repository.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import * as s from "../schema.js";
 import { EventType } from "syncpoint-core";
 import type { Checkpoint, CheckpointCreate, DiaryEntry, DiaryEntryCreate } from "syncpoint-core";
@@ -37,6 +37,15 @@ export function createCheckpoint(data: CheckpointCreate): Checkpoint {
 export function listCheckpoints(taskId: string): Checkpoint[] {
   getTask(taskId);
   return _getDb().select().from(s.checkpoints).where(eq(s.checkpoints.taskId, taskId)).all() as unknown as Checkpoint[];
+}
+
+export function getLatestCheckpointForAgent(taskId: string, agentId: string): Checkpoint | null {
+  const rows = _getDb().select().from(s.checkpoints)
+    .where(and(eq(s.checkpoints.taskId, taskId), eq(s.checkpoints.agentId, agentId)))
+    .orderBy(desc(s.checkpoints.createdAt))
+    .limit(1)
+    .all() as unknown as Checkpoint[];
+  return rows[0] ?? null;
 }
 
 export function createDiaryEntry(data: DiaryEntryCreate): DiaryEntry {

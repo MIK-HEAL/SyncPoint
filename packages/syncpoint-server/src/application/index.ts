@@ -226,3 +226,12 @@ export type {
   SnapshotInput,
   UnifiedBlocker,
 } from "./sync-status-service.js";
+
+// Protocol Gate & Capsule Validation (P12)
+export {
+  assembleProtocolGate,
+  validateCapsule,
+  formatProtocolGatePrompt,
+  formatValidationNotes,
+  formatCapsuleReality,
+} from "./protocol-gate-service.js";
