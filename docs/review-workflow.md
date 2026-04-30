@@ -1,8 +1,8 @@
-# Review Workflow
+# Review Workflow As A Sync Gate
 
-SyncPoint v0.8 adds a review and approval layer on top of v0.7 orchestration.
+SyncPoint review records evidence and approval decisions at a synchronization boundary.
 It does not run agents automatically. It records what was reviewed, what
-evidence supports the decision, and whether approval is blocked.
+evidence supports the decision, and whether another agent is blocked from continuing.
 
 ## Flow
 
@@ -118,6 +118,5 @@ syncpoint_review_with_evidence
 
 ## Boundary
 
-Review workflow delegates session state changes to the v0.7 orchestration
-service. Checklist, evidence, change requests, and gate evaluation stay in
-the v0.8 review workflow service.
+Review commands update session state through the shared application service.
+Checklist, evidence, change requests, and approval-gate evaluation remain the review layer's responsibility.

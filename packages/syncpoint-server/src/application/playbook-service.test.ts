@@ -24,6 +24,7 @@ import {
   rwAddEvidence,
 } from "./review-workflow-service.js";
 import { pbGetNextAction, pbCaptureEvidence, pbGetActiveSession } from "./playbook-service.js";
+import { fcClaimFiles } from "./file-claim-service.js";
 import { ChecklistItemStatus } from "syncpoint-core";
 
 let tmpDir: string;
@@ -218,5 +219,64 @@ describe("pbGetActiveSession", () => {
     const lonely = repo.createAgent({ name: "lonely-agent", provider: "cursor", role: "other" });
     const result = pbGetActiveSession(lonely.id);
     expect(result).toBeNull();
+  });
+});
+
+// ── P7 peer-contract claim → start-work transition ──
+
+describe("peer-contract playbook claim → start-work", () => {
+  let pcSessionId: string;
+  let pcExecId: string;
+  let pcArchId: string;
+  let pcAssignmentId: string;
+  let pcTaskId: string;
+
+  beforeAll(() => {
+    const arch = repo.createAgent({ name: "pc-arch", provider: "codex", role: "manager" });
+    const exec = repo.createAgent({ name: "pc-exec", provider: "cursor", role: "backend" });
+    pcArchId = arch.id;
+    pcExecId = exec.id;
+
+    const sess = orchCreateSession({
+      title: "PC playbook test",
+      createdBy: pcArchId,
+      relationshipMode: "peer-contract",
+    });
+    pcSessionId = sess.session.id;
+    orchAssignRole({ sessionId: pcSessionId, agentId: pcArchId, role: "architect" as any });
+    orchAssignRole({ sessionId: pcSessionId, agentId: pcExecId, role: "executor" as any });
+
+    const task = repo.createTask({ title: "PC playbook task", description: "" });
+    pcTaskId = task.id;
+    const ta = orchPlanTask({
+      sessionId: pcSessionId,
+      taskId: pcTaskId,
+      assigneeAgentId: pcExecId,
+      assignedBy: pcArchId,
+    });
+    pcAssignmentId = ta.id;
+    orchAdvanceSession(pcSessionId);   // PLANNING → EXECUTING
+    orchAcceptAssignment(pcAssignmentId);
+  });
+
+  it("before claim: playbook suggests claim-files, not start-work", () => {
+    const result = pbGetNextAction({ sessionId: pcSessionId, agentId: pcExecId });
+    const kinds = result.actions.map(a => a.action);
+    expect(kinds).toContain("claim-files");
+    expect(kinds).not.toContain("start-work");
+  });
+
+  it("after claim: playbook suggests start-work, not claim-files", () => {
+    fcClaimFiles({
+      agentId: pcExecId,
+      taskId: pcTaskId,
+      sessionId: pcSessionId,
+      paths: "src/feature.ts",
+    });
+
+    const result = pbGetNextAction({ sessionId: pcSessionId, agentId: pcExecId });
+    const kinds = result.actions.map(a => a.action);
+    expect(kinds).toContain("start-work");
+    expect(kinds).not.toContain("claim-files");
   });
 });

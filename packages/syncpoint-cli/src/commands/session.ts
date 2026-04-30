@@ -1,5 +1,5 @@
 /**
- * CLI commands for orchestration sessions.
+ * CLI commands for synchronization sessions.
  */
 
 import { Command } from "commander";
@@ -23,12 +23,12 @@ import { RelationshipMode } from "syncpoint-core";
 export function registerSessionCommands(program: Command): void {
   const session = program
     .command("session")
-    .description("Manage orchestration sessions");
+    .description("Manage synchronization sessions");
 
   // ── create ─────────────────────────────────────────
   session
     .command("create")
-    .description("Create a new orchestration session")
+    .description("Create a new synchronization session")
     .requiredOption("--title <title>", "Session title")
     .option("--description <desc>", "Session description")
     .option("--architect <agentId>", "Architect agent ID")
@@ -61,7 +61,7 @@ export function registerSessionCommands(program: Command): void {
   // ── status ─────────────────────────────────────────
   session
     .command("status")
-    .description("Get session status overview")
+    .description("Get synchronization session status overview")
     .requiredOption("--session <id>", "Session ID")
     .option("--json", "Output JSON")
     .action((opts) => {
@@ -81,7 +81,7 @@ export function registerSessionCommands(program: Command): void {
   // ── assign-role ────────────────────────────────────
   session
     .command("assign-role")
-    .description("Assign a role to an agent within a session")
+    .description("Assign a sync responsibility to an agent within a session")
     .requiredOption("--session <id>", "Session ID")
     .requiredOption("--agent <agentId>", "Agent ID")
     .requiredOption("--role <role>", "Role: architect|executor|reviewer|owner")
@@ -102,7 +102,7 @@ export function registerSessionCommands(program: Command): void {
   // ── plan ───────────────────────────────────────────
   session
     .command("plan")
-    .description("Plan a task assignment within a session")
+    .description("Plan a task assignment within a sync session")
     .requiredOption("--session <id>", "Session ID")
     .requiredOption("--task <taskId>", "Task ID")
     .requiredOption("--assignee <agentId>", "Assignee agent ID")
@@ -141,7 +141,7 @@ export function registerSessionCommands(program: Command): void {
   // ── start ──────────────────────────────────────────
   session
     .command("start")
-    .description("Start working on an assignment")
+    .description("Start work if no synchronization gate blocks the assignment")
     .requiredOption("--assignment <id>", "Assignment ID")
     .option("--json", "Output JSON")
     .action((opts) => {

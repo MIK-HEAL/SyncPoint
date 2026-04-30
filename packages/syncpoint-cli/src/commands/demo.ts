@@ -120,7 +120,7 @@ function writeReport(outputPath: string, data: {
   lines.push(`- Contract ID: \`${data.contract.id}\``);
   lines.push(`- Contract status: \`${data.contract.status}\``);
   lines.push("");
-  lines.push("## Orchestration");
+  lines.push("## Synchronization Session");
   lines.push("");
   lines.push(`- Session ID: \`${data.session.id}\``);
   lines.push(`- Session status: \`${data.finalSessionStatus.session.status}\``);
@@ -201,7 +201,7 @@ export function registerDemoCommands(program: Command): void {
           scope: ProjectMemoryScope.PROJECT,
           category: ProjectMemoryCategory.OVERVIEW,
           title: "SyncPoint MVP positioning",
-          content: "SyncPoint is a local multi-agent collaboration protocol layer for editor agents.",
+          content: "SyncPoint is a local synchronization protocol layer for editor AI agents.",
           tags: "mvp,positioning",
           sourceType: ProjectMemorySourceType.AGENT,
           sourceRef: "syncpoint-demo-mvp",
@@ -260,7 +260,7 @@ export function registerDemoCommands(program: Command): void {
 
       const sessionResult = orchCreateSession({
         title: "MVP Demo Session",
-        description: "Presentation-ready SyncPoint multi-agent collaboration session.",
+        description: "Presentation-ready SyncPoint synchronization session.",
         architectId: architect.id,
         createdBy: "demo",
       });
@@ -282,7 +282,7 @@ export function registerDemoCommands(program: Command): void {
         agentId: executor.id,
         summary: "MVP workflow implemented for demo data.",
         progress: "100%",
-        currentUnderstanding: "SyncPoint can coordinate role orchestration and evidence-backed review.",
+        currentUnderstanding: "SyncPoint can coordinate synchronization boundaries and evidence-backed review.",
         changedFiles: "packages/syncpoint-cli/src/commands/demo.ts, docs/mvp-showcase.md",
         risks: "Keep MVP focused on local protocol and avoid overpromising automatic runtime.",
         blockers: "",

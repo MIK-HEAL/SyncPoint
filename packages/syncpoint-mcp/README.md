@@ -1,8 +1,8 @@
 # syncpoint-mcp
 
-SyncPoint MCP Server — Model Context Protocol adapter for multi-agent collaboration.
+SyncPoint MCP Server — Model Context Protocol adapter for editor AI synchronization obligations.
 
-Exposes SyncPoint's collaboration state, loop operations, project memory, and prompt templates to any MCP-compatible editor agent (Cursor, Claude Code, VS Code, Codex, etc.) via **stdio transport**.
+Exposes SyncPoint's sync state, continuation blockers, file claims, loop operations, project memory, and prompt templates to any MCP-compatible editor agent (Cursor, Claude Code, VS Code, Codex, etc.) via **stdio transport**.
 
 ## Quick Start
 
@@ -94,7 +94,7 @@ Add to `.vscode/mcp.json`:
 | `syncpoint://task/{taskId}/resume-context/{agentId}` | Full resume context |
 | `syncpoint://project-memory` | All approved project memories |
 | `syncpoint://project-memory/{category}` | Memories by category |
-| `syncpoint://session/{sessionId}` | Orchestration session detail |
+| `syncpoint://session/{sessionId}` | Synchronization session detail |
 | `syncpoint://review/{reviewRequestId}/packet` | Review packet with checklist, evidence, changes, gate |
 
 ### Tools (state-mutating, 30 total)
@@ -110,15 +110,15 @@ Add to `.vscode/mcp.json`:
 | `syncpoint_project_memory_add` | Add new project memory (draft) |
 | `syncpoint_project_memory_approve` | Approve a draft memory |
 | `syncpoint_project_memory_export` | Export to .syncpoint/project-memory.md |
-| `syncpoint_session_*` | Create sessions, assign roles, plan tasks, request reviews, decide, advance |
+| `syncpoint_session_*` | Create sync sessions, assign responsibilities, plan tasks, request reviews, decide, advance |
 | `syncpoint_review_*` | Checklist, evidence, change requests, approval gate, approve/block, review packet |
 
 ### Prompts (templates, 12 total)
 
 | Prompt | Description |
 |---|---|
-| `syncpoint_resume` | Resume prompt for continuing a task |
-| `syncpoint_checkpoint` | Guide agent to produce structured checkpoint |
+| `syncpoint_resume` | Resume prompt with synchronization blockers and context |
+| `syncpoint_checkpoint` | Guide agent to produce a structured checkpoint for sync |
 | `syncpoint_handoff` | Guide agent to produce handoff context |
 | `syncpoint_project_onboarding` | Onboard new agent with project memory |
 | `syncpoint_memory_review` | Review all project memories for curation |

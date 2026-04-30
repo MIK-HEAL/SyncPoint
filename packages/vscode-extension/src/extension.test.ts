@@ -43,9 +43,7 @@ describe("SyncPoint VS Code Extension", () => {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 
     const views = pkg.contributes.views.syncpoint.map((v: any) => v.id);
-    expect(views).toContain("syncpoint-agents");
-    expect(views).toContain("syncpoint-tasks");
-    expect(views).toContain("syncpoint-checkpoints");
+    expect(views).toContain("syncpoint-sync-view");
   });
 
   it("package.json declares activation events and engine", async () => {

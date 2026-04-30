@@ -96,6 +96,9 @@ export interface SessionSnapshot {
 
   /** Relationship mode for this session (optional, defaults to manager-delegate) */
   relationshipMode?: RelationshipMode;
+
+  /** Task IDs for which this agent already has active file claims */
+  activeClaimTaskIds?: string[];
 }
 
 // ── Pure Computation ────────────────────────────────
@@ -177,7 +180,8 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
           });
         } else if (a.status === TaskAssignmentStatus.ACCEPTED) {
           // peer-contract: claim files before starting work
-          if (syncRules.requiresFileClaim) {
+          const hasClaims = (snap.activeClaimTaskIds ?? []).includes(a.taskId);
+          if (syncRules.requiresFileClaim && !hasClaims) {
             actions.push({
               action: "claim-files",
               reason: `Mode ${mode}: claim file ownership before starting work on task ${a.taskId}.`,

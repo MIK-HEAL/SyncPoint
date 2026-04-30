@@ -9,12 +9,12 @@ import type { EvidenceKind } from "syncpoint-core";
 export function registerPlaybookCommands(program: Command): void {
   const playbook = program
     .command("playbook")
-    .description("Orchestration playbook — next actions and evidence capture");
+    .description("Synchronization playbook — next sync actions and evidence capture");
 
   // ── next-action ────────────────────────────────────
   playbook
     .command("next-action")
-    .description("Get the next recommended action for an agent in a session")
+    .description("Get the next recommended sync action for an agent in a session")
     .requiredOption("--session <id>", "Session ID")
     .requiredOption("--agent <id>", "Agent ID")
     .option("--json", "Output JSON")
@@ -42,7 +42,7 @@ export function registerPlaybookCommands(program: Command): void {
   // ── active-session ─────────────────────────────────
   playbook
     .command("active-session")
-    .description("Find the active session for an agent and show next actions")
+    .description("Find the active sync session for an agent and show next actions")
     .requiredOption("--agent <id>", "Agent ID")
     .option("--json", "Output JSON")
     .action((opts) => {

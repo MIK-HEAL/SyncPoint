@@ -54,6 +54,19 @@ export function rejectHandoff(id: string): Handoff {
   return db.select().from(s.handoffs).where(eq(s.handoffs.id, id)).get() as unknown as Handoff;
 }
 
+export function listHandoffs(): Handoff[] {
+  return _getDb().select().from(s.handoffs)
+    .orderBy(desc(s.handoffs.createdAt))
+    .all() as unknown as Handoff[];
+}
+
+export function listPendingHandoffs(): Handoff[] {
+  return _getDb().select().from(s.handoffs)
+    .where(eq(s.handoffs.status, HandoffStatus.PENDING))
+    .orderBy(desc(s.handoffs.createdAt))
+    .all() as unknown as Handoff[];
+}
+
 export function getLatestHandoffForReceiver(taskId: string, toAgentId: string): Handoff | undefined {
   return _getDb().select().from(s.handoffs)
     .where(and(eq(s.handoffs.taskId, taskId), eq(s.handoffs.toAgentId, toAgentId)))

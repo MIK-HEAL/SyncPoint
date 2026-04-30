@@ -2,161 +2,156 @@
 
 # SyncPoint
 
-**AI Agent Synchronization Protocol**
+**Synchronization protocol layer for editor AI agents**
 
-*让多个 AI 编程助手在同一个项目里停在正确的同步点，确认边界、交接上下文，再继续工作。*
+*让多个编辑器 AI 在关键同步点停下、对齐、再继续。*
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-≥20-green?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-≥9-orange?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![pnpm](https://img.shields.io/badge/pnpm-≥9-orange?logo=pnpm)](https://pnpm.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 </div>
 
 ---
 
-## The Core Idea
+## One Sentence
 
-Multiple AI coding agents are powerful, but they do not naturally share state. Codex may edit a file while Claude plans a conflicting change; Cursor may review stale work; a handoff may lose the real context.
+SyncPoint is a collaboration protocol layer that makes multiple editor AIs stop at key synchronization points, align, and then continue.
 
-Most systems try to solve this by adding more automation.
+It is built for Codex, Claude Code, Cursor, Cline, Copilot, human operators, and other agents working in the same codebase.
 
-SyncPoint takes the opposite path:
+## What SyncPoint Is Not
 
-```text
-Make agents stop at the right moments.
-Make them synchronize.
-Only then let the next agent continue.
-```
+SyncPoint is easy to misunderstand because it has sessions, wake requests, reviews, patches, and a VS Code view.
 
-The core innovation is **protocol-level synchronization truncation**.
+It is **not**:
 
-It does not run models. It does not schedule infinite autonomous loops. It creates enforceable sync boundaries around AI work:
+| Not this | Why |
+|---|---|
+| Agent orchestration framework | SyncPoint does not run models or own autonomous loops |
+| Workflow builder | No DAG designer, no generic task graph runtime |
+| Multi-AI scheduler | Wake requests are sync obligations, not arbitrary job dispatch |
+| Automation runner | The goal is not to make agents run faster forever |
 
-```text
-work about to continue
-  -> check shared sync state
-  -> detect unresolved gate / conflict / handoff / review
-  -> block continuation
-  -> require acknowledgement or resolution
-  -> allow the right agent to continue
-```
+SyncPoint is the layer agents call before they continue work.
 
-## Why This Matters
+## The Problem
 
-AI agents drift when they lack shared constraints:
-
-| Drift Problem | What Happens Without SyncPoint | SyncPoint Response |
-|--------------|--------------------------------|-------------------|
-| File collision | Two agents edit the same file or interface | FileClaim + conflict awareness |
-| Context loss | A new agent resumes from stale chat history | Checkpoint + Context Capsule |
-| Unclear handoff | Nobody knows who continues next | Handoff / Resume protocol |
-| Premature work | An agent keeps working through unresolved conflict | SyncGate hard truncation |
-| Runaway automation | Wake becomes a generic auto-runner | Wake limited to sync verbs |
-
-SyncPoint is not trying to make agents more autonomous. It makes them **less likely to drift**.
-
-## The Innovation: Sync Truncation
-
-SyncPoint turns "needs sync" from a vague status into a hard protocol gate.
+Multiple AI coding agents usually fail at collaboration for a simple reason:
 
 ```text
-NEEDS_SYNC
-  -> SYNC_REQUESTED
-  -> SYNC_ACKED
-  -> READY_TO_CONTINUE
+They do not share a reliable synchronization boundary.
 ```
 
-Important rule:
+One agent may edit a file while another patches the same interface. A reviewer may approve stale context. A handoff may lose the real state. A model may keep working through a conflict because nobody forced it to stop.
+
+The core failure is not that agents cannot do work. The core failure is that agents drift out of sync.
+
+## The Mechanism: Synchronization Truncation
+
+SyncPoint turns "needs coordination" into a hard protocol boundary.
+
+```text
+agent wants to continue
+  -> SyncPoint checks shared local state
+  -> unresolved blocker found
+  -> continuation is truncated
+  -> required agents acknowledge / approve / resolve
+  -> only then can the right agent continue
+```
+
+The important rule:
 
 ```text
 SYNC_ACKED still blocks.
-Only READY_TO_CONTINUE or CANCELLED releases the gate.
+Only READY_TO_CONTINUE or CANCELLED releases a SyncGate.
 ```
 
-This means acknowledgement is not enough. The sync point must be resolved before affected agents can continue.
+Acknowledgement proves that agents noticed the sync point. Resolution proves that the collaboration boundary is safe to cross.
 
-### Where The Gate Is Enforced
+## The Five Primitives
 
-SyncGate is not just a record in the database. It blocks the continuation paths agents actually use:
+SyncPoint uses a small set of protocol primitives to force synchronization:
 
-| Entry Point | Effect |
-|------------|--------|
-| `loopResume()` | Prevents an agent from resuming blocked work |
-| `orchStartAssignment()` | Prevents starting an assignment through session orchestration |
-| `wakeNext()` | Suppresses dispatch while the agent is blocked |
-| `wakeStart()` | Prevents a queued wake from running through a blocked gate |
+| Primitive | What it answers | How it prevents drift |
+|---|---|---|
+| **File Claim** | Who owns which files right now? | Agents declare file boundaries before work; overlaps become visible |
+| **SyncGate** | When must agents stop? | Continuation is blocked until the gate is resolved |
+| **Sync Transaction** | What checkpoint must be approved? | A checkpoint becomes an approval flow bound to a gate |
+| **Patch Proposal** | Can this patch safely apply? | Patch checks verify format, claims, and conflicts before approval |
+| **Wake with semantic intent** | Who should act next, and why? | Wake is limited to sync verbs such as claim, checkpoint, review, approve, handoff, resume |
 
-So the mechanism is **protocol-level hard truncation**:
+The result is visible:
+
+- **Who is doing what**
+- **Which files are claimed**
+- **Who is blocked**
+- **Why they are blocked**
+- **Which approval or patch action unblocks the flow**
+
+## Minimal Flow
+
+The smallest useful SyncPoint story is:
 
 ```text
-If agents use SyncPoint's CLI / MCP / tRPC application services,
-they cannot continue through an unresolved SyncGate.
+create session
+  -> two agents join in peer-contract mode
+  -> Agent A claims src/shared-config.ts and starts work
+  -> Agent B claims the same file
+  -> SyncPoint detects a hard conflict and creates a SyncGate
+  -> Agent B cannot continue through SyncPoint start / resume / wake paths
+  -> Agent A checkpoints and opens a Sync Transaction
+  -> required approver approves and resolves
+  -> claim boundary is adjusted
+  -> Agent B submits a Patch Proposal
+  -> patch is checked, approved, and marked applied
+  -> Sync View shows claims, blockers, patches, wakes, and recovery
 ```
 
-It is not an OS-level file lock and it does not forcibly stop a model process that bypasses SyncPoint. The design goal is to make SyncPoint the shared coordination layer that editors and agents call before continuing.
+That is the difference from normal orchestration: SyncPoint is not just telling agents what to do next. It is preventing them from crossing unsafe collaboration boundaries.
 
-## The Four Protocol Questions
+## Try The Synchronization Truncation Demo
 
-Every core feature exists to answer one of four questions:
+Build the workspace:
 
-```text
-1. Who is changing what?
-2. When must they synchronize?
-3. What must be confirmed at sync?
-4. Who continues after confirmation?
+```bash
+pnpm install
+pnpm build
 ```
 
-| Primitive | Role In The Truncation Mechanism |
-|-----------|----------------------------------|
-| **Sync State** | Shared local source of truth: agents, tasks, sessions, roles, status |
-| **FileClaim** | Declares file ownership before work begins |
-| **Conflict Awareness** | Detects overlapping claims and marks sync boundaries |
-| **SyncGate** | Blocks continuation until the sync point is resolved |
-| **Checkpoint** | Captures progress, risks, decisions, and next steps |
-| **Context Capsule** | Compresses resume context so the next agent starts with the right state |
-| **Handoff / Resume** | Makes continuation explicit when work moves between agents |
-| **Wake** | Notifies the right agent at sync points only |
-| **Relationship Mode** | Applies different sync rules to manager/delegate, peer, and handoff flows |
+Create the blocked state:
 
-## What Wake Is Not
-
-Wake is deliberately constrained. It is not a general runner.
-
-Wake may notify agents to do synchronization work:
-
-```text
-plan
-accept
-checkpoint
-sync
-review
-handoff
-resume
-approve
+```bash
+node scripts/demo-sync-flow.mjs --stage blocked
 ```
 
-Wake should not mean:
+Start the local server from the demo project printed by the script:
 
-```text
-keep working forever
-auto-run arbitrary tasks
-turn SyncPoint into a LangGraph clone
+```bash
+syncpoint server start --port 8765
 ```
 
-Every wake request must have a synchronization reason: confirm responsibility, resolve conflict, transfer context, review evidence, or approve continuation.
+Open the VS Code extension **Sync View** and verify:
 
-## Relationship Modes
+- **File Ownership** shows overlapping claims
+- **Blockers** shows a file-conflict SyncGate and a checkpoint Sync Transaction
+- **Wake Queue** shows sync obligations
+- **Active Work** shows which agent is blocked
 
-Not all AI collaboration has the same synchronization rules. SyncPoint makes the relationship explicit:
+Then resolve and complete the patch-review path:
 
-| Mode | Pattern | Sync Behavior |
-|------|---------|---------------|
-| `manager-delegate` | Architect plans, executor works, reviewer approves | plan -> accept -> checkpoint -> review -> approve |
-| `peer-contract` | Peers work in parallel with boundaries | contract -> claim files -> checkpoint sync -> merge/review |
-| `handoff-resume` | One agent passes work to another | capsule -> handoff -> accept -> resume |
+```bash
+node scripts/demo-sync-flow.mjs --stage resolve --project <printed-demo-project>
+```
 
-Relationship Mode changes playbook suggestions, wake filtering, and context policy. For example, `peer-contract` requires file claiming before start-work is suggested.
+See the full walkthrough:
+
+| Path | Purpose |
+|---|---|
+| [docs/demo-sync-truncation.md](docs/demo-sync-truncation.md) | 10-15 minute demo that reproduces conflict, truncation, approval, patch, and recovery |
+| [docs/local-operations-guide.md](docs/local-operations-guide.md) | Practical local operation guide for CLI, MCP, server, and Sync View |
+| [docs/core-synchronization.md](docs/core-synchronization.md) | Protocol model and invariants |
 
 ## Architecture
 
@@ -164,10 +159,10 @@ Relationship Mode changes playbook suggestions, wake filtering, and context poli
 packages/
 ├── syncpoint-core       # protocol types, state machines, pure rules
 ├── syncpoint-server     # local application services, SQLite, tRPC, SSE
-├── syncpoint-cli        # human/operator command line
-├── syncpoint-mcp        # editor-agent adapter through MCP
+├── syncpoint-cli        # operator CLI for sync sessions, gates, tx, patches
+├── syncpoint-mcp        # editor-agent MCP adapter
 ├── syncpoint-sdk        # typed client for integrations
-└── vscode-extension     # editor sync status view
+└── vscode-extension     # Sync View: claims, blockers, patches, wake queue
 ```
 
 The important boundary:
@@ -175,78 +170,70 @@ The important boundary:
 ```text
 syncpoint-core defines the protocol.
 syncpoint-server enforces it.
-CLI / MCP / SDK / editor UI are entry points into the same rules.
+CLI / MCP / SDK / VS Code call the same rules.
 ```
 
 ## Quick Start
 
-### 1. Build
+### Build
 
 ```bash
-git clone <repo-url> && cd SyncPoint
 pnpm install
 pnpm build
 pnpm typecheck
 pnpm test
 ```
 
-### 2. Initialize A Project
+### Initialize a project
 
 ```bash
-cd <your-project>
 syncpoint init
+syncpoint status
 ```
 
-This creates local SyncPoint state under `.syncpoint/`.
+This creates local SyncPoint state under:
 
-### 3. Register Agents
+```text
+.syncpoint/syncpoint.db
+```
+
+### Register agents
 
 ```bash
-syncpoint agent add --name codex-arch --provider codex --role manager
-syncpoint agent add --name claude-exec --provider claude-code --role backend
-syncpoint agent add --name cursor-rev --provider cursor --role reviewer
+syncpoint agent add --name codex-architect --provider codex --role manager
+syncpoint agent add --name claude-executor --provider claude-code --role backend
+syncpoint agent add --name cursor-reviewer --provider cursor --role reviewer
 ```
 
-### 4. Create A Session With A Relationship Mode
+### Create a peer-contract session
 
 ```bash
 syncpoint session create \
-  --title "Build Auth Module" \
+  --title "Shared config coordination" \
   --architect <architectAgentId> \
   --mode peer-contract
 ```
 
-Available modes:
+`peer-contract` mode is the clearest way to see synchronization truncation because executors must claim files before starting work.
 
-```text
-manager-delegate
-peer-contract
-handoff-resume
-```
-
-### 5. Create And Resolve A SyncGate
+### Resolve a SyncGate
 
 ```bash
-syncpoint sync request \
-  --task <taskId> \
-  --agent <requestingAgentId> \
-  --required <agentA,agentB> \
-  --reason file_conflict \
-  --description "Both agents need src/auth.ts"
+syncpoint sync status --session <sessionId>
 
 syncpoint sync ack --gate <gateId> --agent <agentA>
 syncpoint sync ack --gate <gateId> --agent <agentB>
 
 syncpoint sync resolve \
   --gate <gateId> \
-  --summary "Agent A owns src/auth.ts; Agent B owns src/api/auth.ts"
+  --summary "Agent A releases src/shared-config.ts; Agent B owns follow-up patch."
 ```
 
-Until the gate is resolved, affected agents cannot continue through SyncPoint's resume / start / wake paths.
+Until the gate reaches `READY_TO_CONTINUE`, affected agents cannot continue through SyncPoint's application-layer start, resume, or wake paths.
 
-## Connecting Editors Through MCP
+## Editor Integration
 
-SyncPoint exposes the same protocol to editor agents through Model Context Protocol.
+SyncPoint exposes the same protocol to editor agents through MCP.
 
 ### Cursor `.cursor/mcp.json`
 
@@ -281,47 +268,41 @@ SyncPoint exposes the same protocol to editor agents through Model Context Proto
 }
 ```
 
-## Current Status
+The VS Code extension provides a single **Sync View** with:
 
-Implemented core synchronization capabilities:
+- **Sessions**
+- **Active Work**
+- **File Ownership**
+- **Blockers**
+- **Patches**
+- **Wake Queue**
 
-```text
-Synchronization narrative
-FileClaim / conflict awareness
-SyncGate hard truncation
-Relationship Mode convergence
-Wake limited to sync verbs
-CLI + MCP sync tools
-Local SQLite state
-SSE event stream
-Editor sync status foundation
-```
+## Documentation Map
 
-Next core work:
+Use three main paths:
 
-```text
-FileClaim conflict -> automatic SyncGate
-Wake semantic source binding
-Editor Sync View refinement
-SDK / CLI hardening
-```
+| Path | Question answered |
+|---|---|
+| [README.md](README.md) | Why SyncPoint exists and why it is not ordinary orchestration |
+| [docs/core-synchronization.md](docs/core-synchronization.md) | How synchronization truncation works |
+| [docs/local-operations-guide.md](docs/local-operations-guide.md) | How to operate SyncPoint locally |
+| [docs/demo-sync-truncation.md](docs/demo-sync-truncation.md) | How to see the core value in 10-15 minutes |
 
-## Documentation
+Supporting references:
 
 | Document | Purpose |
-|----------|---------|
-| [Core Synchronization](docs/core-synchronization.md) | Protocol design and sync primitives |
-| [Local Operations Guide](docs/local-operations-guide.md) | Local multi-agent operating guide |
-| [Session Playbook](docs/session-playbook.md) | End-to-end session flow |
-| [Review Workflow](docs/review-workflow.md) | Evidence-backed review and approval |
-| [MVP Showcase](docs/mvp-showcase.md) | Demo flow |
+|---|---|
+| [docs/session-playbook.md](docs/session-playbook.md) | Role-by-role sync responsibilities |
+| [docs/review-workflow.md](docs/review-workflow.md) | Evidence-backed review as a gate |
+| [docs/cli-agent-loop.md](docs/cli-agent-loop.md) | Start, resume, checkpoint, and handoff continuation paths |
+| [docs/mvp-showcase.md](docs/mvp-showcase.md) | Short presentation script |
 
 ## Database Location
 
 SyncPoint stores state locally:
 
 | Priority | Path |
-|----------|------|
+|---|---|
 | 1 | `SYNCPOINT_DB_DIR` |
 | 2 | `.syncpoint/syncpoint.db` under the project |
 | 3 | `~/.syncpoint/syncpoint.db` fallback |
@@ -329,19 +310,19 @@ SyncPoint stores state locally:
 ## Tech Stack
 
 | Layer | Technology |
-|-------|------------|
+|---|---|
 | Language | TypeScript |
 | API | tRPC |
 | Database | SQLite + Drizzle ORM |
 | Validation | Zod |
 | Events | EventEmitter + SSE |
 | Tests | Vitest |
-| Editor Integration | MCP |
+| Editor Integration | MCP + VS Code |
 
 ---
 
 <div align="center">
 
-**SyncPoint** keeps AI agents synchronized by making them stop, confirm, and continue through explicit protocol gates.
+**SyncPoint prevents AI agents from running apart by making them stop, confirm, and continue through explicit synchronization gates.**
 
 </div>

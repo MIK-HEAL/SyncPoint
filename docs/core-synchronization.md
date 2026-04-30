@@ -1,134 +1,208 @@
 # Core Synchronization Protocol
 
-SyncPoint is an **AI Agent Synchronization Protocol**. It is not a multi-agent runtime, workflow builder, or memory platform.
+SyncPoint is a protocol layer for **synchronization truncation**:
 
-Every feature in SyncPoint exists to answer four questions:
+```text
+multiple editor AIs work in one codebase
+  -> each agent wants to continue
+  -> SyncPoint checks shared local sync state
+  -> unresolved claim / gate / transaction / review / patch blocks continuation
+  -> the required agents align
+  -> only then does work continue
+```
+
+It is not a multi-agent runtime, workflow builder, memory platform, or automation runner.
+
+## The Four Questions
+
+Every core primitive answers one of four protocol questions:
 
 | # | Question | Example |
-|---|----------|---------|
-| 1 | **Who is changing what?** | Agent A claims `src/auth.ts`, Agent B claims `src/api/*` |
-| 2 | **When must they synchronize?** | When file claims overlap, when a task completes, when context drifts |
-| 3 | **What must be confirmed at sync?** | Checkpoint summary, evidence, contract terms, conflict resolution |
+|---|---|---|
+| 1 | **Who is changing what?** | Agent A owns `src/auth.ts`; Agent B owns `src/api/*` |
+| 2 | **When must they synchronize?** | File claims overlap; a checkpoint needs approval; a patch conflicts |
+| 3 | **What must be confirmed?** | Checkpoint summary, file boundary, review evidence, patch safety |
 | 4 | **Who continues after confirmation?** | Wake the reviewer, resume the executor, hand off to the next agent |
 
-If a feature does not answer one of these four questions, it does not belong in SyncPoint.
-
----
+If a feature does not answer one of these questions, it is supporting infrastructure, not the core protocol.
 
 ## What SyncPoint Is Not
 
-| It is not… | Why |
-|-----------|-----|
-| A multi-agent runtime | SyncPoint does not run models or schedule autonomous loops |
-| A workflow builder | No visual DAGs, no LangGraph-style graphs |
-| A memory platform | Project memory exists to support sync context, not as a general knowledge base |
-| An auto-pilot | Wake requests notify agents at sync points — they do not drive continuous execution |
+| It is not | Boundary |
+|---|---|
+| Multi-agent runtime | It does not call model APIs or run agent loops |
+| Workflow builder | It does not build arbitrary DAGs or visual flows |
+| Generic scheduler | Wake is not a job queue for arbitrary work |
+| File lock daemon | It does not stop external processes that bypass SyncPoint |
+| Memory product | Project memory only supports synchronization context |
 
----
+The design assumes agents call SyncPoint before starting, resuming, patching, reviewing, or handing off work.
+
+## Synchronization Truncation
+
+SyncPoint truncates unsafe continuation paths.
+
+```text
+agent continuation path
+  -> loop resume
+  -> assignment start
+  -> wake next
+  -> wake start
+```
+
+Before those paths continue, SyncPoint checks whether the agent is blocked by unresolved sync state.
+
+The most important invariant:
+
+```text
+SYNC_ACKED still blocks.
+Only READY_TO_CONTINUE or CANCELLED releases a SyncGate.
+```
+
+Acknowledgement is awareness. Resolution is permission to continue.
 
 ## Core Primitives
 
-### 1. Sync State
+### 1. File Claim
 
-A shared, local record of:
-- Which agents exist and what roles they hold
-- Which tasks are assigned, in progress, blocked, or done
-- Which session phase the collaboration is in (PLANNING → EXECUTING → REVIEWING → COMPLETED)
+`FileClaim` records file ownership:
 
-**Sync question**: *Who is changing what?*
+- **agent**: who intends to modify the files
+- **task**: why the files are being touched
+- **session**: which collaboration scope owns the claim
+- **paths**: exact paths or globs
+- **mode**: `exclusive` or `shared`
 
-### 2. Checkpoint / Context Capsule
+When active claims overlap, SyncPoint detects a conflict. A hard exclusive overlap can create a `SyncGate` automatically.
 
-- **Checkpoint**: A point-in-time snapshot of an agent's progress — summary, decisions made, risks, blockers
-- **Context Capsule**: A compressed, task-scoped context bundle that minimizes token consumption when resuming
+### 2. SyncGate
 
-Together they ensure that when an agent stops and another picks up, the receiver gets exactly the context they need — no more, no less.
+`SyncGate` is the hard synchronization barrier.
 
-**Sync question**: *What must be confirmed at sync?*
+```text
+NEEDS_SYNC
+  -> SYNC_REQUESTED
+  -> SYNC_ACKED
+  -> READY_TO_CONTINUE
+```
 
-### 3. Conflict Awareness (FileClaim)
+Gate reasons include:
 
-Agents declare which files they intend to modify:
-- `FileClaim` records agent + task + file paths (exact or glob)
-- Claims can be `exclusive` (only this agent) or `shared` (multiple agents, but aware)
-- When claims overlap, the system flags a **conflict** and suggests a sync gate
+| Reason | Meaning |
+|---|---|
+| `file_conflict` | Agents claim overlapping ownership |
+| `checkpoint_required` | A checkpoint must be approved before continuing |
+| `phase_transition` | Session phase requires coordination |
+| `context_drift` | Resume context is unsafe or stale |
+| `manual_request` | Human or agent explicitly requests synchronization |
 
-**Sync question**: *When must they synchronize?*
+### 3. Sync Transaction
 
-### 4. Handoff / Resume
+`SyncTransaction` upgrades a checkpoint from a progress log into an approval flow.
 
-Structured context transfer between agents:
-- The outgoing agent writes a handoff summary with context capsule
-- The incoming agent gets a resume prompt with all relevant state
-- No information is lost in the transition
+```text
+checkpoint created
+  -> sync transaction opened
+  -> bound SyncGate blocks continuation
+  -> required approvers approve or reject
+  -> transaction resolved
+  -> bound gate released
+```
 
-**Sync question**: *Who continues after confirmation?*
+This is how SyncPoint turns "I saved progress" into "the next agent may safely continue from this confirmed state."
 
-### 5. Sync Gate
+### 4. Patch Proposal
 
-A synchronization barrier that must be cleared before work continues:
-- Triggered by file conflicts, phase transitions, or manual request
-- All required agents must acknowledge the gate
-- Until the gate passes, affected agents are blocked from proceeding
+`PatchProposal` makes AI-generated patches auditable before they are treated as applied.
 
-**Sync question**: *When must they synchronize?* + *What must be confirmed?*
+Checks include:
 
-### 6. Wake (Sync Verbs Only)
+| Check | Purpose |
+|---|---|
+| Patch format valid | The text looks like a unified diff |
+| Files extracted | SyncPoint knows which files are touched |
+| Files covered by claims | The submitting agent owns the touched files |
+| No hard conflict | No other active exclusive claim overlaps |
 
-Wake requests notify agents that a sync point requires their attention. Wake actions are limited to **synchronization verbs**:
+Submitted or conflicting patches appear as blockers in Sync View until approved, rejected, fixed, or applied.
 
-| Wake Action | Sync Semantic |
-|------------|---------------|
-| `plan` | Architect must decompose work (sync on scope) |
-| `accept` | Agent must confirm assignment (sync on responsibility) |
-| `checkpoint` | Agent must save progress (sync on state) |
-| `sync` | Agent must resolve a conflict or gate (sync on boundary) |
-| `review` | Reviewer must evaluate work (sync on quality) |
-| `handoff` | Agent must transfer context (sync on continuity) |
-| `resume` | Agent must pick up transferred work (sync on continuity) |
-| `approve` | Gate keeper must approve (sync on decision) |
+### 5. Wake with Semantic Intent
 
-Wake does **not** trigger open-ended "keep working" actions. Every wake has a specific sync obligation.
+Wake is not an auto-runner. It is a synchronization notification.
 
----
+Valid wake actions are sync verbs:
+
+```text
+plan
+accept
+claim-files
+checkpoint
+sync-checkpoint
+review
+approve
+handoff
+resume
+address-changes
+advance-session
+```
+
+A wake request must answer:
+
+```text
+Who needs attention?
+What sync action should they perform?
+Which event caused the wake?
+Which session/task/review does it belong to?
+```
+
+Wake requests are blocked by the same gate checks as other continuation paths.
+
+## Enforcement Points
+
+SyncPoint is enforced in the application layer used by CLI, MCP, SDK, tRPC, and the VS Code extension.
+
+| Entry point | Enforcement behavior |
+|---|---|
+| `orchStartAssignment()` | Blocks start if the assignee has active gates; `peer-contract` also requires file claims |
+| `loopResume()` | Blocks resume if context policy or hard gates fail |
+| `wakeNext()` | Suppresses wake dispatch while the target agent is blocked |
+| `wakeStart()` | Prevents starting a queued wake through an unresolved gate |
+| `patch submit/check` | Blocks approval when patch ownership or conflict checks fail |
+
+This is protocol-level hard truncation. It is not an operating-system file lock.
 
 ## Relationship Modes
 
-Different collaboration patterns have different sync rules:
+Relationship mode defines which synchronization rules are expected in a session.
 
-| Mode | Pattern | Sync Rule |
-|------|---------|-----------|
-| **manager-delegate** | Architect assigns, executor reports back | delegate → work → checkpoint → report → review |
-| **peer-contract** | Two agents agree on interface boundaries | contract → parallel work → checkpoint sync → merge |
-| **handoff-resume** | One agent passes work to another | capsule → handoff → accept → resume |
+| Mode | Collaboration pattern | Sync rule |
+|---|---|---|
+| `manager-delegate` | Architect assigns; executor reports; reviewer approves | plan -> accept -> checkpoint -> review -> approve |
+| `peer-contract` | Peers work in parallel with explicit boundaries | contract -> claim files -> checkpoint sync -> patch/review |
+| `handoff-resume` | One agent transfers work to another | capsule -> handoff -> accept -> resume |
 
-The relationship mode determines:
+`peer-contract` is the clearest mode for demonstrating synchronization truncation because file claims are required before work starts.
 
-1. **Wake verbs allowed** — each mode defines which sync actions are valid (see `MODE_WAKE_VERBS`)
-2. **Playbook suggestions** — `peer-contract` suggests `claim-files` before work; `handoff-resume` suggests `handoff`
-3. **Context policy** — `peer-contract` requires `approved-contract` in context; `handoff-resume` adds `handoff-context` and relaxes review gates
-4. **Phase flow** — each mode defines its expected phase progression (see `MODE_PHASE_FLOWS`)
+## Sync View Model
 
-The mode is set at session creation and applies for the session's lifetime.
+The VS Code extension reads a single sync snapshot and renders six sections:
 
----
+| Section | What it shows |
+|---|---|
+| Sessions | Active sessions, modes, and agent roles |
+| Active Work | Assignments, claimed files, blocked agents |
+| File Ownership | Claims and hard conflicts |
+| Blockers | Gates, sync transactions, handoffs, reviews, submitted/conflicting patches |
+| Patches | Patch proposal state and required next action |
+| Wake Queue | Pending sync obligations and their semantic source |
 
-## Supporting Capabilities
-
-These features support the core protocol but are not the protocol itself:
-
-- **Session Orchestration** — phases and role assignments for structured collaboration
-- **Review Workflow** — checklist + evidence + approval gate for quality sync
-- **Project Memory** — curated knowledge that informs sync context
-- **Auto-Wake** — event-driven notification at sync points
-- **MCP / CLI / SDK** — entry points that all go through the same application layer
-
----
+The view is not a separate source of truth. It is a visual projection of the same protocol state.
 
 ## Design Principles
 
-1. **Sync constraints over automation** — Make agents stop at the right moments, don't make them run forever
-2. **Local-first** — SQLite database, no cloud dependency, works offline
-3. **Protocol over platform** — Core is portable types + state machines, runtime is pluggable
-4. **Evidence-based** — Every sync point should have auditable evidence (checkpoint, capsule, review)
-5. **Entry-point agnostic** — Same logic whether called from CLI, MCP, tRPC, or SDK
+1. **Synchronization over automation** — Make agents stop at the right moments.
+2. **Resolution over acknowledgement** — `SYNC_ACKED` still blocks.
+3. **Local-first** — SQLite state under `.syncpoint/`; no cloud dependency.
+4. **Protocol over platform** — Core rules are portable; entry points are adapters.
+5. **Evidence before continuation** — Checkpoints, reviews, and patches carry auditable state.
+6. **One story everywhere** — README, CLI, MCP, and Sync View all describe claims, gates, blockers, transactions, patches, and wakes.

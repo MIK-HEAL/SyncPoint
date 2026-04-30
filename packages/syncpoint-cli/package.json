@@ -1,7 +1,7 @@
 {
   "name": "syncpoint-cli",
   "version": "0.1.0",
-  "description": "SyncPoint CLI — command-line interface for multi-agent collaboration",
+  "description": "SyncPoint CLI — command-line interface for synchronization gates, claims, transactions, and patches",
   "type": "module",
   "bin": {
     "syncpoint": "dist/main.js"

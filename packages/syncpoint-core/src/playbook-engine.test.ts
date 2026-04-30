@@ -238,7 +238,7 @@ describe("priority ordering", () => {
 // ── Relationship Mode ──
 
 describe("relationship mode: peer-contract", () => {
-  it("suggests claim-files but NOT start-work for ACCEPTED assignment (claim is prerequisite)", () => {
+  it("suggests claim-files but NOT start-work for ACCEPTED assignment (no claims yet)", () => {
     const actions = computeNextActions(makeSnap({
       sessionStatus: SessionStatus.EXECUTING,
       agentRoles: ["executor"],
@@ -248,6 +248,19 @@ describe("relationship mode: peer-contract", () => {
     const kinds = actions.map(a => a.action);
     expect(kinds).toContain("claim-files");
     expect(kinds).not.toContain("start-work");
+  });
+
+  it("suggests start-work (not claim-files) for ACCEPTED assignment when files already claimed", () => {
+    const actions = computeNextActions(makeSnap({
+      sessionStatus: SessionStatus.EXECUTING,
+      agentRoles: ["executor"],
+      relationshipMode: RelationshipMode.PEER_CONTRACT,
+      assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.ACCEPTED }],
+      activeClaimTaskIds: ["t-1"],
+    }));
+    const kinds = actions.map(a => a.action);
+    expect(kinds).toContain("start-work");
+    expect(kinds).not.toContain("claim-files");
   });
 
   it("suggests sync-checkpoint for IN_PROGRESS assignment", () => {

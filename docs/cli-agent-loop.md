@@ -1,6 +1,6 @@
 # SyncPoint CLI Agent Loop
 
-The `syncpoint loop` commands provide a **composite CLI interface** for AI editors and agents. Each command orchestrates multiple SyncPoint primitives into a single step, enforcing the collaboration protocol.
+The `syncpoint loop` commands provide a **composite CLI interface** for AI editors and agents. Each command crosses a synchronization boundary by combining SyncPoint primitives and enforcing the collaboration protocol.
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ syncpoint loop status --agent <agentId>
 
 ### `syncpoint loop boot`
 
-**Purpose**: Start working on a task. Assigns the task, advances it to IN_PROGRESS, enforces context policy, and generates editor rules files.
+**Purpose**: Start working on a task through a synchronization-aware boundary. Assigns the task, advances it to IN_PROGRESS, enforces context policy, and generates editor rules files.
 
 ```bash
 syncpoint loop boot \
@@ -57,7 +57,7 @@ syncpoint loop boot \
 
 ### `syncpoint loop resume`
 
-**Purpose**: Resume work after a pause or context switch. Enforces context policy, regenerates rules files, and outputs the resume prompt.
+**Purpose**: Resume work after a pause or context switch only if sync context is safe. Enforces context policy, regenerates rules files, and outputs the resume prompt.
 
 ```bash
 syncpoint loop resume \

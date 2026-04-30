@@ -35,6 +35,8 @@ export {
   createHandoff,
   acceptHandoff,
   rejectHandoff,
+  listHandoffs,
+  listPendingHandoffs,
   getLatestHandoffForReceiver,
 } from "./repositories/handoff-repository.js";
 

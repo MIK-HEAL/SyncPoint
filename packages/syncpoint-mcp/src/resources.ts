@@ -198,7 +198,7 @@ export function registerResources(server: McpServer): void {
   server.registerResource(
     "syncpoint-session",
     new ResourceTemplate("syncpoint://session/{sessionId}", { list: undefined }),
-    { title: "Orchestration Session", description: "Full session status with roles, assignments, reviews, decisions", mimeType: "text/plain" },
+    { title: "Sync Session", description: "Full synchronization session status with roles, assignments, reviews, decisions, and blocker context", mimeType: "text/plain" },
     async (uri, { sessionId }) => {
       try {
         const status = orchGetSessionStatus(sessionId as string);

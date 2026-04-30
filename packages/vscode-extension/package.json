@@ -1,7 +1,7 @@
 {
   "name": "syncpoint-vscode",
   "displayName": "SyncPoint",
-  "description": "Multi-agent collaboration state layer for VS Code / Cursor",
+  "description": "Sync View for editor AI synchronization: sessions, claims, blockers, patches, and wake obligations",
   "version": "0.1.0",
   "publisher": "syncpoint",
   "engines": {
@@ -26,20 +26,8 @@
     "views": {
       "syncpoint": [
         {
-          "id": "syncpoint-agents",
-          "name": "Agents"
-        },
-        {
-          "id": "syncpoint-tasks",
-          "name": "Tasks"
-        },
-        {
-          "id": "syncpoint-checkpoints",
-          "name": "Checkpoints"
-        },
-        {
-          "id": "syncpoint-sync-status",
-          "name": "Sync Status"
+          "id": "syncpoint-sync-view",
+          "name": "Sync View"
         }
       ]
     },

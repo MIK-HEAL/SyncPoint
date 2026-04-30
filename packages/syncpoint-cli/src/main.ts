@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * SyncPoint CLI — command-line interface for multi-agent collaboration.
+ * SyncPoint CLI — command-line interface for editor AI synchronization.
  * This file handles program setup and command registration only.
  * Business logic lives in syncpoint-server/application.
  * Command implementations live in ./commands/*.
@@ -25,7 +25,7 @@ const program = new Command();
 let keepDbOpen = false;
 program
   .name("syncpoint")
-  .description("SyncPoint — local multi-agent collaboration state layer")
+  .description("SyncPoint — local synchronization protocol layer for editor AI agents")
   .version("0.1.0");
 
 // ── Init ──────────────────────────────────────────────

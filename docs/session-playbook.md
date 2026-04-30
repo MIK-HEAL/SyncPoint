@@ -1,6 +1,6 @@
-# Session Playbook — End-to-End Orchestration Guide
+# Session Playbook — Sync Responsibilities By Role
 
-This document describes the standard operation paths for each role in a SyncPoint orchestration session, using both CLI and MCP interfaces.
+This document describes how each role participates in a SyncPoint synchronization session using CLI and MCP interfaces.
 
 ## Overview
 
@@ -10,7 +10,7 @@ A SyncPoint session moves through phases:
 PLANNING → EXECUTING → REVIEWING → COMPLETED
 ```
 
-Each phase has specific actions for each role. The playbook engine computes the next recommended action automatically.
+Each phase has specific synchronization responsibilities for each role. The playbook engine recommends the next sync action, but wake requests are obligations to inspect and clear blockers, not permission to run autonomously.
 
 ## Quick Start
 
@@ -55,7 +55,7 @@ Prompt: syncpoint_session_playbook — role-specific playbook with next actions
    syncpoint session assign-role --session <id> --agent <revId> --role reviewer
    ```
 
-3. **Plan tasks** — decompose work and assign to executors
+3. **Plan tasks** — decompose work, assign executors, and define file/review boundaries
    ```bash
    syncpoint session plan --session <id> --task <taskId> --assignee <execId>
    ```
@@ -67,7 +67,7 @@ Prompt: syncpoint_session_playbook — role-specific playbook with next actions
 
 ### EXECUTING Phase
 
-5. **Monitor progress** — check next actions and session status
+5. **Monitor blockers** — check next actions, session status, file claims, and gates
    ```bash
    syncpoint playbook next-action --session <id> --agent <archId>
    syncpoint session status --session <id>
@@ -106,7 +106,7 @@ Prompt: syncpoint_session_playbook — role-specific playbook with next actions
    syncpoint session start --assignment <id>
    ```
 
-3. **Regular checkpoints** during work
+3. **Regular checkpoints** during work, especially before another agent continues
    ```bash
    syncpoint loop checkpoint --agent <id> --task <taskId> --summary "..."
    ```
@@ -210,7 +210,7 @@ Prompt: syncpoint_session_playbook
 Args: { sessionId, agentId }
 ```
 
-Returns a full playbook prompt with role guidance, current state, and recommended actions.
+Returns a full playbook prompt with role guidance, current state, blockers, and recommended sync actions.
 
 ---
 

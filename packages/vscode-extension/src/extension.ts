@@ -1,8 +1,9 @@
 /**
- * SyncPoint VS Code Extension — thin read-only TreeView panel.
+ * SyncPoint VS Code Extension — Editor Sync View (P9).
  *
  * Connects to local SyncPoint server via tRPC SDK.
- * Displays agents, tasks, and latest checkpoints.
+ * Displays a comprehensive sync map: sessions, agents, file ownership,
+ * blockers, patches, and wake queue in a unified tree view.
  */
 
 import * as vscode from "vscode";
@@ -18,256 +19,210 @@ let client: any;
 let eventSource: EventStreamHandle | undefined;
 let statusBarItem: vscode.StatusBarItem;
 
-// ── Tree data providers ────────────────────────────────
-
-class AgentsProvider implements vscode.TreeDataProvider<AgentItem> {
-  private _onDidChange = new vscode.EventEmitter<AgentItem | undefined>();
-  readonly onDidChangeTreeData = this._onDidChange.event;
-
-  refresh(): void {
-    this._onDidChange.fire(undefined);
-  }
-
-  getTreeItem(element: AgentItem): vscode.TreeItem {
-    return element;
-  }
-
-  async getChildren(): Promise<AgentItem[]> {
-    try {
-      const agents = await client.agent.list.query();
-      return agents.map(
-        (a) =>
-          new AgentItem(
-            `${a.name}  [${a.status}]`,
-            `${a.provider} / ${a.role}`,
-            a.status === "IDLE"
-              ? vscode.TreeItemCollapsibleState.None
-              : vscode.TreeItemCollapsibleState.Collapsed
-          )
-      );
-    } catch {
-      return [new AgentItem("(server not running)", "", vscode.TreeItemCollapsibleState.None)];
-    }
-  }
-}
-
-class TasksProvider implements vscode.TreeDataProvider<TaskItem> {
-  private _onDidChange = new vscode.EventEmitter<TaskItem | undefined>();
-  readonly onDidChangeTreeData = this._onDidChange.event;
-
-  refresh(): void {
-    this._onDidChange.fire(undefined);
-  }
-
-  getTreeItem(element: TaskItem): vscode.TreeItem {
-    return element;
-  }
-
-  async getChildren(): Promise<TaskItem[]> {
-    try {
-      const tasks = await client.task.list.query();
-      return tasks.map(
-        (t) =>
-          new TaskItem(
-            `${t.title}  [${t.status}]`,
-            t.ownerAgentId ?? "unassigned",
-            vscode.TreeItemCollapsibleState.None
-          )
-      );
-    } catch {
-      return [new TaskItem("(server not running)", "", vscode.TreeItemCollapsibleState.None)];
-    }
-  }
-}
-
-class CheckpointsProvider implements vscode.TreeDataProvider<CheckpointItem> {
-  private _onDidChange = new vscode.EventEmitter<CheckpointItem | undefined>();
-  readonly onDidChangeTreeData = this._onDidChange.event;
-
-  refresh(): void {
-    this._onDidChange.fire(undefined);
-  }
-
-  getTreeItem(element: CheckpointItem): vscode.TreeItem {
-    return element;
-  }
-
-  async getChildren(): Promise<CheckpointItem[]> {
-    try {
-      const tasks = await client.task.list.query();
-      const items: CheckpointItem[] = [];
-      for (const t of tasks) {
-        const cps = await client.checkpoint.list.query({ taskId: t.id });
-        if (cps.length) {
-          const latest = cps[cps.length - 1];
-          items.push(
-            new CheckpointItem(
-              `Task ${t.id.slice(0, 6)}: ${latest.summary.slice(0, 60)}`,
-              latest.needSync ? "⚠ needs sync" : latest.createdAt,
-              vscode.TreeItemCollapsibleState.None
-            )
-          );
-        }
-      }
-      return items.length ? items : [new CheckpointItem("(no checkpoints)", "", vscode.TreeItemCollapsibleState.None)];
-    } catch {
-      return [new CheckpointItem("(server not running)", "", vscode.TreeItemCollapsibleState.None)];
-    }
-  }
-}
-
-// ── Tree items ─────────────────────────────────────────
-
-class AgentItem extends vscode.TreeItem {
-  constructor(label: string, desc: string, state: vscode.TreeItemCollapsibleState) {
-    super(label, state);
-    this.description = desc;
-    this.iconPath = new vscode.ThemeIcon("robot");
-  }
-}
-
-class TaskItem extends vscode.TreeItem {
-  constructor(label: string, desc: string, state: vscode.TreeItemCollapsibleState) {
-    super(label, state);
-    this.description = desc;
-    this.iconPath = new vscode.ThemeIcon("checklist");
-  }
-}
-
-class CheckpointItem extends vscode.TreeItem {
-  constructor(label: string, desc: string, state: vscode.TreeItemCollapsibleState) {
-    super(label, state);
-    this.description = desc;
-    this.iconPath = new vscode.ThemeIcon("bookmark");
-  }
-}
-
-// ── Sync Status tree data provider ──────────────────────
+// ── Tree node types ────────────────────────────────────
 
 interface SyncSection {
-  kind: "header";
+  kind: "section";
   label: string;
   icon: string;
-  children: SyncLeaf[];
+  badge?: string;
+  children: SyncNode[];
 }
 
-interface SyncLeaf {
+interface SyncItem {
+  kind: "item";
   label: string;
   description: string;
   icon: string;
   tooltip?: string;
+  children?: SyncNode[];
 }
 
-class SyncStatusProvider implements vscode.TreeDataProvider<SyncSection | SyncLeaf> {
+type SyncNode = SyncSection | SyncItem;
+
+function section(label: string, icon: string, children: SyncNode[], badge?: string): SyncSection {
+  return { kind: "section", label, icon, children, badge };
+}
+
+function item(label: string, description: string, icon: string, tooltip?: string, children?: SyncNode[]): SyncItem {
+  return { kind: "item", label, description, icon, tooltip, children };
+}
+
+// ── Sync View Provider ─────────────────────────────────
+
+class SyncViewProvider implements vscode.TreeDataProvider<SyncNode> {
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChange.event;
-  private _sections: SyncSection[] = [];
+  private _root: SyncNode[] = [];
 
   refresh(): void {
-    this._loadData().then(() => this._onDidChange.fire());
+    this._loadSnapshot().then(() => this._onDidChange.fire());
   }
 
-  getTreeItem(element: SyncSection | SyncLeaf): vscode.TreeItem {
-    if ("children" in element) {
-      const item = new vscode.TreeItem(
-        `${element.label} (${element.children.length})`,
+  getTreeItem(element: SyncNode): vscode.TreeItem {
+    if (element.kind === "section") {
+      const count = element.badge ?? String(element.children.length);
+      const ti = new vscode.TreeItem(
+        `${element.label} (${count})`,
         element.children.length > 0
           ? vscode.TreeItemCollapsibleState.Expanded
           : vscode.TreeItemCollapsibleState.None
       );
-      item.iconPath = new vscode.ThemeIcon(element.icon);
-      return item;
+      ti.iconPath = new vscode.ThemeIcon(element.icon);
+      return ti;
     }
-    const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
-    item.description = element.description;
-    item.iconPath = new vscode.ThemeIcon(element.icon);
-    if (element.tooltip) item.tooltip = element.tooltip;
-    return item;
+    // item
+    const ti = new vscode.TreeItem(
+      element.label,
+      element.children?.length
+        ? vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None
+    );
+    ti.description = element.description;
+    ti.iconPath = new vscode.ThemeIcon(element.icon);
+    if (element.tooltip) ti.tooltip = element.tooltip;
+    return ti;
   }
 
-  getChildren(element?: SyncSection | SyncLeaf): (SyncSection | SyncLeaf)[] {
-    if (!element) return this._sections;
-    if ("children" in element) return element.children;
-    return [];
+  getChildren(element?: SyncNode): SyncNode[] {
+    if (!element) return this._root;
+    if (element.kind === "section") return element.children;
+    return element.children ?? [];
   }
 
-  private async _loadData(): Promise<void> {
+  private async _loadSnapshot(): Promise<void> {
     try {
-      const data = await client.syncStatus.overview.query();
-      const sections: SyncSection[] = [];
+      const data = await client.syncStatus.snapshot.query();
+      const root: SyncNode[] = [];
 
-      // 1. Agents — who is working, who is blocked
-      sections.push({
-        kind: "header",
-        label: "Agents",
-        icon: "robot",
-        children: data.agents.map((a: any) => ({
-          label: a.blocked ? `\u26D4 ${a.name}` : a.name,
-          description: a.blocked ? "BLOCKED" : `${a.status} \u2022 wakes: ${a.pendingWakes}`,
-          icon: a.blocked ? "error" : "person",
-          tooltip: a.claimedFiles.length
-            ? `Claimed: ${a.claimedFiles.join(", ")}`
-            : undefined,
-        })),
-      });
+      // ── Summary bar ──
+      const s = data.summary;
+      root.push(item(
+        "Sync Status",
+        s.blockerCount > 0
+          ? `\u26A0 ${s.blockerCount} blocker${s.blockerCount > 1 ? "s" : ""}`
+          : "\u2714 All clear",
+        s.blockerCount > 0 ? "warning" : "pass",
+        `Sessions: ${s.activeSessionCount} | Agents: ${s.agentCount} | Blocked: ${s.blockedAgentCount}\n` +
+        `Claims: ${s.activeClaimCount} | Hard conflicts: ${s.hardConflictCount}\n` +
+        `Patches: ${s.pendingPatchCount} | Wakes: ${s.pendingWakeCount}`
+      ));
 
-      // 2. Active Sessions
-      sections.push({
-        kind: "header",
-        label: "Sessions",
-        icon: "symbol-event",
-        children: data.activeSessions.map((s: any) => ({
-          label: s.title,
-          description: `${s.status} \u2022 ${s.relationshipMode}`,
-          icon: "window",
-        })),
-      });
+      // ── 1. Sessions ──
+      root.push(section("Sessions", "symbol-event",
+        data.sessions.map((sess: any) =>
+          item(
+            sess.title,
+            `${sess.status} \u2022 ${sess.relationshipMode}`,
+            "window",
+            undefined,
+            sess.agents.map((a: any) =>
+              item(a.agentName, a.role, "person")
+            )
+          )
+        )
+      ));
 
-      // 3. Sync Gates
-      sections.push({
-        kind: "header",
-        label: "Sync Gates",
-        icon: "shield",
-        children: data.activeGates.map((g: any) => ({
-          label: g.description || g.reason || g.id,
-          description: `${g.status} \u2022 ${g.reason}`,
-          icon: "warning",
-          tooltip: `Required: ${g.requiredAgentIds}\nAcked: ${g.ackedAgentIds || "none"}`,
-        })),
-      });
+      // ── 2. Agents / Active Work ──
+      root.push(section("Active Work", "robot",
+        data.agents.filter((a: any) => a.activeAssignments.length > 0 || a.blocked).map((a: any) => {
+          const children: SyncNode[] = [];
+          for (const ta of a.activeAssignments) {
+            children.push(item(
+              ta.taskTitle,
+              ta.status,
+              ta.status === "IN_PROGRESS" ? "play" : "circle-outline"
+            ));
+          }
+          if (a.claimedFiles.length) {
+            for (const c of a.claimedFiles) {
+              children.push(item(c.paths, `${c.mode}`, c.mode === "exclusive" ? "lock" : "unlock"));
+            }
+          }
+          return item(
+            a.blocked ? `\u26D4 ${a.name}` : a.name,
+            a.blocked ? "BLOCKED" : `${a.activeAssignments.length} task(s)`,
+            a.blocked ? "error" : "person",
+            `Provider: ${a.provider} | Role: ${a.role}\nWakes: ${a.pendingWakeCount}`,
+            children
+          );
+        })
+      ));
 
-      // 4. File Claims
-      sections.push({
-        kind: "header",
-        label: "File Claims",
-        icon: "file-symlink-file",
-        children: data.claims.map((c: any) => ({
-          label: c.paths,
-          description: `by ${c.agentId}`,
-          icon: "lock",
-        })),
-      });
+      // ── 3. File Ownership ──
+      const fo = data.fileOwnership;
+      const fileChildren: SyncNode[] = [];
+      for (const c of fo.activeClaims) {
+        fileChildren.push(item(
+          c.paths,
+          `${c.agentName} \u2022 ${c.mode}`,
+          c.mode === "exclusive" ? "lock" : "unlock",
+          `Task: ${c.taskTitle}`
+        ));
+      }
+      if (fo.conflicts.length) {
+        fileChildren.push(section("Conflicts", "flame",
+          fo.conflicts.map((c: any) =>
+            item(
+              c.overlappingPath,
+              c.isHardConflict ? "HARD CONFLICT" : "soft overlap",
+              c.isHardConflict ? "error" : "warning",
+              `${c.claimA.agentName} (${c.claimA.mode}) vs ${c.claimB.agentName} (${c.claimB.mode})`
+            )
+          )
+        ));
+      }
+      root.push(section("File Ownership", "file-symlink-file", fileChildren,
+        `${fo.stats.totalClaims} claims, ${fo.stats.hardConflicts} conflicts`));
 
-      // 5. Conflicts
-      sections.push({
-        kind: "header",
-        label: "Conflicts",
-        icon: "flame",
-        children: data.conflicts.map((c: any) => ({
-          label: c.path ?? c.overlappingPaths?.join(", ") ?? "conflict",
-          description: `agents: ${c.claimIds?.join(", ") ?? "?"}`,
-          icon: "error",
-        })),
-      });
+      // ── 4. Sync Blockers ──
+      root.push(section("Blockers", "shield",
+        data.blockers.map((b: any) => {
+          const agentNames = b.requiredAgents.map((a: any) => a.name).join(", ");
+          const iconMap: Record<string, string> = {
+            sync_gate: "shield",
+            sync_transaction: "git-pull-request",
+            handoff: "arrow-swap",
+            review: "eye",
+          };
+          return item(
+            b.description || b.reason,
+            `${b.type} \u2022 ${b.status}`,
+            iconMap[b.type] || "warning",
+            `Needs: ${agentNames}\nTask: ${b.relatedTaskId ?? "global"}`
+          );
+        })
+      ));
 
-      this._sections = sections;
+      // ── 5. Patches ──
+      root.push(section("Patches", "diff",
+        data.patches.map((p: any) =>
+          item(
+            p.title,
+            `${p.status} \u2022 ${p.needsAction}`,
+            p.status === "APPROVED" ? "pass" :
+            p.status === "CONFLICTING" ? "error" :
+            p.status === "SUBMITTED" ? "eye" : "edit",
+            `By: ${p.agentName}\nFiles: ${p.touchedFiles}\nTask: ${p.taskTitle}`
+          )
+        )
+      ));
+
+      // ── 6. Wake Queue ──
+      root.push(section("Wake Queue", "bell",
+        data.wakeQueue.map((w: any) =>
+          item(
+            w.targetAgentName,
+            `${w.reason}`,
+            "bell-dot",
+            `Event: ${w.sourceEvent}\nCreated: ${w.createdAt}`
+          )
+        )
+      ));
+
+      this._root = root;
     } catch {
-      this._sections = [{
-        kind: "header",
-        label: "(server not running)",
-        icon: "warning",
-        children: [],
-      }];
+      this._root = [item("(server not running)", "Start with: syncpoint server start", "warning")];
     }
   }
 }
@@ -312,16 +267,9 @@ export function activate(context: vscode.ExtensionContext) {
   const url = config.get<string>("serverUrl", DEFAULT_URL);
   client = createSyncPointClient(url);
 
-  const agentsProvider = new AgentsProvider();
-  const tasksProvider = new TasksProvider();
-  const checkpointsProvider = new CheckpointsProvider();
-  const syncStatusProvider = new SyncStatusProvider();
-
-  // Register tree views
-  vscode.window.registerTreeDataProvider("syncpoint-agents", agentsProvider);
-  vscode.window.registerTreeDataProvider("syncpoint-tasks", tasksProvider);
-  vscode.window.registerTreeDataProvider("syncpoint-checkpoints", checkpointsProvider);
-  vscode.window.registerTreeDataProvider("syncpoint-sync-status", syncStatusProvider);
+  // Unified Sync View — single tree with all 6 sections
+  const syncView = new SyncViewProvider();
+  vscode.window.registerTreeDataProvider("syncpoint-sync-view", syncView);
 
   // Commands
   context.subscriptions.push(
@@ -331,13 +279,13 @@ export function activate(context: vscode.ExtensionContext) {
         value: "8765",
       });
       if (!port) return;
-      // Server is started externally via CLI; just verify connection
       try {
         const resp = await fetch(`${url}/status`);
         const data = await resp.json();
-        vscode.window.showInformationMessage(`SyncPoint server connected: v${(data as any).version}`);
+        vscode.window.showInformationMessage(`SyncPoint Sync View connected: v${(data as any).version}`);
+        syncView.refresh();
       } catch {
-        vscode.window.showWarningMessage("SyncPoint server not reachable. Run `syncpoint server start` first.");
+        vscode.window.showWarningMessage("SyncPoint server not reachable. Run `syncpoint server start` to inspect claims and blockers.");
       }
     }),
 
@@ -356,7 +304,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!role) return;
       try {
         await client.agent.create.mutate({ name, provider, role });
-        agentsProvider.refresh();
+        syncView.refresh();
         vscode.window.showInformationMessage(`Agent "${name}" registered`);
       } catch (e: any) {
         vscode.window.showErrorMessage(`Failed to register agent: ${e.message}`);
@@ -368,7 +316,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!title) return;
       try {
         await client.task.create.mutate({ title });
-        tasksProvider.refresh();
+        syncView.refresh();
         vscode.window.showInformationMessage(`Task "${title}" created`);
       } catch (e: any) {
         vscode.window.showErrorMessage(`Failed to create task: ${e.message}`);
@@ -376,10 +324,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand("syncpoint.refreshStatus", () => {
-      agentsProvider.refresh();
-      tasksProvider.refresh();
-      checkpointsProvider.refresh();
-      syncStatusProvider.refresh();
+      syncView.refresh();
     }),
 
     vscode.commands.registerCommand("syncpoint.resumePrompt", async () => {
@@ -400,7 +345,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (!rc) return;
       const text = formatResumePrompt(rc, "clipboard");
       await vscode.env.clipboard.writeText(text);
-      vscode.window.showInformationMessage("Resume prompt copied to clipboard");
+      vscode.window.showInformationMessage("Synchronization-aware resume prompt copied to clipboard");
     }),
 
     vscode.commands.registerCommand("syncpoint.writeRulesFile", async () => {
@@ -429,20 +374,17 @@ export function activate(context: vscode.ExtensionContext) {
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
   statusBarItem.command = "syncpoint.resumePrompt";
   statusBarItem.text = "$(sync) SyncPoint";
-  statusBarItem.tooltip = "SyncPoint: Click to generate resume prompt";
+  statusBarItem.tooltip = "SyncPoint: inspect sync context and generate a blocker-aware resume prompt";
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
 
-  // Auto-refresh via SSE
+  // Auto-refresh via SSE — all state changes trigger a single snapshot reload
   eventSource = createEventStream(url, () => {
-    agentsProvider.refresh();
-    tasksProvider.refresh();
-    checkpointsProvider.refresh();
-    syncStatusProvider.refresh();
+    syncView.refresh();
   });
 
-  // Initial load for sync status
-  syncStatusProvider.refresh();
+  // Initial load
+  syncView.refresh();
 }
 
 export function deactivate() {

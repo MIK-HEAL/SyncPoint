@@ -16,7 +16,7 @@ describe("Project Memory Layer", () => {
     const m = (await ctx.rpc("projectMemory.create", {
       category: "overview",
       title: "Project Overview",
-      content: "SyncPoint is a multi-agent collaboration state layer.",
+      content: "SyncPoint is a synchronization protocol layer for editor AI agents.",
       tags: "core,overview",
       sourceType: "human",
     })) as any;
@@ -25,7 +25,7 @@ describe("Project Memory Layer", () => {
     expect(m.status).toBe("draft");
     expect(m.category).toBe("overview");
     expect(m.title).toBe("Project Overview");
-    expect(m.content).toContain("multi-agent");
+    expect(m.content).toContain("synchronization");
     expect(m.tags).toBe("core,overview");
   });
 
@@ -44,7 +44,7 @@ describe("Project Memory Layer", () => {
   it("update project memory fields", async () => {
     const updated = (await ctx.rpc("projectMemory.update", {
       id: memId,
-      content: "SyncPoint is a local multi-agent collaboration state layer for AI editors.",
+      content: "SyncPoint is a local synchronization protocol layer for AI editors.",
       updatedBy: "human",
     })) as any;
     expect(updated.content).toContain("AI editors");
@@ -57,7 +57,7 @@ describe("Project Memory Layer", () => {
   });
 
   it("approved memory appears in search", async () => {
-    const results = (await ctx.rpc("projectMemory.search", { query: "multi-agent" }, "GET")) as any[];
+    const results = (await ctx.rpc("projectMemory.search", { query: "synchronization" }, "GET")) as any[];
     expect(results.some((m: any) => m.id === memId)).toBe(true);
   });
 
@@ -82,7 +82,7 @@ describe("Project Memory Layer", () => {
     const m = (await ctx.rpc("projectMemory.deprecate", { id: memId })) as any;
     expect(m.status).toBe("deprecated");
 
-    const results = (await ctx.rpc("projectMemory.search", { query: "multi-agent" }, "GET")) as any[];
+    const results = (await ctx.rpc("projectMemory.search", { query: "synchronization" }, "GET")) as any[];
     expect(results.some((r: any) => r.id === memId)).toBe(false);
   });
 

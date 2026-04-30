@@ -2,7 +2,7 @@
   "name": "syncpoint-monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "SyncPoint - Local multi-agent collaboration state layer",
+  "description": "SyncPoint - Synchronization protocol layer for editor AI agents",
   "scripts": {
     "build": "pnpm -r build",
     "dev:server": "pnpm --filter syncpoint-server dev",

@@ -15,7 +15,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_resume",
     {
       title: "Resume Task",
-      description: "Generate a full resume prompt for an agent to continue a task. Includes task state, contract, checkpoint, capsule, pinned memories, and project knowledge.",
+      description: "Generate a synchronization-aware resume prompt for an agent. Includes task state, contract, checkpoint, capsule, pinned memories, project knowledge, and continuation blockers.",
       argsSchema: {
         taskId: z.string().describe("Task ID"),
         agentId: z.string().describe("Agent ID"),
@@ -37,7 +37,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_checkpoint",
     {
       title: "Checkpoint Guide",
-      description: "Guide an agent to produce a structured checkpoint with all required fields.",
+      description: "Guide an agent to produce a structured checkpoint that can become a sync transaction when another agent must approve before continuation.",
       argsSchema: {
         taskId: z.string().describe("Task ID"),
         agentId: z.string().describe("Agent ID"),
@@ -117,7 +117,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_project_onboarding",
     {
       title: "Project Onboarding",
-      description: "Onboard a new agent by providing all approved project memories and current task context.",
+      description: "Onboard a new agent with approved project memories, current task context, and SyncPoint synchronization obligations.",
       argsSchema: {
         taskId: z.string().describe("Task ID").optional(),
         agentId: z.string().describe("Agent ID").optional(),
@@ -147,7 +147,7 @@ export function registerPrompts(server: McpServer): void {
       const text = [
         "# Project Onboarding",
         "",
-        "Welcome to this project. Here is the curated project knowledge:",
+        "Welcome to this project. Here is the curated project knowledge and synchronization context:",
         "",
         "## Project Memory",
         "",
@@ -304,9 +304,9 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_architect_plan",
     {
       title: "Architect Planning",
-      description: "Generate an architect planning prompt with project memory, task list, and context policy for task decomposition.",
+      description: "Generate an architect planning prompt with project memory, task list, context policy, file boundaries, and blocker prevention guidance.",
       argsSchema: {
-        sessionId: z.string().describe("Orchestration session ID"),
+        sessionId: z.string().describe("Sync session ID"),
       },
     },
     ({ sessionId }) => {
@@ -423,7 +423,7 @@ export function registerPrompts(server: McpServer): void {
       title: "Session Playbook",
       description: "Role-specific sync playbook — what sync points need your attention and what actions to take.",
       argsSchema: {
-        sessionId: z.string().describe("Orchestration session ID"),
+        sessionId: z.string().describe("Sync session ID"),
         agentId: z.string().describe("Agent ID to generate playbook for"),
       },
     },
@@ -513,7 +513,7 @@ export function registerPrompts(server: McpServer): void {
       if (!wake) {
         return {
           messages: [
-            { role: "user" as const, content: { type: "text" as const, text: "No pending wake requests. You are idle." } },
+            { role: "user" as const, content: { type: "text" as const, text: "No pending wake requests. No synchronization obligation is currently queued for this agent." } },
           ],
         };
       }

@@ -324,8 +324,8 @@ export function registerTools(server: McpServer): void {
   server.registerTool(
     "syncpoint_session_create",
     {
-      title: "Create Orchestration Session",
-      description: "Create a new orchestration session with optional architect role assignment. Specify relationshipMode to define coordination pattern.",
+      title: "Create Sync Session",
+      description: "Create a synchronization session with optional architect role assignment. relationshipMode defines the claim, checkpoint, review, or handoff boundaries agents must respect.",
       inputSchema: {
         title: z.string(),
         description: z.string().optional(),
@@ -346,7 +346,7 @@ export function registerTools(server: McpServer): void {
     "syncpoint_session_status",
     {
       title: "Session Status",
-      description: "Get full orchestration session status including roles, assignments, reviews, decisions",
+      description: "Get full synchronization session status including roles, assignments, reviews, and decisions. Use with Sync View to inspect active blockers.",
       inputSchema: {
         sessionId: z.string(),
       },
@@ -363,7 +363,7 @@ export function registerTools(server: McpServer): void {
     "syncpoint_session_assign_role",
     {
       title: "Assign Role",
-      description: "Assign a role (architect/executor/reviewer/owner) to an agent within a session",
+      description: "Assign a sync responsibility (architect/executor/reviewer/owner) to an agent within a session",
       inputSchema: {
         sessionId: z.string(),
         agentId: z.string(),
@@ -382,7 +382,7 @@ export function registerTools(server: McpServer): void {
     "syncpoint_session_plan_task",
     {
       title: "Plan Task",
-      description: "Plan a task assignment within a session — assigns task to an executor",
+      description: "Plan a task assignment within a sync session. This assigns scope, but continuation is still gated by claims and blockers.",
       inputSchema: {
         sessionId: z.string(),
         taskId: z.string(),
