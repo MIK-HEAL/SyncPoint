@@ -4,6 +4,21 @@
 
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
+// ── Runtime ────────────────────────────────────────────
+
+export const runtimes = sqliteTable("runtime", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  kind: text("kind").notNull().default("local-mcp"),
+  provider: text("provider").notNull().default(""),
+  host: text("host").notNull().default(""),
+  workspaceRoot: text("workspace_root").notNull().default(""),
+  agentId: text("agent_id"),
+  status: text("status").notNull().default("ACTIVE"),
+  lastSeenAt: text("last_seen_at").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
 // ── Agent ──────────────────────────────────────────────
 
 export const agents = sqliteTable("agent", {
@@ -13,6 +28,7 @@ export const agents = sqliteTable("agent", {
   role: text("role").notNull(),
   status: text("status").notNull().default("IDLE"),
   currentTaskId: text("current_task_id"),
+  runtimeId: text("runtime_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

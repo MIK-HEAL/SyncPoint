@@ -344,3 +344,20 @@ export type {
   PatchCheckItem,
   PatchCheckResult,
 } from "./patch-proposal.js";
+
+// Runtime Identity
+export {
+  RuntimeStatus,
+  RuntimeKind,
+  RuntimeSchema,
+  RuntimeCreateSchema,
+  resolveIdentity,
+  IdentityConflictError,
+} from "./runtime.js";
+
+export type {
+  Runtime,
+  RuntimeCreate,
+  BoundIdentity,
+  IdentityEnv,
+} from "./runtime.js";

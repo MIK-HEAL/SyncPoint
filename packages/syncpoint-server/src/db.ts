@@ -125,6 +125,7 @@ export function runMigrations(db: Database.Database): void {
       role            TEXT NOT NULL,
       status          TEXT NOT NULL DEFAULT 'IDLE',
       current_task_id TEXT,
+      runtime_id      TEXT,
       created_at      TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -434,5 +435,24 @@ export function runMigrations(db: Database.Database): void {
       created_at              TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS runtime (
+      id              TEXT PRIMARY KEY,
+      name            TEXT NOT NULL,
+      kind            TEXT NOT NULL DEFAULT 'local-mcp',
+      provider        TEXT NOT NULL DEFAULT '',
+      host            TEXT NOT NULL DEFAULT '',
+      workspace_root  TEXT NOT NULL DEFAULT '',
+      agent_id        TEXT,
+      status          TEXT NOT NULL DEFAULT 'ACTIVE',
+      last_seen_at    TEXT NOT NULL DEFAULT '',
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  // ── Additive migrations (safe to re-run) ──
+  const addColumn = (table: string, col: string, def: string) => {
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); } catch { /* already exists */ }
+  };
+  addColumn("agent", "runtime_id", "TEXT");
 }

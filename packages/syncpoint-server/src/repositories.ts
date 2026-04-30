@@ -14,6 +14,7 @@ export {
   getAgent,
   listAgents,
   updateAgentStatus,
+  updateAgentRuntime,
 } from "./repositories/agent-repository.js";
 
 export {
@@ -162,3 +163,13 @@ export {
   listSyncTransactions,
   listActiveSyncTransactions,
 } from "./repositories/sync-transaction-repository.js";
+
+export {
+  createRuntime,
+  getRuntime,
+  listRuntimes,
+  updateRuntimeAgent,
+  updateRuntimeStatus,
+  touchRuntime,
+  getAgentIdForRuntime,
+} from "./repositories/runtime-repository.js";

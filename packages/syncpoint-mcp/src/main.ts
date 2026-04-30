@@ -15,6 +15,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { getDb } from "syncpoint-server";
 import { createSyncPointMcpServer } from "./server.js";
 import { log } from "./errors.js";
+import { logIdentityStatus } from "./identity.js";
 
 async function main(): Promise<void> {
   // Optionally cd into project root
@@ -26,6 +27,9 @@ async function main(): Promise<void> {
   // Initialize DB
   getDb();
   log("Database initialized");
+
+  // Log bound identity
+  logIdentityStatus();
 
   // Create and start MCP server
   const server = createSyncPointMcpServer();

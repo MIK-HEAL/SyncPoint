@@ -29,6 +29,31 @@ The operator experience has four surfaces:
 | Server | Share one local SyncPoint state with SDK, extension, and tRPC clients |
 | VS Code Sync View | See sessions, active work, file ownership, blockers, patches, and wake queue |
 
+## MCP Identity Today
+
+Before using multiple editor agents, keep this boundary clear:
+
+```text
+connecting to SyncPoint MCP does not automatically register a new agent
+and does not automatically map the connection to one existing agent
+```
+
+Today SyncPoint supports two practical MCP identity modes:
+
+1. **Bound mode** — set `SYNCPOINT_AGENT_ID` or `SYNCPOINT_RUNTIME_ID`
+2. **Legacy mode** — pass explicit `agentId` in tool calls
+
+Recommended real-world setup:
+
+```text
+one editor window
+  -> one MCP connection
+  -> one bound SyncPoint agent
+```
+
+Use [`runtime-identity.md`](runtime-identity.md) for the exact setup flow,
+`syncpoint_whoami`, and three-window examples.
+
 ## Install And Build
 
 From the SyncPoint repository:
@@ -89,6 +114,9 @@ syncpoint agent list
 ```
 
 Use the printed IDs in later commands.
+
+For MCP-connected editor windows, the simplest current setup is to bind
+each window directly to one of these agent IDs with `SYNCPOINT_AGENT_ID`.
 
 ## Create A Sync Session
 

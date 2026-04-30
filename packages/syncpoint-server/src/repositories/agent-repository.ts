@@ -44,3 +44,9 @@ export function updateAgentStatus(id: string, target: AgentStatus): Agent {
   logEvent(EventType.AGENT_STATUS_CHANGED, "agent", id, `${old}→${target}`);
   return getAgent(id);
 }
+
+export function updateAgentRuntime(id: string, runtimeId: string | null): Agent {
+  getAgent(id); // ensure exists
+  _getDb().update(s.agents).set({ runtimeId, updatedAt: now() }).where(eq(s.agents.id, id)).run();
+  return getAgent(id);
+}

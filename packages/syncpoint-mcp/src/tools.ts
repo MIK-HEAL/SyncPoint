@@ -25,11 +25,12 @@ import {
   stxCreate, stxApprove, stxReject, stxResolve, stxCancel, stxStatus, stxList,
   ppPropose, ppSubmit, ppCheck, ppApprove, ppReject, ppApply, ppCancel, ppStatus, ppList,
 } from "syncpoint-server/application";
-import { getResumeContext } from "syncpoint-server/repositories";
-import { formatResumePrompt, ProjectMemoryCreateSchema, ContextIntent, ContextRole, OrchestratorRole, ReviewVerdict, EvidenceKind, PlaybookActionKind } from "syncpoint-core";
+import { getResumeContext, createRuntime, getRuntime, listRuntimes, updateRuntimeAgent, updateAgentRuntime, getAgent } from "syncpoint-server/repositories";
+import { formatResumePrompt, ProjectMemoryCreateSchema, ContextIntent, ContextRole, OrchestratorRole, ReviewVerdict, EvidenceKind, PlaybookActionKind, RuntimeKind } from "syncpoint-core";
 import type { ChecklistItemStatus } from "syncpoint-core";
 import { safeError } from "./errors.js";
 import { formatToolResult } from "./format.js";
+import { resolveBoundAgentId, getConnectionIdentity, isBound } from "./identity.js";
 
 function ok(data: object) {
   return { content: [{ type: "text" as const, text: formatToolResult(data as Record<string, unknown>) }] };
@@ -45,12 +46,15 @@ export function registerTools(server: McpServer): void {
     "syncpoint_loop_status",
     {
       title: "Loop Status",
-      description: "Get current agent and task status",
-      inputSchema: { agentId: z.string(), taskId: z.string().optional() },
+      description: "Get current agent and task status. agentId is optional if connection is identity-bound.",
+      inputSchema: { agentId: z.string().optional(), taskId: z.string().optional() },
     },
     async ({ agentId, taskId }) => {
-      try { return ok(loopStatus({ agentId, taskId })); }
-      catch (e) { return fail(e); }
+      try {
+        const resolved = resolveBoundAgentId(agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        return ok(loopStatus({ agentId: resolved, taskId }));
+      } catch (e) { return fail(e); }
     }
   );
 
@@ -59,17 +63,20 @@ export function registerTools(server: McpServer): void {
     "syncpoint_loop_resume",
     {
       title: "Loop Resume",
-      description: "Resume a task — enforces context policy, generates adapter files and prompt",
+      description: "Resume a task — enforces context policy, generates adapter files and prompt. agentId is optional if connection is identity-bound.",
       inputSchema: {
-        agentId: z.string(),
+        agentId: z.string().optional(),
         taskId: z.string(),
         provider: z.string().optional(),
         format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),
       },
     },
     async ({ agentId, taskId, provider, format }) => {
-      try { return ok(loopResume({ agentId, taskId, provider, format })); }
-      catch (e) { return fail(e); }
+      try {
+        const resolved = resolveBoundAgentId(agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        return ok(loopResume({ agentId: resolved, taskId, provider, format }));
+      } catch (e) { return fail(e); }
     }
   );
 
@@ -78,9 +85,9 @@ export function registerTools(server: McpServer): void {
     "syncpoint_loop_checkpoint",
     {
       title: "Loop Checkpoint",
-      description: "Save a checkpoint and context capsule for the current work session",
+      description: "Save a checkpoint and context capsule for the current work session. agentId is optional if connection is identity-bound.",
       inputSchema: {
-        agentId: z.string(),
+        agentId: z.string().optional(),
         taskId: z.string(),
         summary: z.string(),
         progress: z.string().optional(),
@@ -98,8 +105,11 @@ export function registerTools(server: McpServer): void {
       },
     },
     async (input) => {
-      try { return ok(loopCheckpoint(input)); }
-      catch (e) { return fail(e); }
+      try {
+        const resolved = resolveBoundAgentId(input.agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        return ok(loopCheckpoint({ ...input, agentId: resolved }));
+      } catch (e) { return fail(e); }
     }
   );
 
@@ -693,15 +703,17 @@ export function registerTools(server: McpServer): void {
     "syncpoint_next_action",
     {
       title: "Next Action",
-      description: "Get the next recommended action for an agent in a session",
+      description: "Get the next recommended action for an agent in a session. agentId is optional if connection is identity-bound.",
       inputSchema: {
         sessionId: z.string(),
-        agentId: z.string(),
+        agentId: z.string().optional(),
       },
     },
     async ({ sessionId, agentId }) => {
       try {
-        return ok(pbGetNextAction({ sessionId, agentId }));
+        const resolved = resolveBoundAgentId(agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        return ok(pbGetNextAction({ sessionId, agentId: resolved }));
       } catch (e) { return fail(e); }
     }
   );
@@ -730,14 +742,16 @@ export function registerTools(server: McpServer): void {
     "syncpoint_active_session",
     {
       title: "Active Session",
-      description: "Find the active session for an agent and return next actions",
+      description: "Find the active session for an agent and return next actions. agentId is optional if connection is identity-bound.",
       inputSchema: {
-        agentId: z.string(),
+        agentId: z.string().optional(),
       },
     },
     async ({ agentId }) => {
       try {
-        const result = pbGetActiveSession(agentId);
+        const resolved = resolveBoundAgentId(agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        const result = pbGetActiveSession(resolved);
         if (!result) {
           return { content: [{ type: "text" as const, text: JSON.stringify({ active: false }) }] };
         }
@@ -771,14 +785,16 @@ export function registerTools(server: McpServer): void {
     "syncpoint_wake_next",
     {
       title: "Wake Next",
-      description: "Get the next queued wake request for an agent. Returns the action the agent should perform next.",
+      description: "Get the next queued wake request for an agent. Returns the action the agent should perform next. agentId is optional if connection is identity-bound.",
       inputSchema: {
-        agentId: z.string(),
+        agentId: z.string().optional(),
       },
     },
     async ({ agentId }) => {
       try {
-        const wake = wakeNext(agentId);
+        const resolved = resolveBoundAgentId(agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        const wake = wakeNext(resolved);
         if (!wake) {
           return { content: [{ type: "text" as const, text: JSON.stringify({ hasWake: false, message: "No pending wake requests." }) }] };
         }
@@ -881,9 +897,9 @@ export function registerTools(server: McpServer): void {
     "syncpoint_file_claim",
     {
       title: "Claim Files",
-      description: "Declare file ownership for a task. Returns the claim and any detected conflicts with other agents. Use this BEFORE modifying files to prevent uncoordinated parallel edits.",
+      description: "Declare file ownership for a task. Returns the claim and any detected conflicts with other agents. Use this BEFORE modifying files to prevent uncoordinated parallel edits. agentId is optional if connection is identity-bound.",
       inputSchema: {
-        agentId: z.string(),
+        agentId: z.string().optional(),
         taskId: z.string(),
         sessionId: z.string().optional(),
         paths: z.string().describe("Comma-separated file paths or glob patterns, e.g. 'src/auth.ts, src/api/*'"),
@@ -892,7 +908,9 @@ export function registerTools(server: McpServer): void {
     },
     async ({ agentId, taskId, sessionId, paths, mode }) => {
       try {
-        const result = fcClaimFiles({ agentId, taskId, sessionId, paths, mode });
+        const resolved = resolveBoundAgentId(agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        const result = fcClaimFiles({ agentId: resolved, taskId, sessionId, paths, mode });
         if (result.conflicts.length > 0) {
           const hardCount = result.conflicts.filter(c => c.isHardConflict).length;
           return ok({
@@ -1009,16 +1027,18 @@ export function registerTools(server: McpServer): void {
     "syncpoint_sync_ack",
     {
       title: "Acknowledge Sync Gate",
-      description: "Acknowledge a sync gate as a required agent. Once all required agents acknowledge, the gate can be resolved.",
+      description: "Acknowledge a sync gate as a required agent. Once all required agents acknowledge, the gate can be resolved. agentId is optional if connection is identity-bound.",
       inputSchema: {
         gateId: z.string(),
-        agentId: z.string(),
+        agentId: z.string().optional(),
         summary: z.string().optional().describe("Optional summary of what was confirmed"),
       },
     },
     async ({ gateId, agentId, summary }) => {
       try {
-        const result = sgAck(gateId, agentId, summary);
+        const resolved = resolveBoundAgentId(agentId);
+        if (!resolved) return fail(new Error("agentId required (no bound identity)"));
+        const result = sgAck(gateId, resolved, summary);
         return ok({
           gate: result.gate,
           pending: result.pending,
@@ -1385,6 +1405,142 @@ export function registerTools(server: McpServer): void {
     async (input) => {
       try {
         return ok({ proposals: ppList(input) });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ══════════════════════════════════════════════════════════
+  // ── Runtime Identity (P11) ───────────────────────────────
+  // ══════════════════════════════════════════════════════════
+
+  // ── syncpoint_whoami ──
+  server.registerTool(
+    "syncpoint_whoami",
+    {
+      title: "Who Am I",
+      description:
+        "Returns the identity of this MCP connection: bound agentId, runtimeId, provider, and workspace. " +
+        "Use this to confirm which agent this connection is speaking as.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const identity = getConnectionIdentity();
+        const envAgent = process.env.SYNCPOINT_AGENT_ID ?? null;
+        const envRuntime = process.env.SYNCPOINT_RUNTIME_ID ?? null;
+        const workspaceRoot = process.env.SYNCPOINT_PROJECT_ROOT ?? process.cwd();
+
+        let agent = null;
+        if (identity?.agentId) {
+          try { agent = getAgent(identity.agentId); } catch { /* not found */ }
+        }
+
+        return ok({
+          bound: isBound(),
+          agentId: identity?.agentId ?? null,
+          agentName: agent?.name ?? null,
+          provider: agent?.provider ?? null,
+          role: agent?.role ?? null,
+          runtimeId: envRuntime,
+          source: identity?.source ?? "none",
+          workspaceRoot,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_runtime_register ──
+  server.registerTool(
+    "syncpoint_runtime_register",
+    {
+      title: "Register Runtime",
+      description:
+        "Register a new runtime instance. A runtime represents a physical editor window or daemon " +
+        "that connects to SyncPoint. Optionally bind it to an agent.",
+      inputSchema: {
+        name: z.string().describe("Human-readable runtime name, e.g. 'architect-window'"),
+        kind: z.enum(["local-mcp", "daemon", "cloud"]).optional().describe("Runtime kind"),
+        provider: z.string().optional().describe("Editor/AI provider (copilot, cursor, codex, etc.)"),
+        host: z.string().optional().describe("Machine/workstation name"),
+        workspaceRoot: z.string().optional().describe("Workspace root path"),
+        agentId: z.string().optional().describe("Agent to bind to this runtime"),
+      },
+    },
+    async (input) => {
+      try {
+        if (input.agentId) {
+          getAgent(input.agentId); // verify agent exists before creating runtime
+        }
+        const rt = createRuntime({
+          name: input.name,
+          kind: (input.kind as any) ?? RuntimeKind.LOCAL_MCP,
+          provider: input.provider ?? "",
+          host: input.host ?? "",
+          workspaceRoot: input.workspaceRoot ?? "",
+          agentId: input.agentId ?? null,
+        });
+        if (input.agentId) {
+          updateAgentRuntime(input.agentId, rt.id);
+        }
+        return ok({ runtime: rt, hint: `Set SYNCPOINT_RUNTIME_ID=${rt.id} in your MCP config.` });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_runtime_bind ──
+  server.registerTool(
+    "syncpoint_runtime_bind",
+    {
+      title: "Bind Agent to Runtime",
+      description: "Bind an agent to a runtime. Future connections with that runtime ID will automatically act as this agent.",
+      inputSchema: {
+        runtimeId: z.string().describe("Runtime ID to bind"),
+        agentId: z.string().describe("Agent ID to bind to the runtime"),
+      },
+    },
+    async ({ runtimeId, agentId }) => {
+      try {
+        getAgent(agentId); // verify agent exists
+        const rt = updateRuntimeAgent(runtimeId, agentId);
+        updateAgentRuntime(agentId, runtimeId);
+        return ok({ runtime: rt });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_runtime_list ──
+  server.registerTool(
+    "syncpoint_runtime_list",
+    {
+      title: "List Runtimes",
+      description: "List all registered runtime instances.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return ok({ runtimes: listRuntimes() });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_runtime_status ──
+  server.registerTool(
+    "syncpoint_runtime_status",
+    {
+      title: "Runtime Status",
+      description: "Get details of a specific runtime instance.",
+      inputSchema: {
+        runtimeId: z.string().describe("Runtime ID"),
+      },
+    },
+    async ({ runtimeId }) => {
+      try {
+        const rt = getRuntime(runtimeId);
+        let agent = null;
+        if (rt.agentId) {
+          try { agent = getAgent(rt.agentId); } catch { /* not found */ }
+        }
+        return ok({ runtime: rt, boundAgent: agent });
       } catch (e) { return fail(e); }
     }
   );
