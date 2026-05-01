@@ -507,6 +507,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
   const ready = policy.gateMode === "none"
     ? true
     : missingSections.length === 0;
+  const isResumeIntent = input.intent === "execute" || input.intent === "resume" || input.intent === "handoff-receive";
   const shouldUseResumeQualityGate = input.intent === "execute" || input.intent === "resume";
   const resumeReady = shouldUseResumeQualityGate ? (resumeCtx?.ready ?? true) : true;
   const finalReady = policy.gateMode === "hard"
@@ -523,7 +524,8 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
     case "execute":
     case "resume":
     case "handoff-receive":
-      prompt = formatHandoffReceivePrompt(taskInfo, agentInfo, handoff, senderCapsule, resumeCtx, approvedMems);
+      // P3B: no raw project memories in agent-facing resume prompts
+      prompt = formatHandoffReceivePrompt(taskInfo, agentInfo, handoff, senderCapsule, resumeCtx, []);
       break;
     case "review":
       prompt = formatReviewPrompt(
@@ -571,7 +573,10 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
     warnings,
     task: taskInfo,
     agent: agentInfo,
-    resumeContext: resumeCtx,
+    // P3B: strip raw PM from structured return for agent-facing intents
+    resumeContext: isResumeIntent && resumeCtx
+      ? { ...resumeCtx, projectMemories: [], resumePrompt: "" }
+      : resumeCtx,
     handoffContext: handoff ? {
       id: handoff.id,
       fromAgentId: handoff.fromAgentId,
@@ -580,7 +585,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
       contextSummary: handoff.contextSummary,
       status: handoff.status,
     } : null,
-    projectMemories: approvedMems,
+    projectMemories: isResumeIntent ? [] : approvedMems,
     draftMemories: draftMems.map(m => ({
       id: m.id, category: m.category, title: m.title, content: m.content, status: m.status,
     })),

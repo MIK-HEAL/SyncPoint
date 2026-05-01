@@ -92,6 +92,14 @@ export interface PatchCheckResult {
   touchedFiles: string[];
   uncoveredFiles: string[];
   conflictingClaims: string[];
+  /** P4B: constraint violations from Constraint Runtime (do_not_touch, projection invalid, etc.) */
+  constraintViolations?: Array<{
+    rule: string;
+    sourceMemoryId: string;
+    projectionId: string;
+    message: string;
+    evidence?: string[];
+  }>;
 }
 
 // ── Pure helpers ────────────────────────────────────

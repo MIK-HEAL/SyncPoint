@@ -84,12 +84,56 @@ export {
   ProjectMemorySourceType,
   ProjectMemorySchema,
   ProjectMemoryCreateSchema,
+  computeMemoryFingerprint,
+  isMemoryDuplicate,
+  // V2
+  MemoryKind,
+  ProjectionTarget,
+  MemorySeverity,
+  ValidityStatus,
+  AppliesToSchema,
+  ValiditySchema,
+  defaultKindFromCategory,
+  validProjectionTargets,
+  isValidProjection,
 } from "./project-memory.js";
 
 export type {
   ProjectMemory,
   ProjectMemoryCreate,
+  MemoryDedupResult,
+  AppliesTo,
+  Validity,
 } from "./project-memory.js";
+
+// P3A Projection Compiler
+export {
+  compileProjection,
+  computeProjectionCacheKey,
+} from "./projection.js";
+
+export type {
+  ProjectedReality,
+  ProjectionItem,
+  ProjectionScope,
+  ProjectionConflict,
+  ProjectionSource,
+  CapsulePatch,
+  ProjectionCreatedFrom,
+  ProjectionValidityStatus,
+  ProjectionInput,
+  ProjectionContext,
+} from "./projection.js";
+
+// P4A Constraint Runtime
+export { evaluateConstraints } from "./constraint-runtime.js";
+
+export type {
+  RuntimeAction,
+  ConstraintViolation,
+  ConstraintDecision,
+  ConstraintInput,
+} from "./constraint-runtime.js";
 
 // Prompt Template Engine
 export { formatResumePrompt } from "./prompt-templates.js";

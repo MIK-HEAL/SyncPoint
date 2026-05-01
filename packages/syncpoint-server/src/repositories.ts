@@ -83,7 +83,12 @@ export {
   listProjectMemories,
   searchProjectMemories,
   collectProjectMemories,
+  checkMemoryDuplicate,
+  supersedeProjectMemory,
+  getMemoryVersion,
+  bumpMemoryVersion,
 } from "./repositories/project-memory-repository.js";
+export type { CollectedMemory } from "./repositories/project-memory-repository.js";
 
 export {
   createSession,

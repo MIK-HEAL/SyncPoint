@@ -19,6 +19,7 @@ describe("Project Memory Layer", () => {
       content: "SyncPoint is a synchronization protocol layer for editor AI agents.",
       tags: "core,overview",
       sourceType: "human",
+      createdBy: "test-user",
     })) as any;
     memId = m.id;
     expect(m.id).toBeTruthy();
@@ -52,7 +53,7 @@ describe("Project Memory Layer", () => {
   });
 
   it("approve promotes to approved", async () => {
-    const m = (await ctx.rpc("projectMemory.approve", { id: memId })) as any;
+    const m = (await ctx.rpc("projectMemory.approve", { id: memId, updatedBy: "test-user" })) as any;
     expect(m.status).toBe("approved");
   });
 
@@ -61,7 +62,7 @@ describe("Project Memory Layer", () => {
     expect(results.some((m: any) => m.id === memId)).toBe(true);
   });
 
-  it("approved memory is injected into resume context", async () => {
+  it("approved memory is NOT leaked via resume context (P3B)", async () => {
     // Setup: agent + task + checkpoint + capsule
     const a = (await ctx.rpc("agent.create", { name: "cursor", provider: "cursor", role: "backend" })) as any;
     const t = (await ctx.rpc("task.create", { title: "Test PM" })) as any;
@@ -70,16 +71,15 @@ describe("Project Memory Layer", () => {
     await ctx.rpc("capsule.create", { taskId: t.id, agentId: a.id, checkpointId: cp.id, goal: "Test" });
 
     const rc = (await ctx.rpc("resumeContext.get", { taskId: t.id, agentId: a.id }, "GET")) as any;
+    // P3B: projectMemories stripped at transport — agent sees projected reality only
     expect(rc.projectMemories).toBeDefined();
-    expect(rc.projectMemories.length).toBeGreaterThanOrEqual(1);
-    expect(rc.projectMemories.some((m: any) => m.title === "Project Overview")).toBe(true);
-    // Also appears in resume prompt text
-    expect(rc.resumePrompt).toContain("Project Knowledge");
-    expect(rc.resumePrompt).toContain("Project Overview");
+    expect(rc.projectMemories.length).toBe(0);
+    // resumePrompt also stripped (contains baked-in raw PM)
+    expect(rc.resumePrompt).toBe("");
   });
 
   it("deprecate removes from active context", async () => {
-    const m = (await ctx.rpc("projectMemory.deprecate", { id: memId })) as any;
+    const m = (await ctx.rpc("projectMemory.deprecate", { id: memId, updatedBy: "test-user" })) as any;
     expect(m.status).toBe("deprecated");
 
     const results = (await ctx.rpc("projectMemory.search", { query: "synchronization" }, "GET")) as any[];
@@ -88,7 +88,7 @@ describe("Project Memory Layer", () => {
 
   it("cannot approve deprecated memory", async () => {
     try {
-      await ctx.rpc("projectMemory.approve", { id: memId });
+      await ctx.rpc("projectMemory.approve", { id: memId, updatedBy: "test-user" });
       expect.fail("Should have thrown");
     } catch {
       // Expected
@@ -102,6 +102,7 @@ describe("Project Memory Layer", () => {
       content: "SQLite via better-sqlite3 is the single storage backend.",
       scope: "project",
       confidence: "high",
+      createdBy: "test-user",
     })) as any;
     expect(decision.category).toBe("decision");
     expect(decision.confidence).toBe("high");
@@ -111,6 +112,7 @@ describe("Project Memory Layer", () => {
       title: "Windows spawn EPERM",
       content: "Vitest on Windows may hit EPERM. Run with admin or adjust antivirus.",
       scope: "project",
+      createdBy: "test-user",
     })) as any;
     expect(gotcha.category).toBe("gotcha");
 

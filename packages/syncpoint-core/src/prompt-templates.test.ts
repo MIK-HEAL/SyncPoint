@@ -107,10 +107,16 @@ describe("formatResumePrompt", () => {
     expect(text).toContain("Project Rules");
   });
 
-  it("checkpoint-md returns raw resumePrompt", () => {
+  it("checkpoint-md builds from structured fields (P3B: no raw resumePrompt)", () => {
     const ctx = makeContext();
     const text = formatResumePrompt(ctx, "checkpoint-md");
-    expect(text).toBe(ctx.resumePrompt);
+    // P3B: checkpoint-md no longer returns ctx.resumePrompt (contains baked-in raw PM)
+    expect(text).toContain("# Checkpoint");
+    expect(text).toContain(ctx.task.title);
+    expect(text).toContain("Goal");
+    expect(text).toContain("Phase");
+    // Should NOT contain raw Project Knowledge
+    expect(text).not.toContain("## Project Knowledge");
   });
 
   it("clipboard is compact", () => {

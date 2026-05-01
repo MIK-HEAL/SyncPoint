@@ -66,10 +66,10 @@ describe("Memory Switch Engine", () => {
     expect(rc.latestCheckpoint).not.toBeNull();
     expect(rc.latestCheckpoint.summary).toBe("Started auth work");
 
-    // Resume prompt (text)
-    expect(rc.resumePrompt).toContain("Resume Context: Build auth");
-    expect(rc.resumePrompt).toContain("Implement auth API");
-    expect(rc.resumePrompt).toContain("POST /login");
+    // P3B: resumePrompt is stripped at transport (contains baked-in raw PM)
+    // Verify structured fields carry the content instead
+    expect(rc.latestCapsule.goal).toContain("Implement auth API");
+    expect(rc.approvedContract.interfaceSpec).toContain("POST /login");
 
     // Quality checks all pass
     expect(rc.checks.length).toBeGreaterThan(0);
@@ -109,9 +109,8 @@ describe("Memory Switch Engine", () => {
     expect(rc.pinnedMemories.some((m: any) => m.key === "code-style")).toBe(true);
     expect(rc.pinnedMemories.some((m: any) => m.key === "auth-rule")).toBe(true);
 
-    // Resume prompt includes pinned rules
-    expect(rc.resumePrompt).toContain("Pinned Rules");
-    expect(rc.resumePrompt).toContain("code-style");
+    // P3B: resumePrompt stripped at transport, but pinnedMemories still present in ctx
+    expect(rc.pinnedMemories.some((m: any) => m.content === "Use TypeScript strict mode")).toBe(true);
   });
 
   it("enforceContextPolicy returns ready + warnings", async () => {

@@ -23,12 +23,21 @@ export {
   pmSearch,
   pmExport,
   ProjectMemoryPathError,
+  CallerIdentityError,
+  DuplicateMemoryError,
+  InvalidProjectionError,
+  pmSupersede,
+  pmGetVersion,
+  pmCheckDuplicate,
 } from "./project-memory-service.js";
 
 export type {
   ProjectMemoryAddInput,
   ProjectMemoryExportResult,
 } from "./project-memory-service.js";
+
+// P3A Projection
+export { buildProjection } from "./projection-service.js";
 
 export type {
   LoopBootInput,
@@ -227,9 +236,20 @@ export type {
   UnifiedBlocker,
 } from "./sync-status-service.js";
 
+// P4D Constraint Runtime (read-only visibility)
+export { constraintCheck } from "./constraint-runtime-service.js";
+
+export type {
+  ConstraintCheckAction,
+  ConstraintRuntimeCheckInput,
+  ConstraintRuntimeView,
+  ConstraintViolationView,
+} from "./constraint-runtime-service.js";
+
 // Protocol Gate & Capsule Validation (P12)
 export {
   assembleProtocolGate,
+  injectProjectionIntoGate,
   validateCapsule,
   formatProtocolGatePrompt,
   formatValidationNotes,

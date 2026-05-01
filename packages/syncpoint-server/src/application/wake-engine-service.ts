@@ -23,8 +23,9 @@ import { SyncPointEventBus } from "../event-bus.js";
 import type { SyncPointEventData } from "../event-bus.js";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
-import { EventType } from "syncpoint-core";
+import { EventType, evaluateConstraints } from "syncpoint-core";
 import { sgCheckAgent } from "./sync-gate-service.js";
+import { buildProjection } from "./projection-service.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -312,6 +313,26 @@ export function wakeStart(id: string): WakeRequest {
     const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
     throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting wake.`);
   }
+
+  // P4C: Constraint Runtime enforcement
+  if (wr.taskId) {
+    try {
+      const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
+      const workingFiles = latestCap?.workingFiles
+        ? latestCap.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+        : [];
+      const projection = buildProjection({ taskId: wr.taskId, workingFiles });
+      const decision = evaluateConstraints({ action: "wake_start", projection, touchedFiles: workingFiles.length > 0 ? workingFiles : undefined });
+      if (!decision.permitted) {
+        const reasons = decision.blockers.map(b => b.message).join("; ");
+        throw new Error(`Constraint violation: ${reasons}`);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("Constraint violation:")) throw err;
+      // projection unavailable — skip constraint check
+    }
+  }
+
   return repo.updateWakeRequestStatus(id, WakeRequestStatus.RUNNING);
 }
 
@@ -345,7 +366,23 @@ export function wakeNext(agentId: string): WakeRequest | null {
 
   const all = repo.listWakeRequestsByAgent(agentId);
   const queued = all.filter(w => w.status === WakeRequestStatus.QUEUED);
-  return queued.length > 0 ? queued[0] : null;
+  if (queued.length === 0) return null;
+
+  // P4C: Constraint Runtime enforcement — skip wake if constraint-blocked
+  const wr = queued[0];
+  if (wr.taskId) {
+    try {
+      const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
+      const workingFiles = latestCap?.workingFiles
+        ? latestCap.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+        : [];
+      const projection = buildProjection({ taskId: wr.taskId, workingFiles });
+      const decision = evaluateConstraints({ action: "wake_start", projection, touchedFiles: workingFiles.length > 0 ? workingFiles : undefined });
+      if (!decision.permitted) return null;
+    } catch { /* projection unavailable — allow wake */ }
+  }
+
+  return wr;
 }
 
 // ── Helpers ────────────────────────────────────────────

@@ -211,3 +211,36 @@ describe("P7: peer-contract requires file claims before start-work", () => {
     expect(ta.status).toBe("IN_PROGRESS");
   });
 });
+
+describe("listFileClaims AND filter regression", () => {
+  it("listFileClaims({ agentId, status }) returns only that agent's ACTIVE claims", () => {
+    // Both agents have active claims from prior tests
+    const a1Claims = repo.listFileClaims({ agentId: agent1Id, status: "ACTIVE" });
+    const a2Claims = repo.listFileClaims({ agentId: agent2Id, status: "ACTIVE" });
+
+    // Verify no cross-contamination
+    for (const c of a1Claims) {
+      expect(c.agentId).toBe(agent1Id);
+      expect(c.status).toBe("ACTIVE");
+    }
+    for (const c of a2Claims) {
+      expect(c.agentId).toBe(agent2Id);
+      expect(c.status).toBe("ACTIVE");
+    }
+
+    // They should not overlap
+    const a1Ids = new Set(a1Claims.map(c => c.id));
+    for (const c of a2Claims) {
+      expect(a1Ids.has(c.id)).toBe(false);
+    }
+  });
+
+  it("listFileClaims combines agentId + taskId + status correctly", () => {
+    const claims = repo.listFileClaims({ agentId: agent1Id, taskId: task1Id, status: "ACTIVE" });
+    for (const c of claims) {
+      expect(c.agentId).toBe(agent1Id);
+      expect(c.taskId).toBe(task1Id);
+      expect(c.status).toBe("ACTIVE");
+    }
+  });
+});

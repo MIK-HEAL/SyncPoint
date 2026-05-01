@@ -49,22 +49,18 @@ export function listFileClaims(opts?: {
   status?: string;
 }): FileClaim[] {
   const db = _getDb();
-  let query = db.select().from(s.fileClaims);
+  const predicates = [];
+  if (opts?.agentId) predicates.push(eq(s.fileClaims.agentId, opts.agentId));
+  if (opts?.taskId) predicates.push(eq(s.fileClaims.taskId, opts.taskId));
+  if (opts?.sessionId) predicates.push(eq(s.fileClaims.sessionId, opts.sessionId));
+  if (opts?.status) predicates.push(eq(s.fileClaims.status, opts.status));
 
-  if (opts?.agentId) {
-    query = query.where(eq(s.fileClaims.agentId, opts.agentId)) as typeof query;
+  if (predicates.length === 0) {
+    return db.select().from(s.fileClaims).all() as unknown as FileClaim[];
   }
-  if (opts?.taskId) {
-    query = query.where(eq(s.fileClaims.taskId, opts.taskId)) as typeof query;
-  }
-  if (opts?.sessionId) {
-    query = query.where(eq(s.fileClaims.sessionId, opts.sessionId)) as typeof query;
-  }
-  if (opts?.status) {
-    query = query.where(eq(s.fileClaims.status, opts.status)) as typeof query;
-  }
-
-  return query.all() as unknown as FileClaim[];
+  return db.select().from(s.fileClaims)
+    .where(and(...predicates))
+    .all() as unknown as FileClaim[];
 }
 
 export function listActiveFileClaims(sessionId?: string): FileClaim[] {

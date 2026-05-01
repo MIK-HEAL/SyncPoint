@@ -18,6 +18,7 @@ import { wakeRouter } from "./routers/wake-router.js";
 import { syncStatusRouter } from "./routers/sync-status-router.js";
 import { syncTransactionRouter } from "./routers/sync-transaction-router.js";
 import { patchProposalRouter } from "./routers/patch-proposal-router.js";
+import { constraintRouter } from "./routers/constraint-router.js";
 
 // ── Root router ────────────────────────────────────────
 
@@ -39,6 +40,7 @@ export const appRouter = t.router({
   syncStatus: syncStatusRouter,
   syncTransaction: syncTransactionRouter,
   patchProposal: patchProposalRouter,
+  constraint: constraintRouter,
 });
 
 export type AppRouter = typeof appRouter;

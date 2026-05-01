@@ -6,11 +6,11 @@
 import { Command } from "commander";
 import {
   pmAdd, pmGet, pmUpdate, pmApprove, pmDeprecate,
-  pmList, pmSearch, pmExport,
+  pmList, pmSearch, pmExport, pmSupersede, pmGetVersion,
 } from "syncpoint-server/application";
 
 function catchPm(err: unknown): void {
-  if (err instanceof Error && err.name === "ProjectMemoryPathError") {
+  if (err instanceof Error && (err.name === "ProjectMemoryPathError" || err.name === "CallerIdentityError" || err.name === "DuplicateMemoryError" || err.name === "InvalidProjectionError")) {
     console.error(`⚠ ${err.message}`);
     process.exitCode = 1;
   } else {
@@ -34,7 +34,7 @@ export function registerProjectMemoryCommands(program: Command): void {
         .option("--source-ref <ref>", "Source reference", "")
         .option("--confidence <level>", "Confidence: low|medium|high", "medium")
         .option("--task <taskId>", "Task ID (for task-scoped memories)")
-        .option("--by <who>", "Created by (agent name or human)")
+        .requiredOption("--by <who>", "Created by (agent name or human)")
         .option("--global", "Allow writing to fallback (~/.syncpoint) location")
         .action(async (opts) => {
           try {
@@ -48,7 +48,7 @@ export function registerProjectMemoryCommands(program: Command): void {
               sourceRef: opts.sourceRef ?? "",
               confidence: opts.confidence,
               taskId: opts.task ?? null,
-              createdBy: opts.by ?? "",
+              createdBy: opts.by,
               global: opts.global,
             });
             console.log(JSON.stringify(mem, null, 2));
@@ -59,20 +59,24 @@ export function registerProjectMemoryCommands(program: Command): void {
       new Command("approve")
         .description("Approve a draft project memory (makes it available to agents)")
         .argument("<id>", "Memory ID")
-        .option("--by <who>", "Approved by")
+        .requiredOption("--by <who>", "Approved by")
         .action(async (id, opts) => {
+          try {
           const mem = pmApprove(id, opts.by);
           console.log(JSON.stringify(mem, null, 2));
+          } catch (err: unknown) { catchPm(err); }
         })
     )
     .addCommand(
       new Command("deprecate")
         .description("Deprecate a project memory (removes from active context)")
         .argument("<id>", "Memory ID")
-        .option("--by <who>", "Deprecated by")
+        .requiredOption("--by <who>", "Deprecated by")
         .action(async (id, opts) => {
+          try {
           const mem = pmDeprecate(id, opts.by);
           console.log(JSON.stringify(mem, null, 2));
+          } catch (err: unknown) { catchPm(err); }
         })
     )
     .addCommand(
@@ -83,8 +87,9 @@ export function registerProjectMemoryCommands(program: Command): void {
         .option("--content <content>", "New content")
         .option("--tags <tags>", "New tags")
         .option("--confidence <level>", "New confidence")
-        .option("--by <who>", "Updated by")
+        .requiredOption("--by <who>", "Updated by")
         .action(async (id, opts) => {
+          try {
           const mem = pmUpdate(id, {
             title: opts.title,
             content: opts.content,
@@ -93,6 +98,7 @@ export function registerProjectMemoryCommands(program: Command): void {
             updatedBy: opts.by,
           });
           console.log(JSON.stringify(mem, null, 2));
+          } catch (err: unknown) { catchPm(err); }
         })
     )
     .addCommand(
@@ -154,9 +160,32 @@ export function registerProjectMemoryCommands(program: Command): void {
       new Command("export")
         .description("Export approved project memories to .syncpoint/project-memory.md")
         .option("--output <path>", "Custom output path (also: SYNCPOINT_MEMORY_PATH env)")
+        .requiredOption("--by <who>", "Caller identity")
         .action(async (opts) => {
-          const result = pmExport(opts.output);
+          try {
+          const result = pmExport(opts.output, opts.by);
           console.log(`Exported ${result.count} approved memories to ${result.path}`);
+          } catch (err: unknown) { catchPm(err); }
+        })
+    )
+    .addCommand(
+      new Command("supersede")
+        .description("Mark a new memory as replacing an old one (old is deprecated)")
+        .requiredOption("--new <newId>", "New memory ID")
+        .requiredOption("--old <oldId>", "Old memory ID to supersede")
+        .requiredOption("--by <who>", "Updated by")
+        .action(async (opts) => {
+          try {
+          const { newMem, oldMem } = pmSupersede(opts.new, opts.old, opts.by);
+          console.log(`Superseded: ${oldMem.id} (deprecated) -> ${newMem.id}`);
+          } catch (err: unknown) { catchPm(err); }
+        })
+    )
+    .addCommand(
+      new Command("version")
+        .description("Show the current approved memory set version")
+        .action(async () => {
+          console.log(`Memory version: ${pmGetVersion()}`);
         })
     );
 }

@@ -29,7 +29,8 @@ import { logEvent } from "../repositories/_shared.js";
 import { processOrchestrationEvent } from "./wake-engine-service.js";
 import { prepareContext } from "./context-policy-service.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
-import { RelationshipMode } from "syncpoint-core";
+import { buildProjection } from "./projection-service.js";
+import { RelationshipMode, evaluateConstraints } from "syncpoint-core";
 import type { PreparedContext } from "syncpoint-core";
 
 /**
@@ -217,6 +218,22 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
         `Use 'syncpoint file claim' first.`
       );
     }
+  }
+
+  // P4C: Constraint Runtime enforcement
+  try {
+    // Use agent's file claims as workingFiles context for constraint evaluation
+    const agentClaims = repo.listFileClaims({ agentId: ta0.assigneeAgentId, status: "ACTIVE" });
+    const claimedFiles = agentClaims.flatMap(c => (c.paths || "").split(",").filter(Boolean));
+    const projection = buildProjection({ taskId: ta0.taskId, workingFiles: claimedFiles });
+    const decision = evaluateConstraints({ action: "start_assignment", projection, touchedFiles: claimedFiles.length > 0 ? claimedFiles : undefined });
+    if (!decision.permitted) {
+      const reasons = decision.blockers.map(b => b.message).join("; ");
+      throw new Error(`Constraint violation: ${reasons}`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Constraint violation:")) throw err;
+    // projection unavailable — skip constraint check
   }
 
   const ta = repo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.IN_PROGRESS);

@@ -7,7 +7,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   loopStatus, loopResume, loopCheckpoint, loopHandoff,
-  pmAdd, pmApprove, pmSearch, pmExport,
+  pmAdd, pmApprove, pmSearch, pmExport, pmSupersede, pmGetVersion,
   prepareContext, getContextPolicyInfo,
   orchCreateSession, orchAssignRole, orchPlanTask,
   orchAcceptAssignment, orchStartAssignment, orchCompleteAssignment,
@@ -24,6 +24,7 @@ import {
   sgRequest, sgAck, sgResolve, sgCancel, sgStatus, sgList, sgListActive, sgCheckAgent,
   stxCreate, stxApprove, stxReject, stxResolve, stxCancel, stxStatus, stxList,
   ppPropose, ppSubmit, ppCheck, ppApprove, ppReject, ppApply, ppCancel, ppStatus, ppList,
+  constraintCheck,
 } from "syncpoint-server/application";
 import { getResumeContext, createRuntime, getRuntime, listRuntimes, updateRuntimeAgent, updateAgentRuntime, getAgent } from "syncpoint-server/repositories";
 import { formatResumePrompt, ProjectMemoryCreateSchema, ContextIntent, ContextRole, OrchestratorRole, ReviewVerdict, EvidenceKind, PlaybookActionKind, RuntimeKind } from "syncpoint-core";
@@ -151,6 +152,7 @@ export function registerTools(server: McpServer): void {
     async ({ taskId, agentId, format }) => {
       try {
         const ctx = getResumeContext(taskId, agentId);
+        ctx.projectMemories = []; // P3B: no raw PM in resume output
         const prompt = formatResumePrompt(ctx, format ?? "system-prompt");
         return ok({ ...ctx, resumePrompt: prompt });
       } catch (e) { return fail(e); }
@@ -188,7 +190,7 @@ export function registerTools(server: McpServer): void {
         sourceType: z.enum(["human", "agent", "checkpoint", "handoff", "doc"]).optional(),
         confidence: z.enum(["low", "medium", "high"]).optional(),
         taskId: z.string().nullable().optional(),
-        createdBy: z.string().optional(),
+        createdBy: z.string().optional().describe("Caller agent ID (auto-resolved if bound)"),
       },
     },
     async (input) => {
@@ -201,7 +203,7 @@ export function registerTools(server: McpServer): void {
           sourceRef: "",
           confidence: input.confidence ?? "medium",
           taskId: input.taskId ?? null,
-          createdBy: input.createdBy ?? "mcp",
+          createdBy: input.createdBy || resolveBoundAgentId() || (() => { throw new Error("createdBy is required. Provide it explicitly or bind an agent first."); })(),
         });
         const mem = pmAdd(data);
         return ok({
@@ -223,12 +225,13 @@ export function registerTools(server: McpServer): void {
       description: "Approve a draft project memory (makes it available in agent resume context)",
       inputSchema: {
         id: z.string(),
-        updatedBy: z.string().optional(),
+        updatedBy: z.string().optional().describe("Caller agent ID (auto-resolved if bound)"),
       },
     },
     async ({ id, updatedBy }) => {
       try {
-        const mem = pmApprove(id, updatedBy);
+        const caller = updatedBy || resolveBoundAgentId() || "";
+        const mem = pmApprove(id, caller);
         return ok({
           ok: true,
           operation: "project_memory_approve",
@@ -245,17 +248,63 @@ export function registerTools(server: McpServer): void {
     {
       title: "Export Project Memory",
       description: "Export all approved project memories to .syncpoint/project-memory.md",
-      inputSchema: { outputPath: z.string().optional() },
+      inputSchema: {
+        outputPath: z.string().optional(),
+        callerBy: z.string().optional().describe("Caller agent ID (auto-resolved if bound)"),
+      },
     },
-    async ({ outputPath }) => {
+    async ({ outputPath, callerBy }) => {
       try {
-        const result = pmExport(outputPath);
+        const caller = callerBy || resolveBoundAgentId() || "";
+        const result = pmExport(outputPath, caller);
         return ok({
           ok: true,
           operation: "project_memory_export",
           path: result.path,
           count: result.count,
         });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_project_memory_supersede ──
+  server.registerTool(
+    "syncpoint_project_memory_supersede",
+    {
+      title: "Supersede Project Memory",
+      description: "Mark a new memory as replacing an old one. The old memory is deprecated with a supersededBy link.",
+      inputSchema: {
+        newId: z.string().describe("ID of the new (replacement) memory"),
+        oldId: z.string().describe("ID of the old memory to supersede"),
+        updatedBy: z.string().optional().describe("Caller agent ID (auto-resolved if bound)"),
+      },
+    },
+    async ({ newId, oldId, updatedBy }) => {
+      try {
+        const caller = updatedBy || resolveBoundAgentId() || "";
+        const { newMem, oldMem } = pmSupersede(newId, oldId, caller);
+        return ok({
+          ok: true,
+          operation: "project_memory_supersede",
+          newId: newMem.id,
+          oldId: oldMem.id,
+          oldStatus: oldMem.status,
+        });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ── syncpoint_project_memory_version ──
+  server.registerTool(
+    "syncpoint_project_memory_version",
+    {
+      title: "Project Memory Version",
+      description: "Get the current approved memory set version counter. Bumps on approve, deprecate, supersede.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return ok({ memoryVersion: pmGetVersion() });
       } catch (e) { return fail(e); }
     }
   );
@@ -1407,6 +1456,38 @@ export function registerTools(server: McpServer): void {
     async (input) => {
       try {
         return ok({ proposals: ppList(input) });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  // ══════════════════════════════════════════════════════════
+  // ── P4D Constraint Runtime (read-only visibility) ────────
+  // ══════════════════════════════════════════════════════════
+
+  server.registerTool(
+    "syncpoint_constraint_check",
+    {
+      title: "Constraint Check",
+      description:
+        "Query the Constraint Runtime to check if an action is permitted. " +
+        "Returns blockers, warnings, and projection metadata. Read-only — does not change any state. " +
+        "Use this before executing to understand if and why you might be blocked.",
+      inputSchema: {
+        action: z.enum(["resume", "start_assignment", "wake_start", "patch_submit", "patch_apply"])
+          .describe("The action to evaluate"),
+        taskId: z.string().optional().describe("Task ID (required for resume, wake_start)"),
+        agentId: z.string().optional().describe("Agent ID (required for resume, wake_start without wakeRequestId)"),
+        sessionId: z.string().optional(),
+        assignmentId: z.string().optional().describe("Assignment ID (required for start_assignment)"),
+        wakeRequestId: z.string().optional().describe("Wake request ID (alternative to taskId+agentId for wake_start)"),
+        patchId: z.string().optional().describe("Patch proposal ID (required for patch_submit/patch_apply)"),
+        touchedFiles: z.array(z.string()).optional().describe("Override touched files for debug/preview"),
+      },
+    },
+    async (input) => {
+      try {
+        const result = constraintCheck(input as any);
+        return ok(result);
       } catch (e) { return fail(e); }
     }
   );

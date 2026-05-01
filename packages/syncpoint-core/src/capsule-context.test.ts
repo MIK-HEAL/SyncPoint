@@ -59,6 +59,16 @@ describe("ProtocolRuleSchema", () => {
       summary: "test",
     })).toThrow();
   });
+
+  it("accepts projection source", () => {
+    const rule = ProtocolRuleSchema.parse({
+      source: "projection",
+      severity: "hard",
+      summary: "[constraint:mem-1] No eval",
+      entityId: "mem-1",
+    });
+    expect(rule.source).toBe("projection");
+  });
 });
 
 describe("ProtocolGateSummarySchema", () => {
@@ -79,6 +89,26 @@ describe("ProtocolGateSummarySchema", () => {
     });
     expect(summary.blocked).toBe(false);
     expect(summary.rules).toHaveLength(0);
+    expect(summary.counts.projectionRules).toBe(0);
+  });
+
+  it("parses summary with projectionRules count", () => {
+    const summary = ProtocolGateSummarySchema.parse({
+      rules: [{ source: "projection", severity: "hard", summary: "test" }],
+      blocked: true,
+      hardBlockers: ["test"],
+      counts: {
+        pinnedRules: 0,
+        contractConstraints: 0,
+        fileClaims: 0,
+        activeGates: 0,
+        activeTransactions: 0,
+        pendingReviews: 0,
+        pendingWakes: 0,
+        projectionRules: 3,
+      },
+    });
+    expect(summary.counts.projectionRules).toBe(3);
   });
 });
 

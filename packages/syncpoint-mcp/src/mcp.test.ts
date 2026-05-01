@@ -252,6 +252,7 @@ describe("tools", () => {
         category: "decision",
         title: "Use stdio transport",
         content: "First MCP version uses stdio only.",
+        createdBy: "test-user",
       },
     });
     const text = result.content[0].text;
@@ -275,6 +276,7 @@ describe("tools", () => {
           category: "decision",
           title: "Should be rejected",
           content: "This should not write to fallback storage.",
+          createdBy: "test-user",
         },
       });
 
@@ -294,13 +296,14 @@ describe("tools", () => {
         category: "convention",
         title: "Test convention",
         content: "Test content for approval.",
+        createdBy: "test-user",
       },
     });
     const addData = JSON.parse(addResult.content[0].text);
 
     const approveResult: any = await client.callTool({
       name: "syncpoint_project_memory_approve",
-      arguments: { id: addData.id },
+      arguments: { id: addData.id, updatedBy: "test" },
     });
     const approveData = JSON.parse(approveResult.content[0].text);
     expect(approveData.ok).toBe(true);
@@ -311,7 +314,7 @@ describe("tools", () => {
     const exportPath = path.join(tmpDir, "export-test.md");
     const result: any = await client.callTool({
       name: "syncpoint_project_memory_export",
-      arguments: { outputPath: exportPath },
+      arguments: { outputPath: exportPath, callerBy: "test" },
     });
     const data = JSON.parse(result.content[0].text);
     expect(data.ok).toBe(true);
@@ -349,6 +352,12 @@ describe("tools", () => {
     expect(data.gateMode).toBe("hard");
     expect(data.ready).toBe(true);
     expect(data.prompt).toContain("Build MCP");
+    // P3B: execute intent — full JSON must NOT contain raw Project Knowledge
+    expect(data.prompt).not.toContain("## Project Knowledge");
+    expect(data.projectMemories).toEqual([]);
+    expect(data.resumeContext?.projectMemories ?? []).toEqual([]);
+    expect(data.resumeContext?.resumePrompt ?? "").toBe("");
+    expect(text).not.toContain("## Project Knowledge");
   });
 
   it("syncpoint_context_policy_info should list intents and roles", async () => {
@@ -737,6 +746,8 @@ describe("prompts", () => {
     });
     const text = (result.messages[0].content as any).text;
     expect(text).toContain("Build MCP");
+    // P3B: must NOT contain raw Project Knowledge
+    expect(text).not.toContain("## Project Knowledge");
   });
 
   it("syncpoint_reviewer_checklist should contain review checklist", async () => {

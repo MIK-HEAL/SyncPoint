@@ -120,6 +120,7 @@ export function registerResources(server: McpServer): void {
     { title: "Resume Context", description: "Full resume context for a task+agent pair", mimeType: "text/plain" },
     async (uri, { taskId, agentId }) => {
       const ctx = repo.getResumeContext(taskId as string, agentId as string);
+      ctx.projectMemories = []; // P3B: no raw PM in resume output
       const prompt = formatResumePrompt(ctx, "system-prompt");
       return { contents: [{ uri: uri.href, text: prompt }] };
     }

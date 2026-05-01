@@ -18,11 +18,13 @@ import {
   validatePatchTransition,
   extractTouchedFiles,
   runPatchChecks,
+  evaluateConstraints,
   EventType,
 } from "syncpoint-core";
 import type { PatchProposal, PatchCheckResult } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
+import { buildProjection } from "./projection-service.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -110,6 +112,44 @@ export function ppCheck(patchId: string): PatchStatusResult {
     agentClaims,
     allActiveClaims,
   });
+
+  // P4B: Constraint Runtime enforcement — evaluate against projection
+  try {
+    const projection = buildProjection({
+      taskId: proposal.taskId,
+      workingFiles: touchedFiles,
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection,
+      touchedFiles,
+    });
+    if (decision.blockers.length > 0) {
+      checkResult.allPassed = false;
+      checkResult.constraintViolations = decision.blockers.map(b => ({
+        rule: b.rule,
+        sourceMemoryId: b.sourceMemoryId,
+        projectionId: b.projectionId,
+        message: b.message,
+        evidence: b.evidence,
+      }));
+      // Add a check item for each violation
+      for (const v of decision.blockers) {
+        checkResult.items.push({
+          check: `constraint:${v.rule}`,
+          passed: false,
+          detail: v.message,
+        });
+      }
+    }
+  } catch (err) {
+    // P4C: surface as observable warning instead of silent swallow
+    checkResult.items.push({
+      check: "constraint:runtime_unavailable",
+      passed: true,
+      detail: `Constraint runtime unavailable: ${err instanceof Error ? err.message : String(err)}`,
+    });
+  }
 
   // Store check result and update related claim IDs
   const relatedClaimIds = agentClaims.map(c => c.id).join(",");

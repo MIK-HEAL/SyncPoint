@@ -305,6 +305,38 @@ describe("enforcePreparedContext", () => {
   });
 });
 
+describe("P3B: prepareContext resume intents must not leak raw PM", () => {
+  it("prepareContext(resume) — full JSON has no raw PM", () => {
+    const result = prepareContext({ intent: "resume", role: "executor", taskId, agentId });
+    const json = JSON.stringify(result);
+    expect(result.prompt).not.toContain("## Project Knowledge");
+    expect(result.projectMemories).toEqual([]);
+    expect(result.resumeContext?.projectMemories ?? []).toEqual([]);
+    expect(result.resumeContext?.resumePrompt ?? "").toBe("");
+    expect(json).not.toContain("## Project Knowledge");
+  });
+
+  it("prepareContext(execute) — full JSON has no raw PM", () => {
+    const result = prepareContext({ intent: "execute", role: "executor", taskId, agentId });
+    const json = JSON.stringify(result);
+    expect(result.prompt).not.toContain("## Project Knowledge");
+    expect(result.projectMemories).toEqual([]);
+    expect(result.resumeContext?.projectMemories ?? []).toEqual([]);
+    expect(result.resumeContext?.resumePrompt ?? "").toBe("");
+    expect(json).not.toContain("## Project Knowledge");
+  });
+
+  it("prepareContext(handoff-receive) — full JSON has no raw PM", () => {
+    const result = prepareContext({ intent: "handoff-receive", role: "executor", taskId, agentId });
+    const json = JSON.stringify(result);
+    expect(result.prompt).not.toContain("## Project Knowledge");
+    expect(result.projectMemories).toEqual([]);
+    expect(result.resumeContext?.projectMemories ?? []).toEqual([]);
+    expect(result.resumeContext?.resumePrompt ?? "").toBe("");
+    expect(json).not.toContain("## Project Knowledge");
+  });
+});
+
 describe("getContextPolicyInfo", () => {
   it("should list all intents, roles, and policies", () => {
     const info = getContextPolicyInfo();

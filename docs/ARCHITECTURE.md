@@ -44,3 +44,22 @@ Ask:
 
 If unsure, default to `application/` — it's easier to push down to core
 later than to extract up from a router.
+
+## Reality Runtime Layers
+
+SyncPoint's memory system is a five-layer executable runtime (see `docs/reality-runtime.md`):
+
+| Layer | Purpose | Key files |
+|-------|---------|-----------|
+| **Project Memory** | Long-term reality source code | `project-memory.ts`, `project-memory-service.ts` |
+| **Projection Layer** | Reality Compiler — scopes, traces, detects conflicts | `projection.ts`, `projection-service.ts` |
+| **Context Capsule** | Agent's current task reality mirror | `capsule-context.ts`, `context-policy-service.ts` |
+| **Protocol Gate** | Collaboration boundary (gates, transactions, claims) | `protocol-gate-service.ts`, `sync-gate-service.ts` |
+| **Constraint Runtime** | Executable enforcement — blocks on violations | `constraint-runtime.ts`, `constraint-runtime-service.ts` |
+
+**Key invariants**:
+
+- Raw Project Memory content never reaches agent prompts — only compiled projections.
+- `hard_constraint` / `protocol_rule` must enter gate/runtime, never capsule-only.
+- Projection conflicts are always surfaced explicitly, never silently merged.
+- Constraint evaluation is read-only; enforcement happens at entry points (`loopResume`, `orchStartAssignment`, `wakeStart`, `ppCheck`).

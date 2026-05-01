@@ -26,7 +26,7 @@ export const DEFAULT_CONTEXT_MODE: ContextMode = "capsule-first";
 // ── Protocol Gate Summary ────────────────────────────
 
 export const ProtocolRuleSchema = z.object({
-  source: z.enum(["pinned-memory", "peer-contract", "file-claim", "sync-gate", "sync-transaction", "review", "wake", "assignment"]),
+  source: z.enum(["pinned-memory", "peer-contract", "file-claim", "sync-gate", "sync-transaction", "review", "wake", "assignment", "projection"]),
   severity: z.enum(["hard", "soft", "info"]),
   summary: z.string(),
   entityId: z.string().optional(),
@@ -49,6 +49,7 @@ export const ProtocolGateSummarySchema = z.object({
     activeTransactions: z.number(),
     pendingReviews: z.number(),
     pendingWakes: z.number(),
+    projectionRules: z.number().default(0),
   }),
 });
 export type ProtocolGateSummary = z.infer<typeof ProtocolGateSummarySchema>;

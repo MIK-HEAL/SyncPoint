@@ -9,11 +9,14 @@ import {
   buildAdapterInstruction,
   formatResumePrompt,
   DEFAULT_CONTEXT_MODE,
+  evaluateConstraints,
 } from "syncpoint-core";
 import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
-import { assembleProtocolGate, validateCapsule, formatProtocolGatePrompt, formatCapsuleReality, formatValidationNotes } from "./protocol-gate-service.js";
+import { assembleProtocolGate, injectProjectionIntoGate, validateCapsule, formatProtocolGatePrompt, formatCapsuleReality, formatValidationNotes } from "./protocol-gate-service.js";
+import { buildProjection } from "./projection-service.js";
+import type { ProjectedReality } from "syncpoint-core";
 
 // ── Types ────────────────────────────────────────────
 
@@ -57,6 +60,7 @@ export interface LoopResumeResult {
   protocolGateBlocked: boolean;
   capsuleValid: boolean;
   validationNotes: string[];
+  constraintWarnings: string[];
 }
 
 export interface LoopCheckpointInput {
@@ -171,7 +175,9 @@ export function loopBoot(input: LoopBootInput): LoopBootResult {
   const policy = repo.enforceContextPolicy(task.id, agent.id);
 
   // 4. Generate adapter files
+  //    P3B: strip raw projectMemories — agent sees projected reality only.
   const ctx = repo.getResumeContext(task.id, agent.id);
+  ctx.projectMemories = [];
   const provider = input.provider ?? agent.name;
   const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "boot" as AdapterLifecycleEvent);
 
@@ -194,7 +200,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   const mode: ContextMode = input.contextMode ?? DEFAULT_CONTEXT_MODE;
 
   // 0. Protocol Gate — assemble all collaboration rules
-  const protocolGate = assembleProtocolGate(agent.id, task.id, input.sessionId);
+  let protocolGate = assembleProtocolGate(agent.id, task.id, input.sessionId);
 
   // 0a. SyncGate hard gate — block resume if agent has unacknowledged gates
   const blockCheck = sgCheckAgent(agent.id, { taskId: task.id });
@@ -203,24 +209,56 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     throw new LoopError(EXIT.STATE_INVALID, `Agent blocked by sync gate(s): ${gateIds}. Acknowledge before resuming.`);
   }
 
+  // 0b. P3B — Build projection and inject into gate
+  //     workingFiles come from latest capsule if available
+  const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
+  const capsuleWorkingFiles = latestCapsule?.workingFiles
+    ? latestCapsule.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+    : [];
+  const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
+  const contract = repo.getContractForTask(task.id);
+  const projection: ProjectedReality = buildProjection({
+    taskId: task.id,
+    workingFiles: capsuleWorkingFiles,
+    currentModules: [],
+    capsuleId: latestCapsule?.id,
+    checkpointId: latestCheckpoint?.id,
+    contractId: contract?.id,
+  });
+  protocolGate = injectProjectionIntoGate(protocolGate, projection);
+
   // 1. Enforce context policy (hard gate)
   const policy = repo.enforceContextPolicy(task.id, agent.id);
   if (!policy.ready) {
     throw new LoopError(EXIT.CONTEXT_POLICY, `Context not ready: ${policy.warnings.join("; ")}`);
   }
 
-  // 1a. Capsule validation — agent-scoped checkpoint
-  const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
-  const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
+  // 1a. Capsule validation — agent-scoped checkpoint (latestCheckpoint from step 0b)
   const capsuleVal = validateCapsule(latestCapsule, latestCheckpoint, task.id, agent.id);
 
-  // 1b. capsule-locked mode hard-blocks on any validation failure or protocol gate violation
+  // 1b. P4C: Constraint Runtime enforcement
+  const constraintDecision = evaluateConstraints({
+    action: "resume",
+    projection,
+    touchedFiles: capsuleWorkingFiles.length > 0 ? capsuleWorkingFiles : undefined,
+  });
+  const constraintWarnings = [
+    ...constraintDecision.blockers.map(b => `[BLOCKED] ${b.rule}: ${b.message}`),
+    ...constraintDecision.warnings.map(w => `[advisory] ${w.rule}: ${w.message}`),
+  ];
+
+  // 1c. capsule-locked mode hard-blocks on any validation failure, protocol gate violation,
+  //     or constraint violations
   if (mode === "capsule-locked") {
     if (protocolGate.blocked) {
       throw new LoopError(EXIT.CONTEXT_POLICY, `Protocol gate blocked (locked mode): ${protocolGate.hardBlockers.join("; ")}`);
     }
     if (!capsuleVal.valid) {
       throw new LoopError(EXIT.CONTEXT_POLICY, `Capsule validation failed (locked mode): ${capsuleVal.notes.join("; ")}`);
+    }
+    if (!constraintDecision.permitted) {
+      const reasons = constraintDecision.blockers.map(b => b.message).join("; ");
+      throw new LoopError(EXIT.CONTEXT_POLICY, `Constraint violation (locked mode): ${reasons}`);
     }
   }
 
@@ -231,24 +269,26 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   }
 
   // 3. Generate adapter files
+  //    P3B: strip raw projectMemories — agent sees projected reality only.
+  //    This prevents all adapter formats (cursorrules, agents-md, etc.) from leaking raw PM.
   const ctx = repo.getResumeContext(task.id, agent.id);
   ctx.contextMode = mode;
+  ctx.projectMemories = [];
   const provider = input.provider ?? agent.name;
   const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "resume" as AdapterLifecycleEvent);
 
-  // 4. Build three-layer prompt
+  // 4. Build three-layer prompt with P3B projection integration
   const format = input.format ?? "system-prompt";
   let prompt: string;
 
   if (format === "system-prompt") {
-    // P12 three-layer prompt structure
     const sections: string[] = [];
 
     sections.push("You are resuming work on a task managed by SyncPoint.");
     sections.push("Below is the ONLY context you should use. Do NOT rely on prior conversation history.");
     sections.push("");
 
-    // Layer 1: Protocol Gate
+    // Layer 1: Protocol Gate (now includes projection rules + constraints)
     const gatePrompt = formatProtocolGatePrompt(protocolGate);
     if (gatePrompt) sections.push(gatePrompt);
 
@@ -264,23 +304,76 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
       if (capsulePrompt) sections.push(capsulePrompt);
     }
 
-    // Include project knowledge in capsule-first mode only
-    if (mode === "capsule-first" && ctx.projectMemories && ctx.projectMemories.length > 0) {
-      sections.push("## Project Knowledge");
-      for (const m of ctx.projectMemories) {
-        sections.push(`### ${m.title} [${m.category}]`);
-        sections.push(m.content);
+    // P3B — Inject projected reality (capsulePatch) instead of raw project memories.
+    // Agent sees compiled reality, not raw Project Memory.
+    // Key boundary: hard_constraint → gate only, NOT capsule.
+    const patch = projection.capsulePatch;
+    const hasPatchContent =
+      patch.verifiedFacts.length > 0 ||
+      patch.activeConstraints.length > 0 ||
+      patch.risks.length > 0 ||
+      patch.doNotTouch.length > 0;
+
+    if (hasPatchContent) {
+      sections.push("## Projected Reality");
+      sections.push(`> Projection: ${projection.projectionId} | Memory v${projection.createdFrom.memoryVersion} | ${projection.projectionValidity}`);
+      sections.push("");
+
+      if (patch.verifiedFacts.length > 0) {
+        sections.push("### Verified Facts");
+        for (const f of patch.verifiedFacts) {
+          sections.push(`- ${f.title}: ${f.content} [ref:${f.source.sourceMemoryId}]`);
+        }
+        sections.push("");
+      }
+      if (patch.activeConstraints.length > 0) {
+        sections.push("### Active Constraints");
+        for (const c of patch.activeConstraints) {
+          sections.push(`- ${c.title}: ${c.content} [ref:${c.source.sourceMemoryId}]`);
+        }
+        sections.push("");
+      }
+      if (patch.risks.length > 0) {
+        sections.push("### Known Risks");
+        for (const r of patch.risks) {
+          sections.push(`- ⚠ ${r.title}: ${r.content} [ref:${r.source.sourceMemoryId}]`);
+        }
+        sections.push("");
+      }
+      if (patch.doNotTouch.length > 0) {
+        sections.push("### Do Not Touch");
+        for (const d of patch.doNotTouch) {
+          sections.push(`- ⛔ ${d.title}: ${d.content} [ref:${d.source.sourceMemoryId}]`);
+        }
         sections.push("");
       }
     }
 
-    // Include checkpoint in capsule-first mode only
+    // capsule-first: also include checkpoint (NOT raw project memories)
     if (mode === "capsule-first" && ctx.latestCheckpoint) {
       sections.push("## Latest Checkpoint");
       sections.push(`- ${ctx.latestCheckpoint.summary}`);
       if (ctx.latestCheckpoint.progress) sections.push(`- Progress: ${ctx.latestCheckpoint.progress}`);
       if (ctx.latestCheckpoint.nextSteps) sections.push(`- Next: ${ctx.latestCheckpoint.nextSteps}`);
       if (ctx.latestCheckpoint.needSync) sections.push("- ⚠ Sync required before continuing");
+      sections.push("");
+    }
+
+    // Projection conflicts (explicit)
+    if (projection.conflicts.length > 0) {
+      sections.push("## ⚠ Projection Conflicts");
+      for (const c of projection.conflicts) {
+        sections.push(`- ${c.description} (${c.itemA.sourceMemoryId} vs ${c.itemB.sourceMemoryId})`);
+      }
+      sections.push("");
+    }
+
+    // Skipped stale memories (transparency)
+    if (projection.skippedStale.length > 0) {
+      sections.push("## Skipped (stale/invalid)");
+      for (const s of projection.skippedStale) {
+        sections.push(`- ${s.sourceMemoryId}: ${s.projectionReason}`);
+      }
       sections.push("");
     }
 
@@ -313,6 +406,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     protocolGateBlocked: protocolGate.blocked,
     capsuleValid: capsuleVal.valid,
     validationNotes: capsuleVal.notes,
+    constraintWarnings,
   };
 }
 
@@ -359,7 +453,9 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
   }
 
   // 4. Refresh adapter files
+  //    P3B: strip raw projectMemories — agent sees projected reality only.
   const ctx = repo.getResumeContext(task.id, agent.id);
+  ctx.projectMemories = [];
   const provider = input.provider ?? agent.name;
   const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "checkpoint" as AdapterLifecycleEvent);
 
@@ -427,7 +523,9 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   }
 
   // 3. Generate adapter files for receiver
+  //    P3B: strip raw projectMemories — agent sees projected reality only.
   const ctx = repo.getResumeContext(task.id, toAgent.id);
+  ctx.projectMemories = [];
   const provider = input.provider ?? toAgent.name;
   const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "handoff" as AdapterLifecycleEvent);
 

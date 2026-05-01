@@ -12,9 +12,10 @@ import {
   ppPropose, ppSubmit, ppCheck, ppApprove,
   ppReject, ppApply, ppCancel, ppStatus, ppList,
 } from "./patch-proposal-service.js";
+import { pmAdd, pmApprove } from "./project-memory-service.js";
 import { fcClaimFiles } from "./file-claim-service.js";
 import { orchCreateSession, orchAssignRole } from "./orchestration-service.js";
-import { PatchProposalStatus } from "syncpoint-core";
+import { PatchProposalStatus, MemoryKind } from "syncpoint-core";
 
 const SAMPLE_PATCH = `diff --git a/src/auth.ts b/src/auth.ts
 --- a/src/auth.ts
@@ -192,5 +193,101 @@ describe("PatchProposal listing and status", () => {
     const all = ppList();
     const result = ppStatus(all[0].id);
     expect(result.proposal).toBeTruthy();
+  });
+});
+
+// ── P4B: Constraint Runtime enforcement ──────────────
+
+describe("P4B: Constraint Runtime enforcement in ppCheck/ppSubmit", () => {
+  it("patch touching do_not_touch protected file becomes CONFLICTING", () => {
+    // Seed: create an approved do_not_touch memory for src/auth/
+    const mem = pmAdd({
+      category: "gotcha" as any,
+      title: "Auth core protected",
+      content: "Do not touch authentication core",
+      createdBy: "architect",
+      kind: MemoryKind.DO_NOT_TOUCH,
+      appliesTo: { files: ["src/auth"] },
+      global: true,
+    } as any);
+    pmApprove(mem.id, "architect");
+
+    // Propose a patch that touches the protected file
+    const proposal = ppPropose({
+      sessionId,
+      taskId: task1Id,
+      agentId: agent1Id,
+      title: "Modify auth core",
+      patchText: SAMPLE_PATCH, // touches src/auth.ts
+    });
+
+    // Submit — should become CONFLICTING due to constraint violation
+    const result = ppSubmit(proposal.id);
+    expect(result.proposal.status).toBe(PatchProposalStatus.CONFLICTING);
+    expect(result.checkResult!.constraintViolations).toBeDefined();
+    expect(result.checkResult!.constraintViolations!.length).toBeGreaterThan(0);
+    expect(result.checkResult!.constraintViolations![0].rule).toBe("do_not_touch_file_overlap");
+    expect(result.checkResult!.constraintViolations![0].evidence).toContain("src/auth.ts");
+  });
+
+  it("ppCheck includes constraint violation check items", () => {
+    const proposal = ppPropose({
+      sessionId,
+      taskId: task1Id,
+      agentId: agent1Id,
+      title: "Another auth change",
+      patchText: SAMPLE_PATCH,
+    });
+
+    const result = ppCheck(proposal.id);
+    const constraintItems = result.checkResult!.items.filter(
+      i => i.check.startsWith("constraint:"),
+    );
+    expect(constraintItems.length).toBeGreaterThan(0);
+    expect(constraintItems[0].passed).toBe(false);
+    expect(constraintItems[0].check).toBe("constraint:do_not_touch_file_overlap");
+  });
+
+  it("patch NOT touching protected scope passes constraint checks", () => {
+    const safePatch = `diff --git a/src/ui/button.tsx b/src/ui/button.tsx
+--- a/src/ui/button.tsx
++++ b/src/ui/button.tsx
+@@ -1,3 +1,4 @@
++import React from "react";
+ export function Button() {
+   return <button>Click</button>;
+ }`;
+
+    const proposal = ppPropose({
+      sessionId,
+      taskId: task1Id,
+      agentId: agent1Id,
+      title: "Safe UI change",
+      patchText: safePatch,
+    });
+
+    const result = ppCheck(proposal.id);
+    const constraintItems = result.checkResult!.items.filter(
+      i => i.check.startsWith("constraint:"),
+    );
+    // No constraint violations for files outside protected scope
+    expect(constraintItems).toHaveLength(0);
+    expect(result.checkResult!.constraintViolations ?? []).toHaveLength(0);
+  });
+
+  it("constraint violation includes sourceMemoryId and projectionId", () => {
+    const proposal = ppPropose({
+      sessionId,
+      taskId: task1Id,
+      agentId: agent1Id,
+      title: "Check traceability",
+      patchText: SAMPLE_PATCH,
+    });
+
+    const result = ppCheck(proposal.id);
+    const violations = result.checkResult!.constraintViolations!;
+    expect(violations[0].sourceMemoryId).toBeTruthy();
+    expect(violations[0].projectionId).toBeTruthy();
+    expect(violations[0].message).toContain("src/auth.ts");
   });
 });

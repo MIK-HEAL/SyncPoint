@@ -1,0 +1,266 @@
+/**
+ * P3A — Pure unit tests for Projection Compiler.
+ */
+import { describe, it, expect } from "vitest";
+import {
+  compileProjection,
+  computeProjectionCacheKey,
+  type ProjectionInput,
+  type ProjectionContext,
+} from "./projection.ts";
+
+function makeCtx(overrides?: Partial<ProjectionContext>): ProjectionContext {
+  return {
+    taskId: "task-1",
+    memoryVersion: 1,
+    workingFiles: [],
+    currentModules: [],
+    ...overrides,
+  };
+}
+
+function makeMem(overrides?: Partial<ProjectionInput>): ProjectionInput {
+  return {
+    id: `mem-${Math.random().toString(36).slice(2, 8)}`,
+    category: "decision",
+    title: "Test Memory",
+    content: "Test content.",
+    fingerprint: `fp-${Math.random().toString(36).slice(2, 10)}`,
+    kind: "fact",
+    projectionTarget: null,
+    appliesTo: "",
+    severity: "info",
+    validityStatus: "fresh",
+    ...overrides,
+  };
+}
+
+describe("compileProjection — kind→bucket mapping", () => {
+  it("fact → capsulePatch.verifiedFacts", () => {
+    const r = compileProjection([makeMem({ kind: "fact" })], makeCtx());
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+
+  it("soft_convention → capsulePatch.activeConstraints", () => {
+    const r = compileProjection([makeMem({ kind: "soft_convention" })], makeCtx());
+    expect(r.capsulePatch.activeConstraints).toHaveLength(1);
+  });
+
+  it("risk → capsulePatch.risks", () => {
+    const r = compileProjection([makeMem({ kind: "risk" })], makeCtx());
+    expect(r.capsulePatch.risks).toHaveLength(1);
+  });
+
+  it("do_not_touch → capsulePatch.doNotTouch", () => {
+    const r = compileProjection([makeMem({ kind: "do_not_touch" })], makeCtx());
+    expect(r.capsulePatch.doNotTouch).toHaveLength(1);
+  });
+
+  it("hard_constraint → constraintRules", () => {
+    const r = compileProjection([makeMem({ kind: "hard_constraint" })], makeCtx());
+    expect(r.constraintRules).toHaveLength(1);
+  });
+
+  it("protocol_rule → protocolRules", () => {
+    const r = compileProjection([makeMem({ kind: "protocol_rule" })], makeCtx());
+    expect(r.protocolRules).toHaveLength(1);
+  });
+});
+
+describe("compileProjection — traceability", () => {
+  it("every item has sourceMemoryId and projectionReason", () => {
+    const mem = makeMem({ kind: "fact", id: "mem-trace" });
+    const r = compileProjection([mem], makeCtx());
+    const item = r.capsulePatch.verifiedFacts[0];
+    expect(item.source.sourceMemoryId).toBe("mem-trace");
+    expect(item.source.projectionReason).toContain("fact");
+  });
+
+  it("createdFrom contains taskId and memoryVersion", () => {
+    const r = compileProjection([], makeCtx({ taskId: "t-42", memoryVersion: 7 }));
+    expect(r.createdFrom.taskId).toBe("t-42");
+    expect(r.createdFrom.memoryVersion).toBe(7);
+  });
+
+  it("projectionId is non-empty", () => {
+    const r = compileProjection([], makeCtx());
+    expect(r.projectionId).toBeTruthy();
+    expect(r.projectionId.length).toBeGreaterThan(0);
+  });
+});
+
+describe("compileProjection — validity gating", () => {
+  it("skips invalid memories", () => {
+    const mem = makeMem({ validityStatus: "invalid", kind: "fact" });
+    const r = compileProjection([mem], makeCtx());
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+    expect(r.skippedStale).toHaveLength(1);
+    expect(r.skippedStale[0].sourceMemoryId).toBe(mem.id);
+  });
+
+  it("skips stale memories", () => {
+    const mem = makeMem({ validityStatus: "stale", kind: "risk" });
+    const r = compileProjection([mem], makeCtx());
+    expect(r.capsulePatch.risks).toHaveLength(0);
+    expect(r.skippedStale).toHaveLength(1);
+  });
+
+  it("includes needs_revalidation but degrades projectionValidity", () => {
+    const mem = makeMem({ validityStatus: "needs_revalidation", kind: "fact" });
+    const r = compileProjection([mem], makeCtx());
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    expect(r.projectionValidity).toBe("needs_revalidation");
+  });
+
+  it("fresh-only projection yields fresh validity", () => {
+    const r = compileProjection([makeMem({ validityStatus: "fresh" })], makeCtx());
+    expect(r.projectionValidity).toBe("fresh");
+  });
+});
+
+describe("compileProjection — appliesTo filtering", () => {
+  it("includes memory with no appliesTo (project-wide)", () => {
+    const mem = makeMem({ appliesTo: "" });
+    const r = compileProjection([mem], makeCtx({ workingFiles: ["src/foo.ts"] }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+
+  it("includes memory whose file scope matches working files", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/**"] }) });
+    const r = compileProjection([mem], makeCtx({ workingFiles: ["src/main.ts"] }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+
+  it("excludes memory whose file scope does NOT match working files", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ files: ["test/**"] }) });
+    const r = compileProjection([mem], makeCtx({ workingFiles: ["src/main.ts"] }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+  });
+
+  it("includes memory whose module scope matches", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ modules: ["core"] }) });
+    const r = compileProjection([mem], makeCtx({ currentModules: ["core"] }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+
+  it("excludes memory whose module scope does NOT match", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ modules: ["ui"] }) });
+    const r = compileProjection([mem], makeCtx({ currentModules: ["core"] }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+  });
+});
+
+describe("compileProjection — conflict detection", () => {
+  it("detects file_scope_collision between two constraint rules", () => {
+    const a = makeMem({
+      kind: "hard_constraint",
+      id: "c1",
+      appliesTo: JSON.stringify({ files: ["src/db.ts"] }),
+    });
+    const b = makeMem({
+      kind: "hard_constraint",
+      id: "c2",
+      appliesTo: JSON.stringify({ files: ["src/db.ts"] }),
+    });
+    const r = compileProjection([a, b], makeCtx({ workingFiles: ["src/db.ts"] }));
+    expect(r.constraintRules).toHaveLength(2);
+    expect(r.conflicts).toHaveLength(1);
+    expect(r.conflicts[0].kind).toBe("file_scope_collision");
+  });
+
+  it("no conflict when scopes don't overlap", () => {
+    const a = makeMem({
+      kind: "hard_constraint",
+      id: "c3",
+      appliesTo: JSON.stringify({ files: ["src/a.ts"] }),
+    });
+    const b = makeMem({
+      kind: "hard_constraint",
+      id: "c4",
+      appliesTo: JSON.stringify({ files: ["src/b.ts"] }),
+    });
+    const r = compileProjection([a, b], makeCtx({ workingFiles: ["src/a.ts", "src/b.ts"] }));
+    expect(r.conflicts).toHaveLength(0);
+  });
+
+  it("conflicts degrade projectionValidity to needs_revalidation", () => {
+    const a = makeMem({
+      kind: "protocol_rule",
+      id: "p1",
+      appliesTo: JSON.stringify({ files: ["src/**"] }),
+    });
+    const b = makeMem({
+      kind: "protocol_rule",
+      id: "p2",
+      appliesTo: JSON.stringify({ files: ["src/**"] }),
+    });
+    const r = compileProjection([a, b], makeCtx({ workingFiles: ["src/x.ts"] }));
+    expect(r.conflicts.length).toBeGreaterThan(0);
+    expect(r.projectionValidity).toBe("needs_revalidation");
+  });
+});
+
+describe("computeProjectionCacheKey", () => {
+  it("same inputs produce same key", () => {
+    const fps = ["fp1", "fp2"];
+    const ctx = makeCtx({ memoryVersion: 3 });
+    const k1 = computeProjectionCacheKey(ctx, fps);
+    const k2 = computeProjectionCacheKey(ctx, fps);
+    expect(k1).toBe(k2);
+  });
+
+  it("different memoryVersion changes key", () => {
+    const fps = ["fp1"];
+    const k1 = computeProjectionCacheKey(makeCtx({ memoryVersion: 1 }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ memoryVersion: 2 }), fps);
+    expect(k1).not.toBe(k2);
+  });
+
+  it("different taskId changes key", () => {
+    const fps = ["fp1"];
+    const k1 = computeProjectionCacheKey(makeCtx({ taskId: "a" }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ taskId: "b" }), fps);
+    expect(k1).not.toBe(k2);
+  });
+
+  it("different fingerprints change key", () => {
+    const ctx = makeCtx();
+    const k1 = computeProjectionCacheKey(ctx, ["fp1"]);
+    const k2 = computeProjectionCacheKey(ctx, ["fp2"]);
+    expect(k1).not.toBe(k2);
+  });
+});
+
+describe("compileProjection — mixed scenario", () => {
+  it("compiles a realistic mixed memory set", () => {
+    const memories: ProjectionInput[] = [
+      makeMem({ id: "m1", kind: "fact", title: "TypeScript", content: "We use TS", validityStatus: "fresh" }),
+      makeMem({ id: "m2", kind: "risk", title: "Memory leak", content: "Watch for leaks", validityStatus: "fresh", severity: "warning" }),
+      makeMem({ id: "m3", kind: "hard_constraint", title: "No eval", content: "eval() is banned", validityStatus: "fresh", severity: "blocking" }),
+      makeMem({ id: "m4", kind: "protocol_rule", title: "Review gate", content: "All PRs need review", validityStatus: "fresh" }),
+      makeMem({ id: "m5", kind: "do_not_touch", title: "Legacy DB", content: "Do not touch db.ts", validityStatus: "fresh", appliesTo: JSON.stringify({ files: ["src/db.ts"] }) }),
+      makeMem({ id: "m6", kind: "fact", title: "Stale fact", content: "Outdated", validityStatus: "stale" }),
+      makeMem({ id: "m7", kind: "soft_convention", title: "UI only", content: "UI convention", validityStatus: "fresh", appliesTo: JSON.stringify({ modules: ["ui"] }) }),
+    ];
+    const ctx = makeCtx({ workingFiles: ["src/main.ts"], currentModules: ["core"] });
+    const r = compileProjection(memories, ctx);
+
+    // m1 → verifiedFacts
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    expect(r.capsulePatch.verifiedFacts[0].source.sourceMemoryId).toBe("m1");
+    // m2 → risks
+    expect(r.capsulePatch.risks).toHaveLength(1);
+    // m3 → constraintRules
+    expect(r.constraintRules).toHaveLength(1);
+    // m4 → protocolRules
+    expect(r.protocolRules).toHaveLength(1);
+    // m5 → doNotTouch EXCLUDED (file scope src/db.ts doesn't match src/main.ts)
+    expect(r.capsulePatch.doNotTouch).toHaveLength(0);
+    // m6 → skipped (stale)
+    expect(r.skippedStale.some(s => s.sourceMemoryId === "m6")).toBe(true);
+    // m7 → excluded (module ui not in current modules core)
+    expect(r.capsulePatch.activeConstraints).toHaveLength(0);
+    // Overall validity fresh (no needs_revalidation sources included)
+    expect(r.projectionValidity).toBe("fresh");
+  });
+});

@@ -235,7 +235,7 @@ export function registerDemoCommands(program: Command): void {
         }),
       ];
       for (const memory of memories) pmApprove(memory.id, "demo");
-      const memoryExport = pmExport();
+      const memoryExport = pmExport(undefined, "demo");
 
       const task = repo.createTask({
         title: "MVP: evidence-backed multi-agent review",

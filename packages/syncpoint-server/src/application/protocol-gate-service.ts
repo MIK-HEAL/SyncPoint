@@ -18,6 +18,7 @@ import type {
   ContextCapsule,
   Checkpoint,
   PeerContract,
+  ProjectedReality,
 } from "syncpoint-core";
 import { ContractStatus, SyncTransactionStatus } from "syncpoint-core";
 import * as repo from "../repositories.js";
@@ -167,6 +168,71 @@ export function assembleProtocolGate(
       activeTransactions: rules.filter(r => r.source === "sync-transaction").length,
       pendingReviews: rules.filter(r => r.source === "review").length,
       pendingWakes: rules.filter(r => r.source === "wake").length,
+      projectionRules: 0,
+    },
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// P3B — Projection → Gate injection
+// ══════════════════════════════════════════════════════
+
+/**
+ * Inject projected protocolRules and constraintRules into the protocol gate.
+ * Also injects projection conflicts and validity degradation.
+ * Returns a new ProtocolGateSummary (does not mutate input).
+ */
+export function injectProjectionIntoGate(
+  gate: ProtocolGateSummary,
+  projection: ProjectedReality,
+): ProtocolGateSummary {
+  const rules: ProtocolRule[] = [...gate.rules];
+  const hardBlockers = [...gate.hardBlockers];
+  let blocked = gate.blocked;
+
+  // Protocol rules from projection → severity based on memory severity
+  for (const pr of projection.protocolRules) {
+    const severity = pr.source.confidence === "high" ? "hard" : "soft";
+    const summary = `[projection:${pr.source.sourceMemoryId}] ${pr.title}: ${pr.content}`;
+    rules.push({ source: "projection", severity, summary, entityId: pr.source.sourceMemoryId });
+    if (severity === "hard") hardBlockers.push(summary);
+  }
+
+  // Constraint rules → visible as awareness in gate notes, but NOT blocking in P3B.
+  // P4 Constraint Runtime will enforce actual violation detection.
+  // Severity is "soft" = agent must be aware, but existence alone does not block.
+  for (const cr of projection.constraintRules) {
+    const summary = `[constraint:${cr.source.sourceMemoryId}] ${cr.title}: ${cr.content}`;
+    rules.push({ source: "projection", severity: "soft", summary, entityId: cr.source.sourceMemoryId });
+  }
+
+  // Projection conflicts → explicit
+  for (const c of projection.conflicts) {
+    const summary = `[conflict] ${c.description} (${c.itemA.sourceMemoryId} vs ${c.itemB.sourceMemoryId})`;
+    rules.push({ source: "projection", severity: "hard", summary });
+    hardBlockers.push(summary);
+  }
+
+  // Projection validity degradation
+  if (projection.projectionValidity === "invalid") {
+    const msg = "Projection invalid — cannot trust projected reality.";
+    rules.push({ source: "projection", severity: "hard", summary: msg });
+    hardBlockers.push(msg);
+    blocked = true;
+  }
+
+  // If we added hard projection rules, re-evaluate blocked
+  if (hardBlockers.length > gate.hardBlockers.length) {
+    blocked = true;
+  }
+
+  return {
+    rules,
+    blocked,
+    hardBlockers,
+    counts: {
+      ...gate.counts,
+      projectionRules: projection.protocolRules.length + projection.constraintRules.length + projection.conflicts.length,
     },
   };
 }
@@ -284,6 +350,7 @@ export function formatProtocolGatePrompt(gate: ProtocolGateSummary): string {
     "review": "Pending Reviews",
     "wake": "Queued Actions",
     "assignment": "Assignment State",
+    "projection": "Projected Reality Rules",
   };
 
   for (const [source, rules] of bySource) {

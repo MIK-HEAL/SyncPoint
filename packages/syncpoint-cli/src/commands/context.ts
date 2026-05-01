@@ -158,6 +158,8 @@ export function registerContextCommands(program: Command): void {
     .requiredOption("--agent <agentId>", "Agent ID")
     .action(async (opts) => {
       const ctx = repo.getResumeContext(opts.task, opts.agent);
+      ctx.projectMemories = []; // P3B: no raw PM in resume output
+      ctx.resumePrompt = ""; // P3B: pre-built prompt contains baked-in raw PM
       console.log(JSON.stringify(ctx, null, 2));
     });
 
@@ -169,6 +171,7 @@ export function registerContextCommands(program: Command): void {
     .option("--format <format>", "Output format: system-prompt|cursorrules|agents-md|checkpoint-md|clipboard", "system-prompt")
     .action(async (opts) => {
       const ctx = repo.getResumeContext(opts.task, opts.agent);
+      ctx.projectMemories = []; // P3B: no raw PM in prompt output
       if (!ctx.ready) {
         console.error("⚠ Context not ready:");
         for (const w of ctx.warnings) console.error(`  - ${w}`);
@@ -186,6 +189,7 @@ export function registerContextCommands(program: Command): void {
     .option("--output <path>", "Output file path")
     .action(async (opts) => {
       const ctx = repo.getResumeContext(opts.task, opts.agent);
+      ctx.projectMemories = []; // P3B: no raw PM in prompt output
       const content = formatResumePrompt(ctx, opts.format as PromptFormat);
       let outPath = opts.output as string | undefined;
       if (!outPath) {

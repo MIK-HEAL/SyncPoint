@@ -8,7 +8,12 @@ import { t, publicProcedure } from "./_trpc.js";
 export const resumeContextRouter = t.router({
   get: publicProcedure
     .input(z.object({ taskId: z.string(), agentId: z.string() }))
-    .query(({ input }) => getResumeContext(input.taskId, input.agentId)),
+    .query(({ input }) => {
+      const ctx = getResumeContext(input.taskId, input.agentId);
+      ctx.projectMemories = []; // P3B: no raw PM in resume output
+      ctx.resumePrompt = ""; // P3B: pre-built prompt contains baked-in raw PM
+      return ctx;
+    }),
 
   enforce: publicProcedure
     .input(z.object({ taskId: z.string(), agentId: z.string() }))
@@ -31,6 +36,7 @@ export const adapterRouter = t.router({
     }))
     .query(({ input }) => {
       const ctx = getResumeContext(input.taskId, input.agentId);
+      ctx.projectMemories = []; // P3B: no raw PM in adapter output
       const provider = input.provider ?? ctx.agent.name;
       return buildAdapterInstruction(ctx, provider as any, input.event as LifecycleEvent);
     }),

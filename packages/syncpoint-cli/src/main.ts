@@ -20,6 +20,7 @@ import { registerPlaybookCommands } from "./commands/playbook.js";
 import { registerDemoCommands } from "./commands/demo.js";
 import { registerSyncCommands } from "./commands/sync.js";
 import { patchCmd } from "./commands/patch.js";
+import { constraintCmd } from "./commands/constraint.js";
 
 const program = new Command();
 let keepDbOpen = false;
@@ -67,6 +68,7 @@ registerReviewCommands(program);
 registerPlaybookCommands(program);
 registerSyncCommands(program);
 program.addCommand(patchCmd);
+program.addCommand(constraintCmd);
 registerDemoCommands(program);
 
 // ── Parse ────────────────────────────────────────────

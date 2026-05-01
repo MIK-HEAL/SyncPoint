@@ -477,4 +477,23 @@ export function runMigrations(db: Database.Database): void {
   addColumn("context_capsule", "handoff_instructions", "TEXT NOT NULL DEFAULT ''");
   addColumn("context_capsule", "validation_status", "TEXT NOT NULL DEFAULT ''");
   addColumn("context_capsule", "stale_reason", "TEXT NOT NULL DEFAULT ''");
+  // P1 project memory governance
+  addColumn("project_memory", "fingerprint", "TEXT NOT NULL DEFAULT ''");
+  addColumn("project_memory", "supersedes", "TEXT");
+  addColumn("project_memory", "superseded_by", "TEXT");
+  // P2 project memory V2 schema
+  addColumn("project_memory", "kind", "TEXT NOT NULL DEFAULT 'fact'");
+  addColumn("project_memory", "projection_target", "TEXT");
+  addColumn("project_memory", "applies_to", "TEXT NOT NULL DEFAULT ''");
+  addColumn("project_memory", "severity", "TEXT NOT NULL DEFAULT 'info'");
+  addColumn("project_memory", "validity_status", "TEXT NOT NULL DEFAULT 'fresh'");
+  addColumn("project_memory", "validity_stale_reason", "TEXT NOT NULL DEFAULT ''");
+  // Memory version counter — single row table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS memory_version (
+      id    INTEGER PRIMARY KEY CHECK (id = 1),
+      version INTEGER NOT NULL DEFAULT 0
+    );
+    INSERT OR IGNORE INTO memory_version (id, version) VALUES (1, 0);
+  `);
 }

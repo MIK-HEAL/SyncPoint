@@ -300,30 +300,43 @@ function formatAgentsMd(ctx: ResumeContext): string {
 // ── checkpoint-md ─────────────────────────────────────
 
 function formatCheckpointMd(ctx: ResumeContext): string {
-  if (isCapsuleRestricted(ctx)) {
-    // In capsule-only/locked mode, build a capsule-only checkpoint doc
-    const lines: string[] = [];
-    lines.push(`# Checkpoint — ${ctx.task.title}`);
+  // P3B: always build from structured fields — never use ctx.resumePrompt
+  // which contains baked-in raw Project Knowledge.
+  const lines: string[] = [];
+  lines.push(`# Checkpoint — ${ctx.task.title}`);
+  lines.push("");
+  lines.push(`**Agent**: ${ctx.agent.name} (${ctx.agent.role})`);
+  lines.push("");
+
+  if (ctx.latestCapsule) {
+    lines.push(`**Goal**: ${ctx.latestCapsule.goal}`);
+    lines.push(`**Phase**: ${ctx.latestCapsule.currentPhase}`);
+    if (ctx.latestCapsule.confirmedDecisions) lines.push(`**Decisions**: ${ctx.latestCapsule.confirmedDecisions}`);
+    if (ctx.latestCapsule.workingFiles) lines.push(`**Files**: ${ctx.latestCapsule.workingFiles}`);
+    if (ctx.latestCapsule.completedWork) lines.push(`**Done**: ${ctx.latestCapsule.completedWork}`);
+    if (ctx.latestCapsule.remainingWork) lines.push(`**Remaining**: ${ctx.latestCapsule.remainingWork}`);
+    if (ctx.latestCapsule.nextSteps) lines.push(`**Next**: ${ctx.latestCapsule.nextSteps}`);
+    if (ctx.latestCapsule.blockers) lines.push(`**Blockers**: ${ctx.latestCapsule.blockers}`);
     lines.push("");
-    if (ctx.latestCapsule) {
-      lines.push(`**Goal**: ${ctx.latestCapsule.goal}`);
-      lines.push(`**Phase**: ${ctx.latestCapsule.currentPhase}`);
-      if (ctx.latestCapsule.remainingWork) lines.push(`**Remaining**: ${ctx.latestCapsule.remainingWork}`);
-      if (ctx.latestCapsule.nextSteps) lines.push(`**Next**: ${ctx.latestCapsule.nextSteps}`);
-      if (ctx.latestCapsule.blockers) lines.push(`**Blockers**: ${ctx.latestCapsule.blockers}`);
+    if (ctx.latestCapsule.resumePrompt) {
+      lines.push("## Resume Instructions");
+      lines.push(ctx.latestCapsule.resumePrompt);
       lines.push("");
-      if (ctx.latestCapsule.resumePrompt) {
-        lines.push("## Resume Instructions");
-        lines.push(ctx.latestCapsule.resumePrompt);
-        lines.push("");
-      }
-    } else {
-      lines.push("⚠ No capsule available.");
     }
-    return lines.join("\n");
+  } else {
+    lines.push("⚠ No capsule available.");
   }
-  // Legacy: raw resumePrompt (may contain project knowledge + checkpoint)
-  return ctx.resumePrompt;
+
+  if (!isCapsuleRestricted(ctx) && ctx.latestCheckpoint) {
+    lines.push("## Latest Checkpoint");
+    lines.push(`**Summary**: ${ctx.latestCheckpoint.summary}`);
+    if (ctx.latestCheckpoint.progress) lines.push(`**Progress**: ${ctx.latestCheckpoint.progress}`);
+    if (ctx.latestCheckpoint.nextSteps) lines.push(`**Next**: ${ctx.latestCheckpoint.nextSteps}`);
+    if (ctx.latestCheckpoint.needSync) lines.push("⚠ **Sync required** before continuing.");
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
 
 // ── clipboard ─────────────────────────────────────────

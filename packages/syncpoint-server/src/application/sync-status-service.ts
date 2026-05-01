@@ -8,10 +8,11 @@
 
 import * as repo from "../repositories.js";
 import { sgListActive, sgList } from "./sync-gate-service.js";
-import { isAgentBlocked } from "syncpoint-core";
+import { isAgentBlocked, evaluateConstraints } from "syncpoint-core";
 import { fcListClaims, fcDetectConflicts } from "./file-claim-service.js";
 import { stxListActive } from "./sync-transaction-service.js";
 import { ppList } from "./patch-proposal-service.js";
+import { buildProjection } from "./projection-service.js";
 
 // ── Shared helpers ──────────────────────────────────────
 
@@ -274,6 +275,26 @@ export function buildSnapshot(input?: SnapshotInput) {
     const agentClaims = activeClaims.filter(c => c.agentId === a.id);
     const agentWakes = wakeRequests.filter(w => w.targetAgentId === a.id);
 
+    // P4D: lightweight constraint visibility per agent
+    let constraintBlocked = false;
+    let constraintBlockerCount = 0;
+    let constraintWarningCount = 0;
+    if (agentAssignments.length > 0) {
+      for (const ta of agentAssignments) {
+        try {
+          const capsule = repo.getLatestCapsule(ta.taskId, a.id);
+          const wf = capsule?.workingFiles
+            ? capsule.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+            : [];
+          const proj = buildProjection({ taskId: ta.taskId, workingFiles: wf });
+          const decision = evaluateConstraints({ action: "resume", projection: proj, touchedFiles: wf.length > 0 ? wf : undefined });
+          constraintBlockerCount += decision.blockers.length;
+          constraintWarningCount += decision.warnings.length;
+          if (!decision.permitted) constraintBlocked = true;
+        } catch { /* projection unavailable — skip */ }
+      }
+    }
+
     return {
       id: a.id,
       name: a.name,
@@ -282,6 +303,9 @@ export function buildSnapshot(input?: SnapshotInput) {
       role: a.role,
       blocked,
       blockingGateIds: scopedBlockingGates.map(g => g.id),
+      constraintBlocked,
+      constraintBlockerCount,
+      constraintWarningCount,
       activeAssignments: agentAssignments.map(ta => ({
         id: ta.id,
         taskId: ta.taskId,
@@ -392,6 +416,12 @@ export function buildSnapshot(input?: SnapshotInput) {
       pendingPatchCount: pendingPatches.length,
       pendingWakeCount: wakeRequests.length,
       blockerCount: blockers.length,
+      constraintBlockedAgents: agentSection.filter(a => a.constraintBlocked).length,
+      constraintBlockedTasks: new Set(
+        agentSection
+          .filter(a => a.constraintBlocked)
+          .flatMap(a => a.activeAssignments.map(ta => ta.taskId))
+      ).size,
     },
   };
 }

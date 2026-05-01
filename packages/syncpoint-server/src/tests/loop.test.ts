@@ -113,7 +113,9 @@ describe("loop lifecycle — single agent", () => {
     expect(ctx.ready).toBe(true);
     expect(ctx.latestCapsule).toBeDefined();
     expect(ctx.latestCapsule.goal).toBe("Build dashboard UI");
-    expect(ctx.resumePrompt).toContain("Continue building dashboard");
+    // P3B: ctx.resumePrompt is stripped at transport (contains baked-in raw PM)
+    // Resume instructions live in latestCapsule.resumePrompt
+    expect(ctx.latestCapsule.resumePrompt).toContain("Continue building dashboard");
 
     // Enforce policy
     const policy = await e2e.rpc("resumeContext.enforce", {

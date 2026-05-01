@@ -23,6 +23,7 @@ export function registerAdapterCommand(program: Command): void {
         .option("--dry-run", "Print files but do not write them")
         .action(async (opts) => {
           const ctx = repo.getResumeContext(opts.task, opts.agent);
+          ctx.projectMemories = []; // P3B: no raw PM in adapter output
           const provider = opts.provider ?? ctx.agent.name;
           const instruction = buildAdapterInstruction(ctx, provider as any, opts.event as AdapterLifecycleEvent);
           if (!instruction.ready) {

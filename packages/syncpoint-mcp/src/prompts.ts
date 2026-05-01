@@ -23,6 +23,7 @@ export function registerPrompts(server: McpServer): void {
     },
     ({ taskId, agentId }) => {
       const ctx = getResumeContext(taskId, agentId);
+      ctx.projectMemories = []; // P3B: no raw PM in resume output
       const prompt = formatResumePrompt(ctx, "system-prompt");
       return {
         messages: [
@@ -133,6 +134,7 @@ export function registerPrompts(server: McpServer): void {
       if (taskId && agentId) {
         try {
           const ctx = getResumeContext(taskId, agentId);
+          ctx.projectMemories = []; // P3B: no raw PM in resume output
           taskSection = [
             "",
             "---",
