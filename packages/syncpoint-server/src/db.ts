@@ -38,6 +38,13 @@ export function findProjectSyncpointDir(from: string = process.cwd()): string | 
 let sqlite: Database.Database | null = null;
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
+function applyPragmas(db: Database.Database): void {
+  // Keep the default journal mode for v0.1 first-run reliability.
+  // Some local/synced filesystems reject WAL with disk I/O errors and leave
+  // the current connection unable to write afterward.
+  db.pragma("foreign_keys = ON");
+}
+
 /**
  * Returns true if the DB resolves to a project-local .syncpoint/ (not ~/.syncpoint fallback).
  */
@@ -84,8 +91,7 @@ export function initSyncpointDir(baseDir: string = process.cwd()): string {
   // Create the DB to ensure schema exists
   const dbPath = path.join(dir, DEFAULT_DB_NAME);
   const db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  applyPragmas(db);
   runMigrations(db);
   db.close();
   return dir;
@@ -96,8 +102,7 @@ export type SyncPointDb = ReturnType<typeof drizzle<typeof schema>>;
 export function getDb(): SyncPointDb {
   if (_db) return _db;
   sqlite = new Database(getDbPath());
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
+  applyPragmas(sqlite);
   _db = drizzle(sqlite, { schema });
   runMigrations(sqlite);
   return _db;
@@ -466,6 +471,8 @@ export function runMigrations(db: Database.Database): void {
   };
   // P11 runtime identity
   addColumn("agent", "runtime_id", "TEXT");
+  // Relationship-mode release migration
+  addColumn("orchestration_session", "relationship_mode", "TEXT NOT NULL DEFAULT 'manager-delegate'");
   // P12 extended capsule fields
   addColumn("context_capsule", "intent_scope", "TEXT NOT NULL DEFAULT ''");
   addColumn("context_capsule", "non_goals", "TEXT NOT NULL DEFAULT ''");

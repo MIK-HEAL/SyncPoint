@@ -62,9 +62,9 @@ describe("CLI flow", () => {
 
   it("syncpoint status", () => {
     const out = cli("status");
-    expect(out).toContain("Agents: 1");
-    expect(out).toContain("Tasks:");
-    expect(out).toContain("1");
+    expect(out).toContain("SyncPoint Status");
+    expect(out).toContain("Agents");
+    expect(out).toContain("codex");
   });
 });
 

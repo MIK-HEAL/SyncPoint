@@ -21,6 +21,7 @@ import { registerDemoCommands } from "./commands/demo.js";
 import { registerSyncCommands } from "./commands/sync.js";
 import { patchCmd } from "./commands/patch.js";
 import { constraintCmd } from "./commands/constraint.js";
+import { registerFacadeCommands } from "./commands/facade.js";
 
 const program = new Command();
 let keepDbOpen = false;
@@ -70,6 +71,7 @@ registerSyncCommands(program);
 program.addCommand(patchCmd);
 program.addCommand(constraintCmd);
 registerDemoCommands(program);
+registerFacadeCommands(program);
 
 // ── Parse ────────────────────────────────────────────
 

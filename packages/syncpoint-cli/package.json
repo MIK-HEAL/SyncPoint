@@ -1,16 +1,39 @@
 {
-  "name": "syncpoint-cli",
+  "name": "@syncpoint/cli",
   "version": "0.1.0",
-  "description": "SyncPoint CLI — command-line interface for synchronization gates, claims, transactions, and patches",
+  "description": "SyncPoint CLI — stop unsafe AI continuation before it breaks your project",
   "type": "module",
   "bin": {
     "syncpoint": "dist/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "syncpoint",
+    "ai-agents",
+    "synchronization",
+    "collaboration",
+    "file-claims",
+    "sync-gates",
+    "checkpoint",
+    "mcp"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MIK-HEAL/SyncPoint"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build && pnpm run typecheck && pnpm run test"
   },
   "dependencies": {
     "syncpoint-core": "workspace:*",

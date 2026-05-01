@@ -76,41 +76,6 @@ export function registerPrimitiveCommands(program: Command): void {
         })
     );
 
-  // ── Checkpoint ─────────────────────────────────────────
-
-  program
-    .command("checkpoint")
-    .description("Manage checkpoints")
-    .addCommand(
-      new Command("create")
-        .description("Create a checkpoint")
-        .requiredOption("--task <taskId>", "Task ID")
-        .requiredOption("--agent <agentId>", "Agent ID")
-        .requiredOption("--summary <summary>", "Summary")
-        .option("--progress <progress>", "Progress", "")
-        .option("--understanding <understanding>", "Current understanding", "")
-        .option("--changed-files <files>", "Changed files (JSON)", "")
-        .option("--risks <risks>", "Risks", "")
-        .option("--blockers <blockers>", "Blockers", "")
-        .option("--next-steps <steps>", "Next steps", "")
-        .option("--need-sync", "Flag for sync needed", false)
-        .action(async (opts) => {
-          const cp = repo.createCheckpoint({
-            taskId: opts.task,
-            agentId: opts.agent,
-            summary: opts.summary,
-            progress: opts.progress,
-            currentUnderstanding: opts.understanding,
-            changedFiles: opts.changedFiles,
-            risks: opts.risks,
-            blockers: opts.blockers,
-            nextSteps: opts.nextSteps,
-            needSync: opts.needSync,
-          });
-          console.log(JSON.stringify(cp, null, 2));
-        })
-    );
-
   // ── Report (diary) ─────────────────────────────────────
 
   program

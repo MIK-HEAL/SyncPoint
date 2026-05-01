@@ -38,7 +38,17 @@ import {
   pmAdd,
   pmApprove,
   pmExport,
+  fcClaimFiles,
+  fcReleaseClaim,
+  stxCreate,
+  stxApprove,
+  stxResolve,
+  sgAck,
+  sgResolve,
+  buildSnapshot,
 } from "syncpoint-server/application";
+import { formatBlockedExplanation, formatStatusOutput } from "./formatter.js";
+import type { Snapshot } from "./formatter.js";
 
 interface DemoResult {
   ok: true;
@@ -158,10 +168,221 @@ function writeReport(outputPath: string, data: {
   fs.writeFileSync(outputPath, lines.join("\n"), "utf-8");
 }
 
+// ── Disaster Blocking Demo ─────────────────────────────
+
+function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; stage: string }): void {
+  const projectRoot = path.resolve(opts.project);
+  fs.mkdirSync(projectRoot, { recursive: true });
+  process.chdir(projectRoot);
+  const syncpointDir = initSyncpointDir(projectRoot);
+
+  const isJson = !!opts.json;
+  const stage = opts.stage || "all";
+
+  // ── Stage 1: Create agents ──
+  const agentA = repo.createAgent({
+    name: "agent-a-claude",
+    provider: "claude-code",
+    role: "backend",
+  });
+  const agentB = repo.createAgent({
+    name: "agent-b-cursor",
+    provider: "cursor",
+    role: "backend",
+  });
+  const reviewer = repo.createAgent({
+    name: "reviewer-agent",
+    provider: "codex",
+    role: "reviewer",
+  });
+
+  // ── Stage 2: Create session and task ──
+  const task = repo.createTask({
+    title: "Refactor shared authentication config",
+    description: "Both agents need to modify the shared config file.",
+  });
+  repo.assignTask(task.id, agentA.id);
+
+  const contractDraft = repo.createContract({
+    taskId: task.id,
+    title: "Shared config coordination",
+    participants: JSON.stringify([agentA.id, agentB.id, reviewer.id]),
+    scope: "Coordinate edits to src/shared-config.ts",
+    responsibilities: "Agent A handles auth logic, Agent B handles token refresh, Reviewer validates.",
+    interfaceSpec: "Both agents must claim files before editing.",
+    fileBoundaries: "src/shared-config.ts is the contended file.",
+    dependencies: "",
+    testPlan: "",
+    risks: "Simultaneous edits to the same file without coordination.",
+  });
+  repo.updateContractStatus(contractDraft.id, ContractStatus.REVIEWING);
+  repo.updateContractStatus(contractDraft.id, ContractStatus.APPROVED);
+
+  const sessionResult = orchCreateSession({
+    title: "Shared Config Coordination",
+    description: "Two agents editing the same file — SyncPoint blocks unsafe continuation.",
+    architectId: agentA.id,
+    createdBy: "demo",
+    relationshipMode: "peer-contract",
+  });
+  orchAssignRole({ sessionId: sessionResult.session.id, agentId: agentB.id, role: "executor" });
+  orchAssignRole({ sessionId: sessionResult.session.id, agentId: reviewer.id, role: "reviewer" });
+
+  const assignment = orchPlanTask({
+    sessionId: sessionResult.session.id,
+    taskId: task.id,
+    assigneeAgentId: agentA.id,
+    assignedBy: agentA.id,
+    notes: "Agent A starts work on shared-config.ts",
+  });
+  orchAdvanceSession(sessionResult.session.id);
+  orchAcceptAssignment(assignment.id);
+
+  // ── Stage 3: Agent A claims the file (BEFORE starting work — required in peer-contract) ──
+  const claimA = fcClaimFiles({
+    agentId: agentA.id,
+    taskId: task.id,
+    sessionId: sessionResult.session.id,
+    paths: "src/shared-config.ts",
+    mode: "exclusive",
+  });
+
+  orchStartAssignment(assignment.id);
+
+  // ── Stage 4: Agent A checkpoints ──
+  const checkpoint = repo.createCheckpoint({
+    taskId: task.id,
+    agentId: agentA.id,
+    summary: "Implemented auth session refresh logic in shared-config.ts",
+    progress: "60%",
+    currentUnderstanding: "Auth config needs token refresh handler.",
+    changedFiles: "src/shared-config.ts",
+    risks: "Another agent may edit the same file.",
+    blockers: "",
+    nextSteps: "Need review before Agent B can proceed.",
+    needSync: true,
+  });
+
+  // Create sync transaction (checkpoint requires approval)
+  const tx = stxCreate({
+    sessionId: sessionResult.session.id,
+    taskId: task.id,
+    checkpointId: checkpoint.id,
+    requestingAgentId: agentA.id,
+    requiredApproverIds: [agentB.id],
+  });
+
+  // ── Stage 5: Agent B tries to claim the SAME file — CONFLICT ──
+  const taskB = repo.createTask({
+    title: "Add token refresh to shared config",
+    description: "Agent B needs to add token refresh logic.",
+  });
+  repo.assignTask(taskB.id, agentB.id);
+
+  const claimB = fcClaimFiles({
+    agentId: agentB.id,
+    taskId: taskB.id,
+    sessionId: sessionResult.session.id,
+    paths: "src/shared-config.ts",
+    mode: "exclusive",
+  });
+
+  // ── Show blocked state ──
+  const blockedSnapshot = buildSnapshot({ sessionId: sessionResult.session.id }) as Snapshot;
+
+  if (isJson && stage === "blocked") {
+    console.log(JSON.stringify(blockedSnapshot, null, 2));
+    return;
+  }
+
+  if (!isJson) {
+    console.log("");
+    console.log(formatBlockedExplanation(blockedSnapshot));
+    console.log("─".repeat(50));
+    console.log(formatStatusOutput(blockedSnapshot));
+  }
+
+  if (stage === "blocked") {
+    if (!isJson) {
+      console.log("Demo paused at blocked state.");
+      console.log(`Demo workspace: ${projectRoot}`);
+      console.log("");
+      console.log("To continue resolution:");
+      console.log(`  syncpoint demo --project "${projectRoot}" --stage resolve`);
+    }
+    return;
+  }
+
+  // ── Stage 6: Resolution ──
+  if (!isJson) {
+    console.log("");
+    console.log("═".repeat(50));
+    console.log("Resolving blockers...");
+    console.log("");
+  }
+
+  // Agent B approves the checkpoint transaction
+  stxApprove(tx.tx.id, agentB.id, "Reviewed checkpoint, auth logic looks correct.");
+
+  // Resolve the transaction (releases bound gate)
+  stxResolve(tx.tx.id, "Checkpoint approved, ownership transfer agreed.");
+
+  // Resolve the file conflict gate (created by claimB)
+  if (claimB.gateId) {
+    try { sgAck(claimB.gateId, agentA.id, "Agreed to transfer ownership"); } catch {}
+    try { sgAck(claimB.gateId, agentB.id, "Ready to take over"); } catch {}
+    try { sgResolve(claimB.gateId, "File ownership transferred from Agent A to Agent B"); } catch {}
+  }
+  fcReleaseClaim(claimA.claim.id);
+
+  // ── Show resolved state ──
+  const resolvedSnapshot = buildSnapshot({ sessionId: sessionResult.session.id }) as Snapshot;
+
+  if (isJson) {
+    console.log(JSON.stringify({
+      stage: "resolved",
+      blocked: blockedSnapshot,
+      resolved: resolvedSnapshot,
+    }, null, 2));
+    return;
+  }
+
+  console.log("After resolution:");
+  console.log("");
+  console.log(formatStatusOutput(resolvedSnapshot));
+
+  console.log("═".repeat(50));
+  console.log("Demo complete.");
+  console.log("");
+  console.log("What happened:");
+  console.log("  1. Agent A claimed src/shared-config.ts (exclusive)");
+  console.log("  2. Agent A checkpointed — created a sync transaction requiring approval");
+  console.log("  3. Agent B tried to claim the same file — BLOCKED by file conflict");
+  console.log("  4. Agent B approved the checkpoint transaction");
+  console.log("  5. File conflict gate resolved — ownership transferred");
+  console.log("  6. Both agents can now continue safely");
+  console.log("");
+  console.log(`Demo workspace: ${projectRoot}`);
+  if (!opts.keep) {
+    console.log("  (use --keep to preserve the workspace for inspection)");
+  }
+}
+
 export function registerDemoCommands(program: Command): void {
   const demo = program
     .command("demo")
-    .description("Create presentation-ready SyncPoint demos");
+    .description("Run SyncPoint demos — shows how agents get blocked and unblocked")
+    .option(
+      "--project <dir>",
+      "Project directory for demo state",
+      path.join(process.cwd(), ".syncpoint", "demo-workspace"),
+    )
+    .option("--keep", "Keep demo workspace for inspection", false)
+    .option("--json", "Machine-readable JSON output")
+    .option("--stage <stage>", "Run specific stage: blocked, resolve, all", "all")
+    .action((opts) => {
+      runDisasterDemo(opts);
+    });
 
   demo
     .command("mvp")

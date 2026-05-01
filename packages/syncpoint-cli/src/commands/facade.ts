@@ -1,0 +1,285 @@
+/**
+ * CLI Facade — root-level short commands for v0.1.
+ *
+ * These wrap existing application services into user-friendly
+ * top-level commands:
+ *   syncpoint status
+ *   syncpoint claim <paths>
+ *   syncpoint resume
+ *   syncpoint checkpoint
+ *   syncpoint wake
+ */
+
+import { Command, Option } from "commander";
+import {
+  buildSnapshot,
+  fcClaimFiles,
+  loopResume,
+  loopCheckpoint,
+  wakeNext,
+  wakeAck,
+  wakeList,
+  LoopError,
+} from "syncpoint-server/application";
+import * as repo from "syncpoint-server/repositories";
+import { formatStatusOutput, formatBlockedExplanation, formatResumeExplanation } from "./formatter.js";
+import type { Snapshot } from "./formatter.js";
+
+export function registerFacadeCommands(program: Command): void {
+  // ── syncpoint status ────────────────────────────────
+  program
+    .command("status")
+    .description("Show current synchronization state — who is blocked, why, and what to do")
+    .option("--session <sessionId>", "Scope to a specific session")
+    .option("--json", "Machine-readable JSON output")
+    .action((opts) => {
+      const snapshot = buildSnapshot(
+        opts.session ? { sessionId: opts.session } : undefined,
+      ) as Snapshot;
+
+      if (opts.json) {
+        console.log(JSON.stringify(snapshot, null, 2));
+        return;
+      }
+
+      console.log(formatStatusOutput(snapshot));
+    });
+
+  // ── syncpoint claim <paths> ─────────────────────────
+  program
+    .command("claim")
+    .description("Declare file ownership for the current task")
+    .argument("<paths>", "Comma-separated file paths or globs")
+    .requiredOption("--agent <agentId>", "Agent ID")
+    .requiredOption("--task <taskId>", "Task ID")
+    .option("--session <sessionId>", "Session ID")
+    .option("--mode <mode>", "Claim mode: exclusive or shared", "exclusive")
+    .option("--json", "Machine-readable JSON output")
+    .action((paths, opts) => {
+      const result = fcClaimFiles({
+        agentId: opts.agent,
+        taskId: opts.task,
+        sessionId: opts.session,
+        paths,
+        mode: opts.mode,
+      });
+
+      if (opts.json) {
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
+
+      console.log(`Claimed: ${paths} (${opts.mode})`);
+      if (result.conflicts.length > 0) {
+        console.log("");
+        console.log("Conflicts detected:");
+        for (const c of result.conflicts) {
+          const severity = c.isHardConflict ? "HARD" : "soft";
+          console.log(`  [${severity}] ${c.overlappingPath}`);
+        }
+      }
+      if (result.gateId) {
+        console.log("");
+        console.log(`SyncGate created: ${result.gateId}`);
+        console.log("  Both agents must acknowledge and resolve before continuing.");
+      }
+    });
+
+  // ── syncpoint resume ────────────────────────────────
+  program
+    .command("resume")
+    .description("Resume work from the latest capsule/checkpoint")
+    .requiredOption("--agent <agentId>", "Agent ID")
+    .requiredOption("--task <taskId>", "Task ID")
+    .option("--provider <provider>", "Editor provider override")
+    .addOption(new Option("--context-mode <mode>", "Context mode").choices(["capsule-first", "capsule-only", "capsule-locked"]))
+    .option("--session <sessionId>", "Session ID for protocol gate scoping")
+    .option("--json", "Machine-readable JSON output")
+    .action((opts) => {
+      try {
+        const result = loopResume({
+          agentId: opts.agent,
+          taskId: opts.task,
+          provider: opts.provider,
+          contextMode: opts.contextMode,
+          sessionId: opts.session,
+        });
+
+        if (opts.json) {
+          const { files, ...rest } = result;
+          console.log(JSON.stringify(rest, null, 2));
+          return;
+        }
+
+        // Get agent/task info for display
+        let agentName = opts.agent;
+        let taskTitle = opts.task;
+        try { agentName = repo.getAgent(opts.agent).name; } catch {}
+        try { taskTitle = repo.getTask(opts.task).title; } catch {}
+
+        // Get capsule for resume info
+        let capsuleInfo: any = {};
+        try {
+          const capsule = repo.getLatestCapsule(opts.task, opts.agent);
+          if (capsule) {
+            capsuleInfo = {
+              goal: capsule.goal,
+              phase: capsule.currentPhase,
+              completedWork: capsule.completedWork,
+              remainingWork: capsule.remainingWork,
+              workingFiles: capsule.workingFiles,
+              blockers: capsule.blockers,
+              nextSteps: capsule.nextSteps,
+            };
+          }
+        } catch {}
+
+        const blocked = result.protocolGateBlocked || !result.capsuleValid;
+
+        const explanation = formatResumeExplanation({
+          agentId: opts.agent,
+          agentName,
+          taskTitle,
+          blocked,
+          capsuleValid: result.capsuleValid,
+          protocolGateBlocked: result.protocolGateBlocked,
+          validationNotes: result.validationNotes,
+          constraintWarnings: result.constraintWarnings,
+          ...capsuleInfo,
+        });
+
+        console.log(explanation);
+
+        if (!blocked) {
+          console.log("─".repeat(40));
+          console.log("Resume prompt:");
+          console.log(result.prompt);
+        }
+      } catch (err: unknown) {
+        if (err instanceof LoopError) {
+          console.error(`Blocked (exit ${err.exitCode}): ${err.message}`);
+          process.exitCode = err.exitCode;
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`Error: ${msg}`);
+          process.exitCode = 1;
+        }
+      }
+    });
+
+  // ── syncpoint checkpoint ────────────────────────────
+  program
+    .command("checkpoint")
+    .description("Save progress and create a context capsule")
+    .requiredOption("--agent <agentId>", "Agent ID")
+    .requiredOption("--task <taskId>", "Task ID")
+    .requiredOption("--summary <text>", "Checkpoint summary")
+    .option("--progress <text>", "Progress description", "")
+    .option("--next-steps <text>", "Next steps", "")
+    .option("--risks <text>", "Risks", "")
+    .option("--blockers <text>", "Blockers", "")
+    .option("--goal <text>", "Capsule goal")
+    .option("--phase <text>", "Current phase", "")
+    .option("--completed <text>", "Completed work", "")
+    .option("--remaining <text>", "Remaining work", "")
+    .option("--working-files <text>", "Working files", "")
+    .option("--need-sync", "Flag task as needing sync", false)
+    .option("--json", "Machine-readable JSON output")
+    .action((opts) => {
+      try {
+        const result = loopCheckpoint({
+          agentId: opts.agent,
+          taskId: opts.task,
+          summary: opts.summary,
+          progress: opts.progress,
+          nextSteps: opts.nextSteps,
+          risks: opts.risks,
+          blockers: opts.blockers,
+          goal: opts.goal,
+          phase: opts.phase,
+          completed: opts.completed,
+          remaining: opts.remaining,
+          workingFiles: opts.workingFiles,
+          needSync: opts.needSync,
+        });
+
+        if (opts.json) {
+          const { files, ...rest } = result;
+          console.log(JSON.stringify(rest, null, 2));
+          return;
+        }
+
+        console.log(`Checkpoint saved: ${result.checkpointId}`);
+        console.log(`Capsule:          ${result.capsuleId}`);
+        if (result.needSync) {
+          console.log("  Task flagged for sync.");
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Error: ${msg}`);
+        process.exitCode = 1;
+      }
+    });
+
+  // ── syncpoint wake ──────────────────────────────────
+  program
+    .command("wake")
+    .description("Check or acknowledge pending wake requests")
+    .option("--agent <agentId>", "Agent ID to check wakes for")
+    .option("--session <sessionId>", "Session ID")
+    .option("--ack <wakeId>", "Acknowledge a wake request")
+    .option("--json", "Machine-readable JSON output")
+    .action((opts) => {
+      if (opts.ack) {
+        const result = wakeAck(opts.ack);
+        if (opts.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`Wake acknowledged: ${result.id} → ${result.status}`);
+        }
+        return;
+      }
+
+      if (opts.agent) {
+        const next = wakeNext(opts.agent);
+        if (opts.json) {
+          console.log(JSON.stringify(next, null, 2));
+          return;
+        }
+        if (next) {
+          console.log(`Next wake for agent:`);
+          console.log(`  ID:     ${next.id}`);
+          console.log(`  Reason: ${next.reason || "sync obligation"}`);
+          console.log(`  Event:  ${next.triggerEventType || "unknown"}`);
+          console.log("");
+          console.log(`Acknowledge: syncpoint wake --ack ${next.id}`);
+        } else {
+          console.log("No pending wake requests.");
+        }
+        return;
+      }
+
+      // List all
+      const all = wakeList({
+        sessionId: opts.session,
+        status: "QUEUED",
+      });
+
+      if (opts.json) {
+        console.log(JSON.stringify(all, null, 2));
+        return;
+      }
+
+      if (all.length === 0) {
+        console.log("No pending wake requests.");
+        return;
+      }
+
+      console.log(`${all.length} pending wake(s):`);
+      for (const w of all) {
+        let agentName = w.targetAgentId;
+        try { agentName = repo.getAgent(w.targetAgentId).name; } catch {}
+        console.log(`  ${agentName}: ${w.reason || w.triggerEventType || "sync obligation"} [${w.status}]`);
+      }
+    });
+}

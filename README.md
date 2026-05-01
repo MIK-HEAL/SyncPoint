@@ -100,78 +100,68 @@ Architecture details: [`docs/reality-runtime.md`](docs/reality-runtime.md) · [`
 
 **SyncPoint is the layer agents call before they continue.**
 
-## See It In 10 Minutes
+## Quick Start
 
-The fastest way to understand SyncPoint is to run the synchronization truncation demo.
+### Install
 
-### 1. Build the workspace
+```bash
+npm install -g @syncpoint/cli
+```
+
+Or for local development:
 
 ```bash
 pnpm install
 pnpm build
 ```
 
-### 2. Create a blocked multi-agent state
+### Run the demo
 
 ```bash
-node scripts/demo-sync-flow.mjs --stage blocked
+syncpoint demo
 ```
 
-The script creates an isolated demo project under `.tmp/` and prints IDs for:
+If not globally installed:
 
-- **Agent A** and **Agent B**
-- overlapping file claims on `src/shared-config.ts`
-- an automatically created file-conflict `SyncGate`
-- a checkpoint-backed `SyncTransaction`
-- wake requests and blocker state
+```bash
+node packages/syncpoint-cli/dist/main.js demo
+```
 
-You should see a blocked continuation message similar to:
+This creates a temporary workspace and shows:
+
+1. **Agent A** claims `src/shared-config.ts`
+2. **Agent B** tries to claim the same file — **BLOCKED**
+3. A checkpoint requires approval — **BLOCKED**
+4. Blockers are resolved — both agents can continue
+
+You'll see output like:
 
 ```text
-Agent blocked by sync gate(s): <gateId>. Acknowledge before starting work.
+SyncPoint blocked unsafe continuation.
+
+Blocked agent:
+  agent-b-cursor (cursor)
+
+Why:
+  - src/shared-config.ts is already claimed by agent-a-claude
+  - checkpoint requires approval before another agent continues
 ```
 
-### 3. Inspect the state
-
-From the demo project printed by the script, start the local server:
+### See the full state
 
 ```bash
-syncpoint server start --port 8765
+syncpoint status
 ```
 
-If `syncpoint` is not on your PATH yet, use the built CLI directly:
+Shows sessions, agents, file claims, conflicts, blockers, and suggested actions.
+
+### Stop at the blocked state
 
 ```bash
-node <SYNCPOINT_REPO>/packages/syncpoint-cli/dist/main.js server start --port 8765
+syncpoint demo --stage blocked
 ```
 
-Open the VS Code extension **Sync View** and verify:
-
-| Sync View section | What you should see |
-|---|---|
-| **Sessions** | A `peer-contract` demo session |
-| **Active Work** | Agent A active; Agent B blocked |
-| **File Ownership** | Two active claims on `src/shared-config.ts` |
-| **Blockers** | A file-conflict gate and a checkpoint gate |
-| **Wake Queue** | Sync obligations created by session events |
-| **Patches** | Empty before resolution |
-
-### 4. Resolve the sync boundary
-
-Back in the SyncPoint repository:
-
-```bash
-node scripts/demo-sync-flow.mjs --stage resolve --project <printed-demo-project>
-```
-
-The script resolves the gates, transfers ownership, submits a patch proposal, runs patch checks, approves it, and marks it applied.
-
-Expected result:
-
-```text
-Patch checks: ALL PASSED
-Active gates after resolve: none
-```
+Then inspect with `syncpoint status` before continuing.
 
 Full walkthrough: [`docs/demo-sync-truncation.md`](docs/demo-sync-truncation.md)
 
@@ -215,90 +205,30 @@ create sync session
 
 For the clearest first experience, use `peer-contract` mode because file boundaries and conflicts are easy to see.
 
-## Quick Start For Local Development
+## CLI Commands
 
-### Install and build
+v0.1 top-level commands:
 
-```bash
-pnpm install
-pnpm build
-pnpm typecheck
-```
+| Command | What it does |
+|---|---|
+| `syncpoint init` | Initialize `.syncpoint/` state |
+| `syncpoint demo` | Run the disaster blocking demo |
+| `syncpoint status` | Show who is blocked, why, and what to do |
+| `syncpoint claim <paths>` | Declare file ownership |
+| `syncpoint checkpoint` | Save progress + context capsule |
+| `syncpoint resume` | Resume from latest capsule/checkpoint |
+| `syncpoint wake` | Check or acknowledge pending sync obligations |
 
-### Use the CLI
-
-If the package is linked or installed, use:
-
-```bash
-syncpoint --help
-```
-
-For local repository development, use:
+Power-user commands (subgroups):
 
 ```bash
-node packages/syncpoint-cli/dist/main.js --help
-```
-
-### Initialize SyncPoint state in a project
-
-```bash
-syncpoint init
-syncpoint status
-```
-
-This creates local state under:
-
-```text
-.syncpoint/syncpoint.db
-```
-
-### Register agents
-
-```bash
-syncpoint agent add --name codex-architect --provider codex --role manager
-syncpoint agent add --name claude-executor --provider claude-code --role backend
-syncpoint agent add --name cursor-reviewer --provider cursor --role reviewer
-```
-
-### Create a synchronization session
-
-```bash
-syncpoint session create \
-  --title "Shared config coordination" \
-  --architect <architectAgentId> \
-  --mode peer-contract
-```
-
-### Inspect and resolve blockers
-
-```bash
-syncpoint sync status --session <sessionId>
-
-syncpoint sync ack --gate <gateId> --agent <agentA>
-syncpoint sync ack --gate <gateId> --agent <agentB>
-
-syncpoint sync resolve \
-  --gate <gateId> \
-  --summary "Ownership boundary agreed; safe to continue."
-```
-
-### Work with patch proposals
-
-```bash
-syncpoint patch list --session <sessionId>
-syncpoint patch status --patch <patchId>
-syncpoint patch approve --patch <patchId> --agent <reviewerAgentId>
-syncpoint patch apply --patch <patchId>
-```
-
-### Query constraint decisions
-
-```bash
-syncpoint constraint check \
-  --action resume \
-  --task <taskId> \
-  --agent <agentId> \
-  --session <sessionId>
+syncpoint session create --title "..." --architect <id> --mode peer-contract
+syncpoint sync ack --gate <gateId> --agent <agentId>
+syncpoint sync resolve --gate <gateId> --summary "Resolved"
+syncpoint sync tx approve --tx <txId> --agent <agentId>
+syncpoint patch approve --patch <patchId> --agent <agentId>
+syncpoint review approve --review <id> --summary "Approved" --by <agentId>
+syncpoint constraint check --action resume --task <taskId> --agent <agentId>
 ```
 
 ## Editor Agent Integration
@@ -426,19 +356,36 @@ Operational guides:
 | API | tRPC |
 | Validation | Zod |
 | Events | EventEmitter + SSE |
-| Tests | Vitest (866 tests) |
+| Tests | Vitest |
 | Editor integration | MCP + VS Code extension |
+
+## Examples
+
+| Scenario | Directory | What it shows |
+|---|---|---|
+| File conflict | [`examples/conflict`](examples/conflict) | Two agents claim the same file — blocked |
+| Stale resume | [`examples/stale-resume`](examples/stale-resume) | Resume from outdated capsule — warned |
+| Review gate | [`examples/review-gate`](examples/review-gate) | Checkpoint requires approval — blocked |
+| Handoff | [`examples/handoff`](examples/handoff) | Context transfer between agents |
+
+For the interactive version, run `syncpoint demo`.
 
 ## Good First Commands
 
 ```bash
-pnpm build
-node scripts/demo-sync-flow.mjs --stage blocked
-node scripts/demo-sync-flow.mjs --stage all
+pnpm install && pnpm build
+syncpoint demo
+syncpoint demo --stage blocked
+syncpoint status
+syncpoint --help
+```
+
+For local dev without global install:
+
+```bash
+node packages/syncpoint-cli/dist/main.js demo
+node packages/syncpoint-cli/dist/main.js status
 node packages/syncpoint-cli/dist/main.js --help
-node packages/syncpoint-cli/dist/main.js sync --help
-node packages/syncpoint-cli/dist/main.js patch --help
-node packages/syncpoint-cli/dist/main.js constraint --help
 ```
 
 ---

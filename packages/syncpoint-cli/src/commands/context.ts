@@ -134,21 +134,6 @@ export function registerContextCommands(program: Command): void {
         })
     );
 
-  // ── Status ─────────────────────────────────────────────
-
-  program
-    .command("status")
-    .description("Show overall SyncPoint status")
-    .action(() => {
-      const agents = repo.listAgents();
-      const tasks = repo.listTasks();
-      console.log("=== SyncPoint Status ===");
-      console.log(`Agents: ${agents.length}`);
-      console.log(`Tasks:  ${tasks.length}`);
-      if (agents.length) console.table(agents);
-      if (tasks.length) console.table(tasks);
-    });
-
   // ── Resume Context (Memory Switch Engine) ─────────────
 
   program

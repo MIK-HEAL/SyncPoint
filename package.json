@@ -12,7 +12,9 @@
     "test:core": "pnpm --filter syncpoint-core test",
     "test:server": "pnpm --filter syncpoint-server test",
     "test:sdk": "pnpm --filter syncpoint-sdk test",
-    "test:cli": "pnpm --filter syncpoint-cli test"
+    "test:cli": "pnpm --filter @syncpoint/cli test",
+    "release:npm": "node scripts/release-npm.mjs",
+    "publish:npm": "node scripts/publish-npm.mjs"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
