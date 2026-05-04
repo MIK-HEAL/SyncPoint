@@ -10,6 +10,7 @@ import {
   formatResumePrompt,
   DEFAULT_CONTEXT_MODE,
   evaluateConstraints,
+  computeContentHash,
 } from "syncpoint-core";
 import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode } from "syncpoint-core";
 import * as repo from "../repositories.js";
@@ -224,6 +225,15 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     capsuleId: latestCapsule?.id,
     checkpointId: latestCheckpoint?.id,
     contractId: contract?.id,
+    capsuleHash: latestCapsule
+      ? computeContentHash(latestCapsule.goal, latestCapsule.workingFiles, latestCapsule.completedWork, latestCapsule.remainingWork)
+      : undefined,
+    checkpointHash: latestCheckpoint
+      ? computeContentHash(latestCheckpoint.summary, latestCheckpoint.progress)
+      : undefined,
+    contractHash: contract
+      ? computeContentHash(contract.title, contract.scope, contract.responsibilities, contract.interfaceSpec, contract.fileBoundaries, contract.testPlan, contract.risks, contract.status)
+      : undefined,
   });
   protocolGate = injectProjectionIntoGate(protocolGate, projection);
 

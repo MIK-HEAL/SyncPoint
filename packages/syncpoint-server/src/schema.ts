@@ -173,6 +173,9 @@ export const projectMemories = sqliteTable("project_memory", {
   severity: text("severity").notNull().default("info"),
   validityStatus: text("validity_status").notNull().default("fresh"),
   validityStaleReason: text("validity_stale_reason").notNull().default(""),
+  // PR4 typed constraint validator
+  validatorType: text("validator_type").notNull().default(""),
+  validatorConfig: text("validator_config").notNull().default(""),
   createdBy: text("created_by").notNull().default(""),
   updatedBy: text("updated_by").notNull().default(""),
   createdAt: text("created_at").notNull(),

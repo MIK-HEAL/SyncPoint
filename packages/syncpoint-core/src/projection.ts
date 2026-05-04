@@ -37,8 +37,14 @@ export interface ProjectionItem {
   source: ProjectionSource;
   content: string;
   title: string;
+  /** Original memory kind — used by P4 Constraint Runtime for structural identification. */
+  kind?: string;
   /** Structured scope parsed from appliesTo — used by P4 Constraint Runtime. */
   scope?: ProjectionScope;
+  /** PR4: Typed validator type (e.g. "file_forbidden", "module_forbidden", "require_review"). */
+  validatorType?: string;
+  /** PR4: Typed validator config (JSON-serialized). */
+  validatorConfig?: string;
 }
 
 /** A detected conflict between projected items. */
@@ -96,6 +102,9 @@ export interface ProjectionInput {
   appliesTo: string;   // JSON-serialized or ""
   severity: string;
   validityStatus: string;
+  // PR4 typed constraint validator
+  validatorType?: string;
+  validatorConfig?: string;
 }
 
 /** Context for the projection compiler. */
@@ -106,17 +115,34 @@ export interface ProjectionContext {
   workingFiles?: string[];
   /** Current module context (for appliesTo matching) */
   currentModules?: string[];
-  /** Optional IDs for audit trail */
+  /** Optional IDs for audit trail (createdFrom only, NOT used in cache key) */
   capsuleId?: string;
   checkpointId?: string;
   contractId?: string;
+  /** Content hashes — used in cache key instead of IDs */
+  capsuleHash?: string;
+  checkpointHash?: string;
+  contractHash?: string;
+}
+
+// ── Content hash utility ─────────────────────────────────
+
+/**
+ * Compute a short content hash from one or more string fields.
+ * Used to derive capsuleHash / checkpointHash / contractHash
+ * from entity content rather than IDs.
+ */
+export function computeContentHash(...fields: string[]): string {
+  return createHash("sha256").update(fields.join("|")).digest("hex").slice(0, 16);
 }
 
 // ── Cache key ────────────────────────────────────────────
 
 /**
  * Compute a stable cache key for a projection.
- * Changes when any input changes, enabling cache invalidation in P3B.
+ * Uses content hashes (not IDs) so that same-content-different-ID → same key.
+ * IDs are only stored in createdFrom for audit trail.
+ * Includes memoryVersion — used as the projection's own identity key.
  */
 export function computeProjectionCacheKey(
   ctx: ProjectionContext,
@@ -124,15 +150,35 @@ export function computeProjectionCacheKey(
 ): string {
   const parts = [
     `mv:${ctx.memoryVersion}`,
+    ...lookupKeyParts(ctx, memoriesFingerprints),
+  ];
+  return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 32);
+}
+
+/**
+ * Compute a lookup key for the projection cache.
+ * Same as cacheKey but WITHOUT memoryVersion, so that a version bump
+ * produces the same lookup key and enables lazy invalidation on read.
+ */
+export function computeProjectionLookupKey(
+  ctx: ProjectionContext,
+  memoriesFingerprints: string[],
+): string {
+  const parts = lookupKeyParts(ctx, memoriesFingerprints);
+  return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 32);
+}
+
+/** Shared key parts (everything except memoryVersion). */
+function lookupKeyParts(ctx: ProjectionContext, memoriesFingerprints: string[]): string[] {
+  return [
     `task:${ctx.taskId}`,
     `wf:${(ctx.workingFiles ?? []).sort().join(",")}`,
     `cm:${(ctx.currentModules ?? []).sort().join(",")}`,
-    `cap:${ctx.capsuleId ?? ""}`,
-    `cp:${ctx.checkpointId ?? ""}`,
-    `con:${ctx.contractId ?? ""}`,
+    `caph:${ctx.capsuleHash ?? ""}`,
+    `cph:${ctx.checkpointHash ?? ""}`,
+    `conh:${ctx.contractHash ?? ""}`,
     `mfp:${memoriesFingerprints.sort().join(",")}`,
   ];
-  return createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 32);
 }
 
 // ── appliesTo filter ─────────────────────────────────────
@@ -236,6 +282,7 @@ function detectConflicts(items: ProjectionItem[], parsedScopes: Map<string, Pars
 
 type BucketName = "verifiedFacts" | "activeConstraints" | "risks" | "doNotTouch" | "protocolRules" | "constraintRules";
 
+/** Default kind→bucket mapping (used when projectionTarget is null). */
 function kindToBucket(kind: string): BucketName {
   switch (kind) {
     case "fact":             return "verifiedFacts";
@@ -246,6 +293,77 @@ function kindToBucket(kind: string): BucketName {
     case "protocol_rule":    return "protocolRules";
     default:                 return "verifiedFacts";
   }
+}
+
+/** Map projectionTarget value → bucket name. */
+function targetToBucket(target: string): BucketName | null {
+  switch (target) {
+    case "capsule":             return null; // capsule routes by kind
+    case "protocol_gate":       return "protocolRules";
+    case "constraint_runtime":  return "constraintRules";
+    default:                    return null;
+  }
+}
+
+/** Map capsule-targeted item to the appropriate sub-bucket by kind. */
+function kindToCapsuleBucket(kind: string): BucketName {
+  switch (kind) {
+    case "fact":             return "verifiedFacts";
+    case "soft_convention":  return "activeConstraints";
+    case "risk":             return "risks";
+    case "do_not_touch":     return "doNotTouch";
+    case "hard_constraint":  return "verifiedFacts"; // fallback when explicitly capsule-targeted
+    case "protocol_rule":    return "verifiedFacts"; // fallback when explicitly capsule-targeted
+    default:                 return "verifiedFacts";
+  }
+}
+
+export interface ProjectionRoute {
+  buckets: BucketName[];
+  reason: string;
+}
+
+/**
+ * Resolve where a memory should be routed.
+ * If projectionTarget is set, it overrides the default kindToBucket mapping.
+ * Returns one or more buckets (do_not_touch without target still dual-writes).
+ */
+export function resolveProjectionRoute(kind: string, projectionTarget: string | null): ProjectionRoute {
+  // Explicit target overrides default routing
+  if (projectionTarget) {
+    const bucket = targetToBucket(projectionTarget);
+    if (bucket) {
+      return {
+        buckets: [bucket],
+        reason: `${kind} → ${bucket} (explicit target: ${projectionTarget})`,
+      };
+    }
+    // target === "capsule" — route by kind to capsule sub-bucket
+    if (projectionTarget === "capsule") {
+      const capBucket = kindToCapsuleBucket(kind);
+      return {
+        buckets: [capBucket],
+        reason: `${kind} → ${capBucket} (explicit target: capsule)`,
+      };
+    }
+    // Unknown target — fall through to default
+  }
+
+  // Default routing by kind
+  const defaultBucket = kindToBucket(kind);
+
+  // do_not_touch dual-writes: capsulePatch.doNotTouch + constraintRules
+  if (kind === "do_not_touch") {
+    return {
+      buckets: ["doNotTouch", "constraintRules"],
+      reason: "do_not_touch → doNotTouch + constraintRules (default dual-write)",
+    };
+  }
+
+  return {
+    buckets: [defaultBucket],
+    reason: projectionReasonForKind(kind),
+  };
 }
 
 function projectionReasonForKind(kind: string): string {
@@ -321,29 +439,35 @@ export function compileProjection(
 
     projectedFingerprints.push(mem.fingerprint);
 
+    // Resolve routing: projectionTarget overrides default kind→bucket
+    const route = resolveProjectionRoute(mem.kind, mem.projectionTarget);
+
     const item: ProjectionItem = {
-      source,
+      source: { ...source, projectionReason: route.reason },
       content: mem.content,
       title: mem.title,
+      kind: mem.kind,
       scope: parsed ? { files: parsed.files, modules: parsed.modules, taskTypes: parsed.taskTypes } : undefined,
+      validatorType: mem.validatorType || undefined,
+      validatorConfig: mem.validatorConfig || undefined,
     };
 
-    // Map kind → bucket
-    const bucket = kindToBucket(mem.kind);
-    switch (bucket) {
-      case "verifiedFacts":     verifiedFacts.push(item); break;
-      case "activeConstraints": activeConstraints.push(item); break;
-      case "risks":             risks.push(item); break;
-      case "doNotTouch":
-        doNotTouch.push(item);
-        // P4A: dual-write — do_not_touch also enters constraintRules for runtime enforcement
-        constraintRules.push({
+    const bucketMap: Record<BucketName, ProjectionItem[]> = {
+      verifiedFacts, activeConstraints, risks, doNotTouch, protocolRules, constraintRules,
+    };
+
+    let isFirst = true;
+    for (const bucket of route.buckets) {
+      if (isFirst) {
+        bucketMap[bucket].push(item);
+        isFirst = false;
+      } else {
+        // Subsequent buckets get a copy with adjusted reason (dual-write)
+        bucketMap[bucket].push({
           ...item,
-          source: { ...source, projectionReason: "do_not_touch → constraintRules (P4 enforcement)" },
+          source: { ...source, projectionReason: `${route.reason} (dual-write)` },
         });
-        break;
-      case "protocolRules":     protocolRules.push(item); break;
-      case "constraintRules":   constraintRules.push(item); break;
+      }
     }
   }
 

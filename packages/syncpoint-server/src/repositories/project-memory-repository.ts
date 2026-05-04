@@ -61,6 +61,9 @@ export function createProjectMemory(data: ProjectMemoryCreate): ProjectMemory {
     severity: data.severity ?? MemorySeverity.INFO,
     validityStatus: data.validity?.status ?? ValidityStatus.FRESH,
     validityStaleReason: data.validity?.staleReason ?? "",
+    // PR4 typed constraint validator
+    validatorType: data.validatorType ?? "",
+    validatorConfig: data.validatorConfig ?? "",
     createdBy: data.createdBy ?? "",
     updatedBy: data.createdBy ?? "",
     createdAt: ts,
@@ -260,6 +263,9 @@ export interface CollectedMemory {
   appliesTo: string;
   severity: string;
   validityStatus: string;
+  // PR4 typed constraint validator
+  validatorType: string;
+  validatorConfig: string;
 }
 
 export function collectProjectMemories(taskId?: string): CollectedMemory[] {
@@ -311,5 +317,8 @@ export function collectProjectMemories(taskId?: string): CollectedMemory[] {
     appliesTo: m.appliesTo || "",
     severity: m.severity || MemorySeverity.INFO,
     validityStatus: m.validityStatus || ValidityStatus.FRESH,
+    // PR4 typed constraint validator
+    validatorType: m.validatorType || "",
+    validatorConfig: m.validatorConfig || "",
   }));
 }

@@ -110,6 +110,9 @@ export type {
 export {
   compileProjection,
   computeProjectionCacheKey,
+  computeProjectionLookupKey,
+  computeContentHash,
+  resolveProjectionRoute,
 } from "./projection.js";
 
 export type {
@@ -123,16 +126,23 @@ export type {
   ProjectionValidityStatus,
   ProjectionInput,
   ProjectionContext,
+  ProjectionRoute,
 } from "./projection.js";
 
-// P4A Constraint Runtime
-export { evaluateConstraints } from "./constraint-runtime.js";
+// P4A Constraint Runtime + PR4 Typed Validators
+export {
+  evaluateConstraints,
+  parseRuntimeSpec,
+  resolveRuntimeSpec,
+} from "./constraint-runtime.js";
 
 export type {
   RuntimeAction,
   ConstraintViolation,
   ConstraintDecision,
   ConstraintInput,
+  ConstraintRuleType,
+  ConstraintRuntimeSpec,
 } from "./constraint-runtime.js";
 
 // Prompt Template Engine

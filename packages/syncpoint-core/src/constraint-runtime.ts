@@ -18,6 +18,94 @@ import type {
   ProjectionScope,
 } from "./projection.js";
 
+// ── Runtime Spec ─────────────────────────────────
+
+/** Typed constraint rule types that can be validated at runtime. */
+export type ConstraintRuleType =
+  | "file_forbidden"      // files in scope are forbidden for the action
+  | "module_forbidden"    // modules in scope are forbidden
+  | "require_review"      // action requires prior review approval
+  | "custom";             // opaque user-defined rule (future extensibility)
+
+/**
+ * Structured runtime specification for a hard_constraint.
+ * When present on a ProjectionItem, enables typed evaluation (blocking)
+ * instead of generic advisory behavior.
+ */
+export interface ConstraintRuntimeSpec {
+  rule: ConstraintRuleType;
+  /** Optional message override */
+  message?: string;
+  /** Optional action allowlist — if set, only these actions trigger the constraint. */
+  actions?: string[];
+}
+
+/**
+ * Parse a runtime spec from memory content.
+ * Supports embedded JSON: `<!-- runtime-spec: {"rule":"file_forbidden"} -->`
+ * Returns null if no spec found.
+ */
+export function parseRuntimeSpec(content: string): ConstraintRuntimeSpec | null {
+  const match = content.match(/<!--\s*runtime-spec:\s*(\{[^}]+\})\s*-->/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (parsed && typeof parsed.rule === "string") {
+      return { rule: parsed.rule as ConstraintRuleType, message: parsed.message };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse validator config JSON string into a partial spec override.
+ * Expected format: `{"message":"...", "actions":["patch_submit"]}`
+ */
+function parseValidatorConfig(config: string | undefined): { message?: string; actions?: string[] } | null {
+  if (!config) return null;
+  try {
+    return JSON.parse(config);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build a runtime spec from a ProjectionItem's structural fields.
+ *
+ * Resolution order:
+ *   1. Explicit `validatorType` field (from Project Memory schema) — the designed path
+ *   2. Embedded `<!-- runtime-spec: {...} -->` in content — compatibility/convenience
+ *   3. No inference from scope alone — hard_constraint without validator stays advisory
+ */
+export function resolveRuntimeSpec(item: ProjectionItem): ConstraintRuntimeSpec | null {
+  // 1. Explicit validatorType from schema
+  if (item.validatorType && isKnownRule(item.validatorType)) {
+    const config = parseValidatorConfig(item.validatorConfig);
+    return {
+      rule: item.validatorType as ConstraintRuleType,
+      message: config?.message,
+      actions: config?.actions,
+    };
+  }
+
+  // 2. Embedded spec in content (backward compat / convenience)
+  const embedded = parseRuntimeSpec(item.content);
+  if (embedded) return embedded;
+
+  // 3. No inference from scope — preserves "hard_constraint without validator = advisory"
+  return null;
+}
+
+function isKnownRule(type: string): boolean {
+  return type === "file_forbidden"
+    || type === "module_forbidden"
+    || type === "require_review"
+    || type === "custom";
+}
+
 // ── Types ────────────────────────────────────────────────
 
 /** Actions that the runtime can evaluate. */
@@ -120,10 +208,8 @@ function evaluateDoNotTouchFileOverlap(
   if (!input.touchedFiles?.length) return;
 
   // Consume constraintRules — the runtime bucket — not capsulePatch.
-  // do_not_touch items are dual-written with "P4 enforcement" reason.
-  const doNotTouchRules = input.projection.constraintRules.filter(
-    cr => cr.source.projectionReason.includes("P4 enforcement"),
-  );
+  // Identify do_not_touch items by structural kind (preferred) or legacy reason-string fallback.
+  const doNotTouchRules = input.projection.constraintRules.filter(isDoNotTouch);
 
   for (const item of doNotTouchRules) {
     const overlaps = findFileOverlaps(input.touchedFiles, item.scope);
@@ -169,15 +255,109 @@ function evaluateCapsuleLockedInvalid(
   }
 }
 
+/**
+ * Evaluate hard_constraint items that have a typed runtimeSpec.
+ * These can produce blockers (not just advisory) when violation evidence exists.
+ */
+function evaluateHardConstraintTyped(
+  input: ConstraintInput,
+  blockers: ConstraintViolation[],
+  typedIds: Set<string>,
+): void {
+  for (const cr of input.projection.constraintRules) {
+    if (isDoNotTouch(cr)) continue;
+
+    const spec = resolveRuntimeSpec(cr);
+    if (!spec) continue;
+
+    // Action allowlist: if spec.actions is set, only evaluate for matching actions
+    if (spec.actions?.length && !spec.actions.includes(input.action)) {
+      // Not applicable for this action — leave for advisory
+      continue;
+    }
+
+    let claimed = false;
+
+    switch (spec.rule) {
+      case "file_forbidden": {
+        claimed = true;
+        if (!input.touchedFiles?.length) break;
+        const overlaps = findFileOverlaps(input.touchedFiles, cr.scope);
+        if (overlaps.length > 0) {
+          blockers.push({
+            rule: "hard_constraint_file_forbidden",
+            sourceMemoryId: cr.source.sourceMemoryId,
+            projectionId: input.projection.projectionId,
+            message: spec.message ?? `Constraint "${cr.title}" forbids files: ${overlaps.join(", ")}`,
+            evidence: overlaps,
+          });
+        }
+        break;
+      }
+      case "module_forbidden": {
+        claimed = true;
+        if (!input.touchedFiles?.length) break;
+        // Use module scope for matching against touched files as module prefixes
+        const moduleFiles = cr.scope?.modules ?? [];
+        if (moduleFiles.length === 0) break;
+        const matches = input.touchedFiles.filter(f =>
+          moduleFiles.some(mod => f.startsWith(mod + "/") || f === mod),
+        );
+        if (matches.length > 0) {
+          blockers.push({
+            rule: "hard_constraint_module_forbidden",
+            sourceMemoryId: cr.source.sourceMemoryId,
+            projectionId: input.projection.projectionId,
+            message: spec.message ?? `Constraint "${cr.title}" forbids modules: ${matches.join(", ")}`,
+            evidence: matches,
+          });
+        }
+        break;
+      }
+      case "require_review": {
+        claimed = true;
+        // Block unless action itself is a review-related operation
+        if (input.action !== "patch_submit" && input.action !== "patch_apply") break;
+        blockers.push({
+          rule: "hard_constraint_require_review",
+          sourceMemoryId: cr.source.sourceMemoryId,
+          projectionId: input.projection.projectionId,
+          message: spec.message ?? `Constraint "${cr.title}" requires review before this action.`,
+        });
+        break;
+      }
+      case "custom": {
+        // Custom rules → not claimed → fall through to advisory
+        break;
+      }
+    }
+
+    // Only exclude from advisory if the rule was actually claimed by this evaluator
+    if (claimed) {
+      typedIds.add(cr.source.sourceMemoryId);
+    }
+  }
+}
+
+/** Check if item is a do_not_touch (handled by its own evaluator). */
+function isDoNotTouch(cr: ProjectionItem): boolean {
+  return cr.kind === "do_not_touch"
+    || cr.source.projectionReason.includes("dual-write")
+    || cr.source.projectionReason.includes("P4 enforcement");
+}
+
+/**
+ * Advisory warnings for hard_constraint items without typed runtimeSpec.
+ * Items that were already evaluated by the typed evaluator are excluded.
+ */
 function evaluateHardConstraintAdvisory(
   input: ConstraintInput,
   warnings: ConstraintViolation[],
+  typedIds: Set<string>,
 ): void {
-  // hard_constraint items exist in constraintRules.
-  // Those WITHOUT do_not_touch origin are advisory — existence alone does NOT block.
-  // Filter out dual-written do_not_touch items (they have their own evaluator).
   for (const cr of input.projection.constraintRules) {
-    if (cr.source.projectionReason.includes("P4 enforcement")) continue; // do_not_touch dual-write
+    if (isDoNotTouch(cr)) continue;
+    if (typedIds.has(cr.source.sourceMemoryId)) continue;
     warnings.push({
       rule: "hard_constraint_advisory",
       sourceMemoryId: cr.source.sourceMemoryId,
@@ -212,8 +392,12 @@ export function evaluateConstraints(input: ConstraintInput): ConstraintDecision 
   // 4. Capsule locked-mode validation
   evaluateCapsuleLockedInvalid(input, blockers);
 
-  // 5. Advisory warnings for hard constraints (existence alone ≠ block)
-  evaluateHardConstraintAdvisory(input, warnings);
+  // 5. Typed hard constraint evaluation (runtimeSpec → blocking)
+  const typedIds = new Set<string>();
+  evaluateHardConstraintTyped(input, blockers, typedIds);
+
+  // 6. Advisory warnings for hard constraints without runtimeSpec
+  evaluateHardConstraintAdvisory(input, warnings, typedIds);
 
   return {
     permitted: blockers.length === 0,

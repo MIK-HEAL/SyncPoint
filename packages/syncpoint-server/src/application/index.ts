@@ -36,8 +36,17 @@ export type {
   ProjectMemoryExportResult,
 } from "./project-memory-service.js";
 
-// P3A Projection
-export { buildProjection } from "./projection-service.js";
+// P3A Projection + PR3 Cache
+export {
+  buildProjection,
+  getProjectionCacheStats,
+  clearProjectionCache,
+  setProjectionCacheMaxSize,
+} from "./projection-service.js";
+
+export type {
+  ProjectionCacheStats,
+} from "./projection-service.js";
 
 export type {
   LoopBootInput,

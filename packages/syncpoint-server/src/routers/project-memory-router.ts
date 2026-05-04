@@ -38,6 +38,9 @@ export const projectMemoryRouter = t.router({
         status: z.enum(["fresh", "needs_revalidation", "stale", "invalid"]).optional(),
         staleReason: z.string().optional(),
       }).optional(),
+      // PR4 typed constraint validator
+      validatorType: z.string().optional(),
+      validatorConfig: z.string().optional(),
     }))
     .mutation(({ input }) => pmAdd(input as any)),
 

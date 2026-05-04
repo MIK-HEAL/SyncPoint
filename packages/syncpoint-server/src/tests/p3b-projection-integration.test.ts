@@ -108,13 +108,12 @@ describe("P3B: Kind→bucket in prompt", () => {
 });
 
 describe("P3B: Protocol gate injection", () => {
-  it("hard_constraint enters gate as Projected Reality Rules, NOT capsule", async () => {
+  it("hard_constraint (default routing) enters gate as soft awareness, NOT capsule", async () => {
     await createAndApprove({
       category: "decision",
       title: "P3B no eval",
       content: "eval() is banned",
       kind: "hard_constraint",
-      projectionTarget: "protocol_gate",
       severity: "blocking",
     });
 
@@ -126,7 +125,6 @@ describe("P3B: Protocol gate injection", () => {
     expect(result.prompt).toContain("P3B no eval");
 
     // hard_constraint should NOT appear inside capsulePatch buckets
-    // (Verified Facts, Active Constraints, Known Risks, Do Not Touch)
     const verifiedFacts = result.prompt.split("### Verified Facts")[1]?.split("###")[0] || "";
     const activeConstraints = result.prompt.split("### Active Constraints")[1]?.split("###")[0] || "";
     const knownRisks = result.prompt.split("### Known Risks")[1]?.split("###")[0] || "";
@@ -136,8 +134,7 @@ describe("P3B: Protocol gate injection", () => {
     expect(knownRisks).not.toContain("P3B no eval");
     expect(doNotTouch).not.toContain("P3B no eval");
 
-    // Fix 2: hard_constraint is awareness (soft), NOT blocking by mere existence.
-    // Only conflicts, invalid projection, or P4 violations cause blocking.
+    // hard_constraint with default routing → constraintRules → soft awareness → no block
     expect(result.protocolGateBlocked).toBe(false);
   });
 
@@ -156,8 +153,9 @@ describe("P3B: Protocol gate injection", () => {
 });
 
 describe("P3B: capsule-locked semantics", () => {
-  it("capsule-locked does NOT block when only hard_constraints exist (P4 enforces)", async () => {
-    // hard_constraint alone should NOT block — it's awareness only in P3B
+  it("capsule-locked does NOT block when only default-routed hard_constraints exist (P4 enforces)", async () => {
+    // hard_constraint with default routing → constraintRules → soft awareness → no block
+    // (only hard_constraints with explicit projectionTarget=protocol_gate would block)
     const result = (await ctx.rpc("loop.resume", { agentId, taskId, contextMode: "capsule-locked" })) as any;
     expect(result.ok).toBe(true);
     expect(result.prompt).toContain("[constraint:");

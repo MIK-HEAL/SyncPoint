@@ -495,6 +495,9 @@ export function runMigrations(db: Database.Database): void {
   addColumn("project_memory", "severity", "TEXT NOT NULL DEFAULT 'info'");
   addColumn("project_memory", "validity_status", "TEXT NOT NULL DEFAULT 'fresh'");
   addColumn("project_memory", "validity_stale_reason", "TEXT NOT NULL DEFAULT ''");
+  // PR4 typed constraint validator
+  addColumn("project_memory", "validator_type", "TEXT NOT NULL DEFAULT ''");
+  addColumn("project_memory", "validator_config", "TEXT NOT NULL DEFAULT ''");
   // Memory version counter — single row table
   db.exec(`
     CREATE TABLE IF NOT EXISTS memory_version (

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { evaluateConstraints } from "./constraint-runtime.js";
+import { evaluateConstraints, parseRuntimeSpec, resolveRuntimeSpec } from "./constraint-runtime.js";
 import { compileProjection } from "./projection.js";
 import type { ProjectedReality, ProjectionInput, ProjectionContext, ProjectionItem, ProjectionSource } from "./projection.js";
 import type { ConstraintInput } from "./constraint-runtime.js";
@@ -332,7 +332,7 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
 
     // Dual-write: also in constraintRules
     expect(projection.constraintRules.some(
-      cr => cr.source.sourceMemoryId === "pm_dnt" && cr.source.projectionReason.includes("P4 enforcement"),
+      cr => cr.source.sourceMemoryId === "pm_dnt" && cr.source.projectionReason.includes("dual-write"),
     )).toBe(true);
   });
 
@@ -469,6 +469,38 @@ describe("E2E: compileProjection → evaluateConstraints", () => {
     expect(decision.warnings.some(w => w.rule === "hard_constraint_advisory")).toBe(true);
   });
 
+  it("do_not_touch + explicit projectionTarget=constraint_runtime blocks on overlap", () => {
+    // Regression: explicit target should still be identified as do_not_touch by kind
+    const projection = compileProjection([
+      makeMemory({
+        id: "pm_explicit_rt",
+        kind: "do_not_touch",
+        title: "Protected Config",
+        content: "Never modify config files",
+        fingerprint: "fp_explicit_rt",
+        appliesTo: JSON.stringify({ files: ["src/config/"] }),
+        projectionTarget: "constraint_runtime",
+      }),
+    ], { ...ctx, workingFiles: ["src/config/app.ts"] });
+
+    // Should route to constraintRules only (not doNotTouch)
+    expect(projection.capsulePatch.doNotTouch).toHaveLength(0);
+    expect(projection.constraintRules).toHaveLength(1);
+    expect(projection.constraintRules[0].kind).toBe("do_not_touch");
+
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection,
+      touchedFiles: ["src/config/app.ts"],
+    });
+
+    expect(decision.permitted).toBe(false);
+    expect(decision.blockers[0].rule).toBe("do_not_touch_file_overlap");
+    expect(decision.blockers[0].sourceMemoryId).toBe("pm_explicit_rt");
+    // Should NOT appear as hard_constraint_advisory warning
+    expect(decision.warnings.some(w => w.sourceMemoryId === "pm_explicit_rt")).toBe(false);
+  });
+
   it("non-overlapping do_not_touch permits patch", () => {
     const projection = compileProjection([
       makeMemory({
@@ -489,5 +521,326 @@ describe("E2E: compileProjection → evaluateConstraints", () => {
 
     expect(decision.permitted).toBe(true);
     expect(decision.blockers).toHaveLength(0);
+  });
+});
+
+// ── PR4: Typed Hard Constraint Validators ─────────────────
+
+describe("PR4: parseRuntimeSpec", () => {
+  it("parses embedded runtime-spec from content", () => {
+    const content = "Do not modify auth files.\n<!-- runtime-spec: {\"rule\":\"file_forbidden\"} -->";
+    const spec = parseRuntimeSpec(content);
+    expect(spec).not.toBeNull();
+    expect(spec!.rule).toBe("file_forbidden");
+  });
+
+  it("parses spec with custom message", () => {
+    const content = '<!-- runtime-spec: {"rule":"require_review","message":"Must get approval"} -->';
+    const spec = parseRuntimeSpec(content);
+    expect(spec).not.toBeNull();
+    expect(spec!.rule).toBe("require_review");
+    expect(spec!.message).toBe("Must get approval");
+  });
+
+  it("returns null for content without spec", () => {
+    expect(parseRuntimeSpec("Just a plain constraint")).toBeNull();
+  });
+
+  it("returns null for malformed JSON", () => {
+    expect(parseRuntimeSpec("<!-- runtime-spec: {bad json} -->")).toBeNull();
+  });
+
+  it("returns null for spec without rule field", () => {
+    expect(parseRuntimeSpec('<!-- runtime-spec: {"type":"something"} -->')).toBeNull();
+  });
+});
+
+describe("PR4: resolveRuntimeSpec", () => {
+  it("returns spec from validatorType field (primary path)", () => {
+    const item: ProjectionItem = {
+      ...makeItem("pm_x", "Auth Guard", "No auth changes", { files: ["src/auth/"] }),
+      kind: "hard_constraint",
+      validatorType: "file_forbidden",
+      validatorConfig: '{"message":"Auth locked"}',
+    };
+    const spec = resolveRuntimeSpec(item);
+    expect(spec!.rule).toBe("file_forbidden");
+    expect(spec!.message).toBe("Auth locked");
+  });
+
+  it("falls back to embedded spec when validatorType is empty", () => {
+    const item: ProjectionItem = {
+      ...makeItem("pm_x", "Auth Guard", 'No auth changes\n<!-- runtime-spec: {"rule":"require_review"} -->', { files: ["src/auth/"] }),
+      kind: "hard_constraint",
+    };
+    const spec = resolveRuntimeSpec(item);
+    expect(spec!.rule).toBe("require_review");
+  });
+
+  it("does NOT infer from scope alone — hard_constraint with file scope but no validator stays null", () => {
+    const item: ProjectionItem = {
+      ...makeItem("pm_x", "Guard", "Protect files", { files: ["src/core/"] }),
+      kind: "hard_constraint",
+    };
+    const spec = resolveRuntimeSpec(item);
+    expect(spec).toBeNull();
+  });
+
+  it("returns null for hard_constraint without validator or embedded spec", () => {
+    const item: ProjectionItem = {
+      ...makeItem("pm_x", "Rule", "General rule"),
+      kind: "hard_constraint",
+    };
+    const spec = resolveRuntimeSpec(item);
+    expect(spec).toBeNull();
+  });
+
+  it("parses actions from validatorConfig", () => {
+    const item: ProjectionItem = {
+      ...makeItem("pm_x", "Lock", "Locked"),
+      kind: "hard_constraint",
+      validatorType: "file_forbidden",
+      validatorConfig: '{"actions":["patch_submit","patch_apply"]}',
+    };
+    const spec = resolveRuntimeSpec(item);
+    expect(spec!.rule).toBe("file_forbidden");
+    expect(spec!.actions).toEqual(["patch_submit", "patch_apply"]);
+  });
+});
+
+describe("PR4: Typed hard constraint evaluation", () => {
+
+  // ── file_forbidden via validatorType ──────────────────
+
+  it("hard_constraint with validatorType=file_forbidden blocks on file overlap", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        { ...makeItem("pm_typed_1", "Protect Auth", "No changes", { files: ["src/auth/"] }), kind: "hard_constraint", validatorType: "file_forbidden" },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection: proj,
+      touchedFiles: ["src/auth/login.ts"],
+    });
+    expect(decision.permitted).toBe(false);
+    expect(decision.blockers).toHaveLength(1);
+    expect(decision.blockers[0].rule).toBe("hard_constraint_file_forbidden");
+    expect(decision.blockers[0].evidence).toContain("src/auth/login.ts");
+    // Should NOT also appear as advisory
+    expect(decision.warnings.some(w => w.sourceMemoryId === "pm_typed_1")).toBe(false);
+  });
+
+  it("file_forbidden permits when no overlap", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        { ...makeItem("pm_typed_2", "Protect Auth", "No changes", { files: ["src/auth/"] }), kind: "hard_constraint", validatorType: "file_forbidden" },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection: proj,
+      touchedFiles: ["src/ui/button.tsx"],
+    });
+    expect(decision.permitted).toBe(true);
+    expect(decision.blockers).toHaveLength(0);
+    // Typed constraint was evaluated but didn't fire → still excluded from advisory
+    expect(decision.warnings.some(w => w.sourceMemoryId === "pm_typed_2")).toBe(false);
+  });
+
+  it("hard_constraint with embedded file_forbidden spec blocks", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        {
+          ...makeItem("pm_typed_3", "Config Lock", 'Do not modify\n<!-- runtime-spec: {"rule":"file_forbidden","message":"Config locked"} -->', { files: ["config/"] }),
+          kind: "hard_constraint",
+        },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection: proj,
+      touchedFiles: ["config/app.json"],
+    });
+    expect(decision.permitted).toBe(false);
+    expect(decision.blockers[0].rule).toBe("hard_constraint_file_forbidden");
+    expect(decision.blockers[0].message).toBe("Config locked");
+  });
+
+  it("hard_constraint with file scope but NO validatorType stays advisory (backward compat)", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        { ...makeItem("pm_no_vt", "Protect Core", "Guard core files", { files: ["src/core/"] }), kind: "hard_constraint" },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection: proj,
+      touchedFiles: ["src/core/engine.ts"],
+    });
+    // Without validatorType, hard_constraint stays advisory — does NOT block
+    expect(decision.permitted).toBe(true);
+    expect(decision.blockers).toHaveLength(0);
+    expect(decision.warnings).toHaveLength(1);
+    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
+  });
+
+  // ── module_forbidden via validatorType ────────────────
+
+  it("module_forbidden blocks on module overlap", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        { ...makeItem("pm_mod_1", "No Payment Changes", "Frozen", { modules: ["payments"] }), kind: "hard_constraint", validatorType: "module_forbidden" },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "resume",
+      projection: proj,
+      touchedFiles: ["payments/gateway.ts"],
+    });
+    expect(decision.permitted).toBe(false);
+    expect(decision.blockers[0].rule).toBe("hard_constraint_module_forbidden");
+    expect(decision.blockers[0].evidence).toContain("payments/gateway.ts");
+  });
+
+  it("module_forbidden permits when no module overlap", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        { ...makeItem("pm_mod_2", "No Payment Changes", "Frozen", { modules: ["payments"] }), kind: "hard_constraint", validatorType: "module_forbidden" },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "resume",
+      projection: proj,
+      touchedFiles: ["billing/invoice.ts"],
+    });
+    expect(decision.permitted).toBe(true);
+  });
+
+  // ── require_review ────────────────────────────────────
+
+  it("require_review blocks patch_submit", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        {
+          ...makeItem("pm_rev_1", "Review Required", '<!-- runtime-spec: {"rule":"require_review"} -->'),
+          kind: "hard_constraint",
+        },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection: proj,
+    });
+    expect(decision.permitted).toBe(false);
+    expect(decision.blockers[0].rule).toBe("hard_constraint_require_review");
+  });
+
+  it("require_review does not block resume action", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        {
+          ...makeItem("pm_rev_2", "Review Required", '<!-- runtime-spec: {"rule":"require_review"} -->'),
+          kind: "hard_constraint",
+        },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "resume",
+      projection: proj,
+    });
+    expect(decision.permitted).toBe(true);
+    // Typed constraint was resolved but didn't fire for resume → excluded from advisory
+    expect(decision.warnings.some(w => w.sourceMemoryId === "pm_rev_2")).toBe(false);
+  });
+
+  // ── action allowlist ──────────────────────────────────
+
+  it("file_forbidden with actions allowlist only blocks listed actions", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        {
+          ...makeItem("pm_act", "Scoped Lock", "Lock for submit only", { files: ["src/core/"] }),
+          kind: "hard_constraint",
+          validatorType: "file_forbidden",
+          validatorConfig: '{"actions":["patch_submit"]}',
+        },
+      ],
+    });
+    // Should block patch_submit with overlap
+    const d1 = evaluateConstraints({ action: "patch_submit", projection: proj, touchedFiles: ["src/core/x.ts"] });
+    expect(d1.permitted).toBe(false);
+    expect(d1.blockers[0].rule).toBe("hard_constraint_file_forbidden");
+
+    // Should NOT block resume even with overlap — action not in allowlist
+    const d2 = evaluateConstraints({ action: "resume", projection: proj, touchedFiles: ["src/core/x.ts"] });
+    expect(d2.permitted).toBe(true);
+    // Not blocked, not claimed → falls to advisory
+    expect(d2.warnings).toHaveLength(1);
+    expect(d2.warnings[0].rule).toBe("hard_constraint_advisory");
+  });
+
+  // ── custom rule (advisory, not silent) ────────────────
+
+  it("custom rule type falls through to advisory (not silently dropped)", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        {
+          ...makeItem("pm_custom", "Custom Rule", '<!-- runtime-spec: {"rule":"custom"} -->'),
+          kind: "hard_constraint",
+        },
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection: proj,
+      touchedFiles: ["src/anything.ts"],
+    });
+    expect(decision.permitted).toBe(true);
+    expect(decision.blockers).toHaveLength(0);
+    // Custom is NOT claimed → falls through to advisory
+    expect(decision.warnings).toHaveLength(1);
+    expect(decision.warnings[0].sourceMemoryId).toBe("pm_custom");
+    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
+  });
+
+  // ── fallback advisory ─────────────────────────────────
+
+  it("hard_constraint without validator or spec stays advisory", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        makeItem("pm_plain", "General Rule", "Always follow coding standards"),
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "resume",
+      projection: proj,
+    });
+    expect(decision.permitted).toBe(true);
+    expect(decision.warnings).toHaveLength(1);
+    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
+    expect(decision.warnings[0].sourceMemoryId).toBe("pm_plain");
+  });
+
+  // ── mixed typed + untyped ─────────────────────────────
+
+  it("mix of typed blocker + untyped advisory", () => {
+    const proj = emptyProjection({
+      constraintRules: [
+        { ...makeItem("pm_typed", "Auth Lock", "No auth", { files: ["src/auth/"] }), kind: "hard_constraint", validatorType: "file_forbidden" },
+        makeItem("pm_untyped", "Code Style", "Follow style guide"),
+      ],
+    });
+    const decision = evaluateConstraints({
+      action: "patch_submit",
+      projection: proj,
+      touchedFiles: ["src/auth/session.ts"],
+    });
+    expect(decision.permitted).toBe(false);
+    expect(decision.blockers).toHaveLength(1);
+    expect(decision.blockers[0].sourceMemoryId).toBe("pm_typed");
+    expect(decision.warnings).toHaveLength(1);
+    expect(decision.warnings[0].sourceMemoryId).toBe("pm_untyped");
+    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
   });
 });

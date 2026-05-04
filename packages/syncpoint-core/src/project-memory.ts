@@ -190,6 +190,9 @@ export const ProjectMemorySchema = z.object({
   severity: z.nativeEnum(MemorySeverity).default(MemorySeverity.INFO),
   validityStatus: z.nativeEnum(ValidityStatus).default(ValidityStatus.FRESH),
   validityStaleReason: z.string().default(""),
+  // PR4 typed constraint validator
+  validatorType: z.string().default(""),
+  validatorConfig: z.string().default(""),
   createdBy: z.string().default(""),
   updatedBy: z.string().default(""),
   createdAt: z.string(),
@@ -215,6 +218,9 @@ export const ProjectMemoryCreateSchema = z.object({
   appliesTo: AppliesToSchema,
   severity: z.nativeEnum(MemorySeverity).optional(),
   validity: ValiditySchema,
+  // PR4 typed constraint validator
+  validatorType: z.string().optional(),
+  validatorConfig: z.string().optional(),
 });
 
 export type ProjectMemoryCreate = z.infer<typeof ProjectMemoryCreateSchema>;
