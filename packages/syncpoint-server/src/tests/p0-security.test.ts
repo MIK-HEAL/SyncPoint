@@ -1,5 +1,9 @@
 /**
- * P0 Security Tests — caller identity enforcement + export path containment.
+ * P0 Security Tests — authorization, caller identity enforcement, export path containment.
+ *
+ * P0 Hardening: protectedProcedure requires x-caller-id header.
+ * Tests verify unauthenticated callers are rejected, authenticated callers succeed,
+ * and audit fields are derived from context.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
@@ -10,126 +14,176 @@ let ctx: E2EContext;
 beforeAll(async () => { ctx = await startE2E(); });
 afterAll(async () => { await ctx.cleanup(); });
 
-describe("P0: Caller Identity Enforcement", () => {
-  it("create rejects missing createdBy", async () => {
+describe("P0: Unauthenticated callers cannot mutate", () => {
+  // Pass empty string to bypass default callerId; trpcFetch won't send header for falsy callerId
+  const NO_AUTH = "";
+
+  it("create rejects without x-caller-id header", async () => {
     try {
       await ctx.rpc("projectMemory.create", {
         category: "overview",
-        title: "No Author",
+        title: "No Auth",
         content: "This should fail.",
-      });
+      }, undefined, /* callerId */ NO_AUTH);
       expect.fail("Should have thrown");
     } catch (e: any) {
-      // tRPC input validation rejects missing createdBy
-      expect(e.message || e.toString()).toBeTruthy();
+      expect(e.message).toContain("Authentication required");
     }
   });
 
-  it("create rejects empty createdBy", async () => {
-    try {
-      await ctx.rpc("projectMemory.create", {
-        category: "overview",
-        title: "Empty Author",
-        content: "This should fail.",
-        createdBy: "",
-      });
-      expect.fail("Should have thrown");
-    } catch (e: any) {
-      expect(e.message || e.toString()).toBeTruthy();
-    }
-  });
-
-  it("update rejects missing updatedBy", async () => {
-    // First create a valid memory
+  it("update rejects without x-caller-id header", async () => {
+    // Create with auth first
     const m = (await ctx.rpc("projectMemory.create", {
       category: "overview",
       title: "Valid Entry",
       content: "Test content.",
-      createdBy: "test-user",
     })) as any;
 
     try {
       await ctx.rpc("projectMemory.update", {
         id: m.id,
         content: "Updated without identity",
-      });
+      }, undefined, NO_AUTH);
       expect.fail("Should have thrown");
     } catch (e: any) {
-      expect(e.message || e.toString()).toBeTruthy();
+      expect(e.message).toContain("Authentication required");
     }
   });
 
-  it("approve rejects missing updatedBy", async () => {
+  it("approve rejects without x-caller-id header", async () => {
     const m = (await ctx.rpc("projectMemory.create", {
       category: "decision",
-      title: "Approve Test",
+      title: "Approve Test No Auth",
       content: "Test.",
-      createdBy: "test-user",
     })) as any;
 
     try {
-      await ctx.rpc("projectMemory.approve", { id: m.id });
+      await ctx.rpc("projectMemory.approve", { id: m.id }, undefined, NO_AUTH);
       expect.fail("Should have thrown");
     } catch (e: any) {
-      expect(e.message || e.toString()).toBeTruthy();
+      expect(e.message).toContain("Authentication required");
     }
   });
 
-  it("deprecate rejects missing updatedBy", async () => {
+  it("deprecate rejects without x-caller-id header", async () => {
     const m = (await ctx.rpc("projectMemory.create", {
       category: "decision",
-      title: "Deprecate Test",
+      title: "Deprecate Test No Auth",
       content: "Test.",
-      createdBy: "test-user",
     })) as any;
-    await ctx.rpc("projectMemory.approve", { id: m.id, updatedBy: "test-user" });
+    await ctx.rpc("projectMemory.approve", { id: m.id });
 
     try {
-      await ctx.rpc("projectMemory.deprecate", { id: m.id });
+      await ctx.rpc("projectMemory.deprecate", { id: m.id }, undefined, NO_AUTH);
       expect.fail("Should have thrown");
     } catch (e: any) {
-      expect(e.message || e.toString()).toBeTruthy();
+      expect(e.message).toContain("Authentication required");
     }
   });
 
-  it("export rejects missing callerBy", async () => {
+  it("export rejects without x-caller-id header", async () => {
     try {
-      await ctx.rpc("projectMemory.export", {});
+      await ctx.rpc("projectMemory.export", {}, undefined, NO_AUTH);
       expect.fail("Should have thrown");
     } catch (e: any) {
-      expect(e.message || e.toString()).toBeTruthy();
+      expect(e.message).toContain("Authentication required");
     }
   });
 
-  it("export rejects empty callerBy", async () => {
+  it("supersede rejects without x-caller-id header", async () => {
     try {
-      await ctx.rpc("projectMemory.export", { callerBy: "" });
+      await ctx.rpc("projectMemory.supersede", {
+        newId: "fake-new",
+        oldId: "fake-old",
+      }, undefined, NO_AUTH);
       expect.fail("Should have thrown");
     } catch (e: any) {
-      expect(e.message || e.toString()).toBeTruthy();
+      expect(e.message).toContain("Authentication required");
     }
   });
 
-  it("read operations remain public (no callerBy needed)", async () => {
-    // Create something first
+  it("projection rejects without x-caller-id header", async () => {
+    try {
+      await ctx.rpc("projectMemory.projection", { taskId: "t-1" }, "GET", NO_AUTH);
+      expect.fail("Should have thrown");
+    } catch (e: any) {
+      expect(e.message).toContain("Authentication required");
+    }
+  });
+});
+
+describe("P0: Authenticated callers succeed and audit fields are derived", () => {
+  it("create derives createdBy from context", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "overview",
+      title: "Auth Create",
+      content: "Created with auth.",
+    }, undefined, "auth-user-1")) as any;
+    expect(m.createdBy).toBe("auth-user-1");
+  });
+
+  it("update derives updatedBy from context", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "overview",
+      title: "Auth Update",
+      content: "To update.",
+    }, undefined, "auth-user-1")) as any;
+    const updated = (await ctx.rpc("projectMemory.update", {
+      id: m.id,
+      content: "Updated content.",
+    }, undefined, "auth-user-2")) as any;
+    expect(updated.updatedBy).toBe("auth-user-2");
+  });
+
+  it("approve derives updatedBy from context", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "decision",
+      title: "Auth Approve",
+      content: "To approve.",
+    })) as any;
+    const approved = (await ctx.rpc("projectMemory.approve", { id: m.id }, undefined, "approver-1")) as any;
+    expect(approved.updatedBy).toBe("approver-1");
+    expect(approved.status).toBe("approved");
+  });
+});
+
+describe("P0: Read operations remain public", () => {
+  it("list does not require x-caller-id", async () => {
+    // Ensure at least one memory exists
     await ctx.rpc("projectMemory.create", {
       category: "overview",
       title: "Public Read Test",
       content: "Should be readable without caller.",
-      createdBy: "test-user",
     });
 
-    // list — no callerBy required
-    const all = (await ctx.rpc("projectMemory.list", {}, "GET")) as any[];
+    // list — no callerId
+    const all = (await ctx.rpc("projectMemory.list", {}, "GET", undefined as any)) as any[];
     expect(all.length).toBeGreaterThan(0);
+  });
 
-    // search — no callerBy required
-    const results = (await ctx.rpc("projectMemory.search", { query: "Public" }, "GET")) as any[];
+  it("search does not require x-caller-id", async () => {
+    const results = (await ctx.rpc("projectMemory.search", { query: "Public" }, "GET", undefined as any)) as any[];
     expect(results).toBeDefined();
+  });
 
-    // get — no callerBy required
-    const m = (await ctx.rpc("projectMemory.get", { id: all[0].id }, "GET")) as any;
+  it("get does not require x-caller-id", async () => {
+    const all = (await ctx.rpc("projectMemory.list", {}, "GET", undefined as any)) as any[];
+    const m = (await ctx.rpc("projectMemory.get", { id: all[0].id }, "GET", undefined as any)) as any;
     expect(m.id).toBe(all[0].id);
+  });
+
+  it("version does not require x-caller-id", async () => {
+    const v = (await ctx.rpc("projectMemory.version", undefined, "GET", undefined as any)) as any;
+    expect(v.memoryVersion).toBeDefined();
+  });
+
+  it("checkDuplicate does not require x-caller-id", async () => {
+    const r = (await ctx.rpc("projectMemory.checkDuplicate", {
+      category: "overview",
+      title: "nonexistent",
+      content: "xyz",
+    }, "GET", undefined as any)) as any;
+    expect(r).toBeDefined();
   });
 });
 

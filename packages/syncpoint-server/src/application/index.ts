@@ -26,6 +26,8 @@ export {
   CallerIdentityError,
   DuplicateMemoryError,
   InvalidProjectionError,
+  MissingValidatorError,
+  UnknownValidatorTypeError,
   pmSupersede,
   pmGetVersion,
   pmCheckDuplicate,

@@ -8,6 +8,7 @@ import http from "node:http";
 import { pathToFileURL } from "node:url";
 import { createHTTPHandler } from "@trpc/server/adapters/standalone";
 import { appRouter } from "./router.js";
+import { createContext } from "./routers/_trpc.js";
 import { getDb, closeDb, getDbPath } from "./db.js";
 import { SyncPointEventBus } from "./event-bus.js";
 import type { SyncPointEventData } from "./event-bus.js";
@@ -24,14 +25,14 @@ export function startServer(port = DEFAULT_PORT): http.Server {
   // tRPC handler
   const trpcHandler = createHTTPHandler({
     router: appRouter,
-    createContext: () => ({}),
+    createContext: ({ req }) => createContext(req),
   });
 
   const server = http.createServer((req, res) => {
     // CORS headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-caller-id");
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);

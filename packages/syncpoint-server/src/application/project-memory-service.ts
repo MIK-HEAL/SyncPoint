@@ -112,6 +112,57 @@ export class InvalidProjectionError extends Error {
   }
 }
 
+/**
+ * P4: Blocking hard_constraint memories must specify a validatorType.
+ * Without a typed validator, the constraint runtime treats the memory as advisory
+ * only. Requiring validatorType at write time ensures intent is explicit.
+ */
+export class MissingValidatorError extends Error {
+  constructor() {
+    super(
+      `Blocking hard_constraint requires a validatorType. ` +
+      `Without a typed validator, the constraint is advisory only. ` +
+      `Provide validatorType (one of: ${KNOWN_VALIDATOR_TYPES.join(", ")}) ` +
+      `to enable runtime enforcement.`
+    );
+    this.name = "MissingValidatorError";
+  }
+}
+
+/**
+ * P4: Unknown validatorType — not executable by constraint runtime.
+ */
+export class UnknownValidatorTypeError extends Error {
+  constructor(given: string) {
+    super(
+      `Unknown validatorType "${given}". ` +
+      `Must be one of: ${KNOWN_VALIDATOR_TYPES.join(", ")}.`
+    );
+    this.name = "UnknownValidatorTypeError";
+  }
+}
+
+/** Runtime-known validator types (matches ConstraintRuleType in constraint-runtime.ts). */
+const KNOWN_VALIDATOR_TYPES = ["file_forbidden", "module_forbidden", "require_review", "custom"] as const;
+
+/**
+ * P4: Validate that blocking hard_constraints have a known validatorType.
+ */
+function requireValidatorForBlockingConstraint(
+  kind: string,
+  severity: string | undefined,
+  validatorType: string | undefined,
+): void {
+  if (kind === "hard_constraint" && severity === "blocking") {
+    if (!validatorType || validatorType.trim().length === 0) {
+      throw new MissingValidatorError();
+    }
+    if (!(KNOWN_VALIDATOR_TYPES as readonly string[]).includes(validatorType.trim())) {
+      throw new UnknownValidatorTypeError(validatorType);
+    }
+  }
+}
+
 export function pmAdd(input: ProjectMemoryAddInput): ProjectMemory {
   requireCallerIdentity(input.createdBy);
   ensureProjectLocal(input.global);
@@ -127,6 +178,8 @@ export function pmAdd(input: ProjectMemoryAddInput): ProjectMemory {
       throw new InvalidProjectionError(kind, input.projectionTarget);
     }
   }
+  // P4: blocking hard_constraint requires validatorType
+  requireValidatorForBlockingConstraint(kind, input.severity, input.validatorType);
   return repo.createProjectMemory(input);
 }
 
@@ -168,6 +221,10 @@ export function pmUpdate(id: string, fields: {
       throw new InvalidProjectionError(finalKind, finalTarget);
     }
   }
+  // P4: blocking hard_constraint requires validatorType (merged state)
+  const finalSeverity = (fields.severity ?? existing.severity) as string;
+  const finalValidatorType = (fields.validatorType ?? existing.validatorType) as string | undefined;
+  requireValidatorForBlockingConstraint(finalKind, finalSeverity, finalValidatorType);
   return repo.updateProjectMemory(id, fields);
 }
 

@@ -12,8 +12,8 @@ export interface E2EContext {
   port: number;
   server: http.Server;
   tmpDir: string;
-  /** tRPC helper bound to this server */
-  rpc: (procedure: string, input?: unknown, method?: "GET" | "POST") => Promise<unknown>;
+  /** tRPC helper bound to this server. callerId defaults to 'e2e-test-user'. */
+  rpc: (procedure: string, input?: unknown, method?: "GET" | "POST", callerId?: string) => Promise<unknown>;
   cleanup: () => Promise<void>;
 }
 
@@ -44,7 +44,7 @@ export async function startE2E(): Promise<E2EContext> {
     port,
     server,
     tmpDir,
-    rpc: (proc, input?, method?) => trpcFetch(baseUrl, proc, input, method),
+    rpc: (proc, input?, method?, callerId = "e2e-test-user") => trpcFetch(baseUrl, proc, input, method, callerId),
     cleanup: async () => {
       delete process.env.SYNCPOINT_DB_DIR;
       closeDb();

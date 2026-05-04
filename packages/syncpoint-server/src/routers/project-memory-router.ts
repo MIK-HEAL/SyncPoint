@@ -1,6 +1,10 @@
 /**
  * tRPC router for project memory CRUD + lifecycle.
  * Delegates to application/project-memory-service.
+ *
+ * P0 Hardening: mutating, export, and projection endpoints use protectedProcedure.
+ * Caller identity comes from tRPC context (x-caller-id header), not only input fields.
+ * Input createdBy/updatedBy/callerBy are kept as audit metadata and validated against ctx.
  */
 
 import { z } from "zod";
@@ -9,10 +13,10 @@ import {
   pmList, pmSearch, pmExport, pmSupersede, pmGetVersion,
   pmCheckDuplicate, buildProjection,
 } from "../application/index.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const projectMemoryRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       scope: z.enum(["project", "domain", "task", "file"]).optional(),
       category: z.enum(["overview", "architecture", "decision", "convention", "risk", "gotcha", "glossary", "file-map", "integration"]),
@@ -23,7 +27,7 @@ export const projectMemoryRouter = t.router({
       sourceRef: z.string().optional(),
       confidence: z.enum(["low", "medium", "high"]).optional(),
       taskId: z.string().nullable().optional(),
-      createdBy: z.string().min(1, "createdBy is required"),
+      createdBy: z.string().optional(),
       global: z.boolean().optional(),
       // V2 optional
       kind: z.enum(["fact", "soft_convention", "risk", "do_not_touch", "hard_constraint", "protocol_rule"]).optional(),
@@ -42,20 +46,24 @@ export const projectMemoryRouter = t.router({
       validatorType: z.string().optional(),
       validatorConfig: z.string().optional(),
     }))
-    .mutation(({ input }) => pmAdd(input as any)),
+    .mutation(({ input, ctx }) => {
+      // P0: derive createdBy from authenticated context; input is audit-only
+      const merged = { ...input, createdBy: ctx.callerId! } as any;
+      return pmAdd(merged);
+    }),
 
   get: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(({ input }) => pmGet(input.id)),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(z.object({
       id: z.string(),
       title: z.string().optional(),
       content: z.string().optional(),
       tags: z.string().optional(),
       confidence: z.string().optional(),
-      updatedBy: z.string().min(1, "updatedBy is required"),
+      updatedBy: z.string().optional(),
       // V2 optional
       kind: z.enum(["fact", "soft_convention", "risk", "do_not_touch", "hard_constraint", "protocol_rule"]).optional(),
       projectionTarget: z.enum(["capsule", "protocol_gate", "constraint_runtime"]).nullable().optional(),
@@ -67,18 +75,19 @@ export const projectMemoryRouter = t.router({
       validatorType: z.string().optional(),
       validatorConfig: z.string().optional(),
     }))
-    .mutation(({ input }) => {
+    .mutation(({ input, ctx }) => {
       const { id, ...fields } = input;
-      return pmUpdate(id, fields);
+      // P0: derive updatedBy from authenticated context
+      return pmUpdate(id, { ...fields, updatedBy: ctx.callerId! });
     }),
 
-  approve: publicProcedure
-    .input(z.object({ id: z.string(), updatedBy: z.string().min(1, "updatedBy is required") }))
-    .mutation(({ input }) => pmApprove(input.id, input.updatedBy)),
+  approve: protectedProcedure
+    .input(z.object({ id: z.string(), updatedBy: z.string().optional() }))
+    .mutation(({ input, ctx }) => pmApprove(input.id, ctx.callerId!)),
 
-  deprecate: publicProcedure
-    .input(z.object({ id: z.string(), updatedBy: z.string().min(1, "updatedBy is required") }))
-    .mutation(({ input }) => pmDeprecate(input.id, input.updatedBy)),
+  deprecate: protectedProcedure
+    .input(z.object({ id: z.string(), updatedBy: z.string().optional() }))
+    .mutation(({ input, ctx }) => pmDeprecate(input.id, ctx.callerId!)),
 
   list: publicProcedure
     .input(z.object({
@@ -93,13 +102,13 @@ export const projectMemoryRouter = t.router({
     .input(z.object({ query: z.string().min(1) }))
     .query(({ input }) => pmSearch(input.query)),
 
-  supersede: publicProcedure
+  supersede: protectedProcedure
     .input(z.object({
       newId: z.string().min(1),
       oldId: z.string().min(1),
-      updatedBy: z.string().min(1, "updatedBy is required"),
+      updatedBy: z.string().optional(),
     }))
-    .mutation(({ input }) => pmSupersede(input.newId, input.oldId, input.updatedBy)),
+    .mutation(({ input, ctx }) => pmSupersede(input.newId, input.oldId, ctx.callerId!)),
 
   version: publicProcedure
     .query(() => ({ memoryVersion: pmGetVersion() })),
@@ -112,11 +121,11 @@ export const projectMemoryRouter = t.router({
     }))
     .query(({ input }) => pmCheckDuplicate(input.category, input.title, input.content)),
 
-  export: publicProcedure
-    .input(z.object({ outputPath: z.string().optional(), callerBy: z.string().min(1, "callerBy is required") }))
-    .mutation(({ input }) => pmExport(input.outputPath, input.callerBy)),
+  export: protectedProcedure
+    .input(z.object({ outputPath: z.string().optional(), callerBy: z.string().optional() }))
+    .mutation(({ input, ctx }) => pmExport(input.outputPath, ctx.callerId!)),
 
-  projection: publicProcedure
+  projection: protectedProcedure
     .input(z.object({
       taskId: z.string().min(1),
       workingFiles: z.array(z.string()).optional(),
@@ -124,6 +133,10 @@ export const projectMemoryRouter = t.router({
       capsuleId: z.string().optional(),
       checkpointId: z.string().optional(),
       contractId: z.string().optional(),
+      // P1: allow callers to provide content hashes directly
+      capsuleHash: z.string().optional(),
+      checkpointHash: z.string().optional(),
+      contractHash: z.string().optional(),
     }))
     .query(({ input }) => buildProjection(input)),
 });

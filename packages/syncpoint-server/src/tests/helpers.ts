@@ -202,21 +202,34 @@ export async function trpcFetch(
   procedure: string,
   input?: unknown,
   method: "GET" | "POST" = input !== undefined ? "POST" : "GET",
+  callerId?: string,
 ): Promise<unknown> {
   const url =
     method === "GET" && input !== undefined
       ? `${baseUrl}/trpc/${procedure}?input=${encodeURIComponent(JSON.stringify(input))}`
       : `${baseUrl}/trpc/${procedure}`;
+  const headers: Record<string, string> = {};
+  if (method === "POST") headers["Content-Type"] = "application/json";
+  if (callerId) headers["x-caller-id"] = callerId;
   const opts: RequestInit =
     method === "POST"
-      ? {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(input),
-        }
-      : {};
+      ? { method: "POST", headers, body: JSON.stringify(input) }
+      : { headers };
   const r = await fetch(url, opts);
-  const json = (await r.json()) as { result?: { data: unknown }; error?: { message: string } };
-  if (json.error) throw new Error(json.error.message);
+  const text = await r.text();
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`Non-JSON response (${r.status}): ${text.slice(0, 200)}`);
+  }
+  if (json.error) {
+    // tRPC standalone adapter wraps errors: { error: { json: { message } } }
+    const msg = json.error?.json?.message ?? json.error?.message ?? JSON.stringify(json.error);
+    throw new Error(msg);
+  }
+  if (!r.ok) {
+    throw new Error(`HTTP ${r.status}: ${text.slice(0, 200)}`);
+  }
   return json.result?.data;
 }

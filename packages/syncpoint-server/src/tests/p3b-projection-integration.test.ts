@@ -109,12 +109,14 @@ describe("P3B: Kind→bucket in prompt", () => {
 
 describe("P3B: Protocol gate injection", () => {
   it("hard_constraint (default routing) enters gate as soft awareness, NOT capsule", async () => {
+    // P4: blocking hard_constraint requires validatorType
     await createAndApprove({
       category: "decision",
       title: "P3B no eval",
       content: "eval() is banned",
       kind: "hard_constraint",
       severity: "blocking",
+      validatorType: "custom",
     });
 
     const result = (await ctx.rpc("loop.resume", { agentId, taskId })) as any;

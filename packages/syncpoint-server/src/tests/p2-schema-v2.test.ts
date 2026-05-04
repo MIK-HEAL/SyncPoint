@@ -20,6 +20,7 @@ describe("P2: V2 fields on create", () => {
       kind: "hard_constraint",
       projectionTarget: "protocol_gate",
       severity: "blocking",
+      validatorType: "custom",
       appliesTo: { files: ["src/**/*.ts"] },
       validity: { status: "fresh" },
     })) as any;
@@ -131,11 +132,13 @@ describe("P2: V2 fields on update", () => {
       createdBy: "test-user",
     })) as any;
 
+    // P4: blocking hard_constraint requires validatorType
     const updated = (await ctx.rpc("projectMemory.update", {
       id: m.id,
       updatedBy: "test-user",
       kind: "hard_constraint",
       severity: "blocking",
+      validatorType: "custom",
       validityStatus: "needs_revalidation",
       validityStaleReason: "New evidence found",
     })) as any;
@@ -216,6 +219,7 @@ describe("P2: Projection guard on update (merged validation)", () => {
 describe("P2: Export preserves V2 metadata", () => {
   it("export includes kind and severity in markdown", async () => {
     // Create a hard_constraint with blocking severity and approve it
+    // P4: blocking hard_constraint requires validatorType
     const m = (await ctx.rpc("projectMemory.create", {
       category: "decision",
       title: "Export V2 Metadata Test",
@@ -224,6 +228,7 @@ describe("P2: Export preserves V2 metadata", () => {
       kind: "hard_constraint",
       projectionTarget: "protocol_gate",
       severity: "blocking",
+      validatorType: "file_forbidden",
       appliesTo: { files: ["src/main.ts"], modules: ["core"] },
     })) as any;
     await ctx.rpc("projectMemory.approve", { id: m.id, updatedBy: "test-user" });
@@ -267,5 +272,145 @@ describe("P2: Backward compatibility", () => {
     expect(fetched.kind).toBe("fact");
     expect(fetched.severity).toBe("info");
     expect(fetched.validityStatus).toBe("fresh");
+  });
+});
+
+// ── P4: Hard constraint validator policy ──────────────
+
+describe("P4: Blocking hard_constraint requires validatorType", () => {
+  it("rejects create of blocking hard_constraint without validatorType", async () => {
+    try {
+      await ctx.rpc("projectMemory.create", {
+        category: "decision",
+        title: "P4 No Validator",
+        content: "Block without validator.",
+        createdBy: "test-user",
+        kind: "hard_constraint",
+        severity: "blocking",
+        projectionTarget: "protocol_gate",
+      });
+      expect.fail("Should have thrown MissingValidatorError");
+    } catch (e: any) {
+      expect(e.message).toContain("requires a validatorType");
+    }
+  });
+
+  it("allows create of blocking hard_constraint WITH validatorType", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "decision",
+      title: "P4 With Validator",
+      content: "Block with validator.",
+      createdBy: "test-user",
+      kind: "hard_constraint",
+      severity: "blocking",
+      projectionTarget: "protocol_gate",
+      validatorType: "file_forbidden",
+      validatorConfig: JSON.stringify({ pattern: "src/legacy/**" }),
+    })) as any;
+    expect(m.kind).toBe("hard_constraint");
+    expect(m.severity).toBe("blocking");
+    expect(m.validatorType).toBe("file_forbidden");
+  });
+
+  it("allows non-blocking hard_constraint without validatorType (advisory)", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "decision",
+      title: "P4 Advisory Constraint",
+      content: "Advisory, not blocking.",
+      createdBy: "test-user",
+      kind: "hard_constraint",
+      severity: "warning",
+      projectionTarget: "protocol_gate",
+    })) as any;
+    expect(m.kind).toBe("hard_constraint");
+    expect(m.severity).toBe("warning");
+  });
+
+  it("rejects update that makes hard_constraint blocking without validatorType", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "decision",
+      title: "P4 Update Escalation",
+      content: "Start as warning.",
+      createdBy: "test-user",
+      kind: "hard_constraint",
+      severity: "warning",
+      projectionTarget: "protocol_gate",
+    })) as any;
+
+    try {
+      await ctx.rpc("projectMemory.update", {
+        id: m.id,
+        updatedBy: "test-user",
+        severity: "blocking",
+      });
+      expect.fail("Should have thrown MissingValidatorError");
+    } catch (e: any) {
+      expect(e.message).toContain("requires a validatorType");
+    }
+  });
+
+  it("allows update to blocking when validatorType is provided simultaneously", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "decision",
+      title: "P4 Upgrade Valid",
+      content: "Start as warning, upgrade to blocking.",
+      createdBy: "test-user",
+      kind: "hard_constraint",
+      severity: "warning",
+      projectionTarget: "protocol_gate",
+    })) as any;
+
+    const updated = (await ctx.rpc("projectMemory.update", {
+      id: m.id,
+      updatedBy: "test-user",
+      severity: "blocking",
+      validatorType: "require_review",
+    })) as any;
+    expect(updated.severity).toBe("blocking");
+    expect(updated.validatorType).toBe("require_review");
+  });
+
+  it("rejects unknown validatorType on create", async () => {
+    try {
+      await ctx.rpc("projectMemory.create", {
+        category: "decision",
+        title: "P4 Unknown Validator",
+        content: "Unknown validator type.",
+        createdBy: "test-user",
+        kind: "hard_constraint",
+        severity: "blocking",
+        projectionTarget: "protocol_gate",
+        validatorType: "forbidden_file",
+      });
+      expect.fail("Should have thrown UnknownValidatorTypeError");
+    } catch (e: any) {
+      expect(e.message).toContain("Unknown validatorType");
+      expect(e.message).toContain("forbidden_file");
+    }
+  });
+
+  it("rejects unknown validatorType on update", async () => {
+    const m = (await ctx.rpc("projectMemory.create", {
+      category: "decision",
+      title: "P4 Update Unknown Validator",
+      content: "Start advisory.",
+      createdBy: "test-user",
+      kind: "hard_constraint",
+      severity: "warning",
+      projectionTarget: "protocol_gate",
+    })) as any;
+
+    try {
+      await ctx.rpc("projectMemory.update", {
+        id: m.id,
+        updatedBy: "test-user",
+        severity: "blocking",
+        validatorType: "custom_rule",
+      });
+      expect.fail("Should have thrown UnknownValidatorTypeError");
+    } catch (e: any) {
+      expect(e.message).toContain("Unknown validatorType");
+      expect(e.message).toContain("custom_rule");
+    }
   });
 });

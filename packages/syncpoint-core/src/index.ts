@@ -146,7 +146,7 @@ export type {
 } from "./constraint-runtime.js";
 
 // Prompt Template Engine
-export { formatResumePrompt } from "./prompt-templates.js";
+export { formatResumePrompt, formatProjectedReality } from "./prompt-templates.js";
 export type { PromptFormat } from "./prompt-templates.js";
 
 // Agent Adapter Protocol

@@ -285,7 +285,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   ctx.contextMode = mode;
   ctx.projectMemories = [];
   const provider = input.provider ?? agent.name;
-  const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "resume" as AdapterLifecycleEvent);
+  const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "resume" as AdapterLifecycleEvent, projection);
 
   // 4. Build three-layer prompt with P3B projection integration
   const format = input.format ?? "system-prompt";
@@ -399,8 +399,8 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
 
     prompt = sections.join("\n");
   } else {
-    // Non-system-prompt formats use legacy formatter
-    prompt = formatResumePrompt(ctx, format);
+    // P2: Non-system-prompt formats now receive projected reality
+    prompt = formatResumePrompt(ctx, format, projection);
   }
 
   return {
@@ -534,10 +534,22 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
 
   // 3. Generate adapter files for receiver
   //    P3B: strip raw projectMemories — agent sees projected reality only.
+  //    P2: build projection for receiver context (close handoff bypass path).
   const ctx = repo.getResumeContext(task.id, toAgent.id);
   ctx.projectMemories = [];
+
+  // P2: build projected reality for handoff receiver
+  const receiverProjection = buildProjection({
+    taskId: task.id,
+    workingFiles: ctx.latestCapsule?.workingFiles?.split(",").map(f => f.trim()).filter(Boolean) ?? [],
+  });
+
+  // P2: inject projected reality into handoff context prompt
+  const handoffPrompt = formatResumePrompt(ctx, "system-prompt", receiverProjection);
+  ctx.resumePrompt = handoffPrompt;
+
   const provider = input.provider ?? toAgent.name;
-  const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "handoff" as AdapterLifecycleEvent);
+  const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, "handoff" as AdapterLifecycleEvent, receiverProjection);
 
   return {
     ok: true,

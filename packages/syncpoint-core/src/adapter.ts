@@ -166,6 +166,7 @@ export const ADAPTER_CONFIGS: Record<string, AdapterConfig> = {
 // ── Build adapter instruction ────────────────────────
 
 import { formatResumePrompt } from "./prompt-templates.js";
+import type { ProjectedReality } from "./projection.js";
 
 /**
  * Build an AdapterInstruction for a given provider and lifecycle event.
@@ -176,22 +177,23 @@ export function buildAdapterInstruction(
   ctx: ResumeContext,
   provider: AgentProvider,
   event: AdapterLifecycleEvent = "resume",
+  projection?: ProjectedReality | null,
 ): AdapterInstruction {
   const config = ADAPTER_CONFIGS[provider] ?? ADAPTER_CONFIGS["cursor"];
 
   const files: Record<string, string> = {};
 
-  // Primary rules file
-  const primaryContent = formatResumePrompt(ctx, config.rulesFormat);
+  // Primary rules file — P2: pass projection to all formats
+  const primaryContent = formatResumePrompt(ctx, config.rulesFormat, projection);
   files[config.rulesFile] = primaryContent;
 
   // Extra files
   for (const extra of config.extraFiles) {
-    files[extra.path] = formatResumePrompt(ctx, extra.format);
+    files[extra.path] = formatResumePrompt(ctx, extra.format, projection);
   }
 
   // Prompt text for clipboard / API injection
-  const promptText = config.preamble + "\n\n" + formatResumePrompt(ctx, "system-prompt");
+  const promptText = config.preamble + "\n\n" + formatResumePrompt(ctx, "system-prompt", projection);
 
   const fileList = Object.keys(files).join(", ");
   const summary = `[${event}] ${config.provider}: wrote ${fileList}`;

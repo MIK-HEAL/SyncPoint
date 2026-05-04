@@ -49,7 +49,8 @@ describe("Project Memory Layer", () => {
       updatedBy: "human",
     })) as any;
     expect(updated.content).toContain("AI editors");
-    expect(updated.updatedBy).toBe("human");
+    // P0: updatedBy is now derived from x-caller-id header, not input field
+    expect(updated.updatedBy).toBe("e2e-test-user");
   });
 
   it("approve promotes to approved", async () => {

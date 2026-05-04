@@ -10,6 +10,7 @@
  */
 
 import type { ResumeContext } from "./memory.js";
+import type { ProjectedReality } from "./projection.js";
 
 export type PromptFormat =
   | "system-prompt"
@@ -20,25 +21,101 @@ export type PromptFormat =
 
 /**
  * Format a ResumeContext into a specific prompt template.
+ * P2: Accepts optional ProjectedReality to inject compiled projection into all formats.
  */
 export function formatResumePrompt(
   ctx: ResumeContext,
   format: PromptFormat = "system-prompt",
+  projection?: ProjectedReality | null,
 ): string {
   switch (format) {
     case "system-prompt":
-      return formatSystemPrompt(ctx);
+      return formatSystemPrompt(ctx, projection);
     case "cursorrules":
-      return formatCursorRules(ctx);
+      return formatCursorRules(ctx, projection);
     case "agents-md":
-      return formatAgentsMd(ctx);
+      return formatAgentsMd(ctx, projection);
     case "checkpoint-md":
-      return formatCheckpointMd(ctx);
+      return formatCheckpointMd(ctx, projection);
     case "clipboard":
-      return formatClipboard(ctx);
+      return formatClipboard(ctx, projection);
     default:
-      return formatSystemPrompt(ctx);
+      return formatSystemPrompt(ctx, projection);
   }
+}
+
+// ── P2: Reusable projected reality formatter ──────────
+
+/**
+ * Format projected reality into a normalized section.
+ * Used by all prompt formats to inject compiled projection.
+ */
+export function formatProjectedReality(projection: ProjectedReality): string {
+  const lines: string[] = [];
+  const patch = projection.capsulePatch;
+  const hasPatchContent =
+    patch.verifiedFacts.length > 0 ||
+    patch.activeConstraints.length > 0 ||
+    patch.risks.length > 0 ||
+    patch.doNotTouch.length > 0;
+
+  if (!hasPatchContent && projection.conflicts.length === 0 &&
+      projection.skippedStale.length === 0 &&
+      projection.protocolRules.length === 0 &&
+      projection.constraintRules.length === 0) {
+    return "";
+  }
+
+  lines.push("## Projected Reality");
+  lines.push(`> Projection: ${projection.projectionId} | Memory v${projection.createdFrom.memoryVersion} | ${projection.projectionValidity}`);
+  lines.push("");
+
+  if (patch.verifiedFacts.length > 0) {
+    lines.push("### Verified Facts");
+    for (const f of patch.verifiedFacts) {
+      lines.push(`- ${f.title}: ${f.content} [ref:${f.source.sourceMemoryId}]`);
+    }
+    lines.push("");
+  }
+  if (patch.activeConstraints.length > 0) {
+    lines.push("### Active Constraints");
+    for (const c of patch.activeConstraints) {
+      lines.push(`- ${c.title}: ${c.content} [ref:${c.source.sourceMemoryId}]`);
+    }
+    lines.push("");
+  }
+  if (patch.risks.length > 0) {
+    lines.push("### Known Risks");
+    for (const r of patch.risks) {
+      lines.push(`- ${r.title}: ${r.content} [ref:${r.source.sourceMemoryId}]`);
+    }
+    lines.push("");
+  }
+  if (patch.doNotTouch.length > 0) {
+    lines.push("### Do Not Touch");
+    for (const d of patch.doNotTouch) {
+      lines.push(`- ${d.title}: ${d.content} [ref:${d.source.sourceMemoryId}]`);
+    }
+    lines.push("");
+  }
+
+  if (projection.conflicts.length > 0) {
+    lines.push("### Projection Conflicts");
+    for (const c of projection.conflicts) {
+      lines.push(`- ${c.description} (${c.itemA.sourceMemoryId} vs ${c.itemB.sourceMemoryId})`);
+    }
+    lines.push("");
+  }
+
+  if (projection.skippedStale.length > 0) {
+    lines.push("### Skipped (stale/invalid)");
+    for (const s of projection.skippedStale) {
+      lines.push(`- ${s.sourceMemoryId}: ${s.projectionReason}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
 
 // ── system-prompt ─────────────────────────────────────
@@ -48,7 +125,7 @@ function isCapsuleRestricted(ctx: ResumeContext): boolean {
   return ctx.contextMode === "capsule-only" || ctx.contextMode === "capsule-locked";
 }
 
-function formatSystemPrompt(ctx: ResumeContext): string {
+function formatSystemPrompt(ctx: ResumeContext, projection?: ProjectedReality | null): string {
   const lines: string[] = [];
   const restricted = isCapsuleRestricted(ctx);
 
@@ -64,7 +141,13 @@ function formatSystemPrompt(ctx: ResumeContext): string {
     lines.push("");
   }
 
-  if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
+  // P2: inject projected reality instead of raw project memories
+  if (projection) {
+    const projSection = formatProjectedReality(projection);
+    if (projSection) {
+      lines.push(projSection);
+    }
+  } else if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
     lines.push("## Project Knowledge");
     for (const m of ctx.projectMemories) {
       lines.push(`### ${m.title} [${m.category}]`);
@@ -134,7 +217,7 @@ function formatSystemPrompt(ctx: ResumeContext): string {
 
 // ── cursorrules ───────────────────────────────────────
 
-function formatCursorRules(ctx: ResumeContext): string {
+function formatCursorRules(ctx: ResumeContext, projection?: ProjectedReality | null): string {
   const lines: string[] = [];
   const restricted = isCapsuleRestricted(ctx);
 
@@ -154,7 +237,13 @@ function formatCursorRules(ctx: ResumeContext): string {
     lines.push("");
   }
 
-  if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
+  // P2: inject projected reality instead of raw project memories
+  if (projection) {
+    const projSection = formatProjectedReality(projection);
+    if (projSection) {
+      lines.push(projSection);
+    }
+  } else if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
     lines.push("## Project Knowledge");
     for (const m of ctx.projectMemories) {
       lines.push(`## ${m.title} [${m.category}]`);
@@ -204,7 +293,7 @@ function formatCursorRules(ctx: ResumeContext): string {
 
 // ── agents-md ─────────────────────────────────────────
 
-function formatAgentsMd(ctx: ResumeContext): string {
+function formatAgentsMd(ctx: ResumeContext, projection?: ProjectedReality | null): string {
   const lines: string[] = [];
   const restricted = isCapsuleRestricted(ctx);
 
@@ -223,7 +312,14 @@ function formatAgentsMd(ctx: ResumeContext): string {
     lines.push("");
   }
 
-  if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
+  // P2: inject projected reality instead of raw project memories
+  if (projection) {
+    const projSection = formatProjectedReality(projection);
+    if (projSection) {
+      lines.push(projSection);
+      lines.push("");
+    }
+  } else if (!restricted && ctx.projectMemories && ctx.projectMemories.length > 0) {
     lines.push("## Project Knowledge");
     lines.push("");
     for (const m of ctx.projectMemories) {
@@ -299,7 +395,7 @@ function formatAgentsMd(ctx: ResumeContext): string {
 
 // ── checkpoint-md ─────────────────────────────────────
 
-function formatCheckpointMd(ctx: ResumeContext): string {
+function formatCheckpointMd(ctx: ResumeContext, projection?: ProjectedReality | null): string {
   // P3B: always build from structured fields — never use ctx.resumePrompt
   // which contains baked-in raw Project Knowledge.
   const lines: string[] = [];
@@ -307,6 +403,14 @@ function formatCheckpointMd(ctx: ResumeContext): string {
   lines.push("");
   lines.push(`**Agent**: ${ctx.agent.name} (${ctx.agent.role})`);
   lines.push("");
+
+  // P2: inject projected reality
+  if (projection) {
+    const projSection = formatProjectedReality(projection);
+    if (projSection) {
+      lines.push(projSection);
+    }
+  }
 
   if (ctx.latestCapsule) {
     lines.push(`**Goal**: ${ctx.latestCapsule.goal}`);
@@ -341,7 +445,7 @@ function formatCheckpointMd(ctx: ResumeContext): string {
 
 // ── clipboard ─────────────────────────────────────────
 
-function formatClipboard(ctx: ResumeContext): string {
+function formatClipboard(ctx: ResumeContext, projection?: ProjectedReality | null): string {
   const lines: string[] = [];
 
   lines.push(`[SyncPoint Resume] ${ctx.task.title} — ${ctx.agent.name} (${ctx.agent.role})`);
@@ -350,6 +454,21 @@ function formatClipboard(ctx: ResumeContext): string {
   if (ctx.pinnedMemories.length > 0) {
     lines.push("Rules: " + ctx.pinnedMemories.map(m => `${m.key}=${m.content}`).join("; "));
     lines.push("");
+  }
+
+  // P2: inject projected reality (compact form for clipboard)
+  if (projection) {
+    const patch = projection.capsulePatch;
+    const items = [
+      ...patch.verifiedFacts.map(f => `[fact] ${f.title}`),
+      ...patch.activeConstraints.map(c => `[constraint] ${c.title}`),
+      ...patch.risks.map(r => `[risk] ${r.title}`),
+      ...patch.doNotTouch.map(d => `[do-not-touch] ${d.title}`),
+    ];
+    if (items.length > 0) {
+      lines.push("Reality: " + items.join("; "));
+      lines.push("");
+    }
   }
 
   if (ctx.latestCapsule) {

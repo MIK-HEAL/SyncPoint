@@ -426,3 +426,140 @@ describe("compileProjection — target routing integration", () => {
     expect(r.capsulePatch.verifiedFacts[0].source.projectionReason).toContain("fact →");
   });
 });
+
+// ── P1: Cache hash contract regression tests ──────────────
+
+describe("P1: Cache key hash contract hardening", () => {
+  it("IDs do NOT affect cache key — capsuleId variation", () => {
+    const fps = ["fp-stable"];
+    const ctx1 = makeCtx({ capsuleId: "id-aaa", capsuleHash: "hash-same" });
+    const ctx2 = makeCtx({ capsuleId: "id-bbb", capsuleHash: "hash-same" });
+    expect(computeProjectionCacheKey(ctx1, fps)).toBe(computeProjectionCacheKey(ctx2, fps));
+  });
+
+  it("IDs do NOT affect cache key — checkpointId variation", () => {
+    const fps = ["fp-stable"];
+    const ctx1 = makeCtx({ checkpointId: "cp-1", checkpointHash: "hash-same" });
+    const ctx2 = makeCtx({ checkpointId: "cp-2", checkpointHash: "hash-same" });
+    expect(computeProjectionCacheKey(ctx1, fps)).toBe(computeProjectionCacheKey(ctx2, fps));
+  });
+
+  it("IDs do NOT affect cache key — contractId variation", () => {
+    const fps = ["fp-stable"];
+    const ctx1 = makeCtx({ contractId: "con-x", contractHash: "hash-same" });
+    const ctx2 = makeCtx({ contractId: "con-y", contractHash: "hash-same" });
+    expect(computeProjectionCacheKey(ctx1, fps)).toBe(computeProjectionCacheKey(ctx2, fps));
+  });
+
+  it("content hash changes DO affect cache key", () => {
+    const fps = ["fp-stable"];
+    const k1 = computeProjectionCacheKey(makeCtx({ capsuleHash: "v1" }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ capsuleHash: "v2" }), fps);
+    expect(k1).not.toBe(k2);
+  });
+
+  it("fingerprint changes DO affect cache key", () => {
+    const ctx = makeCtx();
+    const k1 = computeProjectionCacheKey(ctx, ["fp-a"]);
+    const k2 = computeProjectionCacheKey(ctx, ["fp-b"]);
+    expect(k1).not.toBe(k2);
+  });
+
+  it("working file changes DO affect cache key", () => {
+    const fps = ["fp1"];
+    const k1 = computeProjectionCacheKey(makeCtx({ workingFiles: ["a.ts"] }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ workingFiles: ["b.ts"] }), fps);
+    expect(k1).not.toBe(k2);
+  });
+
+  it("compiled projection uses content hashes in cache key", () => {
+    const mem = makeMem({ kind: "fact" });
+    const ctx1 = makeCtx({ capsuleId: "cap-1", capsuleHash: "hash-same" });
+    const ctx2 = makeCtx({ capsuleId: "cap-2", capsuleHash: "hash-same" });
+    const r1 = compileProjection([mem], ctx1);
+    const r2 = compileProjection([mem], ctx2);
+    expect(r1.cacheKey).toBe(r2.cacheKey);
+  });
+
+  it("compiled projection cacheKey changes when content hash changes", () => {
+    const mem = makeMem({ kind: "fact" });
+    const ctx1 = makeCtx({ capsuleHash: "old-hash" });
+    const ctx2 = makeCtx({ capsuleHash: "new-hash" });
+    const r1 = compileProjection([mem], ctx1);
+    const r2 = compileProjection([mem], ctx2);
+    expect(r1.cacheKey).not.toBe(r2.cacheKey);
+  });
+
+  it("createdFrom still tracks IDs for audit trail", () => {
+    const ctx = makeCtx({ capsuleId: "cap-A", checkpointId: "cp-B", contractId: "con-C" });
+    const r = compileProjection([], ctx);
+    expect(r.createdFrom.capsuleId).toBe("cap-A");
+    expect(r.createdFrom.checkpointId).toBe("cp-B");
+    expect(r.createdFrom.contractId).toBe("con-C");
+  });
+});
+
+// ── P3: projectionTarget as authoritative routing contract ──
+
+describe("P3: projectionTarget authoritative routing", () => {
+  it("explicit capsule target overrides default kind routing for fact", () => {
+    const route = resolveProjectionRoute("fact", "capsule");
+    expect(route.reason).toContain("explicit target: capsule");
+  });
+
+  it("explicit protocol_gate target overrides default routing for fact", () => {
+    const route = resolveProjectionRoute("fact", "protocol_gate");
+    expect(route.buckets).toEqual(["protocolRules"]);
+    expect(route.reason).toContain("explicit target");
+  });
+
+  it("explicit constraint_runtime target overrides default routing for soft_convention", () => {
+    const route = resolveProjectionRoute("soft_convention", "constraint_runtime");
+    expect(route.buckets).toEqual(["constraintRules"]);
+    expect(route.reason).toContain("explicit target");
+  });
+
+  it("hard_constraint with explicit protocol_gate routes to protocolRules", () => {
+    const route = resolveProjectionRoute("hard_constraint", "protocol_gate");
+    expect(route.buckets).toEqual(["protocolRules"]);
+  });
+
+  it("hard_constraint without target defaults to constraintRules", () => {
+    const route = resolveProjectionRoute("hard_constraint", null);
+    expect(route.buckets).toEqual(["constraintRules"]);
+  });
+
+  it("do_not_touch without target dual-writes to doNotTouch + constraintRules", () => {
+    const route = resolveProjectionRoute("do_not_touch", null);
+    expect(route.buckets).toContain("doNotTouch");
+    expect(route.buckets).toContain("constraintRules");
+    expect(route.buckets.length).toBe(2);
+  });
+
+  it("do_not_touch with explicit capsule target routes to capsule bucket only", () => {
+    const route = resolveProjectionRoute("do_not_touch", "capsule");
+    expect(route.buckets.length).toBe(1);
+    expect(route.reason).toContain("explicit target: capsule");
+  });
+
+  it("explicit target actually controls compiled projection bucket", () => {
+    // fact with explicit protocol_gate → should appear in protocolRules, NOT capsulePatch
+    const mem = makeMem({ kind: "fact", projectionTarget: "protocol_gate" });
+    const r = compileProjection([mem], makeCtx());
+    expect(r.protocolRules.length).toBe(1);
+    expect(r.capsulePatch.verifiedFacts.length).toBe(0);
+  });
+
+  it("protocol_rule with explicit constraint_runtime → constraintRules", () => {
+    const mem = makeMem({ kind: "protocol_rule", projectionTarget: "constraint_runtime" });
+    const r = compileProjection([mem], makeCtx());
+    expect(r.constraintRules.length).toBe(1);
+    expect(r.protocolRules.length).toBe(0);
+  });
+
+  it("null target falls back to kind-based routing", () => {
+    const mem = makeMem({ kind: "risk", projectionTarget: null });
+    const r = compileProjection([mem], makeCtx());
+    expect(r.capsulePatch.risks.length).toBe(1);
+  });
+});
