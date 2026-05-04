@@ -102,21 +102,8 @@ export function buildProjection(ctx: Omit<ProjectionContext, "memoryVersion">): 
   const memoryVersion = getMemoryVersion();
   const collected = collectProjectMemories(ctx.taskId);
 
-  // Map CollectedMemory → ProjectionInput
-  const inputs: ProjectionInput[] = collected.map(m => ({
-    id: m.id,
-    category: m.category,
-    title: m.title,
-    content: m.content,
-    fingerprint: m.fingerprint,
-    kind: m.kind,
-    projectionTarget: m.projectionTarget,
-    appliesTo: m.appliesTo,
-    severity: m.severity,
-    validityStatus: m.validityStatus,
-    validatorType: m.validatorType,
-    validatorConfig: m.validatorConfig,
-  }));
+  // CollectedMemory extends ProjectionInput — direct assignment, no mapping needed
+  const inputs: ProjectionInput[] = collected;
 
   // Pre-filter: skip stale/invalid inputs before computing lookup key
   // This matches the compiler's filtering, ensuring lookup key consistency

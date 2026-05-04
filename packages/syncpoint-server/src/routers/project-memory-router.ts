@@ -63,6 +63,9 @@ export const projectMemoryRouter = t.router({
       severity: z.enum(["info", "warning", "blocking"]).optional(),
       validityStatus: z.enum(["fresh", "needs_revalidation", "stale", "invalid"]).optional(),
       validityStaleReason: z.string().optional(),
+      // PR4 typed constraint validator
+      validatorType: z.string().optional(),
+      validatorConfig: z.string().optional(),
     }))
     .mutation(({ input }) => {
       const { id, ...fields } = input;

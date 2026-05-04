@@ -154,6 +154,9 @@ export function pmUpdate(id: string, fields: {
   severity?: string;
   validityStatus?: string;
   validityStaleReason?: string;
+  // PR4 typed constraint validator
+  validatorType?: string;
+  validatorConfig?: string;
 }): ProjectMemory {
   requireCallerIdentity(fields.updatedBy);
   // V2 projection guard on update — validate against FINAL merged state

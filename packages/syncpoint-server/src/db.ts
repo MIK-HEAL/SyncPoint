@@ -237,21 +237,32 @@ export function runMigrations(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS project_memory (
-      id           TEXT PRIMARY KEY,
-      scope        TEXT NOT NULL DEFAULT 'project',
-      category     TEXT NOT NULL,
-      title        TEXT NOT NULL,
-      content      TEXT NOT NULL,
-      tags         TEXT NOT NULL DEFAULT '',
-      source_type  TEXT NOT NULL DEFAULT 'human',
-      source_ref   TEXT NOT NULL DEFAULT '',
-      status       TEXT NOT NULL DEFAULT 'draft',
-      confidence   TEXT NOT NULL DEFAULT 'medium',
-      task_id      TEXT,
-      created_by   TEXT NOT NULL DEFAULT '',
-      updated_by   TEXT NOT NULL DEFAULT '',
-      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+      id                    TEXT PRIMARY KEY,
+      scope                 TEXT NOT NULL DEFAULT 'project',
+      category              TEXT NOT NULL,
+      title                 TEXT NOT NULL,
+      content               TEXT NOT NULL,
+      tags                  TEXT NOT NULL DEFAULT '',
+      source_type           TEXT NOT NULL DEFAULT 'human',
+      source_ref            TEXT NOT NULL DEFAULT '',
+      status                TEXT NOT NULL DEFAULT 'draft',
+      confidence            TEXT NOT NULL DEFAULT 'medium',
+      task_id               TEXT,
+      fingerprint           TEXT NOT NULL DEFAULT '',
+      supersedes            TEXT,
+      superseded_by         TEXT,
+      kind                  TEXT NOT NULL DEFAULT 'fact',
+      projection_target     TEXT,
+      applies_to            TEXT NOT NULL DEFAULT '',
+      severity              TEXT NOT NULL DEFAULT 'info',
+      validity_status       TEXT NOT NULL DEFAULT 'fresh',
+      validity_stale_reason TEXT NOT NULL DEFAULT '',
+      validator_type        TEXT NOT NULL DEFAULT '',
+      validator_config      TEXT NOT NULL DEFAULT '',
+      created_by            TEXT NOT NULL DEFAULT '',
+      updated_by            TEXT NOT NULL DEFAULT '',
+      created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS pinned_memory (

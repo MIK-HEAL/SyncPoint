@@ -17,6 +17,7 @@ import type {
   ProjectMemory,
   ProjectMemoryCreate,
   MemoryDedupResult,
+  ProjectionInput,
 } from "syncpoint-core";
 import { _getDb, createId, now, logEvent } from "./_shared.js";
 
@@ -93,6 +94,9 @@ export function updateProjectMemory(id: string, fields: {
   severity?: string;
   validityStatus?: string;
   validityStaleReason?: string;
+  // PR4 typed constraint validator
+  validatorType?: string;
+  validatorConfig?: string;
 }): ProjectMemory {
   const db = _getDb();
   const existing = getProjectMemory(id);
@@ -115,6 +119,9 @@ export function updateProjectMemory(id: string, fields: {
   if (fields.severity !== undefined) updates.severity = fields.severity;
   if (fields.validityStatus !== undefined) updates.validityStatus = fields.validityStatus;
   if (fields.validityStaleReason !== undefined) updates.validityStaleReason = fields.validityStaleReason;
+  // PR4 typed constraint validator
+  if (fields.validatorType !== undefined) updates.validatorType = fields.validatorType;
+  if (fields.validatorConfig !== undefined) updates.validatorConfig = fields.validatorConfig;
   db.update(s.projectMemories).set(updates).where(eq(s.projectMemories.id, id)).run();
   logEvent(EventType.PROJECT_MEMORY_UPDATED, "project_memory", id);
   return getProjectMemory(id);
@@ -251,22 +258,14 @@ export function searchProjectMemories(query: string): ProjectMemory[] {
  * P1 upgrade: deduplicates by fingerprint, excludes superseded,
  * returns canonical set ordered by priority (always-include first).
  */
-export interface CollectedMemory {
-  id: string;
-  category: string;
-  title: string;
-  content: string;
-  fingerprint: string;
-  // V2
-  kind: string;
-  projectionTarget: string | null;
-  appliesTo: string;
-  severity: string;
-  validityStatus: string;
-  // PR4 typed constraint validator
+/**
+ * Collected memory shape for projection input.
+ * Extends ProjectionInput with required validator fields (always populated with defaults).
+ */
+export type CollectedMemory = ProjectionInput & {
   validatorType: string;
   validatorConfig: string;
-}
+};
 
 export function collectProjectMemories(taskId?: string): CollectedMemory[] {
   const db = _getDb();
