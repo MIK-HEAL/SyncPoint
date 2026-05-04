@@ -5,14 +5,13 @@ The `syncpoint loop` commands provide a **composite CLI interface** for AI edito
 ## Quick Start
 
 ```bash
-# 1. Initialize project
-syncpoint init
+# 1. Prepare an MCP-capable agent connection
+syncpoint connect --name frontend --provider cursor --role frontend --editor cursor
 
-# 2. Register agent + create task
-syncpoint agent add --name cursor --provider cursor --role frontend
+# 2. Create task
 syncpoint task create "Build dashboard" -d "Full-stack dashboard"
 
-# 3. Boot the agent loop (assigns task, generates rules files)
+# 3. Boot the low-level agent loop (uses the agent ID printed by connect/doctor)
 syncpoint loop boot --agent <agentId> --task <taskId> --provider cursor
 
 # 4. Work... then checkpoint
@@ -32,6 +31,11 @@ syncpoint loop handoff --task <taskId> \
 # 7. Check status anytime
 syncpoint loop status --agent <agentId>
 ```
+
+`syncpoint loop ...` is the low-level interface and currently expects agent IDs.
+For day-to-day CLI use, the facade commands `syncpoint resume`,
+`syncpoint checkpoint`, and `syncpoint claim` accept agent names or IDs.
+Use `syncpoint doctor` or `syncpoint agent list` to look up IDs when needed.
 
 ## Commands
 

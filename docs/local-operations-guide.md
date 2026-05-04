@@ -29,19 +29,28 @@ The operator experience has four surfaces:
 | Server | Share one local SyncPoint state with SDK, extension, and tRPC clients |
 | VS Code Sync View | See sessions, active work, file ownership, blockers, patches, and wake queue |
 
-## MCP Identity Today
+## MCP Identity And Connection Setup
 
 Before using multiple editor agents, keep this boundary clear:
 
 ```text
-connecting to SyncPoint MCP does not automatically register a new agent
-and does not automatically map the connection to one existing agent
+starting the MCP server process does not by itself choose an agent
+the operator should create and bind each agent window first
 ```
 
-Today SyncPoint supports two practical MCP identity modes:
+The recommended path is to let the CLI prepare that binding:
 
-1. **Bound mode** — set `SYNCPOINT_AGENT_ID` or `SYNCPOINT_RUNTIME_ID`
-2. **Legacy mode** — pass explicit `agentId` in tool calls
+1. **Project setup** — `syncpoint setup`
+2. **Single window setup** — `syncpoint connect`
+3. **Health check** — `syncpoint doctor`
+
+Under the hood, the generated MCP config uses:
+
+- **Direct identity**: `SYNCPOINT_AGENT_ID`
+- **Runtime identity**: `SYNCPOINT_RUNTIME_ID`
+- **Project scope**: `SYNCPOINT_PROJECT_ROOT`
+
+Legacy mode still exists: tools can accept explicit `agentId` parameters when a connection is not bound.
 
 Recommended real-world setup:
 
@@ -51,8 +60,39 @@ one editor window
   -> one bound SyncPoint agent
 ```
 
-Use [`runtime-identity.md`](runtime-identity.md) for the exact setup flow,
-`syncpoint_whoami`, and three-window examples.
+Use [`runtime-identity.md`](runtime-identity.md) for identity resolution details,
+`syncpoint_whoami`, and manual fallback examples.
+
+## Quick Start
+
+The fastest way to get multiple agents running:
+
+```bash
+# One-command setup: init + register agents + generate MCP configs
+syncpoint setup --agents 3 --editor cursor
+
+# Or set up one agent at a time
+syncpoint connect --name architect --provider cursor --role manager
+syncpoint connect --name executor-a --provider cursor --role backend
+syncpoint connect --name reviewer --provider cursor --role reviewer
+
+# Verify everything is healthy
+syncpoint doctor
+```
+
+Each command prints a ready-to-paste MCP config for the target editor.
+Paste it, restart the MCP connection, and call `syncpoint_whoami` to verify.
+
+The facade commands accept agent **name or ID**:
+
+```bash
+syncpoint resume --agent architect --task <taskId>
+syncpoint claim src/auth.ts --agent executor-a --task <taskId>
+syncpoint checkpoint --agent executor-a --task <taskId> --summary "Implemented first pass"
+```
+
+Lower-level orchestration commands may still require IDs. Use `syncpoint doctor`
+or `syncpoint agent list` when you need the exact ID.
 
 ## Install And Build
 
@@ -75,7 +115,8 @@ pnpm --filter syncpoint-mcp build
 
 ## Project State
 
-Initialize SyncPoint state in the project you want agents to coordinate:
+Initialize SyncPoint state in the project you want agents to coordinate.
+If you already ran `syncpoint setup` or `syncpoint connect`, this is already done.
 
 ```bash
 syncpoint init
@@ -102,21 +143,42 @@ syncpoint server start --port 8765
 
 The VS Code extension and SDK can read the same server. The extension's **Sync View** is the fastest way to understand what is blocked.
 
-## Register Agents
+## Connect Agent Windows
 
-Register the agents that will participate in sync sessions:
+Recommended path:
 
 ```bash
-syncpoint agent add --name codex-architect --provider codex --role manager
-syncpoint agent add --name claude-executor-a --provider claude-code --role executor
-syncpoint agent add --name cursor-executor-b --provider cursor --role executor
+syncpoint setup --agents 3 --editor cursor
+```
+
+This initializes `.syncpoint/`, creates default agents, binds runtimes, and prints
+one MCP config per editor window.
+
+Add or reconnect one agent window:
+
+```bash
+syncpoint connect --name architect --provider cursor --role manager --editor cursor
+syncpoint connect --name executor-a --provider cursor --role backend --editor cursor
+syncpoint connect --name reviewer --provider cursor --role reviewer --editor cursor
+```
+
+Then verify:
+
+```bash
+syncpoint doctor
+```
+
+Manual fallback is still available when you need low-level control:
+
+```bash
+syncpoint agent add --name cursor-architect --provider cursor --role manager
+syncpoint agent add --name cursor-executor-a --provider cursor --role backend
+syncpoint agent add --name cursor-reviewer --provider cursor --role reviewer
 syncpoint agent list
 ```
 
-Use the printed IDs in later commands.
-
-For MCP-connected editor windows, the simplest current setup is to bind
-each window directly to one of these agent IDs with `SYNCPOINT_AGENT_ID`.
+Prefer `connect`/`setup` for MCP-connected windows because they also create and
+bind runtimes and generate the correct MCP environment variables.
 
 ## Create A Sync Session
 
@@ -129,6 +191,9 @@ syncpoint session create \
   --architect <architectAgentId> \
   --mode peer-contract
 ```
+
+Use `syncpoint doctor` or `syncpoint agent list` to find IDs for low-level
+session commands.
 
 Assign roles:
 
@@ -162,12 +227,20 @@ Editor agents usually claim files through MCP because the claim is part of their
 
 ```text
 syncpoint_file_claim {
-  "agentId": "<agentA>",
   "taskId": "<taskA>",
   "sessionId": "<sessionId>",
   "paths": "src/shared-config.ts",
   "mode": "exclusive"
 }
+```
+
+For a bound MCP connection, `agentId` can be omitted. SyncPoint resolves it from
+`SYNCPOINT_AGENT_ID` or `SYNCPOINT_RUNTIME_ID`.
+
+The CLI facade also accepts agent names:
+
+```bash
+syncpoint claim src/shared-config.ts --agent executor-a --task <taskA> --session <sessionId>
 ```
 
 If another agent claims the same file exclusively, SyncPoint detects a hard conflict and creates a `SyncGate` automatically.
@@ -188,15 +261,16 @@ syncpoint session start --assignment <assignmentId>
 
 In `peer-contract` mode, starting work without claims is rejected. Starting work while blocked by an active gate is also rejected.
 
-Agent-loop commands provide continuation paths for editor agents:
+Facade commands provide continuation paths for editor agents and accept names:
 
 ```bash
-syncpoint loop boot --task <taskId> --agent <agentId>
-syncpoint loop resume --task <taskId> --agent <agentId>
-syncpoint loop status --task <taskId> --agent <agentId>
+syncpoint resume --task <taskId> --agent executor-a
+syncpoint checkpoint --task <taskId> --agent executor-a --summary "Base config prepared"
+syncpoint status --session <sessionId>
 ```
 
 These commands should be treated as synchronization-aware boundaries, not just prompts.
+Low-level `syncpoint loop ...` commands remain available and still expect agent IDs.
 
 ## Inspect Blockers
 
@@ -349,7 +423,16 @@ If Sync View and CLI disagree, confirm that both are using the same `.syncpoint/
 
 ## MCP Setup
 
-Cursor example:
+The easiest way is to use `syncpoint connect` which generates the config for you:
+
+```bash
+syncpoint connect --name my-agent --provider cursor --role backend --editor cursor
+```
+
+This registers the agent, binds a runtime, and prints the config to paste.
+Generated configs include both `SYNCPOINT_AGENT_ID` and `SYNCPOINT_RUNTIME_ID` when a runtime is bound.
+
+Cursor-style config shape:
 
 ```json
 {
@@ -358,6 +441,8 @@ Cursor example:
       "command": "node",
       "args": ["<SYNCPOINT_ROOT>/packages/syncpoint-mcp/dist/main.js"],
       "env": {
+        "SYNCPOINT_AGENT_ID": "<agent-id>",
+        "SYNCPOINT_RUNTIME_ID": "<runtime-id>",
         "SYNCPOINT_PROJECT_ROOT": "<YOUR_PROJECT_ROOT>"
       }
     }
@@ -365,7 +450,7 @@ Cursor example:
 }
 ```
 
-VS Code example:
+VS Code-style config shape:
 
 ```json
 {
@@ -375,6 +460,8 @@ VS Code example:
       "command": "node",
       "args": ["<SYNCPOINT_ROOT>/packages/syncpoint-mcp/dist/main.js"],
       "env": {
+        "SYNCPOINT_AGENT_ID": "<agent-id>",
+        "SYNCPOINT_RUNTIME_ID": "<runtime-id>",
         "SYNCPOINT_PROJECT_ROOT": "${workspaceFolder}"
       }
     }

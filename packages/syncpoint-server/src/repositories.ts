@@ -12,6 +12,7 @@ export {
 export {
   createAgent,
   getAgent,
+  getAgentByName,
   listAgents,
   updateAgentStatus,
   updateAgentRuntime,

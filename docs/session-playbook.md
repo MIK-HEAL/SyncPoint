@@ -14,6 +14,20 @@ Each phase has specific synchronization responsibilities for each role. The play
 
 ## Quick Start
 
+Before creating sessions, prepare agent windows:
+
+```bash
+syncpoint setup --agents 3 --editor cursor
+# or:
+syncpoint connect --name architect --provider cursor --role manager --editor cursor
+syncpoint connect --name executor-a --provider cursor --role backend --editor cursor
+syncpoint connect --name reviewer --provider cursor --role reviewer --editor cursor
+syncpoint doctor
+```
+
+Low-level session/playbook commands still use agent IDs. Use `syncpoint doctor`
+or `syncpoint agent list` to find IDs after setup.
+
 ### CLI
 
 ```bash

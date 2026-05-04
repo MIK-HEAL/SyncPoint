@@ -24,6 +24,16 @@ import {
 import * as repo from "syncpoint-server/repositories";
 import { formatStatusOutput, formatBlockedExplanation, formatResumeExplanation } from "./formatter.js";
 import type { Snapshot } from "./formatter.js";
+import { resolveAgent } from "./connect.js";
+
+/**
+ * Resolve agent name-or-id to an agent ID. Throws if not found.
+ */
+function requireAgentId(nameOrId: string): string {
+  const agent = resolveAgent(nameOrId);
+  if (!agent) throw new Error(`Agent not found: "${nameOrId}". Use an agent ID or registered name.`);
+  return agent.id;
+}
 
 export function registerFacadeCommands(program: Command): void {
   // ── syncpoint status ────────────────────────────────
@@ -50,14 +60,15 @@ export function registerFacadeCommands(program: Command): void {
     .command("claim")
     .description("Declare file ownership for the current task")
     .argument("<paths>", "Comma-separated file paths or globs")
-    .requiredOption("--agent <agentId>", "Agent ID")
+    .requiredOption("--agent <nameOrId>", "Agent name or ID")
     .requiredOption("--task <taskId>", "Task ID")
     .option("--session <sessionId>", "Session ID")
     .option("--mode <mode>", "Claim mode: exclusive or shared", "exclusive")
     .option("--json", "Machine-readable JSON output")
     .action((paths, opts) => {
+      const agentId = requireAgentId(opts.agent);
       const result = fcClaimFiles({
-        agentId: opts.agent,
+        agentId,
         taskId: opts.task,
         sessionId: opts.session,
         paths,
@@ -89,7 +100,7 @@ export function registerFacadeCommands(program: Command): void {
   program
     .command("resume")
     .description("Resume work from the latest capsule/checkpoint")
-    .requiredOption("--agent <agentId>", "Agent ID")
+    .requiredOption("--agent <nameOrId>", "Agent name or ID")
     .requiredOption("--task <taskId>", "Task ID")
     .option("--provider <provider>", "Editor provider override")
     .addOption(new Option("--context-mode <mode>", "Context mode").choices(["capsule-first", "capsule-only", "capsule-locked"]))
@@ -97,8 +108,9 @@ export function registerFacadeCommands(program: Command): void {
     .option("--json", "Machine-readable JSON output")
     .action((opts) => {
       try {
+        const agentId = requireAgentId(opts.agent);
         const result = loopResume({
-          agentId: opts.agent,
+          agentId,
           taskId: opts.task,
           provider: opts.provider,
           contextMode: opts.contextMode,
@@ -112,15 +124,15 @@ export function registerFacadeCommands(program: Command): void {
         }
 
         // Get agent/task info for display
-        let agentName = opts.agent;
+        let agentName = agentId;
         let taskTitle = opts.task;
-        try { agentName = repo.getAgent(opts.agent).name; } catch {}
+        try { agentName = repo.getAgent(agentId).name; } catch {}
         try { taskTitle = repo.getTask(opts.task).title; } catch {}
 
         // Get capsule for resume info
         let capsuleInfo: any = {};
         try {
-          const capsule = repo.getLatestCapsule(opts.task, opts.agent);
+          const capsule = repo.getLatestCapsule(opts.task, agentId);
           if (capsule) {
             capsuleInfo = {
               goal: capsule.goal,
@@ -137,7 +149,7 @@ export function registerFacadeCommands(program: Command): void {
         const blocked = result.protocolGateBlocked || !result.capsuleValid;
 
         const explanation = formatResumeExplanation({
-          agentId: opts.agent,
+          agentId,
           agentName,
           taskTitle,
           blocked,
@@ -171,7 +183,7 @@ export function registerFacadeCommands(program: Command): void {
   program
     .command("checkpoint")
     .description("Save progress and create a context capsule")
-    .requiredOption("--agent <agentId>", "Agent ID")
+    .requiredOption("--agent <nameOrId>", "Agent name or ID")
     .requiredOption("--task <taskId>", "Task ID")
     .requiredOption("--summary <text>", "Checkpoint summary")
     .option("--progress <text>", "Progress description", "")
@@ -187,8 +199,9 @@ export function registerFacadeCommands(program: Command): void {
     .option("--json", "Machine-readable JSON output")
     .action((opts) => {
       try {
+        const agentId = requireAgentId(opts.agent);
         const result = loopCheckpoint({
-          agentId: opts.agent,
+          agentId,
           taskId: opts.task,
           summary: opts.summary,
           progress: opts.progress,

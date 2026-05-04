@@ -45,6 +45,13 @@ export function updateAgentStatus(id: string, target: AgentStatus): Agent {
   return getAgent(id);
 }
 
+export function getAgentByName(name: string): Agent | null {
+  const db = _getDb();
+  const rows = db.select().from(s.agents).where(eq(s.agents.name, name)).all();
+  if (!rows.length) return null;
+  return rows[0] as unknown as Agent;
+}
+
 export function updateAgentRuntime(id: string, runtimeId: string | null): Agent {
   getAgent(id); // ensure exists
   _getDb().update(s.agents).set({ runtimeId, updatedAt: now() }).where(eq(s.agents.id, id)).run();

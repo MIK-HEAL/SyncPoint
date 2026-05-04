@@ -28,6 +28,7 @@ export const AgentSchema = z.object({
   role: z.enum(["manager", "frontend", "backend", "tester", "reviewer", "other"]),
   status: z.nativeEnum(AgentStatus).default(AgentStatus.IDLE),
   currentTaskId: z.string().nullable().default(null),
+  runtimeId: z.string().nullable().default(null),
   createdAt: isoDate,
   updatedAt: isoDate,
 });

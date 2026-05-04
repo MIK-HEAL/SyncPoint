@@ -7,49 +7,64 @@ It is intentionally explicit because this is easy to misunderstand.
 
 ## One Sentence
 
-Today, a SyncPoint MCP connection **does not automatically create or
-register a new agent**.
+A raw SyncPoint MCP server process **does not automatically choose an agent identity**.
 
-Instead, the connection either:
+Use `syncpoint setup` or `syncpoint connect` to create the agent, create the
+runtime, bind them, and generate the MCP config before the editor connects.
 
-1. uses a **pre-bound identity** from environment variables, or
-2. falls back to **explicit `agentId` parameters** in tool calls.
+After that, the MCP connection either:
+
+1. uses the generated **bound identity** from environment variables, or
+2. falls back to explicit `agentId` parameters in legacy/manual tool calls.
 
 ## What Exists Today
 
-SyncPoint P11 added **runtime-bound identity**.
+SyncPoint supports **runtime-bound identity** and now has CLI commands that
+prepare the binding for you.
 
-That means an MCP connection can be fixed to one agent identity by:
+Recommended commands:
+
+| Command | Purpose |
+|---|---|
+| `syncpoint setup` | Initialize the project, create default agents, bind runtimes, and print MCP configs |
+| `syncpoint connect` | Register or reconnect one agent window and print its MCP config |
+| `syncpoint doctor` | Check database, agents, runtimes, bindings, and MCP server build output |
+
+The generated MCP config fixes one editor window to one agent identity using:
 
 - `SYNCPOINT_AGENT_ID`
 - `SYNCPOINT_RUNTIME_ID`
+- `SYNCPOINT_PROJECT_ROOT`
 
 Once bound, core MCP tools can inherit that identity automatically.
 
 ## What Does Not Exist Today
 
-These behaviors do **not** happen automatically today:
+These behaviors do **not** happen automatically just by launching the MCP server:
 
-- MCP connection does **not** auto-register a new agent
-- MCP connection does **not** auto-create a runtime on connect
+- raw MCP connection does **not** auto-register a new agent
+- raw MCP connection does **not** auto-create a runtime on connect
 - MCP connection does **not** auto-pick a session role like architect/executor/reviewer
 - MCP connection does **not** prove identity just because provider = `copilot`
 
-So the current model is:
+So the recommended model is:
 
 ```text
-connect MCP
-  -> optionally bind identity by env or runtime lookup
-  -> query identity with syncpoint_whoami
-  -> manually place that agent into sessions / roles
+syncpoint setup/connect
+  -> creates agent + runtime binding
+  -> prints MCP config
+  -> paste config into editor
+  -> connect MCP
+  -> verify identity with syncpoint_whoami
+  -> place that agent into sessions / roles
 ```
 
 It is **not**:
 
 ```text
-connect MCP
-  -> auto-register agent
-  -> auto-map to one existing registered agent
+start raw MCP process
+  -> auto-discover this editor window
+  -> auto-map it to one existing registered agent
   -> auto-assign role
 ```
 
@@ -74,11 +89,35 @@ If bound identity and input `agentId` conflict, the call is rejected.
 
 ## Practical Usage Model
 
-The recommended current workflow is:
+The recommended current workflow is CLI-generated binding.
 
-### Option A — Direct Agent Binding
+### Option A — Project Setup
 
-Best when you already know which editor window should act as which agent.
+Best when setting up multiple editor windows for one project.
+
+```bash
+syncpoint setup --agents 3 --editor cursor
+```
+
+This initializes `.syncpoint/`, creates default agents, creates and binds
+runtimes, and prints one MCP config per editor window.
+
+### Option B — Single Window Connect
+
+Best when adding or reconnecting one editor window.
+
+```bash
+syncpoint connect --name architect --provider cursor --role manager --editor cursor
+syncpoint connect --name executor-a --provider cursor --role backend --editor cursor
+syncpoint connect --name reviewer --provider cursor --role reviewer --editor cursor
+```
+
+`connect` is idempotent by agent name. If the agent already exists, it reuses
+that agent and generates the config again.
+
+### Option C — Manual Direct Binding Fallback
+
+Use this only when you need low-level control.
 
 ```text
 register agent in SyncPoint
@@ -88,9 +127,9 @@ register agent in SyncPoint
   -> use the connection as that agent
 ```
 
-### Option B — Runtime Binding
+### Option D — Manual Runtime Binding Fallback
 
-Best when you want to identify a physical editor window or daemon first.
+Use this only when you want to register the physical runtime separately.
 
 ```text
 register runtime
@@ -112,25 +151,47 @@ Do not share one MCP connection across multiple logical agents.
 
 ## First-Time Setup
 
-### 1. Register agents
-
-Use CLI or any existing admin path.
-
-Example:
+### 1. Generate agent connections
 
 ```bash
-node packages/syncpoint-cli/dist/main.js agent add --name copilot-architect --provider copilot --role manager
-node packages/syncpoint-cli/dist/main.js agent add --name copilot-workA --provider copilot --role backend
-node packages/syncpoint-cli/dist/main.js agent add --name copilot-workB --provider copilot --role backend
+syncpoint setup --agents 3 --editor cursor
 ```
 
-Record the printed IDs.
+Or generate each window separately:
 
-### 2. Choose one of the two binding models
+```bash
+syncpoint connect --name architect --provider cursor --role manager --editor cursor
+syncpoint connect --name executor-a --provider cursor --role backend --editor cursor
+syncpoint connect --name executor-b --provider cursor --role backend --editor cursor
+```
 
-#### Direct binding
+Each command prints a ready-to-paste MCP config. The generated config includes
+`SYNCPOINT_AGENT_ID`, `SYNCPOINT_RUNTIME_ID`, and `SYNCPOINT_PROJECT_ROOT`.
 
-Put the agent ID directly in MCP config:
+### 2. Paste MCP configs
+
+Paste each generated config into the corresponding editor window's MCP settings.
+Then restart or reload the MCP connection in that editor.
+
+Cursor-style generated config:
+
+```json
+{
+  "mcpServers": {
+    "syncpoint": {
+      "command": "node",
+      "args": ["D:/MyProject/SyncPoint/packages/syncpoint-mcp/dist/main.js"],
+      "env": {
+        "SYNCPOINT_AGENT_ID": "<agent-id>",
+        "SYNCPOINT_RUNTIME_ID": "<runtime-id>",
+        "SYNCPOINT_PROJECT_ROOT": "D:/MyProject/YourProject"
+      }
+    }
+  }
+}
+```
+
+VS Code-style generated config:
 
 ```json
 {
@@ -140,7 +201,71 @@ Put the agent ID directly in MCP config:
       "command": "node",
       "args": ["D:/MyProject/SyncPoint/packages/syncpoint-mcp/dist/main.js"],
       "env": {
-        "SYNCPOINT_AGENT_ID": "<architect-agent-id>",
+        "SYNCPOINT_AGENT_ID": "<agent-id>",
+        "SYNCPOINT_RUNTIME_ID": "<runtime-id>",
+        "SYNCPOINT_PROJECT_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}
+```
+
+### 3. Verify health and identity
+
+From the project root:
+
+```bash
+syncpoint doctor
+```
+
+In each MCP-connected editor window, call:
+
+```text
+syncpoint_whoami
+```
+
+## Three-Window Example
+
+Run:
+
+```bash
+syncpoint connect --name architect --provider cursor --role manager --editor cursor
+syncpoint connect --name executor-a --provider cursor --role backend --editor cursor
+syncpoint connect --name executor-b --provider cursor --role backend --editor cursor
+```
+
+Then paste each printed config into one editor window:
+
+| Window | Agent name | Agent role | Config source |
+|---|---|---|---|
+| Architect window | `architect` | `manager` | output from first `connect` command |
+| Executor A window | `executor-a` | `backend` | output from second `connect` command |
+| Executor B window | `executor-b` | `backend` | output from third `connect` command |
+
+Each generated config should contain a different `SYNCPOINT_AGENT_ID` and
+`SYNCPOINT_RUNTIME_ID`.
+
+After the editor MCP connections restart, verify each window:
+
+```text
+syncpoint_whoami
+```
+
+The expected result is that each window reports its own agent name and runtime.
+
+## Manual Fallback Examples
+
+### Direct agent binding
+
+```json
+{
+  "servers": {
+    "syncpoint": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["D:/MyProject/SyncPoint/packages/syncpoint-mcp/dist/main.js"],
+      "env": {
+        "SYNCPOINT_AGENT_ID": "<agent-id>",
         "SYNCPOINT_PROJECT_ROOT": "D:/MyProject/YourProject"
       }
     }
@@ -148,14 +273,14 @@ Put the agent ID directly in MCP config:
 }
 ```
 
-#### Runtime binding
+### Runtime binding
 
-First register runtime and bind it:
+First register and bind runtime manually with MCP tools:
 
 - `syncpoint_runtime_register`
 - `syncpoint_runtime_bind`
 
-Then use:
+Then configure the editor with the runtime ID:
 
 ```json
 {
@@ -173,63 +298,9 @@ Then use:
 }
 ```
 
-## Three-Window Example
-
-### Architect window
-
-```json
-{
-  "servers": {
-    "syncpoint": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["D:/MyProject/SyncPoint/packages/syncpoint-mcp/dist/main.js"],
-      "env": {
-        "SYNCPOINT_AGENT_ID": "<architect-agent-id>",
-        "SYNCPOINT_PROJECT_ROOT": "D:/MyProject/YourProject"
-      }
-    }
-  }
-}
-```
-
-### Worker A window
-
-```json
-{
-  "servers": {
-    "syncpoint": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["D:/MyProject/SyncPoint/packages/syncpoint-mcp/dist/main.js"],
-      "env": {
-        "SYNCPOINT_AGENT_ID": "<worker-a-agent-id>",
-        "SYNCPOINT_PROJECT_ROOT": "D:/MyProject/YourProject"
-      }
-    }
-  }
-}
-```
-
-### Worker B window
-
-```json
-{
-  "servers": {
-    "syncpoint": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["D:/MyProject/SyncPoint/packages/syncpoint-mcp/dist/main.js"],
-      "env": {
-        "SYNCPOINT_AGENT_ID": "<worker-b-agent-id>",
-        "SYNCPOINT_PROJECT_ROOT": "D:/MyProject/YourProject"
-      }
-    }
-  }
-}
-```
-
-This is the clearest current setup because each window has a fixed identity.
+Manual fallback is useful for debugging, but `syncpoint connect` is the safer
+default because it creates the agent, creates the runtime, binds them, and prints
+the correct env together.
 
 ## Verify Identity
 
@@ -245,10 +316,10 @@ Example result:
 {
   "bound": true,
   "agentId": "s_abc123xyz",
-  "agentName": "copilot-workA",
-  "provider": "copilot",
+  "agentName": "executor-a",
+  "provider": "cursor",
   "role": "backend",
-  "runtimeId": null,
+  "runtimeId": "s_runtime123",
   "source": "env-agent",
   "workspaceRoot": "D:/MyProject/YourProject"
 }
@@ -264,7 +335,7 @@ Which project root is it pointed at?
 
 ## Runtime Tools
 
-SyncPoint now provides runtime identity tools for manual binding and inspection:
+SyncPoint provides runtime identity tools for manual binding and inspection:
 
 | Tool | Purpose |
 |---|---|
@@ -288,8 +359,8 @@ If a bound connection explicitly passes a different `agentId`, SyncPoint rejects
 Example error:
 
 ```text
-IdentityConflictError: connection is bound to agent "copilot-workA"
-but tool call requested "copilot-workB". A bound connection cannot act
+IdentityConflictError: connection is bound to agent "executor-a"
+but tool call requested "executor-b". A bound connection cannot act
 as a different agent.
 ```
 
@@ -311,6 +382,7 @@ Current SyncPoint identity is **binding-based**, not **auto-discovery-based**.
 That means:
 
 - the user or operator still decides which MCP connection maps to which agent
+- `syncpoint setup` and `syncpoint connect` prepare the binding, but the editor still needs the generated MCP config
 - SyncPoint does not yet auto-discover a new connection and create a pending agent record
 - SyncPoint does not yet auto-link "this Copilot window" to "that registered agent" without configuration
 
