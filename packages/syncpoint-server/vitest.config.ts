@@ -10,6 +10,7 @@ export default defineConfig({
     conditions: ["source"],
     alias: [
       { find: "syncpoint-core", replacement: resolve(__dirname, "../syncpoint-core/src/index.ts") },
+      { find: "syncpoint-plugin-code", replacement: resolve(__dirname, "../syncpoint-plugin-code/src/index.ts") },
       { find: /^(\..+)\.js$/, replacement: "$1.ts" },
     ],
   },

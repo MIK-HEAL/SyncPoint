@@ -18,7 +18,8 @@ The default demo creates an isolated workspace, shows two agents claiming the sa
 
 ```bash
 syncpoint status
-syncpoint claim src/auth/session.ts --agent <agentId> --task <taskId>
+syncpoint claim src/auth/session.ts --agent <agentId> --task <taskId>  # --type file (default)
+syncpoint claim assets/hero.png --agent <agentId> --task <taskId> --type binary_asset
 syncpoint checkpoint --agent <agentId> --task <taskId> --summary "safe stopping point"
 syncpoint resume --agent <agentId> --task <taskId>
 syncpoint wake --agent <agentId>

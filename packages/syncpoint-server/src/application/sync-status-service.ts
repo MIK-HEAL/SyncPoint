@@ -13,6 +13,7 @@ import { rcList, rcDetectConflicts } from "./resource-claim-service.js";
 import { stxListActive } from "./sync-transaction-service.js";
 import { opList } from "./operation-service.js";
 import { buildProjection } from "./projection-service.js";
+import { resolveResourceRefs } from "./_resource-resolve.js";
 
 // ── Shared helpers ──────────────────────────────────────
 
@@ -292,7 +293,7 @@ export function buildSnapshot(input?: SnapshotInput) {
             action: "resume",
             projection: proj,
             touchedResources: wr.length > 0
-              ? wr.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+              ? resolveResourceRefs(wr, a.id)
               : undefined,
           });
           constraintBlockerCount += decision.blockers.length;

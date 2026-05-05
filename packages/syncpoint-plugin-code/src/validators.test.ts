@@ -4,6 +4,8 @@ import {
   registerOperationValidator,
   runOperationValidation,
   OperationStatus,
+  getResourceMatcher,
+  clearResourceMatcherRegistry,
 } from "syncpoint-core";
 import type { Operation, ResourceClaim, OperationValidationContext } from "syncpoint-core";
 import { ResourceClaimMode, ResourceClaimStatus } from "syncpoint-core";
@@ -51,6 +53,7 @@ function makeClaim(id: string, actorId: string, locator: string, mode = "exclusi
 
 beforeEach(() => {
   clearValidatorRegistry();
+  clearResourceMatcherRegistry();
   _resetCodePlugin();
 });
 
@@ -101,6 +104,15 @@ describe("registerCodePlugin", () => {
     const items = runOperationValidation(ctx);
     const formatChecks = items.filter(i => i.check === "code_patch_format");
     expect(formatChecks).toHaveLength(1);
+  });
+
+  it("registers file ResourceMatcher", () => {
+    expect(getResourceMatcher("file")).toBeUndefined();
+    registerCodePlugin();
+    const matcher = getResourceMatcher("file");
+    expect(matcher).toBeDefined();
+    expect(matcher!.locatorsOverlap("src/auth", "src/auth/session.ts")).toBe(true);
+    expect(matcher!.locatorsOverlap("src/auth.ts", "lib/utils.ts")).toBe(false);
   });
 
   it("does not fire on non-code_patch operations", () => {

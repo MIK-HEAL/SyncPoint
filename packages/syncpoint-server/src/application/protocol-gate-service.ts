@@ -58,7 +58,7 @@ export function assembleProtocolGate(
       rules.push({ source: "peer-contract", severity: "hard", summary: `Scope: ${approved.scope}`, entityId: approved.id });
     }
     if (approved.fileBoundaries) {
-      rules.push({ source: "peer-contract", severity: "hard", summary: `File boundaries: ${approved.fileBoundaries}`, entityId: approved.id });
+      rules.push({ source: "peer-contract", severity: "hard", summary: `Resource boundaries: ${approved.fileBoundaries}`, entityId: approved.id });
     }
     if (approved.responsibilities) {
       rules.push({ source: "peer-contract", severity: "soft", summary: `Responsibilities: ${approved.responsibilities}`, entityId: approved.id });

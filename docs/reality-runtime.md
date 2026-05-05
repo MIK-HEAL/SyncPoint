@@ -68,7 +68,7 @@ Five layers, strict separation:
 Project Memory (versioned, deduped, typed)
         │
         ▼
-  Projection Layer  ◄── task, capsule, checkpoint, contract, workingFiles
+  Projection Layer  ◄── task, capsule, checkpoint, contract, workingResources
         │
         ▼
   ProjectedReality {
@@ -165,7 +165,7 @@ interface ProjectedReality {
    * Uses hashes (not IDs) of capsule/checkpoint content.
    * IDs change even when content is identical; hashes don't.
    */
-  cacheKey: string  // hash(memoryVersion + taskId + workingFilesHash + contractVersion + checkpointHash + capsuleHash)
+  cacheKey: string  // hash(memoryVersion + taskId + workingResourcesHash + contractVersion + checkpointHash + capsuleHash)
 
   /** Items to merge into the agent's Context Capsule */
   capsulePatch: ProjectedItem[]
@@ -212,7 +212,7 @@ interface ProjectionConflict {
 cacheKey = hash(
   memoryVersion +
   taskId +
-  workingFilesHash +
+  workingResourcesHash +
   contractVersion +
   checkpointHash +
   capsuleHash
@@ -377,20 +377,20 @@ protocol_rule         → protocolRules
 - Scope prefix matching for file overlap detection
 - Returns `{ permitted, blockers[], warnings[], projectionId }`
 
-**P4B — Patch Enforcement** (`patch-proposal-service.ts`):
-- `ppCheck()` calls `buildProjection` → `evaluateConstraints(action: "patch_submit")`
-- Blockers → `checkResult.constraintViolations[]` + `PatchCheckItem` per violation
+**P4B — Operation Enforcement** (`operation-service.ts`):
+- `opCheck()` calls `buildProjection` → `evaluateConstraints(action: "operation_submit")`
+- Blockers → `checkResult.constraintViolations[]` + check item per violation
 - Graceful fallback when projection unavailable
 
 **P4C — Execution Entry Points**:
 - `loopResume` — capsule-locked mode throws; default mode returns `constraintWarnings[]`
-- `orchStartAssignment` — throws on violation (uses agent's file claims)
-- `wakeStart` — throws on violation (uses latest capsule workingFiles)
+- `orchStartAssignment` — throws on violation (uses agent's resource claims)
+- `wakeStart` — throws on violation (uses latest capsule workingResources)
 - `wakeNext` — returns `null` when constraint-blocked
 
 **P4D — Visibility Layer** (`constraint-runtime-service.ts`):
 - `constraintCheck(input): ConstraintRuntimeView` — unified read-only query
-- Input resolution per action: capsule workingFiles, file claims, patch touchedFiles
+- Input resolution per action: capsule workingResources, resource claims, operation touchedResources
 - Output: projected refs only (no raw PM content), projection metadata, resolved inputs
 - tRPC: `constraint.check` query
 - MCP: `syncpoint_constraint_check` tool
@@ -457,7 +457,7 @@ These invariants must be maintained across all phases:
 | P3A | Projection compiler (pure core + server service) | ✅ | 36 |
 | P3B | Raw PM leak closure (17 surfaces sealed) | ✅ | 6 |
 | P4A | Constraint evaluator (pure core, 6 rules) | ✅ | 24 |
-| P4B | Patch enforcement (ppCheck constraint integration) | ✅ | 4 |
+| P4B | Operation enforcement (opCheck constraint integration) | ✅ | 4 |
 | P4C | Execution entry points (loop/orch/wake blocking) | ✅ | 7 |
 | P4D | Visibility layer (service + tRPC + MCP + CLI + snapshot) | ✅ | 17 |
 | P5 | Documentation realignment | 🔄 | — |

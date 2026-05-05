@@ -19,6 +19,8 @@ import { assembleProtocolGate, injectProjectionIntoGate, validateCapsule, format
 import { buildProjection } from "./projection-service.js";
 import type { ProjectedReality } from "syncpoint-core";
 import "./_scope-matchers.js";
+import "./_plugin-init.js";
+import { resolveResourceRefs } from "./_resource-resolve.js";
 
 // ── Types ────────────────────────────────────────────
 
@@ -252,7 +254,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     action: "resume",
     projection,
     touchedResources: capsuleWorkingResources.length > 0
-      ? capsuleWorkingResources.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+      ? resolveResourceRefs(capsuleWorkingResources, agent.id)
       : undefined,
   });
   const constraintWarnings = [

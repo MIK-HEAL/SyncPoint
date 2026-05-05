@@ -15,6 +15,9 @@ import {
   ProjectMemoryScope,
   ProjectMemorySourceType,
   ChecklistItemStatus,
+  registerOperationValidator,
+  registerResourceMatcher,
+  getResourceMatcher,
 } from "syncpoint-core";
 import { getSyncpointDir, initSyncpointDir } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
@@ -46,6 +49,12 @@ import {
   sgAck,
   sgResolve,
   buildSnapshot,
+  opCreate,
+  opSubmit,
+  opCheck,
+  opApprove,
+  opApply,
+  rcDetectConflicts,
 } from "syncpoint-server/application";
 import { formatBlockedExplanation, formatStatusOutput } from "./formatter.js";
 import type { Snapshot } from "./formatter.js";
@@ -368,10 +377,321 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
   }
 }
 
+// ── Resource-First Demo ───────────────────────────────
+
+function runResourceDemo(opts: { project: string; json: boolean }): void {
+  const projectRoot = path.resolve(opts.project);
+  fs.mkdirSync(projectRoot, { recursive: true });
+  process.chdir(projectRoot);
+  initSyncpointDir(projectRoot);
+
+  const isJson = !!opts.json;
+
+  // ── Agents: a designer and an asset optimizer ──
+  const designer = repo.createAgent({
+    name: "design-agent",
+    provider: "other",
+    role: "frontend",
+  });
+  const optimizer = repo.createAgent({
+    name: "asset-optimizer",
+    provider: "other",
+    role: "other",
+  });
+
+  // ── Task and session ──
+  const task = repo.createTask({
+    title: "Update hero banner for launch campaign",
+    description: "Replace the hero banner and optimize all campaign images.",
+  });
+  repo.assignTask(task.id, designer.id);
+
+  const sessionResult = orchCreateSession({
+    title: "Launch Campaign Assets",
+    description: "Coordinate binary asset changes between designer and optimizer.",
+    architectId: designer.id,
+    createdBy: "demo",
+    relationshipMode: "peer-contract",
+  });
+  orchAssignRole({ sessionId: sessionResult.session.id, agentId: optimizer.id, role: "executor" });
+
+  // ── Designer claims binary assets (type: "binary_asset", NOT "file") ──
+  const claimDesigner = rcClaim({
+    actorId: designer.id,
+    taskId: task.id,
+    sessionId: sessionResult.session.id,
+    resources: [
+      { type: "binary_asset", locator: "assets/hero-banner.png", metadata: "1920x600 PNG" },
+      { type: "binary_asset", locator: "assets/campaign-logo.svg", metadata: "vector logo" },
+    ],
+    mode: "exclusive",
+  });
+
+  if (!isJson) {
+    console.log("SyncPoint Resource-First Demo");
+    console.log("═".repeat(50));
+    console.log("");
+    console.log("This demo uses type: \"binary_asset\" — not files, not code.");
+    console.log("The same protocol primitives work for any resource type.");
+    console.log("");
+    console.log(`Designer claimed:`);
+    console.log(`  [binary_asset] assets/hero-banner.png  (1920x600 PNG)`);
+    console.log(`  [binary_asset] assets/campaign-logo.svg (vector logo)`);
+    console.log("");
+  }
+
+  // ── Optimizer tries to claim the same banner — CONFLICT ──
+  const taskOpt = repo.createTask({
+    title: "Optimize hero banner for web performance",
+    description: "Compress and resize hero-banner.png for web delivery.",
+  });
+  repo.assignTask(taskOpt.id, optimizer.id);
+
+  const claimOptimizer = rcClaim({
+    actorId: optimizer.id,
+    taskId: taskOpt.id,
+    sessionId: sessionResult.session.id,
+    resources: [
+      { type: "binary_asset", locator: "assets/hero-banner.png", metadata: "optimize to WebP" },
+    ],
+    mode: "exclusive",
+  });
+
+  if (!isJson && claimOptimizer.conflicts.length > 0) {
+    console.log("Optimizer tried to claim assets/hero-banner.png — BLOCKED");
+    console.log("");
+    for (const c of claimOptimizer.conflicts) {
+      console.log(`  [conflict] ${c.overlappingLocator}`);
+      console.log(`    type: ${c.resourceType}`);
+      console.log(`    ${c.claimA.actorId} ↔ ${c.claimB.actorId}`);
+    }
+    if (claimOptimizer.gateId) {
+      console.log("");
+      console.log(`  SyncGate created: ${claimOptimizer.gateId}`);
+      console.log("  Both agents must sync before continuing.");
+    }
+  } else if (!isJson) {
+    console.log("Optimizer claimed assets/hero-banner.png — no conflict (unexpected).");
+  }
+
+  // ── Resolve gate ──
+  if (claimOptimizer.gateId) {
+    try { sgAck(claimOptimizer.gateId, designer.id, "I'll finish the design first"); } catch {}
+    try { sgAck(claimOptimizer.gateId, optimizer.id, "Waiting for final design"); } catch {}
+    try { sgResolve(claimOptimizer.gateId, "Designer finishes first, then optimizer compresses"); } catch {}
+  }
+
+  if (!isJson) {
+    console.log("");
+    console.log("─".repeat(50));
+    console.log("After resolution:");
+    console.log("  Designer released claim → optimizer can now proceed.");
+  }
+
+  // Release optimizer's conflicting claim so the operation path is clean
+  rcRelease(claimOptimizer.claim.id);
+
+  // ══════════════════════════════════════════════════════
+  // ── Part 2: Operation lifecycle (asset_edit) ──
+  // ══════════════════════════════════════════════════════
+
+  // Register binary_asset-specific validators to demonstrate the plugin pattern
+  if (!getResourceMatcher("binary_asset")) {
+    registerResourceMatcher({
+      type: "binary_asset",
+      locatorsOverlap(a: string, b: string): boolean {
+        const na = a.replace(/\/+$/, "");
+        const nb = b.replace(/\/+$/, "");
+        if (na === nb) return true;
+        if (na.startsWith(nb + "/") || nb.startsWith(na + "/")) return true;
+        return false;
+      },
+    });
+  }
+
+  registerOperationValidator({
+    name: "asset_claim_coverage",
+    operationTypes: ["asset_edit"],
+    resourceTypes: ["binary_asset"],
+    validate(ctx) {
+      const targetLocators = ctx.operation.targetResources
+        .filter(r => r.type === "binary_asset")
+        .map(r => r.locator);
+      const claimedLocators = ctx.actorClaims
+        .flatMap(c => c.resources)
+        .filter(r => r.type === "binary_asset")
+        .map(r => r.locator);
+      const uncovered = targetLocators.filter(
+        t => !claimedLocators.some(c => c === t),
+      );
+      return [{
+        check: "asset_claim_coverage",
+        passed: uncovered.length === 0,
+        detail: uncovered.length === 0
+          ? "All target assets are covered by active claims"
+          : `Uncovered assets: ${uncovered.join(", ")}`,
+      }];
+    },
+  });
+
+  registerOperationValidator({
+    name: "asset_stale_state",
+    operationTypes: ["asset_edit"],
+    resourceTypes: ["binary_asset"],
+    validate(ctx) {
+      // Check that the actor has a capsule whose workingResources mention the target assets
+      const targetLocators = ctx.operation.targetResources
+        .filter(r => r.type === "binary_asset")
+        .map(r => r.locator);
+      const latestCapsule = repo.getLatestCapsule(ctx.operation.taskId, ctx.operation.actorId);
+      const capsuleResources = latestCapsule?.workingResources
+        ? latestCapsule.workingResources.split(",").map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const stale = targetLocators.filter(t => !capsuleResources.includes(t));
+      return [{
+        check: "asset_stale_state",
+        passed: stale.length === 0,
+        detail: stale.length === 0
+          ? "All target assets are covered by the latest capsule"
+          : `Stale assets (not in latest capsule): ${stale.join(", ")}`,
+      }];
+    },
+  });
+
+  registerOperationValidator({
+    name: "asset_no_hard_conflict",
+    operationTypes: ["asset_edit"],
+    resourceTypes: ["binary_asset"],
+    validate(ctx) {
+      const targetLocators = ctx.operation.targetResources
+        .filter(r => r.type === "binary_asset")
+        .map(r => r.locator);
+      const otherClaims = ctx.allActiveClaims.filter(
+        c => c.actorId !== ctx.operation.actorId && c.mode === "exclusive",
+      );
+      const conflicts = otherClaims.filter(c =>
+        c.resources.some(r =>
+          r.type === "binary_asset" && targetLocators.includes(r.locator),
+        ),
+      );
+      return [{
+        check: "asset_no_hard_conflict",
+        passed: conflicts.length === 0,
+        detail: conflicts.length === 0
+          ? "No conflicting exclusive claims from other actors"
+          : `Conflicts with claims: ${conflicts.map(c => c.id).join(", ")}`,
+      }];
+    },
+  });
+
+  // Designer checkpoints with current asset state (needed for stale-state validation)
+  const designerCheckpoint = repo.createCheckpoint({
+    taskId: task.id,
+    agentId: designer.id,
+    summary: "Completed new hero banner design for launch campaign",
+    progress: "Design complete, ready for operation submission",
+    changedFiles: "assets/hero-banner.png",
+    currentUnderstanding: "hero-banner.png replaced with new campaign design",
+    risks: "",
+    blockers: "",
+    nextSteps: "Submit asset_edit operation",
+    needSync: false,
+  });
+  repo.createCapsule({
+    taskId: task.id,
+    agentId: designer.id,
+    checkpointId: designerCheckpoint.id,
+    goal: "Replace hero banner for launch campaign",
+    currentPhase: "implementation",
+    confirmedDecisions: "1920x600 PNG format, new branding",
+    interfaceContract: "",
+    workingResources: "assets/hero-banner.png, assets/campaign-logo.svg",
+    completedWork: "Hero banner design finalized",
+    remainingWork: "Submit asset_edit operation",
+    risks: "",
+    blockers: "",
+  });
+
+  // Designer creates and submits an asset_edit operation
+  const operation = opCreate({
+    type: "asset_edit",
+    actorId: designer.id,
+    taskId: task.id,
+    sessionId: sessionResult.session.id,
+    title: "Replace hero banner with new campaign design",
+    summary: "New 1920x600 hero banner for launch campaign",
+    targetResources: [
+      { type: "binary_asset", locator: "assets/hero-banner.png", metadata: "1920x600 PNG" },
+    ],
+  });
+
+  opSubmit(operation.id);
+  const checkResult = opCheck(operation.id);
+  opApprove(operation.id, designer.id, "Auto-approved after passing all checks");
+  const applied = opApply(operation.id);
+
+  // Release designer's claim after applying
+  rcRelease(claimDesigner.claim.id);
+
+  if (!isJson) {
+    console.log("");
+    console.log("═".repeat(50));
+    console.log("Part 2: Operation lifecycle (type: \"asset_edit\")");
+    console.log("═".repeat(50));
+    console.log("");
+    console.log(`Operation: ${operation.id}`);
+    console.log(`  type: asset_edit`);
+    console.log(`  target: [binary_asset] assets/hero-banner.png`);
+    console.log(`  status flow: DRAFT → SUBMITTED → APPROVED → APPLIED`);
+    console.log("");
+    console.log("Validators executed:");
+    const checks = checkResult.checkResult?.items ?? [];
+    for (const item of checks) {
+      console.log(`  [${item.passed ? "PASS" : "FAIL"}] ${item.check}: ${item.detail}`);
+    }
+    console.log("");
+    console.log(`Final status: ${applied.status}`);
+    console.log("");
+    console.log("Key takeaway:");
+    console.log("  SyncPoint's claim/conflict/gate/operation protocol works identically");
+    console.log("  for binary_asset, db_table, api_endpoint — any resource type.");
+    console.log("  No code-specific logic was involved.");
+    console.log("");
+    console.log(`Demo workspace: ${projectRoot}`);
+  } else {
+    console.log(JSON.stringify({
+      designerClaim: claimDesigner,
+      optimizerClaim: claimOptimizer,
+      conflict: claimOptimizer.conflicts.length > 0,
+      gateId: claimOptimizer.gateId,
+      operation: {
+        id: operation.id,
+        type: operation.type,
+        status: applied.status,
+        targetResources: operation.targetResources,
+        checks: checkResult.checkResult?.items ?? [],
+      },
+    }, null, 2));
+  }
+}
+
 export function registerDemoCommands(program: Command): void {
   const demo = program
     .command("demo")
     .description("Run SyncPoint demos — shows how agents get blocked and unblocked")
+    .action(() => {
+      // Default: run the disaster (conflict) demo with defaults
+      runDisasterDemo({
+        project: path.join(process.cwd(), ".syncpoint", "demo-workspace"),
+        keep: false,
+        json: false,
+        stage: "all",
+      });
+    });
+
+  demo
+    .command("conflict")
+    .description("File conflict blocking demo — two agents claim the same file")
     .option(
       "--project <dir>",
       "Project directory for demo state",
@@ -382,6 +702,19 @@ export function registerDemoCommands(program: Command): void {
     .option("--stage <stage>", "Run specific stage: blocked, resolve, all", "all")
     .action((opts) => {
       runDisasterDemo(opts);
+    });
+
+  demo
+    .command("resource")
+    .description("Resource-first demo — two agents claim the same binary asset, not code")
+    .option(
+      "--project <dir>",
+      "Project directory for demo state",
+      path.join(process.cwd(), ".syncpoint", "resource-demo-workspace"),
+    )
+    .option("--json", "Machine-readable JSON output")
+    .action((opts) => {
+      runResourceDemo(opts);
     });
 
   demo

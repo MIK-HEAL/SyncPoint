@@ -9,18 +9,28 @@
  *   registerCodePlugin();
  */
 
-import { getValidatorsForOperation, registerOperationValidator } from "syncpoint-core";
+import { getValidatorsForOperation, registerOperationValidator, registerResourceMatcher, getResourceMatcher } from "syncpoint-core";
 import { CODE_PLUGIN_VALIDATORS } from "./validators.js";
+import { pathsOverlap } from "./file-resource.js";
 
 // ── Plugin registration ─────────────────────────────
 
 let _registered = false;
 
 /**
- * Register the code plugin's validators with the core validator registry.
+ * Register the code plugin's validators and resource matcher with the core registries.
  * Safe to call multiple times — subsequent calls are no-ops.
  */
 export function registerCodePlugin(): void {
+  // Register file ResourceMatcher (prefix/directory/glob overlap)
+  if (!getResourceMatcher("file")) {
+    registerResourceMatcher({
+      type: "file",
+      locatorsOverlap: pathsOverlap,
+    });
+  }
+
+  // Register OperationValidators for code_patch + file
   const registeredNames = new Set(
     getValidatorsForOperation("code_patch", ["file"]).map(v => v.name),
   );

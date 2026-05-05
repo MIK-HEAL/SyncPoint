@@ -948,21 +948,26 @@ export function registerTools(server: McpServer): void {
     "syncpoint_resource_claim",
     {
       title: "Claim Resources",
-      description: "Declare resource ownership for a task. Returns the claim and any detected conflicts with other agents. Use this BEFORE modifying files to prevent uncoordinated parallel edits. agentId is optional if connection is identity-bound.",
+      description: "Declare resource ownership for a task. Returns the claim and any detected conflicts with other agents. Use this BEFORE modifying resources to prevent uncoordinated parallel edits. agentId is optional if connection is identity-bound.",
       inputSchema: {
         agentId: z.string().optional(),
         taskId: z.string(),
         sessionId: z.string().optional(),
-        paths: z.string().describe("Comma-separated file paths or glob patterns, e.g. 'src/auth.ts, src/api/*'"),
+        locators: z.string().optional().describe("Comma-separated resource locators, e.g. 'src/auth.ts, src/api/*' or 'assets/hero.png'"),
+        paths: z.string().optional().describe("(deprecated, use locators) Comma-separated file paths — kept for backward compatibility"),
+        type: z.string().optional().describe("Resource type (default: 'file'). Use 'binary_asset', 'db_table', etc. for non-code resources"),
         mode: z.enum(["exclusive", "shared"]).optional().describe("exclusive = only this agent may modify; shared = aware of overlap"),
       },
     },
-    async ({ agentId, taskId, sessionId, paths, mode }) => {
+    async ({ agentId, taskId, sessionId, locators, paths, type, mode }) => {
       try {
         const resolved = resolveBoundAgentId(agentId);
         if (!resolved) return fail(new Error("agentId required (no bound identity)"));
-        const resources = paths.split(",").map((p: string) => ({
-          type: "file" as const,
+        const rawLocators = locators || paths;
+        if (!rawLocators) return fail(new Error("locators (or paths) is required"));
+        const resourceType = type || "file";
+        const resources = rawLocators.split(",").map((p: string) => ({
+          type: resourceType,
           locator: p.trim(),
           metadata: "",
         }));

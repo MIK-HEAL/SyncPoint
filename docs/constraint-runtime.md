@@ -31,9 +31,9 @@ evaluateConstraints(input: ConstraintInput): ConstraintDecision
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `action` | `RuntimeAction` | `resume`, `start_assignment`, `wake_start`, `patch_submit`, `patch_apply` |
+| `action` | `RuntimeAction` | `resume`, `start_assignment`, `wake_start`, `operation_submit`, `operation_apply` |
 | `projection` | `ProjectedReality` | From `buildProjection()` — contains `constraintRules`, `conflicts`, `projectionValidity` |
-| `touchedFiles` | `string[]` | Files the agent will read/write in this action |
+| `touchedResources` | `ResourceRef[]` | Resources the agent will read/write in this action |
 
 **Output** (`ConstraintDecision`):
 
@@ -50,17 +50,17 @@ evaluateConstraints(input: ConstraintInput): ConstraintDecision
 |------|---------|---------|
 | `projection_invalid` | Yes | Projection validity is `invalid` |
 | `projection_conflict` | Yes | Unresolved `blocking` conflicts in projection |
-| `do_not_touch_file_overlap` | Yes | `touchedFiles` overlap with `do_not_touch` scope from `constraintRules` |
+| `do_not_touch_file_overlap` | Yes | `touchedResources` overlap with `do_not_touch` scope from `constraintRules` |
 | `protocol_gate_blocked` | Yes | Active protocol gate blocks the action |
 | `capsule_locked_invalid` | Yes | `capsule-locked` mode with failed capsule validation |
 | `hard_constraint_advisory` | No | `hard_constraint` exists in projection (warning only) |
 
 ### Scope Matching
 
-File overlap uses prefix matching:
+Resource overlap uses the registered `ScopeMatcher` for the scope field. For files, the built-in file scope matcher uses prefix matching:
 
 - `"src/auth"` matches `"src/auth.ts"` and `"src/auth/session.ts"`
-- `"src/auth/"` only matches files **under** that directory (not `"src/auth.ts"`)
+- `"src/auth/"` only matches resources **under** that directory (not `"src/auth.ts"`)
 
 ---
 
@@ -68,13 +68,13 @@ File overlap uses prefix matching:
 
 The Constraint Runtime is called at every execution boundary:
 
-| Entry Point | Action | workingFiles Source | On Violation |
-|-------------|--------|---------------------|-------------|
-| `loopResume` | `resume` | Latest capsule `.workingFiles` | capsule-locked: throws; default: `constraintWarnings[]` |
-| `orchStartAssignment` | `start_assignment` | Agent's active file claims | Throws `Error("Constraint violation: ...")` |
-| `wakeStart` | `wake_start` | Latest capsule `.workingFiles` | Throws |
-| `wakeNext` | `wake_start` | Latest capsule `.workingFiles` | Returns `null` (graceful skip) |
-| `ppCheck` | `patch_submit` | `extractTouchedFiles(patchText)` | `constraintViolations[]` on check result |
+| Entry Point | Action | workingResources Source | On Violation |
+|-------------|--------|------------------------|-------------|
+| `loopResume` | `resume` | Latest capsule `.workingResources` | capsule-locked: throws; default: `constraintWarnings[]` |
+| `orchStartAssignment` | `start_assignment` | Agent's active resource claims | Throws `Error("Constraint violation: ...")` |
+| `wakeStart` | `wake_start` | Latest capsule `.workingResources` | Throws |
+| `wakeNext` | `wake_start` | Latest capsule `.workingResources` | Returns `null` (graceful skip) |
+| `opCheck` | `operation_submit` | `operation.targetResources` | `constraintViolations[]` on check result |
 
 All entry points use try/catch around `buildProjection` — if projection is unavailable, execution is **allowed** (graceful degradation, not silent failure).
 
@@ -94,12 +94,12 @@ Read-only unified query that reproduces P4C enforcement decisions exactly, witho
 
 **Input resolution per action**:
 
-| Action | Resolves `touchedFiles` from |
-|--------|------------------------------|
-| `resume` | Latest capsule workingFiles (or explicit `touchedFiles` override) |
-| `start_assignment` | Agent's active file claims via `assignmentId` |
-| `wake_start` | Latest capsule workingFiles via `wakeRequestId` or `taskId`+`agentId` |
-| `patch_submit` / `patch_apply` | Patch proposal touchedFiles via `patchId` |
+| Action | Resolves `touchedResources` from |
+|--------|----------------------------------|
+| `resume` | Latest capsule workingResources (or explicit `touchedResources` override) |
+| `start_assignment` | Agent's active resource claims via `assignmentId` |
+| `wake_start` | Latest capsule workingResources via `wakeRequestId` or `taskId`+`agentId` |
+| `operation_submit` / `operation_apply` | Operation touchedResources via `operationId` |
 
 **Output** (`ConstraintRuntimeView`):
 
@@ -110,7 +110,7 @@ Read-only unified query that reproduces P4C enforcement decisions exactly, witho
   blockers: Array<{ rule, sourceMemoryId, projectionId, message, evidence }>
   warnings: Array<{ rule, sourceMemoryId, projectionId, message, evidence }>
   projection: { projectionId, cacheKey, validity, memoryVersion, createdFrom }
-  inputs: { taskId, agentId, workingFiles, touchedFiles, source }
+  inputs: { taskId, agentId, workingResources, touchedResources, source }
   runtimeUnavailable?: string   // set when projection fails (graceful degradation)
 }
 ```

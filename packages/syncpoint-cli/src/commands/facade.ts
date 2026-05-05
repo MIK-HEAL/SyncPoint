@@ -58,17 +58,18 @@ export function registerFacadeCommands(program: Command): void {
   // ── syncpoint claim <paths> ─────────────────────────
   program
     .command("claim")
-    .description("Declare file ownership for the current task")
-    .argument("<paths>", "Comma-separated file paths or globs")
+    .description("Declare resource ownership for the current task")
+    .argument("<locators>", "Comma-separated resource locators (file paths, asset names, etc.)")
     .requiredOption("--agent <nameOrId>", "Agent name or ID")
     .requiredOption("--task <taskId>", "Task ID")
+    .option("--type <type>", "Resource type (file, binary_asset, db_table, ...)", "file")
     .option("--session <sessionId>", "Session ID")
     .option("--mode <mode>", "Claim mode: exclusive or shared", "exclusive")
     .option("--json", "Machine-readable JSON output")
-    .action((paths, opts) => {
+    .action((locators, opts) => {
       const agentId = requireAgentId(opts.agent);
-      const resources = paths.split(",").map((p: string) => ({
-        type: "file" as const,
+      const resources = locators.split(",").map((p: string) => ({
+        type: opts.type as string,
         locator: p.trim(),
         metadata: "",
       }));
@@ -85,7 +86,7 @@ export function registerFacadeCommands(program: Command): void {
         return;
       }
 
-      console.log(`Claimed: ${paths} (${opts.mode})`);
+      console.log(`Claimed: ${locators} (${opts.type}, ${opts.mode})`);
       if (result.conflicts.length > 0) {
         console.log("");
         console.log("Conflicts detected:");

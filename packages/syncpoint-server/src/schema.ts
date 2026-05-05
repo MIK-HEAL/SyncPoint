@@ -55,7 +55,7 @@ export const checkpoints = sqliteTable("checkpoint", {
   summary: text("summary").notNull(),
   progress: text("progress").notNull().default(""),
   currentUnderstanding: text("current_understanding").notNull().default(""),
-  changedFiles: text("changed_files").notNull().default(""),
+  changedFiles: text("changed_files").notNull().default(""), // @deprecated — use workingResources on capsule. Rename to changedResources in future migration.
   risks: text("risks").notNull().default(""),
   blockers: text("blockers").notNull().default(""),
   nextSteps: text("next_steps").notNull().default(""),
@@ -97,7 +97,7 @@ export const peerContracts = sqliteTable("peer_contract", {
   scope: text("scope").notNull().default(""),
   responsibilities: text("responsibilities").notNull().default(""),
   interfaceSpec: text("interface_spec").notNull().default(""),
-  fileBoundaries: text("file_boundaries").notNull().default(""),
+  fileBoundaries: text("file_boundaries").notNull().default(""), // @deprecated — rename to resourceBoundaries in future migration.
   dependencies: text("dependencies").notNull().default(""),
   testPlan: text("test_plan").notNull().default(""),
   risks: text("risks").notNull().default(""),

@@ -224,14 +224,13 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
   try {
     // Use agent's resource claims as workingResources context for constraint evaluation
     const agentClaims = repo.listResourceClaims({ actorId: ta0.assigneeAgentId, status: "ACTIVE" });
-    const claimedLocators = agentClaims.flatMap(c => c.resources.map((r: any) => r.locator));
+    const claimedRefs = agentClaims.flatMap(c => c.resources);
+    const claimedLocators = claimedRefs.map(r => r.locator);
     const projection = buildProjection({ taskId: ta0.taskId, workingResources: claimedLocators });
     const decision = evaluateConstraints({
       action: "start_assignment",
       projection,
-      touchedResources: claimedLocators.length > 0
-        ? claimedLocators.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
-        : undefined,
+      touchedResources: claimedRefs.length > 0 ? claimedRefs : undefined,
     });
     if (!decision.permitted) {
       const reasons = decision.blockers.map(b => b.message).join("; ");

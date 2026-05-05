@@ -93,7 +93,7 @@ function formatReviewPrompt(
     lines.push(`- **Scope**: ${contract.scope}`);
     lines.push(`- **Responsibilities**: ${contract.responsibilities}`);
     lines.push(`- **Interface**: ${contract.interfaceSpec}`);
-    lines.push(`- **File Boundaries**: ${contract.fileBoundaries}`);
+    lines.push(`- **Resource Boundaries**: ${contract.fileBoundaries}`);
     lines.push("");
   }
 

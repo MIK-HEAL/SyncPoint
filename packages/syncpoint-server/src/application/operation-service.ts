@@ -22,6 +22,7 @@ import {
 import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
+import "./_plugin-init.js";
 
 // ── Types ──────────────────────────────────────────────
 

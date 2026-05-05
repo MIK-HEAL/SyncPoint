@@ -24,6 +24,8 @@ import type {
 import * as repo from "../repositories.js";
 import { buildProjection } from "./projection-service.js";
 import "./_scope-matchers.js";
+import "./_plugin-init.js";
+import { resolveResourceRefs } from "./_resource-resolve.js";
 
 // ── Types ────────────────────────────────────────────────
 
@@ -276,8 +278,8 @@ export function constraintCheck(input: ConstraintRuntimeCheckInput): ConstraintR
     const decision = evaluateConstraints({
       action: input.action as any,
       projection,
-      touchedResources: resolved.touchedResources.length > 0
-        ? resolved.touchedResources.map(loc => ({ type: "file" as const, locator: loc, metadata: "" }))
+      touchedResources: resolved.touchedResources.length > 0 && resolved.agentId
+        ? resolveResourceRefs(resolved.touchedResources, resolved.agentId)
         : undefined,
     });
 

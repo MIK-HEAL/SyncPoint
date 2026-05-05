@@ -214,7 +214,7 @@ v0.1 top-level commands:
 | `syncpoint init` | Initialize `.syncpoint/` state |
 | `syncpoint demo` | Run the disaster blocking demo |
 | `syncpoint status` | Show who is blocked, why, and what to do |
-| `syncpoint claim <paths>` | Declare file ownership |
+| `syncpoint claim <locators>` | Declare resource ownership (`--type file` default) |
 | `syncpoint checkpoint` | Save progress + context capsule |
 | `syncpoint resume` | Resume from latest capsule/checkpoint |
 | `syncpoint wake` | Check or acknowledge pending sync obligations |
@@ -289,12 +289,13 @@ This is the operator view for answering: **"Who is blocked, why, and what unbloc
 
 ```text
 packages/
-├── syncpoint-core       # protocol types, state machines, projection compiler, constraint evaluator
-├── syncpoint-server     # application services, SQLite, tRPC, SSE
-├── syncpoint-cli        # operator CLI for sessions, gates, transactions, patches, constraints
-├── syncpoint-mcp        # MCP adapter for editor AI agents
-├── syncpoint-sdk        # typed client for integrations
-└── vscode-extension     # Sync View for claims, blockers, patches, wakes
+├── syncpoint-core         # protocol types, state machines, projection compiler, constraint evaluator
+├── syncpoint-server       # application services, SQLite, tRPC, SSE
+├── syncpoint-cli          # operator CLI for sessions, gates, transactions, patches, constraints
+├── syncpoint-mcp          # MCP adapter for editor AI agents
+├── syncpoint-plugin-code  # code-domain plugin — file claims, patch validators, compat adapters
+├── syncpoint-sdk          # typed client for integrations
+└── vscode-extension       # Sync View for claims, blockers, patches, wakes
 ```
 
 The architectural rule:
@@ -334,6 +335,8 @@ Architecture and runtime:
 | [`docs/reality-runtime.md`](docs/reality-runtime.md) | Layered reality architecture — Project Memory, Projection, Capsule, Constraint Runtime |
 | [`docs/constraint-runtime.md`](docs/constraint-runtime.md) | Constraint evaluation rules, enforcement entry points, visibility layer |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layer boundary principles and code placement guide |
+| [`docs/plugin-api.md`](docs/plugin-api.md) | Plugin extension points — ResourceMatcher, OperationValidator, writing new plugins |
+| [`docs/resource-conventions.md`](docs/resource-conventions.md) | Resource locator/metadata conventions, appliesTo scoping, type standards |
 
 Operational guides:
 
@@ -376,6 +379,7 @@ For the interactive version, run `syncpoint demo`.
 pnpm install && pnpm build
 syncpoint demo
 syncpoint demo --stage blocked
+syncpoint demo resource          # non-code binary_asset demo
 syncpoint status
 syncpoint --help
 ```

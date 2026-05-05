@@ -24,6 +24,8 @@ import type { SyncPointEventData } from "../event-bus.js";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import "./_scope-matchers.js";
+import "./_plugin-init.js";
+import { resolveResourceRefs } from "./_resource-resolve.js";
 import { EventType, evaluateConstraints } from "syncpoint-core";
 import { sgCheckAgent } from "./sync-gate-service.js";
 import { buildProjection } from "./projection-service.js";
@@ -327,7 +329,7 @@ export function wakeStart(id: string): WakeRequest {
         action: "wake_start",
         projection,
         touchedResources: wr2.length > 0
-          ? wr2.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+          ? resolveResourceRefs(wr2, wr.targetAgentId)
           : undefined,
       });
       if (!decision.permitted) {
@@ -388,7 +390,7 @@ export function wakeNext(agentId: string): WakeRequest | null {
         action: "wake_start",
         projection,
         touchedResources: wr3.length > 0
-          ? wr3.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+          ? resolveResourceRefs(wr3, wr.targetAgentId)
           : undefined,
       });
       if (!decision.permitted) return null;

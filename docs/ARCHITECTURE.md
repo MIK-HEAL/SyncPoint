@@ -62,4 +62,4 @@ SyncPoint's memory system is a five-layer executable runtime (see `docs/reality-
 - Raw Project Memory content never reaches agent prompts — only compiled projections.
 - `hard_constraint` / `protocol_rule` must enter gate/runtime, never capsule-only.
 - Projection conflicts are always surfaced explicitly, never silently merged.
-- Constraint evaluation is read-only; enforcement happens at entry points (`loopResume`, `orchStartAssignment`, `wakeStart`, `ppCheck`).
+- Constraint evaluation is read-only; enforcement happens at entry points (`loopResume`, `orchStartAssignment`, `wakeStart`, `opCheck`).
