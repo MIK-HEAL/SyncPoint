@@ -192,7 +192,7 @@ export const ContextCapsuleSchema = z.object({
   currentPhase: z.string().default(""),
   confirmedDecisions: jsonField,    // JSON array
   interfaceContract: jsonField,     // JSON ref to peer contract
-  workingFiles: jsonField,         // JSON array
+  workingResources: jsonField,         // JSON array
   completedWork: z.string().default(""),
   remainingWork: z.string().default(""),
   risks: z.string().default(""),
@@ -223,7 +223,7 @@ export const ContextCapsuleCreateSchema = z.object({
   currentPhase: z.string().default(""),
   confirmedDecisions: jsonField,
   interfaceContract: jsonField,
-  workingFiles: jsonField,
+  workingResources: jsonField,
   completedWork: z.string().default(""),
   remainingWork: z.string().default(""),
   risks: z.string().default(""),

@@ -7,7 +7,7 @@
  * Design principles:
  *   - Pure functions, no I/O, no side effects
  *   - hard_constraint existence alone does NOT block (needs violation evidence)
- *   - do_not_touch with file overlap DOES block
+ *   - do_not_touch with scope overlap DOES block
  *   - projection invalid / blocking conflict DOES block
  *   - Every violation carries sourceMemoryId + projectionId + evidence
  */
@@ -17,15 +17,17 @@ import type {
   ProjectionItem,
   ProjectionScope,
 } from "./projection.js";
+import { getScopeMatcher } from "./projection.js";
+import type { ResourceRef } from "./resource.js";
 
-// ── Runtime Spec ─────────────────────────────────
+// ── Runtime Spec ─────────────────────────────
 
-/** Typed constraint rule types that can be validated at runtime. */
-export type ConstraintRuleType =
-  | "file_forbidden"      // files in scope are forbidden for the action
-  | "module_forbidden"    // modules in scope are forbidden
-  | "require_review"      // action requires prior review approval
-  | "custom";             // opaque user-defined rule (future extensibility)
+/**
+ * Constraint rule type string. No longer a closed enum — plugins register
+ * evaluators for domain-specific rule types (e.g. "file_forbidden").
+ * Core only knows "require_review" and "custom" as built-ins.
+ */
+export type ConstraintRuleType = string;
 
 /**
  * Structured runtime specification for a hard_constraint.
@@ -38,6 +40,41 @@ export interface ConstraintRuntimeSpec {
   message?: string;
   /** Optional action allowlist — if set, only these actions trigger the constraint. */
   actions?: string[];
+}
+
+// ── Pluggable Constraint Rule Evaluator ───────────────
+
+/**
+ * A ConstraintRuleEvaluator handles evaluation for a specific rule type.
+ * Plugins register evaluators so core never needs domain-specific logic
+ * (e.g. file glob matching, module prefix matching).
+ */
+export interface ConstraintRuleEvaluator {
+  /** The rule type this evaluator handles (e.g. "file_forbidden"). */
+  ruleType: string;
+  /**
+   * Evaluate the constraint against the input.
+   * Return a ConstraintViolation if violated, null if not.
+   */
+  evaluate(
+    input: ConstraintInput,
+    item: ProjectionItem,
+    spec: ConstraintRuntimeSpec,
+  ): ConstraintViolation | null;
+}
+
+const _ruleEvaluators = new Map<string, ConstraintRuleEvaluator>();
+
+export function registerConstraintRuleEvaluator(e: ConstraintRuleEvaluator): void {
+  _ruleEvaluators.set(e.ruleType, e);
+}
+
+export function getConstraintRuleEvaluator(ruleType: string): ConstraintRuleEvaluator | undefined {
+  return _ruleEvaluators.get(ruleType);
+}
+
+export function clearConstraintRuleEvaluatorRegistry(): void {
+  _ruleEvaluators.clear();
 }
 
 /**
@@ -61,7 +98,7 @@ export function parseRuntimeSpec(content: string): ConstraintRuntimeSpec | null 
 
 /**
  * Parse validator config JSON string into a partial spec override.
- * Expected format: `{"message":"...", "actions":["patch_submit"]}`
+ * Expected format: `{"message":"...", "actions":["operation_submit"]}`
  */
 function parseValidatorConfig(config: string | undefined): { message?: string; actions?: string[] } | null {
   if (!config) return null;
@@ -99,11 +136,14 @@ export function resolveRuntimeSpec(item: ProjectionItem): ConstraintRuntimeSpec 
   return null;
 }
 
+/**
+ * A rule type is "known" if it's a built-in or if a plugin has registered
+ * an evaluator for it.
+ */
 function isKnownRule(type: string): boolean {
-  return type === "file_forbidden"
-    || type === "module_forbidden"
-    || type === "require_review"
-    || type === "custom";
+  return type === "require_review"
+    || type === "custom"
+    || _ruleEvaluators.has(type);
 }
 
 // ── Types ────────────────────────────────────────────────
@@ -113,8 +153,8 @@ export type RuntimeAction =
   | "resume"
   | "start_assignment"
   | "wake_start"
-  | "patch_submit"
-  | "patch_apply";
+  | "operation_submit"
+  | "operation_apply";
 
 /** A single constraint violation (blocker or warning). */
 export interface ConstraintViolation {
@@ -138,36 +178,41 @@ export interface ConstraintDecision {
 export interface ConstraintInput {
   action: RuntimeAction;
   projection: ProjectedReality;
-  /** Files touched by current action (patch, assignment, etc.) */
-  touchedFiles?: string[];
+  /** Resources touched by current action (patch, assignment, etc.) */
+  touchedResources?: ResourceRef[];
   /** Whether capsule validation passed (for locked-mode gate). */
   capsuleValid?: boolean;
   /** Protocol gate blockers already computed upstream. */
   protocolGateBlockers?: string[];
 }
 
-// ── File matching ────────────────────────────────────────
+// ── Scope overlap helpers ───────────────────────────
 
 /**
- * Check if a touched file matches any of the scope file patterns.
- * Patterns may be exact paths or prefix globs (e.g. "src/auth/**").
+ * Extract locator strings from touched resources.
  */
-function fileMatchesScope(touchedFile: string, scopeFiles: string[]): boolean {
-  for (const pattern of scopeFiles) {
-    const prefix = pattern.replace(/\*\*?\/?$/, "");
-    if (touchedFile === pattern || touchedFile.startsWith(prefix)) {
-      return true;
-    }
-  }
-  return false;
+function touchedLocators(resources: ResourceRef[] | undefined): string[] {
+  if (!resources?.length) return [];
+  return resources.map(r => r.locator);
 }
 
 /**
- * Find all touched files that overlap with a constraint's scope.
+ * Find all touched locators that overlap with a constraint's scope,
+ * checking every scope field via registered ScopeMatchers.
+ * Falls back to exact match if no matcher is registered.
  */
-function findFileOverlaps(touchedFiles: string[], scope: ProjectionScope | undefined): string[] {
-  if (!scope?.files?.length || !touchedFiles.length) return [];
-  return touchedFiles.filter(f => fileMatchesScope(f, scope.files!));
+function findAllScopeOverlaps(locators: string[], scope: ProjectionScope | undefined): string[] {
+  if (!scope || !locators.length) return [];
+  const overlaps = new Set<string>();
+  for (const [field, patterns] of Object.entries(scope)) {
+    if (!patterns?.length) continue;
+    const matcher = getScopeMatcher(field);
+    const hits = matcher
+      ? matcher.findOverlaps(patterns, locators)
+      : locators.filter(loc => patterns.includes(loc)); // exact match fallback
+    for (const h of hits) overlaps.add(h);
+  }
+  return [...overlaps];
 }
 
 // ── Evaluators ───────────────────────────────────────────
@@ -201,24 +246,23 @@ function evaluateProjectionConflicts(
   }
 }
 
-function evaluateDoNotTouchFileOverlap(
+function evaluateDoNotTouchScopeOverlap(
   input: ConstraintInput,
   blockers: ConstraintViolation[],
 ): void {
-  if (!input.touchedFiles?.length) return;
+  const locators = touchedLocators(input.touchedResources);
+  if (!locators.length) return;
 
-  // Consume constraintRules — the runtime bucket — not capsulePatch.
-  // Identify do_not_touch items by structural kind (preferred) or legacy reason-string fallback.
   const doNotTouchRules = input.projection.constraintRules.filter(isDoNotTouch);
 
   for (const item of doNotTouchRules) {
-    const overlaps = findFileOverlaps(input.touchedFiles, item.scope);
+    const overlaps = findAllScopeOverlaps(locators, item.scope);
     if (overlaps.length > 0) {
       blockers.push({
-        rule: "do_not_touch_file_overlap",
+        rule: "do_not_touch_scope_overlap",
         sourceMemoryId: item.source.sourceMemoryId,
         projectionId: input.projection.projectionId,
-        message: `File(s) touch protected scope "${item.title}": ${overlaps.join(", ")}`,
+        message: `Resource(s) touch protected scope "${item.title}": ${overlaps.join(", ")}`,
         evidence: overlaps,
       });
     }
@@ -258,6 +302,9 @@ function evaluateCapsuleLockedInvalid(
 /**
  * Evaluate hard_constraint items that have a typed runtimeSpec.
  * These can produce blockers (not just advisory) when violation evidence exists.
+ *
+ * Core handles "require_review" and "custom" built-ins.
+ * Domain-specific rules (e.g. "file_forbidden") dispatch to plugin evaluators.
  */
 function evaluateHardConstraintTyped(
   input: ConstraintInput,
@@ -279,45 +326,10 @@ function evaluateHardConstraintTyped(
     let claimed = false;
 
     switch (spec.rule) {
-      case "file_forbidden": {
-        claimed = true;
-        if (!input.touchedFiles?.length) break;
-        const overlaps = findFileOverlaps(input.touchedFiles, cr.scope);
-        if (overlaps.length > 0) {
-          blockers.push({
-            rule: "hard_constraint_file_forbidden",
-            sourceMemoryId: cr.source.sourceMemoryId,
-            projectionId: input.projection.projectionId,
-            message: spec.message ?? `Constraint "${cr.title}" forbids files: ${overlaps.join(", ")}`,
-            evidence: overlaps,
-          });
-        }
-        break;
-      }
-      case "module_forbidden": {
-        claimed = true;
-        if (!input.touchedFiles?.length) break;
-        // Use module scope for matching against touched files as module prefixes
-        const moduleFiles = cr.scope?.modules ?? [];
-        if (moduleFiles.length === 0) break;
-        const matches = input.touchedFiles.filter(f =>
-          moduleFiles.some(mod => f.startsWith(mod + "/") || f === mod),
-        );
-        if (matches.length > 0) {
-          blockers.push({
-            rule: "hard_constraint_module_forbidden",
-            sourceMemoryId: cr.source.sourceMemoryId,
-            projectionId: input.projection.projectionId,
-            message: spec.message ?? `Constraint "${cr.title}" forbids modules: ${matches.join(", ")}`,
-            evidence: matches,
-          });
-        }
-        break;
-      }
       case "require_review": {
         claimed = true;
         // Block unless action itself is a review-related operation
-        if (input.action !== "patch_submit" && input.action !== "patch_apply") break;
+        if (input.action !== "operation_submit" && input.action !== "operation_apply") break;
         blockers.push({
           rule: "hard_constraint_require_review",
           sourceMemoryId: cr.source.sourceMemoryId,
@@ -328,6 +340,19 @@ function evaluateHardConstraintTyped(
       }
       case "custom": {
         // Custom rules → not claimed → fall through to advisory
+        break;
+      }
+      default: {
+        // Dispatch to plugin evaluator
+        const evaluator = _ruleEvaluators.get(spec.rule);
+        if (evaluator) {
+          claimed = true;
+          const violation = evaluator.evaluate(input, cr, spec);
+          if (violation) {
+            blockers.push(violation);
+          }
+        }
+        // If no evaluator registered, fall through to advisory
         break;
       }
     }
@@ -383,8 +408,8 @@ export function evaluateConstraints(input: ConstraintInput): ConstraintDecision 
   evaluateProjectionInvalid(input, blockers);
   evaluateProjectionConflicts(input, blockers);
 
-  // 2. File-level enforcement
-  evaluateDoNotTouchFileOverlap(input, blockers);
+  // 2. Scope-level enforcement (do_not_touch)
+  evaluateDoNotTouchScopeOverlap(input, blockers);
 
   // 3. Protocol gate passthrough
   evaluateProtocolGateBlocked(input, blockers);

@@ -56,7 +56,7 @@ beforeAll(async () => {
     currentPhase: "acceptance",
     confirmedDecisions: "",
     interfaceContract: "",
-    workingFiles: "packages/syncpoint-mcp/src",
+    workingResources: "packages/syncpoint-mcp/src",
     completedWork: "Resource scaffold",
     remainingWork: "Acceptance checks",
     risks: "",

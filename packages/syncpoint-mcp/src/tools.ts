@@ -20,10 +20,10 @@ import {
   rwPrepareReviewPacket,
   pbGetNextAction, pbCaptureEvidence, pbGetActiveSession,
   wakeList, wakeGet, wakeNext, wakeAck, wakeStart, wakeDone, wakeFail, wakeSkip, wakeEngineStats,
-  fcClaimFiles, fcReleaseClaim, fcListClaims, fcDetectConflicts,
+  rcClaim, rcRelease, rcList, rcDetectConflicts,
   sgRequest, sgAck, sgResolve, sgCancel, sgStatus, sgList, sgListActive, sgCheckAgent,
   stxCreate, stxApprove, stxReject, stxResolve, stxCancel, stxStatus, stxList,
-  ppPropose, ppSubmit, ppCheck, ppApprove, ppReject, ppApply, ppCancel, ppStatus, ppList,
+  opCreate, opSubmit, opCheck, opApprove, opReject, opApply, opCancel, opStatus, opList,
   constraintCheck,
 } from "syncpoint-server/application";
 import { getResumeContext, createRuntime, getRuntime, listRuntimes, updateRuntimeAgent, updateAgentRuntime, getAgent } from "syncpoint-server/repositories";
@@ -101,7 +101,7 @@ export function registerTools(server: McpServer): void {
         phase: z.string().optional(),
         completed: z.string().optional(),
         remaining: z.string().optional(),
-        workingFiles: z.string().optional(),
+        workingResources: z.string().optional(),
         resumePrompt: z.string().optional(),
         needSync: z.boolean().optional(),
         provider: z.string().optional(),
@@ -941,14 +941,14 @@ export function registerTools(server: McpServer): void {
   );
 
   // ═══════════════════════════════════════════════════════
-  // FileClaim / Conflict Awareness Tools
+  // ResourceClaim / Conflict Awareness Tools
   // ═══════════════════════════════════════════════════════
 
   server.registerTool(
-    "syncpoint_file_claim",
+    "syncpoint_resource_claim",
     {
-      title: "Claim Files",
-      description: "Declare file ownership for a task. Returns the claim and any detected conflicts with other agents. Use this BEFORE modifying files to prevent uncoordinated parallel edits. agentId is optional if connection is identity-bound.",
+      title: "Claim Resources",
+      description: "Declare resource ownership for a task. Returns the claim and any detected conflicts with other agents. Use this BEFORE modifying files to prevent uncoordinated parallel edits. agentId is optional if connection is identity-bound.",
       inputSchema: {
         agentId: z.string().optional(),
         taskId: z.string(),
@@ -961,20 +961,23 @@ export function registerTools(server: McpServer): void {
       try {
         const resolved = resolveBoundAgentId(agentId);
         if (!resolved) return fail(new Error("agentId required (no bound identity)"));
-        const result = fcClaimFiles({ agentId: resolved, taskId, sessionId, paths, mode });
+        const resources = paths.split(",").map((p: string) => ({
+          type: "file" as const,
+          locator: p.trim(),
+          metadata: "",
+        }));
+        const result = rcClaim({ actorId: resolved, taskId, sessionId, resources, mode });
         if (result.conflicts.length > 0) {
-          const hardCount = result.conflicts.filter(c => c.isHardConflict).length;
           return ok({
             claim: result.claim,
-            warning: hardCount > 0 && result.gateId
-              ? `${result.conflicts.length} conflict(s) detected — SyncGate ${result.gateId} auto-created for ${hardCount} hard conflict(s). Agents must sync before continuing.`
+            warning: result.gateId
+              ? `${result.conflicts.length} conflict(s) detected — SyncGate ${result.gateId} auto-created. Agents must sync before continuing.`
               : `${result.conflicts.length} conflict(s) detected — consider creating a sync gate`,
             gateId: result.gateId,
-            conflicts: result.conflicts.map(c => ({
-              overlap: c.overlappingPath,
-              agentA: c.claimA.agentId,
-              agentB: c.claimB.agentId,
-              isHardConflict: c.isHardConflict,
+            conflicts: result.conflicts.map((c: any) => ({
+              overlap: c.overlappingLocator,
+              actorA: c.claimA.actorId,
+              actorB: c.claimB.actorId,
             })),
           });
         }
@@ -984,57 +987,55 @@ export function registerTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "syncpoint_file_release",
+    "syncpoint_resource_release",
     {
-      title: "Release File Claim",
-      description: "Release a file claim — marks it as released so the files are no longer owned by this agent.",
+      title: "Release Resource Claim",
+      description: "Release a resource claim — marks it as released so the resources are no longer owned by this agent.",
       inputSchema: { claimId: z.string() },
     },
     async ({ claimId }) => {
-      try { return ok(fcReleaseClaim(claimId)); }
+      try { return ok(rcRelease(claimId)); }
       catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_file_list",
+    "syncpoint_resource_list",
     {
-      title: "List File Claims",
-      description: "List file claims. Filter by agent, task, session, or status.",
+      title: "List Resource Claims",
+      description: "List resource claims. Filter by actor, task, session, or status.",
       inputSchema: {
-        agentId: z.string().optional(),
+        actorId: z.string().optional(),
         taskId: z.string().optional(),
         sessionId: z.string().optional(),
         status: z.string().optional(),
       },
     },
     async (input) => {
-      try { return ok({ claims: fcListClaims(input) }); }
+      try { return ok({ claims: rcList(input) }); }
       catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_file_conflicts",
+    "syncpoint_resource_conflicts",
     {
-      title: "Detect File Conflicts",
-      description: "Check for overlapping file claims among active agents. Returns all conflict pairs with overlap details.",
+      title: "Detect Resource Conflicts",
+      description: "Check for overlapping resource claims among active agents. Returns all conflict pairs with overlap details.",
       inputSchema: {
         sessionId: z.string().optional(),
       },
     },
     async ({ sessionId }) => {
       try {
-        const conflicts = fcDetectConflicts(sessionId);
+        const conflicts = rcDetectConflicts(sessionId ? { sessionId } : undefined);
         return ok({
           hasConflicts: conflicts.length > 0,
           count: conflicts.length,
-          hardConflicts: conflicts.filter(c => c.isHardConflict).length,
-          conflicts: conflicts.map(c => ({
-            overlap: c.overlappingPath,
-            agentA: c.claimA.agentId,
-            agentB: c.claimB.agentId,
-            isHardConflict: c.isHardConflict,
+          conflicts: conflicts.map((c: any) => ({
+            overlap: c.overlappingLocator,
+            actorA: c.claimA.actorId,
+            actorB: c.claimB.actorId,
           })),
         });
       } catch (e) { return fail(e); }
@@ -1049,15 +1050,15 @@ export function registerTools(server: McpServer): void {
     "syncpoint_sync_request",
     {
       title: "Request Sync Gate",
-      description: "Create a synchronization barrier. All required agents must acknowledge before work can continue. Use when a file conflict is detected, a phase transition needs coordination, or manual sync is needed.",
+      description: "Create a synchronization barrier. All required agents must acknowledge before work can continue. Use when a resource conflict is detected, a phase transition needs coordination, or manual sync is needed.",
       inputSchema: {
         taskId: z.string(),
         requestedByAgentId: z.string(),
         requiredAgentIds: z.array(z.string()).min(1).describe("Agent IDs that must acknowledge"),
         sessionId: z.string().optional(),
-        reason: z.enum(["file_conflict", "phase_transition", "manual_request", "checkpoint_required", "context_drift"]).optional(),
+        reason: z.enum(["resource_conflict", "phase_transition", "manual_request", "checkpoint_required", "context_drift"]).optional(),
         description: z.string().optional(),
-        relatedFiles: z.string().optional(),
+        relatedResources: z.string().optional(),
         relatedCheckpointId: z.string().optional(),
         relatedClaimIds: z.string().optional(),
       },
@@ -1312,150 +1313,157 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  // PatchProposal Tools
+  // Operation Tools
   // ═══════════════════════════════════════════════════════
 
   server.registerTool(
-    "syncpoint_patch_propose",
+    "syncpoint_operation_create",
     {
-      title: "Propose Patch",
-      description: "Create a draft patch proposal. Submit a unified diff and SyncPoint will extract touched files and check ownership/conflicts before allowing application.",
+      title: "Create Operation",
+      description: "Create a draft operation (e.g. code patch). Submit content and SyncPoint will track touched resources and check ownership/conflicts before allowing application.",
       inputSchema: {
         sessionId: z.string(),
         taskId: z.string(),
-        agentId: z.string(),
+        actorId: z.string(),
         title: z.string(),
+        type: z.string().optional().describe("Operation type, e.g. 'code_patch'"),
         summary: z.string().optional(),
-        patchText: z.string().describe("Unified diff patch text"),
+        payload: z.string().optional().describe("Operation payload (e.g. unified diff patch text)"),
       },
     },
     async (input) => {
       try {
-        const result = ppPropose(input);
-        return ok({ proposal: result });
+        const result = opCreate({ ...input, type: input.type || "code_patch" });
+        return ok({ operation: result });
       } catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_patch_submit",
+    "syncpoint_operation_submit",
     {
-      title: "Submit Patch",
-      description: "Submit a draft patch for ownership/conflict checking. Auto-runs checks and moves to SUBMITTED or CONFLICTING.",
-      inputSchema: { patchId: z.string() },
+      title: "Submit Operation",
+      description: "Submit a draft operation for checking. Auto-runs checks and moves to SUBMITTED or CONFLICTING.",
+      inputSchema: { operationId: z.string() },
     },
-    async ({ patchId }) => {
+    async ({ operationId }) => {
       try {
-        const result = ppSubmit(patchId);
-        return ok({
-          proposal: result.proposal,
-          checkResult: result.checkResult,
-        });
+        const result = opSubmit(operationId);
+        return ok({ operation: result.operation, checkResult: result.checkResult });
       } catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_patch_check",
+    "syncpoint_operation_check",
     {
-      title: "Check Patch",
-      description: "Run ownership/conflict checks on a patch proposal without changing its status.",
-      inputSchema: { patchId: z.string() },
+      title: "Check Operation",
+      description: "Run checks on an operation without changing its status.",
+      inputSchema: { operationId: z.string() },
     },
-    async ({ patchId }) => {
+    async ({ operationId }) => {
       try {
-        const result = ppCheck(patchId);
-        return ok({
-          proposal: result.proposal,
-          checkResult: result.checkResult,
-        });
+        const result = opCheck(operationId);
+        return ok({ operation: result.operation, checkResult: result.checkResult });
       } catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_patch_approve",
+    "syncpoint_operation_approve",
     {
-      title: "Approve Patch",
-      description: "Approve a submitted patch proposal. The patch can then be applied.",
+      title: "Approve Operation",
+      description: "Approve a submitted operation. The operation can then be applied.",
       inputSchema: {
-        patchId: z.string(),
-        agentId: z.string(),
+        operationId: z.string(),
+        actorId: z.string(),
         summary: z.string().optional(),
       },
     },
-    async ({ patchId, agentId, summary }) => {
+    async ({ operationId, actorId, summary }) => {
       try {
-        return ok({ proposal: ppApprove(patchId, agentId, summary) });
+        return ok({ operation: opApprove(operationId, actorId, summary) });
       } catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_patch_reject",
+    "syncpoint_operation_reject",
     {
-      title: "Reject Patch",
-      description: "Reject a submitted patch proposal. The agent can fix and resubmit.",
+      title: "Reject Operation",
+      description: "Reject a submitted operation. The actor can fix and resubmit.",
       inputSchema: {
-        patchId: z.string(),
-        agentId: z.string(),
+        operationId: z.string(),
+        actorId: z.string(),
         reason: z.string().optional(),
       },
     },
-    async ({ patchId, agentId, reason }) => {
+    async ({ operationId, actorId, reason }) => {
       try {
-        return ok({ proposal: ppReject(patchId, agentId, reason) });
+        return ok({ operation: opReject(operationId, actorId, reason) });
       } catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_patch_apply",
+    "syncpoint_operation_apply",
     {
-      title: "Apply Patch",
-      description: "Mark an approved patch as applied.",
-      inputSchema: { patchId: z.string() },
+      title: "Apply Operation",
+      description: "Mark an approved operation as applied.",
+      inputSchema: { operationId: z.string() },
     },
-    async ({ patchId }) => {
+    async ({ operationId }) => {
       try {
-        return ok({ proposal: ppApply(patchId) });
+        return ok({ operation: opApply(operationId) });
       } catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_patch_status",
+    "syncpoint_operation_cancel",
     {
-      title: "Patch Status",
-      description: "Get patch proposal status with check results.",
-      inputSchema: { patchId: z.string() },
+      title: "Cancel Operation",
+      description: "Cancel an operation.",
+      inputSchema: { operationId: z.string() },
     },
-    async ({ patchId }) => {
+    async ({ operationId }) => {
       try {
-        const result = ppStatus(patchId);
-        return ok({
-          proposal: result.proposal,
-          checkResult: result.checkResult,
-        });
+        return ok({ operation: opCancel(operationId) });
       } catch (e) { return fail(e); }
     }
   );
 
   server.registerTool(
-    "syncpoint_patch_list",
+    "syncpoint_operation_status",
     {
-      title: "List Patches",
-      description: "List patch proposals. Filter by session, task, agent, or status.",
+      title: "Operation Status",
+      description: "Get operation status with check results.",
+      inputSchema: { operationId: z.string() },
+    },
+    async ({ operationId }) => {
+      try {
+        const result = opStatus(operationId);
+        return ok({ operation: result.operation, checkResult: result.checkResult });
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_operation_list",
+    {
+      title: "List Operations",
+      description: "List operations. Filter by type, actor, task, session, or status.",
       inputSchema: {
-        sessionId: z.string().optional(),
+        type: z.string().optional(),
+        actorId: z.string().optional(),
         taskId: z.string().optional(),
-        agentId: z.string().optional(),
+        sessionId: z.string().optional(),
         status: z.string().optional(),
       },
     },
     async (input) => {
       try {
-        return ok({ proposals: ppList(input) });
+        return ok({ operations: opList(input) });
       } catch (e) { return fail(e); }
     }
   );
@@ -1473,15 +1481,15 @@ export function registerTools(server: McpServer): void {
         "Returns blockers, warnings, and projection metadata. Read-only — does not change any state. " +
         "Use this before executing to understand if and why you might be blocked.",
       inputSchema: {
-        action: z.enum(["resume", "start_assignment", "wake_start", "patch_submit", "patch_apply"])
+        action: z.enum(["resume", "start_assignment", "wake_start", "operation_submit", "operation_apply"])
           .describe("The action to evaluate"),
         taskId: z.string().optional().describe("Task ID (required for resume, wake_start)"),
         agentId: z.string().optional().describe("Agent ID (required for resume, wake_start without wakeRequestId)"),
         sessionId: z.string().optional(),
         assignmentId: z.string().optional().describe("Assignment ID (required for start_assignment)"),
         wakeRequestId: z.string().optional().describe("Wake request ID (alternative to taskId+agentId for wake_start)"),
-        patchId: z.string().optional().describe("Patch proposal ID (required for patch_submit/patch_apply)"),
-        touchedFiles: z.array(z.string()).optional().describe("Override touched files for debug/preview"),
+        operationId: z.string().optional().describe("Operation ID (required for operation_submit/operation_apply)"),
+        touchedResources: z.array(z.string()).optional().describe("Override touched resources for debug/preview"),
       },
     },
     async (input) => {

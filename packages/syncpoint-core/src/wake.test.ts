@@ -163,7 +163,7 @@ describe("SYNC_VERB_WHITELIST", () => {
     expect(SYNC_VERB_WHITELIST).toContain("accept-assignment");
     expect(SYNC_VERB_WHITELIST).toContain("request-review");
     expect(SYNC_VERB_WHITELIST).toContain("advance-session");
-    expect(SYNC_VERB_WHITELIST).toContain("claim-files");
+    expect(SYNC_VERB_WHITELIST).toContain("claim-resources");
     expect(SYNC_VERB_WHITELIST).toContain("sync-checkpoint");
   });
 });
@@ -256,12 +256,12 @@ describe("computeWakeTargets with relationshipMode", () => {
     expect(targets[0].action).toBe("start-review");
   });
 
-  it("peer-contract mode allows claim-files custom rule", () => {
+  it("peer-contract mode allows claim-resources custom rule", () => {
     const customRules: WakeRule[] = [
       {
         trigger: OrchestrationEventType.ASSIGNMENT_ACCEPTED,
         targetRole: "executor",
-        action: "claim-files" as any,
+        action: "claim-resources" as any,
         reason: "Claim files after accepting",
         priority: 1,
       },
@@ -275,7 +275,7 @@ describe("computeWakeTargets with relationshipMode", () => {
       customRules,
     );
     expect(targets.length).toBeGreaterThan(0);
-    expect(targets[0].action).toBe("claim-files");
+    expect(targets[0].action).toBe("claim-resources");
   });
 
   it("without mode, all default rules apply", () => {

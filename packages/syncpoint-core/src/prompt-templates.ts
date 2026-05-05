@@ -176,7 +176,7 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: ProjectedReality | 
     lines.push(`- Goal: ${ctx.latestCapsule.goal}`);
     lines.push(`- Phase: ${ctx.latestCapsule.currentPhase}`);
     if (ctx.latestCapsule.confirmedDecisions) lines.push(`- Decisions: ${ctx.latestCapsule.confirmedDecisions}`);
-    if (ctx.latestCapsule.workingFiles) lines.push(`- Files: ${ctx.latestCapsule.workingFiles}`);
+    if (ctx.latestCapsule.workingResources) lines.push(`- Files: ${ctx.latestCapsule.workingResources}`);
     if (ctx.latestCapsule.completedWork) lines.push(`- Done: ${ctx.latestCapsule.completedWork}`);
     if (ctx.latestCapsule.remainingWork) lines.push(`- Remaining: ${ctx.latestCapsule.remainingWork}`);
     if (ctx.latestCapsule.nextSteps) lines.push(`- Next: ${ctx.latestCapsule.nextSteps}`);
@@ -269,7 +269,7 @@ function formatCursorRules(ctx: ResumeContext, projection?: ProjectedReality | n
     lines.push("## Context Capsule");
     lines.push(`Goal: ${ctx.latestCapsule.goal}`);
     lines.push(`Phase: ${ctx.latestCapsule.currentPhase}`);
-    if (ctx.latestCapsule.workingFiles) lines.push(`Working files: ${ctx.latestCapsule.workingFiles}`);
+    if (ctx.latestCapsule.workingResources) lines.push(`Working files: ${ctx.latestCapsule.workingResources}`);
     if (ctx.latestCapsule.remainingWork) lines.push(`Remaining: ${ctx.latestCapsule.remainingWork}`);
     if (ctx.latestCapsule.nextSteps) lines.push(`Next steps: ${ctx.latestCapsule.nextSteps}`);
     if (ctx.latestCapsule.blockers) lines.push(`Blockers: ${ctx.latestCapsule.blockers}`);
@@ -353,8 +353,8 @@ function formatAgentsMd(ctx: ResumeContext, projection?: ProjectedReality | null
       lines.push(`**Confirmed Decisions**: ${ctx.latestCapsule.confirmedDecisions}`);
       lines.push("");
     }
-    if (ctx.latestCapsule.workingFiles) {
-      lines.push(`**Working Files**: ${ctx.latestCapsule.workingFiles}`);
+    if (ctx.latestCapsule.workingResources) {
+      lines.push(`**Working Files**: ${ctx.latestCapsule.workingResources}`);
       lines.push("");
     }
     if (ctx.latestCapsule.completedWork) {
@@ -416,7 +416,7 @@ function formatCheckpointMd(ctx: ResumeContext, projection?: ProjectedReality | 
     lines.push(`**Goal**: ${ctx.latestCapsule.goal}`);
     lines.push(`**Phase**: ${ctx.latestCapsule.currentPhase}`);
     if (ctx.latestCapsule.confirmedDecisions) lines.push(`**Decisions**: ${ctx.latestCapsule.confirmedDecisions}`);
-    if (ctx.latestCapsule.workingFiles) lines.push(`**Files**: ${ctx.latestCapsule.workingFiles}`);
+    if (ctx.latestCapsule.workingResources) lines.push(`**Files**: ${ctx.latestCapsule.workingResources}`);
     if (ctx.latestCapsule.completedWork) lines.push(`**Done**: ${ctx.latestCapsule.completedWork}`);
     if (ctx.latestCapsule.remainingWork) lines.push(`**Remaining**: ${ctx.latestCapsule.remainingWork}`);
     if (ctx.latestCapsule.nextSteps) lines.push(`**Next**: ${ctx.latestCapsule.nextSteps}`);

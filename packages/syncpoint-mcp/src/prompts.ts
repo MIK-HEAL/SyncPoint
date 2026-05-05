@@ -64,7 +64,7 @@ export function registerPrompts(server: McpServer): void {
         "- **phase**: Current development phase",
         "- **completed**: Work completed this session",
         "- **remaining**: Work still to be done",
-        "- **workingFiles**: Key files currently being modified",
+        "- **workingResources**: Key resources currently being modified",
         "- **needSync**: Set true if another agent needs to review before continuing",
         "",
         "Once you have the information, call the `syncpoint_loop_checkpoint` tool.",

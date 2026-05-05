@@ -6,38 +6,8 @@
  * operation validation pipeline in syncpoint-core.
  */
 
-import type { OperationValidator, OperationValidationContext, OperationCheckItem } from "syncpoint-core";
-import { resourceRefsToFilePaths } from "./file-resource.js";
+import type { OperationValidator, OperationValidationContext, OperationCheckItem, ResourceClaim } from "syncpoint-core";
 import { isValidPatchFormat, findUncoveredFiles, findConflictingClaims } from "./code-patch.js";
-import type { FileClaim } from "syncpoint-core";
-
-// ── Helper: resource claims → FileClaim-shaped objects ──
-
-function claimsToFileClaims(claims: Array<{
-  id: string;
-  actorId: string;
-  taskId: string;
-  sessionId: string;
-  resources: Array<{ type: string; locator: string; metadata: string }>;
-  mode: string;
-  status: string;
-  createdAt: string;
-  releasedAt: string;
-}>): FileClaim[] {
-  return claims
-    .filter(c => c.resources.some(r => r.type === "file"))
-    .map(c => ({
-      id: c.id,
-      agentId: c.actorId,
-      taskId: c.taskId,
-      sessionId: c.sessionId,
-      paths: resourceRefsToFilePaths(c.resources),
-      mode: c.mode as any,
-      status: c.status as any,
-      createdAt: c.createdAt,
-      releasedAt: c.releasedAt,
-    }));
-}
 
 // ── Validators ──────────────────────────────────────
 
@@ -82,8 +52,7 @@ export const codePatchClaimCoverageValidator: OperationValidator = {
       }];
     }
 
-    const fileClaims = claimsToFileClaims(ctx.actorClaims);
-    const uncovered = findUncoveredFiles(touchedFiles, fileClaims);
+    const uncovered = findUncoveredFiles(touchedFiles, ctx.actorClaims as ResourceClaim[]);
 
     return [{
       check: "code_patch_claim_coverage",
@@ -116,11 +85,10 @@ export const codePatchNoHardConflictValidator: OperationValidator = {
       }];
     }
 
-    const allFileClaims = claimsToFileClaims(ctx.allActiveClaims);
     const conflicting = findConflictingClaims(
       touchedFiles,
       ctx.operation.actorId,
-      allFileClaims,
+      ctx.allActiveClaims as ResourceClaim[],
     );
 
     return [{

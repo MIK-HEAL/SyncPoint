@@ -180,19 +180,6 @@ export type {
   ListResourceClaimsInput,
 } from "./resource-claim-service.js";
 
-// FileClaim / Conflict Awareness
-export {
-  fcClaimFiles,
-  fcReleaseClaim,
-  fcListClaims,
-  fcDetectConflicts,
-} from "./file-claim-service.js";
-
-export type {
-  ClaimFilesInput,
-  ClaimFilesResult,
-  ListClaimsInput,
-} from "./file-claim-service.js";
 
 // SyncGate
 export {
@@ -247,23 +234,6 @@ export type {
   OperationStatusResult,
 } from "./operation-service.js";
 
-// PatchProposal
-export {
-  ppPropose,
-  ppSubmit,
-  ppCheck,
-  ppApprove,
-  ppReject,
-  ppApply,
-  ppCancel,
-  ppStatus,
-  ppList,
-} from "./patch-proposal-service.js";
-
-export type {
-  PatchProposeInput,
-  PatchStatusResult,
-} from "./patch-proposal-service.js";
 
 // SyncStatus (read-model / aggregation)
 export {

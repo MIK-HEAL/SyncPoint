@@ -128,7 +128,7 @@ export const projectMemoryRouter = t.router({
   projection: protectedProcedure
     .input(z.object({
       taskId: z.string().min(1),
-      workingFiles: z.array(z.string()).optional(),
+      workingResources: z.array(z.string()).optional(),
       currentModules: z.array(z.string()).optional(),
       capsuleId: z.string().optional(),
       checkpointId: z.string().optional(),

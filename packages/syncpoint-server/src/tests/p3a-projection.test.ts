@@ -79,7 +79,7 @@ describe("P3A: Projection — appliesTo filtering", () => {
 
     const r = (await ctx.rpc("projectMemory.projection", {
       taskId: "task-1",
-      workingFiles: ["src/main.ts"],
+      workingResources: ["src/main.ts"],
     }, "GET")) as any;
 
     const titles = r.capsulePatch.verifiedFacts.map((i: any) => i.title);
@@ -97,7 +97,7 @@ describe("P3A: Projection — appliesTo filtering", () => {
 
     const r = (await ctx.rpc("projectMemory.projection", {
       taskId: "task-1",
-      workingFiles: ["src/main.ts"],
+      workingResources: ["src/main.ts"],
     }, "GET")) as any;
 
     const titles = r.capsulePatch.verifiedFacts.map((i: any) => i.title);

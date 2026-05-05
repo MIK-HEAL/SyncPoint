@@ -24,7 +24,7 @@ interface SnapshotAgent {
   constraintBlockerCount: number;
   constraintWarningCount: number;
   activeAssignments: Array<{ id: string; taskId: string; taskTitle: string; status: string }>;
-  claimedFiles: Array<{ claimId: string; paths: string; mode: string; taskId: string }>;
+  claimedResources: Array<{ claimId: string; resources: any[]; mode: string; taskId: string }>;
   pendingWakeCount: number;
 }
 
@@ -37,29 +37,27 @@ interface SnapshotSession {
 }
 
 interface SnapshotConflict {
-  overlappingPath: string;
-  isHardConflict: boolean;
-  claimA: { id: string; agentId: string; agentName: string; mode: string };
-  claimB: { id: string; agentId: string; agentName: string; mode: string };
+  overlappingLocator: string;
+  claimA: { id: string; actorId: string; actorName: string; mode: string };
+  claimB: { id: string; actorId: string; actorName: string; mode: string };
 }
 
 interface SnapshotClaim {
   id: string;
-  agentId: string;
-  agentName: string;
+  actorId: string;
+  actorName: string;
   taskId: string;
   taskTitle: string;
-  paths: string;
+  resources: Array<{ type: string; locator: string; metadata: string }>;
   mode: string;
 }
 
-interface SnapshotPatch {
+interface SnapshotOperation {
   id: string;
   title: string;
-  agentId: string;
-  agentName: string;
+  actorId: string;
+  actorName: string;
   status: string;
-  touchedFiles: string;
   taskId: string;
   taskTitle: string;
   needsAction: string;
@@ -79,7 +77,7 @@ export interface Snapshot {
   timestamp: string;
   sessions: SnapshotSession[];
   agents: SnapshotAgent[];
-  fileOwnership: {
+  resourceOwnership: {
     activeClaims: SnapshotClaim[];
     conflicts: SnapshotConflict[];
     stats: {
@@ -92,7 +90,7 @@ export interface Snapshot {
   };
   blockers: UnifiedBlocker[];
   blockerCount: number;
-  patches: SnapshotPatch[];
+  operations: SnapshotOperation[];
   wakeQueue: SnapshotWake[];
   gateStats: { total: number; active: number; resolved: number; cancelled: number };
   summary: {
@@ -101,7 +99,7 @@ export interface Snapshot {
     blockedAgentCount: number;
     activeClaimCount: number;
     hardConflictCount: number;
-    pendingPatchCount: number;
+    pendingOperationCount: number;
     pendingWakeCount: number;
     blockerCount: number;
     constraintBlockedAgents: number;
@@ -122,22 +120,22 @@ function blockerTypeLabel(type: string): string {
     case "sync_transaction": return "Checkpoint Transaction";
     case "handoff": return "Pending Handoff";
     case "review": return "Review Required";
-    case "patch_proposal": return "Patch Proposal";
+    case "operation": return "Operation";
     default: return type;
   }
 }
 
 function blockerReasonLabel(reason: string): string {
   switch (reason) {
-    case "file_conflict": return "file ownership conflict";
+    case "resource_conflict": return "resource ownership conflict";
     case "checkpoint_required": return "checkpoint requires approval";
     case "checkpoint_approval": return "checkpoint waiting for approval";
     case "manual_request": return "manual sync request";
     case "review_requested": return "review not started";
     case "review_in_progress": return "review in progress";
     case "handoff_pending": return "handoff waiting for acceptance";
-    case "patch_awaiting_approval": return "patch awaiting approval";
-    case "patch_conflict": return "patch has conflicts";
+    case "operation_awaiting_approval": return "operation awaiting approval";
+    case "operation_conflict": return "operation has conflicts";
     default: return reason;
   }
 }
@@ -153,11 +151,11 @@ function suggestedAction(blocker: UnifiedBlocker): string {
       return `syncpoint handoff accept --handoff ${blocker.id}`;
     case "review":
       return `syncpoint review approve --review ${blocker.id} --summary "Approved" --by <agentId>`;
-    case "patch_proposal":
-      if (blocker.reason === "patch_conflict") {
-        return `syncpoint patch check --patch ${blocker.id}\nsyncpoint patch submit --patch ${blocker.id}`;
+    case "operation":
+      if (blocker.reason === "operation_conflict") {
+        return `syncpoint operation check --id ${blocker.id}\nsyncpoint operation submit --id ${blocker.id}`;
       }
-      return `syncpoint patch approve --patch ${blocker.id} --agent <agentId>`;
+      return `syncpoint operation approve --id ${blocker.id} --agent <agentId>`;
     default:
       return "";
   }
@@ -213,8 +211,9 @@ export function formatStatusOutput(snapshot: Snapshot): string {
       for (const ta of agent.activeAssignments) {
         lines.push(`    Task: ${ta.taskTitle} [${ta.status}]`);
       }
-      for (const c of agent.claimedFiles) {
-        lines.push(`    Claim: ${c.paths} (${c.mode})`);
+      for (const c of agent.claimedResources) {
+        const locs = c.resources.map((r: any) => r.locator).join(", ");
+        lines.push(`    Claim: ${locs} (${c.mode})`);
       }
       if (agent.pendingWakeCount > 0) {
         lines.push(`    Wake: ${agent.pendingWakeCount} pending`);
@@ -223,23 +222,20 @@ export function formatStatusOutput(snapshot: Snapshot): string {
     lines.push("");
   }
 
-  // ── File Ownership ──
-  const fo = snapshot.fileOwnership;
+  // ── Resource Ownership ──
+  const fo = snapshot.resourceOwnership;
   if (fo.activeClaims.length > 0 || fo.conflicts.length > 0) {
-    lines.push("File Ownership");
+    lines.push("Resource Ownership");
     lines.push("─".repeat(40));
     for (const c of fo.activeClaims) {
-      lines.push(`  ${c.paths}  — ${c.agentName} (${c.mode})`);
+      const locs = c.resources.map(r => r.locator).join(", ");
+      lines.push(`  ${locs}  — ${c.actorName} (${c.mode})`);
     }
     if (fo.conflicts.length > 0) {
       lines.push("");
       lines.push("  Conflicts:");
       for (const c of fo.conflicts) {
-        const severity = c.isHardConflict ? "HARD" : "soft";
-        const displayPath = c.overlappingPath.includes(" ↔ ")
-          ? c.overlappingPath.split(" ↔ ")[0]
-          : c.overlappingPath;
-        lines.push(`    [${severity}] ${displayPath}: ${c.claimA.agentName} vs ${c.claimB.agentName}`);
+        lines.push(`    [conflict] ${c.overlappingLocator}: ${c.claimA.actorName} vs ${c.claimB.actorName}`);
       }
     }
     lines.push("");
@@ -272,12 +268,12 @@ export function formatStatusOutput(snapshot: Snapshot): string {
     }
   }
 
-  // ── Patches ──
-  if (snapshot.patches.length > 0) {
-    lines.push("Patches");
+  // ── Operations ──
+  if (snapshot.operations.length > 0) {
+    lines.push("Operations");
     lines.push("─".repeat(40));
-    for (const p of snapshot.patches) {
-      lines.push(`  ${p.title} by ${p.agentName} [${p.status}] → ${p.needsAction}`);
+    for (const op of snapshot.operations) {
+      lines.push(`  ${op.title} by ${op.actorName} [${op.status}] → ${op.needsAction}`);
     }
     lines.push("");
   }
@@ -321,24 +317,22 @@ export function formatBlockedExplanation(snapshot: Snapshot): string {
 
     // File conflicts
     const seenConflictPaths = new Set<string>();
-    for (const c of snapshot.fileOwnership.conflicts) {
-      if (c.claimA.agentId === agent.id || c.claimB.agentId === agent.id) {
-        const other = c.claimA.agentId === agent.id ? c.claimB : c.claimA;
-        const displayPath = c.overlappingPath.includes(" ↔ ")
-          ? c.overlappingPath.split(" ↔ ")[0]
-          : c.overlappingPath;
+    for (const c of snapshot.resourceOwnership.conflicts) {
+      if (c.claimA.actorId === agent.id || c.claimB.actorId === agent.id) {
+        const other = c.claimA.actorId === agent.id ? c.claimB : c.claimA;
+        const displayPath = c.overlappingLocator;
         if (!seenConflictPaths.has(displayPath)) {
           seenConflictPaths.add(displayPath);
-          reasons.push(`${displayPath} is already claimed by ${other.agentName}`);
+          reasons.push(`${displayPath} is already claimed by ${other.actorName}`);
         }
       }
     }
 
-    // Blocking gates (skip file_conflict gates — already covered above)
+    // Blocking gates (skip resource_conflict gates — already covered above)
     const seenReasons = new Set<string>();
     for (const b of snapshot.blockers) {
       if (b.type === "sync_gate" && agent.blockingGateIds.includes(b.id)) {
-        if (b.reason === "file_conflict") continue; // already shown via file conflicts
+        if (b.reason === "resource_conflict") continue; // already shown via resource conflicts
         const reason = blockerReasonLabel(b.reason);
         if (!seenReasons.has(reason)) {
           seenReasons.add(reason);
@@ -371,11 +365,11 @@ export function formatBlockedExplanation(snapshot: Snapshot): string {
   }
 
   // Current state summary
-  const fo = snapshot.fileOwnership;
+  const fo = snapshot.resourceOwnership;
   lines.push("Current state:");
-  lines.push(`  File conflicts: ${fo.stats.hardConflicts > 0 ? `${fo.stats.hardConflicts} hard` : "none"}`);
+  lines.push(`  Resource conflicts: ${fo.stats.hardConflicts > 0 ? `${fo.stats.hardConflicts} hard` : "none"}`);
   lines.push(`  Sync gates: ${snapshot.gateStats.active} active`);
-  lines.push(`  Patches: ${snapshot.patches.length > 0 ? snapshot.patches.map(p => p.status).join(", ") : "none"}`);
+  lines.push(`  Operations: ${snapshot.operations.length > 0 ? snapshot.operations.map(op => op.status).join(", ") : "none"}`);
   lines.push(`  Wake queue: ${snapshot.wakeQueue.length} pending`);
   lines.push("");
 
@@ -412,7 +406,7 @@ export function formatResumeExplanation(opts: {
   phase?: string;
   completedWork?: string;
   remainingWork?: string;
-  workingFiles?: string;
+  workingResources?: string;
   blockers?: string;
   nextSteps?: string;
 }): string {
@@ -435,7 +429,7 @@ export function formatResumeExplanation(opts: {
     lines.push("Capsule:");
     lines.push(`  Goal: ${opts.goal}`);
     if (opts.phase) lines.push(`  Phase: ${opts.phase}`);
-    if (opts.workingFiles) lines.push(`  Working files: ${opts.workingFiles}`);
+    if (opts.workingResources) lines.push(`  Working resources: ${opts.workingResources}`);
     if (opts.completedWork) lines.push(`  Completed: ${opts.completedWork}`);
     if (opts.remainingWork) lines.push(`  Remaining: ${opts.remainingWork}`);
     lines.push("");

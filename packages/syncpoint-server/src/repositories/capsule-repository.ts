@@ -25,7 +25,7 @@ export function createCapsule(data: ContextCapsuleCreate): ContextCapsule {
     currentPhase: data.currentPhase,
     confirmedDecisions: data.confirmedDecisions,
     interfaceContract: data.interfaceContract,
-    workingFiles: data.workingFiles,
+    workingResources: data.workingResources,
     completedWork: data.completedWork,
     remainingWork: data.remainingWork,
     risks: data.risks,

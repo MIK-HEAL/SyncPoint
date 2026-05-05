@@ -24,7 +24,7 @@ import {
   rwAddEvidence,
 } from "./review-workflow-service.js";
 import { pbGetNextAction, pbCaptureEvidence, pbGetActiveSession } from "./playbook-service.js";
-import { fcClaimFiles } from "./file-claim-service.js";
+import { rcClaim } from "./resource-claim-service.js";
 import { ChecklistItemStatus } from "syncpoint-core";
 
 let tmpDir: string;
@@ -259,24 +259,24 @@ describe("peer-contract playbook claim → start-work", () => {
     orchAcceptAssignment(pcAssignmentId);
   });
 
-  it("before claim: playbook suggests claim-files, not start-work", () => {
+  it("before claim: playbook suggests claim-resources, not start-work", () => {
     const result = pbGetNextAction({ sessionId: pcSessionId, agentId: pcExecId });
     const kinds = result.actions.map(a => a.action);
-    expect(kinds).toContain("claim-files");
+    expect(kinds).toContain("claim-resources");
     expect(kinds).not.toContain("start-work");
   });
 
-  it("after claim: playbook suggests start-work, not claim-files", () => {
-    fcClaimFiles({
-      agentId: pcExecId,
+  it("after claim: playbook suggests start-work, not claim-resources", () => {
+    rcClaim({
+      actorId: pcExecId,
       taskId: pcTaskId,
       sessionId: pcSessionId,
-      paths: "src/feature.ts",
+      resources: [{ type: "file", locator: "src/feature.ts", metadata: "" }],
     });
 
     const result = pbGetNextAction({ sessionId: pcSessionId, agentId: pcExecId });
     const kinds = result.actions.map(a => a.action);
     expect(kinds).toContain("start-work");
-    expect(kinds).not.toContain("claim-files");
+    expect(kinds).not.toContain("claim-resources");
   });
 });

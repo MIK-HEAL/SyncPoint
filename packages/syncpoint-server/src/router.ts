@@ -17,7 +17,6 @@ import { projectMemoryRouter } from "./routers/project-memory-router.js";
 import { wakeRouter } from "./routers/wake-router.js";
 import { syncStatusRouter } from "./routers/sync-status-router.js";
 import { syncTransactionRouter } from "./routers/sync-transaction-router.js";
-import { patchProposalRouter } from "./routers/patch-proposal-router.js";
 import { constraintRouter } from "./routers/constraint-router.js";
 
 // ── Root router ────────────────────────────────────────
@@ -39,7 +38,6 @@ export const appRouter = t.router({
   wake: wakeRouter,
   syncStatus: syncStatusRouter,
   syncTransaction: syncTransactionRouter,
-  patchProposal: patchProposalRouter,
   constraint: constraintRouter,
 });
 

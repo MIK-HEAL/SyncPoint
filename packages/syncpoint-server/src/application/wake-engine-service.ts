@@ -23,6 +23,7 @@ import { SyncPointEventBus } from "../event-bus.js";
 import type { SyncPointEventData } from "../event-bus.js";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
+import "./_scope-matchers.js";
 import { EventType, evaluateConstraints } from "syncpoint-core";
 import { sgCheckAgent } from "./sync-gate-service.js";
 import { buildProjection } from "./projection-service.js";
@@ -318,11 +319,17 @@ export function wakeStart(id: string): WakeRequest {
   if (wr.taskId) {
     try {
       const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
-      const workingFiles = latestCap?.workingFiles
-        ? latestCap.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+      const wr2 = latestCap?.workingResources
+        ? latestCap.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
         : [];
-      const projection = buildProjection({ taskId: wr.taskId, workingFiles });
-      const decision = evaluateConstraints({ action: "wake_start", projection, touchedFiles: workingFiles.length > 0 ? workingFiles : undefined });
+      const projection = buildProjection({ taskId: wr.taskId, workingResources: wr2 });
+      const decision = evaluateConstraints({
+        action: "wake_start",
+        projection,
+        touchedResources: wr2.length > 0
+          ? wr2.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+          : undefined,
+      });
       if (!decision.permitted) {
         const reasons = decision.blockers.map(b => b.message).join("; ");
         throw new Error(`Constraint violation: ${reasons}`);
@@ -373,11 +380,17 @@ export function wakeNext(agentId: string): WakeRequest | null {
   if (wr.taskId) {
     try {
       const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
-      const workingFiles = latestCap?.workingFiles
-        ? latestCap.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+      const wr3 = latestCap?.workingResources
+        ? latestCap.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
         : [];
-      const projection = buildProjection({ taskId: wr.taskId, workingFiles });
-      const decision = evaluateConstraints({ action: "wake_start", projection, touchedFiles: workingFiles.length > 0 ? workingFiles : undefined });
+      const projection = buildProjection({ taskId: wr.taskId, workingResources: wr3 });
+      const decision = evaluateConstraints({
+        action: "wake_start",
+        projection,
+        touchedResources: wr3.length > 0
+          ? wr3.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+          : undefined,
+      });
       if (!decision.permitted) return null;
     } catch { /* projection unavailable — allow wake */ }
   }

@@ -33,9 +33,9 @@ export const syncStatusRouter = t.router({
    * Sections:
    *   1. sessions    — active sessions with relationship mode & role info
    *   2. agents      — each agent's task, status, blocked state, claims
-   *   3. fileOwnership — active claims, conflicts, exclusive/shared breakdown
-   *   4. blockers    — every pending gate, transaction, handoff, review
-   *   5. patches     — patch proposals awaiting action
+   *   3. resourceOwnership — active claims, conflicts, exclusive/shared breakdown
+   *   4. blockers    — every pending gate, transaction, handoff, review, operation
+   *   5. operations  — operations awaiting action
    *   6. wakeQueue   — wake requests with semantic origin
    */
   snapshot: publicProcedure

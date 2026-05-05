@@ -2,53 +2,57 @@
  * Unit tests for Resource — generic resource claim and conflict detection.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   ResourceClaimStatus,
   ResourceClaimMode,
   resourceLocatorsOverlap,
   detectResourceClaimConflicts,
-  filePathsToResourceRefs,
-  resourceRefsToFilePaths,
+  registerResourceMatcher,
+  clearResourceMatcherRegistry,
 } from "./resource.js";
 import type { ResourceRef, ResourceClaim } from "./resource.js";
 
-// ── resourceLocatorsOverlap ────────────────────────
+// ── resourceLocatorsOverlap (matcher dispatch) ─────
 
 describe("resourceLocatorsOverlap", () => {
-  it("file type: exact match", () => {
-    const a: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
-    const b: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
+  beforeEach(() => clearResourceMatcherRegistry());
+
+  it("no matcher: exact locator match → overlap", () => {
+    const a: ResourceRef = { type: "test", locator: "src/auth.ts", metadata: "" };
+    const b: ResourceRef = { type: "test", locator: "src/auth.ts", metadata: "" };
     expect(resourceLocatorsOverlap(a, b)).toBe(true);
   });
 
-  it("file type: glob overlap", () => {
-    const a: ResourceRef = { type: "file", locator: "src/*", metadata: "" };
-    const b: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
-    expect(resourceLocatorsOverlap(a, b)).toBe(true);
-  });
-
-  it("file type: no overlap", () => {
-    const a: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
-    const b: ResourceRef = { type: "file", locator: "lib/utils.ts", metadata: "" };
+  it("no matcher: different locators → no overlap", () => {
+    const a: ResourceRef = { type: "test", locator: "src/auth.ts", metadata: "" };
+    const b: ResourceRef = { type: "test", locator: "src/api.ts", metadata: "" };
     expect(resourceLocatorsOverlap(a, b)).toBe(false);
   });
 
   it("different types never overlap", () => {
-    const a: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
-    const b: ResourceRef = { type: "image", locator: "src/auth.ts", metadata: "" };
+    const a: ResourceRef = { type: "typeA", locator: "same", metadata: "" };
+    const b: ResourceRef = { type: "typeB", locator: "same", metadata: "" };
     expect(resourceLocatorsOverlap(a, b)).toBe(false);
   });
 
-  it("non-file type: exact match", () => {
-    const a: ResourceRef = { type: "image", locator: "assets/logo.png", metadata: "" };
-    const b: ResourceRef = { type: "image", locator: "assets/logo.png", metadata: "" };
+  it("registered matcher is used for overlap", () => {
+    registerResourceMatcher({
+      type: "custom",
+      locatorsOverlap: (a, b) => a.startsWith(b) || b.startsWith(a),
+    });
+    const a: ResourceRef = { type: "custom", locator: "src/", metadata: "" };
+    const b: ResourceRef = { type: "custom", locator: "src/auth.ts", metadata: "" };
     expect(resourceLocatorsOverlap(a, b)).toBe(true);
   });
 
-  it("non-file type: no overlap (different locators)", () => {
-    const a: ResourceRef = { type: "image", locator: "assets/logo.png", metadata: "" };
-    const b: ResourceRef = { type: "image", locator: "assets/icon.png", metadata: "" };
+  it("matcher not called for unregistered type (falls back to exact)", () => {
+    registerResourceMatcher({
+      type: "custom",
+      locatorsOverlap: () => true,
+    });
+    const a: ResourceRef = { type: "other", locator: "a", metadata: "" };
+    const b: ResourceRef = { type: "other", locator: "b", metadata: "" };
     expect(resourceLocatorsOverlap(a, b)).toBe(false);
   });
 });
@@ -178,32 +182,5 @@ describe("detectResourceClaimConflicts", () => {
       }),
     ];
     expect(detectResourceClaimConflicts(claims)).toHaveLength(0);
-  });
-});
-
-// ── filePathsToResourceRefs / resourceRefsToFilePaths ─
-
-describe("filePathsToResourceRefs", () => {
-  it("converts comma-separated paths to ResourceRef[]", () => {
-    const refs = filePathsToResourceRefs("src/auth.ts, src/api.ts");
-    expect(refs).toHaveLength(2);
-    expect(refs[0]).toEqual({ type: "file", locator: "src/auth.ts", metadata: "" });
-    expect(refs[1]).toEqual({ type: "file", locator: "src/api.ts", metadata: "" });
-  });
-
-  it("filters empty segments", () => {
-    const refs = filePathsToResourceRefs("a.ts,,b.ts");
-    expect(refs).toHaveLength(2);
-  });
-});
-
-describe("resourceRefsToFilePaths", () => {
-  it("converts file refs back to comma-separated paths", () => {
-    const refs: ResourceRef[] = [
-      { type: "file", locator: "src/auth.ts", metadata: "" },
-      { type: "image", locator: "logo.png", metadata: "" },
-      { type: "file", locator: "src/api.ts", metadata: "" },
-    ];
-    expect(resourceRefsToFilePaths(refs)).toBe("src/auth.ts, src/api.ts");
   });
 });

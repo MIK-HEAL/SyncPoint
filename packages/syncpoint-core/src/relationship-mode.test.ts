@@ -56,7 +56,7 @@ describe("MODE_SYNC_RULES", () => {
   it("manager-delegate does not require sync gate or file claim", () => {
     const rules = MODE_SYNC_RULES[RelationshipMode.MANAGER_DELEGATE];
     expect(rules.requiresSyncGate).toBe(false);
-    expect(rules.requiresFileClaim).toBe(false);
+    expect(rules.requiresResourceClaim).toBe(false);
     expect(rules.requiresReview).toBe(true);
     expect(rules.allowsParallelWork).toBe(false);
   });
@@ -64,7 +64,7 @@ describe("MODE_SYNC_RULES", () => {
   it("peer-contract requires sync gate and file claim", () => {
     const rules = MODE_SYNC_RULES[RelationshipMode.PEER_CONTRACT];
     expect(rules.requiresSyncGate).toBe(true);
-    expect(rules.requiresFileClaim).toBe(true);
+    expect(rules.requiresResourceClaim).toBe(true);
     expect(rules.allowsParallelWork).toBe(true);
   });
 
@@ -109,7 +109,7 @@ describe("getSyncRules", () => {
     for (const mode of Object.values(RelationshipMode)) {
       const rules = getSyncRules(mode);
       expect(rules).toHaveProperty("requiresSyncGate");
-      expect(rules).toHaveProperty("requiresFileClaim");
+      expect(rules).toHaveProperty("requiresResourceClaim");
       expect(rules).toHaveProperty("requiresCheckpoint");
       expect(rules).toHaveProperty("requiresReview");
       expect(rules).toHaveProperty("allowsParallelWork");
@@ -134,9 +134,9 @@ describe("getModeDescription", () => {
 });
 
 describe("FORBIDDEN_ACTIONS", () => {
-  it("manager-delegate forbids claim-files, sync-checkpoint, handoff, capsule", () => {
+  it("manager-delegate forbids claim-resources, sync-checkpoint, handoff, capsule", () => {
     const f = FORBIDDEN_ACTIONS[RelationshipMode.MANAGER_DELEGATE];
-    expect(f).toContain("claim-files");
+    expect(f).toContain("claim-resources");
     expect(f).toContain("sync-checkpoint");
     expect(f).toContain("handoff");
     expect(f).toContain("capsule");
@@ -146,12 +146,12 @@ describe("FORBIDDEN_ACTIONS", () => {
     const f = FORBIDDEN_ACTIONS[RelationshipMode.PEER_CONTRACT];
     expect(f).toContain("handoff");
     expect(f).toContain("capsule");
-    expect(f).not.toContain("claim-files");
+    expect(f).not.toContain("claim-resources");
   });
 
-  it("handoff-resume forbids claim-files, sync-checkpoint, start-review, request-review", () => {
+  it("handoff-resume forbids claim-resources, sync-checkpoint, start-review, request-review", () => {
     const f = FORBIDDEN_ACTIONS[RelationshipMode.HANDOFF_RESUME];
-    expect(f).toContain("claim-files");
+    expect(f).toContain("claim-resources");
     expect(f).toContain("sync-checkpoint");
     expect(f).toContain("start-review");
     expect(f).toContain("request-review");
@@ -163,8 +163,8 @@ describe("isModeActionAllowed", () => {
     expect(isModeActionAllowed(RelationshipMode.MANAGER_DELEGATE, "checkpoint")).toBe("recommended");
   });
 
-  it("manager-delegate: claim-files is blocked", () => {
-    expect(isModeActionAllowed(RelationshipMode.MANAGER_DELEGATE, "claim-files")).toBe("blocked");
+  it("manager-delegate: claim-resources is blocked", () => {
+    expect(isModeActionAllowed(RelationshipMode.MANAGER_DELEGATE, "claim-resources")).toBe("blocked");
   });
 
   it("manager-delegate: accept is allowed (neither recommended nor blocked)", () => {
@@ -183,8 +183,8 @@ describe("isModeActionAllowed", () => {
     expect(isModeActionAllowed(RelationshipMode.HANDOFF_RESUME, "handoff")).toBe("recommended");
   });
 
-  it("handoff-resume: claim-files is blocked", () => {
-    expect(isModeActionAllowed(RelationshipMode.HANDOFF_RESUME, "claim-files")).toBe("blocked");
+  it("handoff-resume: claim-resources is blocked", () => {
+    expect(isModeActionAllowed(RelationshipMode.HANDOFF_RESUME, "claim-resources")).toBe("blocked");
   });
 
   it("handoff-resume: start-review is blocked", () => {
@@ -197,10 +197,10 @@ describe("getRequiredBeforeStart", () => {
     expect(getRequiredBeforeStart(RelationshipMode.MANAGER_DELEGATE)).toEqual(["accept"]);
   });
 
-  it("peer-contract requires accept and claim-files", () => {
+  it("peer-contract requires accept and claim-resources", () => {
     const req = getRequiredBeforeStart(RelationshipMode.PEER_CONTRACT);
     expect(req).toContain("accept");
-    expect(req).toContain("claim-files");
+    expect(req).toContain("claim-resources");
   });
 
   it("handoff-resume requires accept", () => {

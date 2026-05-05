@@ -54,7 +54,7 @@ describe("SyncGate full lifecycle", () => {
       taskId: task1Id,
       requestedByAgentId: agent1Id,
       requiredAgentIds: [agent2Id, agent3Id],
-      reason: "file_conflict",
+      reason: "resource_conflict",
       description: "Both agents claim src/auth.ts",
       relatedFiles: "src/auth.ts",
     });
@@ -260,7 +260,7 @@ describe("SyncGate hard gate enforcement", () => {
       taskId: task2Id,
       requestedByAgentId: agent1Id,
       requiredAgentIds: [agent2Id],
-      reason: "file_conflict",
+      reason: "resource_conflict",
       description: "Hard gate test",
     });
     gateId = r.gate.id;

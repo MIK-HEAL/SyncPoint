@@ -23,7 +23,7 @@ import type {
 import { ContractStatus, SyncTransactionStatus } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
-import { fcDetectConflicts } from "./file-claim-service.js";
+import { rcDetectConflicts } from "./resource-claim-service.js";
 import { wakeList } from "./wake-engine-service.js";
 
 // ══════════════════════════════════════════════════════
@@ -68,26 +68,27 @@ export function assembleProtocolGate(
     }
   }
 
-  // 3. File claims for this agent
-  const claims = repo.listActiveFileClaims(sessionId);
-  const agentClaims = claims.filter((c: any) => c.agentId === agentId);
+  // 3. Resource claims for this agent
+  const claims = repo.listActiveResourceClaims(sessionId ? { sessionId } : undefined);
+  const agentClaims = claims.filter((c: any) => c.actorId === agentId);
   for (const c of agentClaims) {
+    const locators = c.resources?.map((r: any) => `${r.type}:${r.locator}`).join(", ") ?? "";
     rules.push({
-      source: "file-claim",
+      source: "resource-claim",
       severity: "info",
-      summary: `Claimed: ${c.paths} (${c.mode ?? "exclusive"})`,
+      summary: `Claimed: ${locators} (${c.mode ?? "exclusive"})`,
       entityId: c.id,
     });
   }
 
-  // 4. File conflicts
-  const conflicts = fcDetectConflicts(sessionId);
-  const agentConflicts = conflicts.filter((c: any) => c.claimA.agentId === agentId || c.claimB.agentId === agentId);
+  // 4. Resource conflicts
+  const conflicts = rcDetectConflicts(sessionId ? { sessionId } : undefined);
+  const agentConflicts = conflicts.filter((c: any) => c.claimA.actorId === agentId || c.claimB.actorId === agentId);
   for (const c of agentConflicts) {
     rules.push({
-      source: "file-claim",
+      source: "resource-claim",
       severity: c.isHardConflict ? "hard" : "soft",
-      summary: `Conflict on ${c.overlappingPath}: ${c.claimA.agentId} vs ${c.claimB.agentId}`,
+      summary: `Conflict on ${c.overlappingLocator}: ${c.claimA.actorId} vs ${c.claimB.actorId}`,
     });
   }
 
@@ -163,7 +164,7 @@ export function assembleProtocolGate(
     counts: {
       pinnedRules: pinned.length,
       contractConstraints: rules.filter(r => r.source === "peer-contract").length,
-      fileClaims: agentClaims.length,
+      resourceClaims: agentClaims.length,
       activeGates: gateCheck.blockingGates.length,
       activeTransactions: rules.filter(r => r.source === "sync-transaction").length,
       pendingReviews: rules.filter(r => r.source === "review").length,
@@ -344,7 +345,7 @@ export function formatProtocolGatePrompt(gate: ProtocolGateSummary): string {
   const labels: Record<string, string> = {
     "pinned-memory": "Pinned Rules",
     "peer-contract": "Contract Constraints",
-    "file-claim": "File Ownership",
+    "resource-claim": "Resource Ownership",
     "sync-gate": "Sync Gates (BLOCKING)",
     "sync-transaction": "Sync Transactions",
     "review": "Pending Reviews",
@@ -404,7 +405,7 @@ export function formatCapsuleReality(capsule: ContextCapsule | null): string {
   if (capsule.unverifiedClaims) lines.push(`**Unverified claims**: ${capsule.unverifiedClaims}`);
   if (capsule.confirmedDecisions) lines.push(`**Decisions**: ${capsule.confirmedDecisions}`);
   if (capsule.activeConstraints) lines.push(`**Active constraints**: ${capsule.activeConstraints}`);
-  if (capsule.workingFiles) lines.push(`**Working files**: ${capsule.workingFiles}`);
+  if (capsule.workingResources) lines.push(`**Working resources**: ${capsule.workingResources}`);
   if (capsule.completedWork) lines.push(`**Done**: ${capsule.completedWork}`);
   if (capsule.remainingWork) lines.push(`**Remaining**: ${capsule.remainingWork}`);
   if (capsule.nextSteps) lines.push(`**Next steps**: ${capsule.nextSteps}`);

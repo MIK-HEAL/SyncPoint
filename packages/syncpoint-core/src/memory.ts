@@ -84,7 +84,7 @@ export const ResumeContextSchema = z.object({
     goal: z.string(),
     currentPhase: z.string(),
     confirmedDecisions: z.string(),
-    workingFiles: z.string(),
+    workingResources: z.string(),
     completedWork: z.string(),
     remainingWork: z.string(),
     risks: z.string(),

@@ -1,21 +1,37 @@
 /**
  * P3A — Pure unit tests for Projection Compiler.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   compileProjection,
   computeProjectionCacheKey,
   computeContentHash,
   resolveProjectionRoute,
+  registerScopeMatcher,
+  clearScopeMatcherRegistry,
   type ProjectionInput,
   type ProjectionContext,
 } from "./projection.ts";
+
+// Register prefix/glob scope matchers so appliesTo filtering works like a real plugin
+beforeEach(() => {
+  clearScopeMatcherRegistry();
+  const prefixFindOverlaps = (patterns: string[], targets: string[]): string[] =>
+    targets.filter(t =>
+      patterns.some(p => {
+        const prefix = p.replace(/\*\*?\/?$/, "");
+        return t === p || t.startsWith(prefix);
+      }),
+    );
+  registerScopeMatcher({ field: "files", findOverlaps: prefixFindOverlaps });
+  registerScopeMatcher({ field: "modules", findOverlaps: prefixFindOverlaps });
+});
 
 function makeCtx(overrides?: Partial<ProjectionContext>): ProjectionContext {
   return {
     taskId: "task-1",
     memoryVersion: 1,
-    workingFiles: [],
+    workingResources: [],
     currentModules: [],
     ...overrides,
   };
@@ -123,19 +139,19 @@ describe("compileProjection — validity gating", () => {
 describe("compileProjection — appliesTo filtering", () => {
   it("includes memory with no appliesTo (project-wide)", () => {
     const mem = makeMem({ appliesTo: "" });
-    const r = compileProjection([mem], makeCtx({ workingFiles: ["src/foo.ts"] }));
+    const r = compileProjection([mem], makeCtx({ workingResources: ["src/foo.ts"] }));
     expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
   });
 
   it("includes memory whose file scope matches working files", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/**"] }) });
-    const r = compileProjection([mem], makeCtx({ workingFiles: ["src/main.ts"] }));
+    const r = compileProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
     expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
   });
 
   it("excludes memory whose file scope does NOT match working files", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["test/**"] }) });
-    const r = compileProjection([mem], makeCtx({ workingFiles: ["src/main.ts"] }));
+    const r = compileProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
     expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
   });
 
@@ -153,7 +169,7 @@ describe("compileProjection — appliesTo filtering", () => {
 });
 
 describe("compileProjection — conflict detection", () => {
-  it("detects file_scope_collision between two constraint rules", () => {
+  it("detects scope_collision between two constraint rules", () => {
     const a = makeMem({
       kind: "hard_constraint",
       id: "c1",
@@ -164,10 +180,10 @@ describe("compileProjection — conflict detection", () => {
       id: "c2",
       appliesTo: JSON.stringify({ files: ["src/db.ts"] }),
     });
-    const r = compileProjection([a, b], makeCtx({ workingFiles: ["src/db.ts"] }));
+    const r = compileProjection([a, b], makeCtx({ workingResources: ["src/db.ts"] }));
     expect(r.constraintRules).toHaveLength(2);
     expect(r.conflicts).toHaveLength(1);
-    expect(r.conflicts[0].kind).toBe("file_scope_collision");
+    expect(r.conflicts[0].kind).toBe("scope_collision");
   });
 
   it("no conflict when scopes don't overlap", () => {
@@ -181,7 +197,7 @@ describe("compileProjection — conflict detection", () => {
       id: "c4",
       appliesTo: JSON.stringify({ files: ["src/b.ts"] }),
     });
-    const r = compileProjection([a, b], makeCtx({ workingFiles: ["src/a.ts", "src/b.ts"] }));
+    const r = compileProjection([a, b], makeCtx({ workingResources: ["src/a.ts", "src/b.ts"] }));
     expect(r.conflicts).toHaveLength(0);
   });
 
@@ -196,7 +212,7 @@ describe("compileProjection — conflict detection", () => {
       id: "p2",
       appliesTo: JSON.stringify({ files: ["src/**"] }),
     });
-    const r = compileProjection([a, b], makeCtx({ workingFiles: ["src/x.ts"] }));
+    const r = compileProjection([a, b], makeCtx({ workingResources: ["src/x.ts"] }));
     expect(r.conflicts.length).toBeGreaterThan(0);
     expect(r.projectionValidity).toBe("needs_revalidation");
   });
@@ -296,7 +312,7 @@ describe("compileProjection — mixed scenario", () => {
       makeMem({ id: "m6", kind: "fact", title: "Stale fact", content: "Outdated", validityStatus: "stale" }),
       makeMem({ id: "m7", kind: "soft_convention", title: "UI only", content: "UI convention", validityStatus: "fresh", appliesTo: JSON.stringify({ modules: ["ui"] }) }),
     ];
-    const ctx = makeCtx({ workingFiles: ["src/main.ts"], currentModules: ["core"] });
+    const ctx = makeCtx({ workingResources: ["src/main.ts"], currentModules: ["core"] });
     const r = compileProjection(memories, ctx);
 
     // m1 → verifiedFacts
@@ -467,8 +483,8 @@ describe("P1: Cache key hash contract hardening", () => {
 
   it("working file changes DO affect cache key", () => {
     const fps = ["fp1"];
-    const k1 = computeProjectionCacheKey(makeCtx({ workingFiles: ["a.ts"] }), fps);
-    const k2 = computeProjectionCacheKey(makeCtx({ workingFiles: ["b.ts"] }), fps);
+    const k1 = computeProjectionCacheKey(makeCtx({ workingResources: ["a.ts"] }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ workingResources: ["b.ts"] }), fps);
     expect(k1).not.toBe(k2);
   });
 

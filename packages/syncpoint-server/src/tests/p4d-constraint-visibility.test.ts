@@ -19,8 +19,8 @@ import * as repo from "../../src/repositories.js";
 import { constraintCheck } from "../application/constraint-runtime-service.js";
 import { loopResume } from "../application/loop-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment } from "../application/orchestration-service.js";
-import { fcClaimFiles } from "../application/file-claim-service.js";
-import { ppPropose, ppCheck } from "../application/patch-proposal-service.js";
+import { rcClaim } from "../application/resource-claim-service.js";
+import { opCreate, opSubmit, opCheck } from "../application/operation-service.js";
 import { pmAdd, pmApprove } from "../application/project-memory-service.js";
 import { buildSnapshot } from "../application/sync-status-service.js";
 import { wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
@@ -61,7 +61,7 @@ beforeAll(() => {
   orchAssignRole({ sessionId, agentId: agent1Id, role: "architect" as any });
   orchAssignRole({ sessionId, agentId: agent2Id, role: "executor" as any });
 
-  // Checkpoint + capsule with workingFiles overlapping protected scope
+  // Checkpoint + capsule with workingResources overlapping protected scope
   const cp = repo.createCheckpoint({
     taskId,
     agentId: agent2Id,
@@ -80,7 +80,7 @@ beforeAll(() => {
     checkpointId: cp.id,
     goal: "test p4d",
     currentPhase: "development",
-    workingFiles: "src/core/index.ts,src/core/utils.ts",
+    workingResources: "src/core/index.ts,src/core/utils.ts",
   } as any);
 
   // Seed: do_not_touch memory protecting src/core
@@ -118,7 +118,7 @@ beforeAll(() => {
     checkpointId: safeCp.id,
     goal: "frontend work",
     currentPhase: "development",
-    workingFiles: "src/ui/app.tsx",
+    workingResources: "src/ui/app.tsx",
   } as any);
 });
 
@@ -132,12 +132,12 @@ afterAll(() => {
 // ── P4D-0/P4D-1: constraintCheck service ─────────────────
 
 describe("P4D: constraintCheck resume", () => {
-  it("returns permitted=false when capsule workingFiles overlap do_not_touch", () => {
+  it("returns permitted=false when capsule workingResources overlap do_not_touch", () => {
     const result = constraintCheck({ action: "resume", taskId, agentId: agent2Id });
     expect(result.permitted).toBe(false);
     expect(result.action).toBe("resume");
     expect(result.blockers.length).toBeGreaterThan(0);
-    expect(result.blockers[0].rule).toBe("do_not_touch_file_overlap");
+    expect(result.blockers[0].rule).toBe("do_not_touch_scope_overlap");
   });
 
   it("blockers include sourceMemoryId, projectionId, evidence", () => {
@@ -163,8 +163,8 @@ describe("P4D: constraintCheck resume", () => {
     expect(result.inputs.taskId).toBe(taskId);
     expect(result.inputs.agentId).toBe(agent2Id);
     expect(result.inputs.source).toBe("capsule");
-    expect(result.inputs.workingFiles).toContain("src/core/index.ts");
-    expect(result.inputs.touchedFiles).toContain("src/core/index.ts");
+    expect(result.inputs.workingResources).toContain("src/core/index.ts");
+    expect(result.inputs.touchedResources).toContain("src/core/index.ts");
   });
 
   it("result is consistent with loopResume constraintWarnings", () => {
@@ -172,18 +172,18 @@ describe("P4D: constraintCheck resume", () => {
     const resumeResult = loopResume({ agentId: agent2Id, taskId });
     // Both should see the same do_not_touch blocker
     expect(checkResult.permitted).toBe(false);
-    expect(resumeResult.constraintWarnings.some(w => w.includes("do_not_touch_file_overlap"))).toBe(true);
+    expect(resumeResult.constraintWarnings.some(w => w.includes("do_not_touch_scope_overlap"))).toBe(true);
   });
 
-  it("explicit touchedFiles override marks source as 'explicit'", () => {
+  it("explicit touchedResources override marks source as 'explicit'", () => {
     const result = constraintCheck({
       action: "resume",
       taskId,
       agentId: agent2Id,
-      touchedFiles: ["src/safe/file.ts"],
+      touchedResources: ["src/safe/file.ts"],
     });
     expect(result.inputs.source).toBe("explicit");
-    expect(result.inputs.touchedFiles).toEqual(["src/safe/file.ts"]);
+    expect(result.inputs.touchedResources).toEqual(["src/safe/file.ts"]);
     // No overlap with do_not_touch → permitted
     expect(result.permitted).toBe(true);
   });
@@ -228,12 +228,12 @@ describe("P4D: constraintCheck start_assignment", () => {
     assignmentId = assignment.id;
     orchAcceptAssignment(assignmentId);
 
-    // Claim files that overlap do_not_touch scope
-    fcClaimFiles({
+    // Claim resources that overlap do_not_touch scope
+    rcClaim({
       sessionId,
-      agentId: agent2Id,
+      actorId: agent2Id,
       taskId: task2.id,
-      paths: "src/core/index.ts",
+      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "" }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -242,42 +242,43 @@ describe("P4D: constraintCheck start_assignment", () => {
   it("returns permitted=false for claims overlapping protected scope", () => {
     const result = constraintCheck({ action: "start_assignment", assignmentId });
     expect(result.permitted).toBe(false);
-    expect(result.inputs.source).toBe("file_claims");
-    expect(result.blockers.some(b => b.rule === "do_not_touch_file_overlap")).toBe(true);
+    expect(result.inputs.source).toBe("resource_claims");
+    expect(result.blockers.some(b => b.rule === "do_not_touch_scope_overlap")).toBe(true);
   });
 });
 
-// ── P4D: patch_submit ───────────────────────────────────
+// ── P4D: operation_submit ─────────────────────────────
 
-describe("P4D: constraintCheck patch_submit", () => {
-  let patchId: string;
+describe("P4D: constraintCheck operation_submit", () => {
+  let operationId: string;
 
   beforeAll(() => {
-    const patch = ppPropose({
-      sessionId,
+    const op = opCreate({
+      type: "code_patch",
+      actorId: agent2Id,
       taskId,
-      agentId: agent2Id,
-      title: "P4D test patch",
-      patchText: "--- a/src/core/index.ts\n+++ b/src/core/index.ts\n@@ -1 +1 @@\n-old\n+new\n",
+      sessionId,
+      title: "P4D test operation",
+      targetResources: [{ type: "file", locator: "src/core/index.ts", metadata: "" }],
     });
-    patchId = patch.id;
+    operationId = op.id;
   });
 
-  it("returns permitted=false for patch touching protected files", () => {
-    const result = constraintCheck({ action: "patch_submit", patchId });
+  it("returns permitted=false for operation touching protected resources", () => {
+    const result = constraintCheck({ action: "operation_submit", operationId });
     expect(result.permitted).toBe(false);
-    expect(result.inputs.source).toBe("patch");
-    expect(result.blockers.some(b => b.rule === "do_not_touch_file_overlap")).toBe(true);
+    expect(result.inputs.source).toBe("operation");
+    expect(result.blockers.some(b => b.rule === "do_not_touch_scope_overlap")).toBe(true);
   });
 
-  it("matches ppCheck violation decision", () => {
-    const checkView = constraintCheck({ action: "patch_submit", patchId });
-    const ppResult = ppCheck(patchId);
+  it("matches opCheck violation decision", () => {
+    const checkView = constraintCheck({ action: "operation_submit", operationId });
+    const opResult = opCheck(operationId);
 
     // Both should detect constraint violations
-    if (ppResult.checkResult?.constraintViolations) {
-      expect(ppResult.checkResult.constraintViolations.length).toBe(checkView.blockers.length);
-      expect(ppResult.checkResult.constraintViolations[0].rule).toBe(checkView.blockers[0].rule);
+    if (opResult.checkResult?.constraintViolations) {
+      expect(opResult.checkResult.constraintViolations.length).toBe(checkView.blockers.length);
+      expect(opResult.checkResult.constraintViolations[0].rule).toBe(checkView.blockers[0].rule);
     }
   });
 });
@@ -308,7 +309,7 @@ describe("P4D: tRPC constraint.check", () => {
     });
     expect(result.permitted).toBe(false);
     expect(result.blockers.length).toBeGreaterThan(0);
-    expect(result.blockers[0].rule).toBe("do_not_touch_file_overlap");
+    expect(result.blockers[0].rule).toBe("do_not_touch_scope_overlap");
     expect(result.projection.projectionId).toBeTruthy();
   });
 
@@ -329,7 +330,7 @@ describe("P4D: tRPC constraint.check", () => {
 describe("P4D: snapshot constraint visibility", () => {
   beforeAll(() => {
     // Create a dedicated task+assignment+capsule visible in the session
-    // with workingFiles overlapping do_not_touch scope
+    // with workingResources overlapping do_not_touch scope
     const snapTask = repo.createTask({ title: "Snapshot constraint task", description: "" });
     const snapAssignment = orchPlanTask({
       sessionId,
@@ -357,7 +358,7 @@ describe("P4D: snapshot constraint visibility", () => {
       checkpointId: snapCp.id,
       goal: "test snap",
       currentPhase: "development",
-      workingFiles: "src/core/router.ts",
+      workingResources: "src/core/router.ts",
     } as any);
   });
 

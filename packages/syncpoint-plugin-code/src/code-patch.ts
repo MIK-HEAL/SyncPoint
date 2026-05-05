@@ -6,9 +6,9 @@
  * previously embedded in syncpoint-core's patch-proposal.ts.
  */
 
-import type { FileClaim } from "syncpoint-core";
-import { FileClaimMode } from "syncpoint-core";
-import { parseClaimPaths, pathsOverlap } from "./file-resource.js";
+import type { ResourceClaim } from "syncpoint-core";
+import { ResourceClaimMode } from "syncpoint-core";
+import { pathsOverlap } from "./file-resource.js";
 
 // ── Check result types ─────────────────────────────
 
@@ -71,33 +71,37 @@ export function isValidPatchFormat(patchText: string): boolean {
 // ── Claim coverage ──────────────────────────────────
 
 /**
- * Check which touched files are NOT covered by the agent's active claims.
+ * Check which touched files are NOT covered by the agent's active resource claims.
  */
 export function findUncoveredFiles(
   touchedFiles: string[],
-  agentClaims: FileClaim[],
+  agentClaims: ResourceClaim[],
 ): string[] {
   const activeClaims = agentClaims.filter(c => c.status === "ACTIVE");
   return touchedFiles.filter(file => {
     return !activeClaims.some(claim => {
-      const claimPaths = parseClaimPaths(claim.paths);
+      const claimPaths = claim.resources
+        .filter(r => r.type === "file")
+        .map(r => r.locator);
       return claimPaths.some(cp => pathsOverlap(cp, file));
     });
   });
 }
 
 /**
- * Find active claims from OTHER agents that conflict with the touched files.
+ * Find active resource claims from OTHER agents that conflict with the touched files.
  */
 export function findConflictingClaims(
   touchedFiles: string[],
   agentId: string,
-  allActiveClaims: FileClaim[],
-): FileClaim[] {
+  allActiveClaims: ResourceClaim[],
+): ResourceClaim[] {
   return allActiveClaims.filter(claim => {
-    if (claim.agentId === agentId) return false;
-    if (claim.mode !== FileClaimMode.EXCLUSIVE) return false;
-    const claimPaths = parseClaimPaths(claim.paths);
+    if (claim.actorId === agentId) return false;
+    if (claim.mode !== ResourceClaimMode.EXCLUSIVE) return false;
+    const claimPaths = claim.resources
+      .filter(r => r.type === "file")
+      .map(r => r.locator);
     return touchedFiles.some(file =>
       claimPaths.some(cp => pathsOverlap(cp, file)),
     );
@@ -113,8 +117,8 @@ export function runCodePatchChecks(opts: {
   patchText: string;
   touchedFiles: string[];
   agentId: string;
-  agentClaims: FileClaim[];
-  allActiveClaims: FileClaim[];
+  agentClaims: ResourceClaim[];
+  allActiveClaims: ResourceClaim[];
 }): CodePatchCheckResult {
   const items: CodePatchCheckItem[] = [];
 

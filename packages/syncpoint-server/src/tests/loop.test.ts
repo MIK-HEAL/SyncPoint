@@ -82,7 +82,7 @@ describe("loop lifecycle — single agent", () => {
       checkpointId: cp.id,
       goal: "Build dashboard UI",
       currentPhase: "implementation",
-      workingFiles: "src/Dashboard.tsx",
+      workingResources: "src/Dashboard.tsx",
       completedWork: "Header component",
       remainingWork: "Navigation, widgets",
       nextSteps: "Add navigation menu",
@@ -203,7 +203,7 @@ describe("loop lifecycle — handoff between agents", () => {
       checkpointId: cp.id,
       goal: "Build dashboard API",
       currentPhase: "implementation",
-      workingFiles: "src/api/widgets.ts",
+      workingResources: "src/api/widgets.ts",
       nextSteps: "Implement GET /widgets",
       resumePrompt: "Implement GET /widgets endpoint returning dashboard data",
     }, "POST") as any;

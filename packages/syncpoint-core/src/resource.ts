@@ -1,9 +1,9 @@
 /**
  * Resource — generic resource reference and claim protocol.
  *
- * Generalizes the concept of "file ownership" to any resource type.
- * FileClaim is the first specialization (type="file"), but the protocol
- * supports image, video, binary, or any future resource type.
+ * Provides pluggable locator overlap detection via ResourceMatcher.
+ * Plugins register matchers for specific resource types (e.g. "file");
+ * unknown types fall back to exact locator equality.
  */
 
 import { z } from "zod";
@@ -72,12 +72,50 @@ export interface ResourceConflict {
   isHardConflict: boolean;
 }
 
+// ── ResourceMatcher ───────────────────────────────
+
+/**
+ * A ResourceMatcher knows how to determine overlap between two
+ * locators of the same resource type.  Plugins register matchers
+ * so that core conflict detection can delegate to type-specific logic.
+ */
+export interface ResourceMatcher {
+  /** The resource type this matcher handles, e.g. "file". */
+  type: string;
+  /** Return true if locators a and b overlap for this resource type. */
+  locatorsOverlap(a: string, b: string): boolean;
+}
+
+const _matchers = new Map<string, ResourceMatcher>();
+
+/**
+ * Register a ResourceMatcher for a given resource type.
+ * Overwrites any previously registered matcher for the same type.
+ */
+export function registerResourceMatcher(m: ResourceMatcher): void {
+  _matchers.set(m.type, m);
+}
+
+/**
+ * Get the registered matcher for a resource type, or undefined.
+ */
+export function getResourceMatcher(type: string): ResourceMatcher | undefined {
+  return _matchers.get(type);
+}
+
+/**
+ * Clear all registered matchers (for testing).
+ */
+export function clearResourceMatcherRegistry(): void {
+  _matchers.clear();
+}
+
 // ── Pure functions ─────────────────────────────────
 
 /**
  * Check if two resource locators overlap.
- * For type="file", applies path/glob overlap semantics.
- * For other types, uses exact match on locator.
+ * Delegates to a registered ResourceMatcher for the type;
+ * falls back to exact locator equality if no matcher is registered.
  */
 export function resourceLocatorsOverlap(
   a: ResourceRef,
@@ -86,36 +124,13 @@ export function resourceLocatorsOverlap(
   // Different resource types never overlap
   if (a.type !== b.type) return false;
 
-  if (a.type === "file") {
-    return fileLocatorsOverlap(a.locator, b.locator);
+  const matcher = _matchers.get(a.type);
+  if (matcher) {
+    return matcher.locatorsOverlap(a.locator, b.locator);
   }
 
   // Default: exact match on locator
   return a.locator === b.locator;
-}
-
-/**
- * File-specific locator overlap (path/glob semantics).
- * Equivalent to the existing pathsOverlap() in file-claim.ts.
- */
-function fileLocatorsOverlap(a: string, b: string): boolean {
-  const na = a.replace(/\/+$/, "");
-  const nb = b.replace(/\/+$/, "");
-
-  if (na === nb) return true;
-
-  if (na.startsWith(nb + "/") || nb.startsWith(na + "/")) return true;
-
-  if (na.endsWith("/*") || na.endsWith("/**")) {
-    const prefix = na.replace(/\/\*+$/, "");
-    if (nb.startsWith(prefix + "/") || nb === prefix) return true;
-  }
-  if (nb.endsWith("/*") || nb.endsWith("/**")) {
-    const prefix = nb.replace(/\/\*+$/, "");
-    if (na.startsWith(prefix + "/") || na === prefix) return true;
-  }
-
-  return false;
 }
 
 /**
@@ -153,29 +168,4 @@ export function detectResourceClaimConflicts(claims: ResourceClaim[]): ResourceC
   }
 
   return conflicts;
-}
-
-// ── Conversion helpers (FileClaim ↔ ResourceClaim) ─
-
-/**
- * Convert comma-separated file paths to ResourceRef[] with type="file".
- * @deprecated Use `filePathsToResourceRefs` from `syncpoint-plugin-code` instead.
- */
-export function filePathsToResourceRefs(paths: string): ResourceRef[] {
-  return paths
-    .split(",")
-    .map(p => p.trim())
-    .filter(p => p.length > 0)
-    .map(p => ({ type: "file", locator: p, metadata: "" }));
-}
-
-/**
- * Convert ResourceRef[] of type="file" back to comma-separated paths.
- * @deprecated Use `resourceRefsToFilePaths` from `syncpoint-plugin-code` instead.
- */
-export function resourceRefsToFilePaths(refs: ResourceRef[]): string {
-  return refs
-    .filter(r => r.type === "file")
-    .map(r => r.locator)
-    .join(", ");
 }

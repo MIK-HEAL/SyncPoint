@@ -296,7 +296,7 @@ describe("Relationship Mode integration", () => {
     expect(sess.session.relationshipMode).toBe("handoff-resume");
   });
 
-  it("peer-contract mode: playbook suggests claim-files for accepted assignment", () => {
+  it("peer-contract mode: playbook suggests claim-resources for accepted assignment", () => {
     const task = repo.createTask({ title: "Peer task", description: "" });
     const sess = orchCreateSession({
       title: "Peer playbook test",
@@ -318,7 +318,7 @@ describe("Relationship Mode integration", () => {
 
     const result = pbGetNextAction({ sessionId: sess.session.id, agentId: executorId });
     const kinds = result.actions.map(a => a.action);
-    expect(kinds).toContain("claim-files");
+    expect(kinds).toContain("claim-resources");
   });
 
   it("handoff-resume mode: playbook suggests handoff for in-progress assignment", () => {
@@ -347,7 +347,7 @@ describe("Relationship Mode integration", () => {
     expect(kinds).not.toContain("sync-checkpoint");
   });
 
-  it("manager-delegate mode: no claim-files or handoff hints", () => {
+  it("manager-delegate mode: no claim-resources or handoff hints", () => {
     const task = repo.createTask({ title: "Delegate task", description: "" });
     const sess = orchCreateSession({
       title: "Delegate playbook test",
@@ -368,7 +368,7 @@ describe("Relationship Mode integration", () => {
 
     const result = pbGetNextAction({ sessionId: sess.session.id, agentId: executorId });
     const kinds = result.actions.map(a => a.action);
-    expect(kinds).not.toContain("claim-files");
+    expect(kinds).not.toContain("claim-resources");
     expect(kinds).not.toContain("handoff");
     expect(kinds).not.toContain("sync-checkpoint");
   });

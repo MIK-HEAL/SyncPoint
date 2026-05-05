@@ -15,7 +15,7 @@ import type { Operation, OperationCheckItem } from "./operation.js";
  * A validator checks an operation against some criteria and returns check items.
  */
 export interface OperationValidator {
-  /** Unique name, e.g. "file_claim_conflict", "code_patch_format" */
+  /** Unique name, e.g. "claim_conflict", "patch_format" */
   name: string;
   /** Operation types this validator applies to (empty = all) */
   operationTypes: string[];

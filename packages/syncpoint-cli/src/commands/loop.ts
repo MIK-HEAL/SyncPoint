@@ -121,7 +121,7 @@ export function registerLoopCommand(program: Command): void {
         .option("--phase <text>", "Current phase", "")
         .option("--completed <text>", "Completed work", "")
         .option("--remaining <text>", "Remaining work", "")
-        .option("--working-files <text>", "Working files", "")
+        .option("--working-resources <text>", "Working resources", "")
         .option("--resume-prompt <text>", "Custom resume prompt for capsule")
         .option("--need-sync", "Flag task as needing sync", false)
         .option("--provider <provider>", "Editor provider override")
@@ -141,7 +141,7 @@ export function registerLoopCommand(program: Command): void {
               phase: opts.phase,
               completed: opts.completed,
               remaining: opts.remaining,
-              workingFiles: opts.workingFiles,
+              workingResources: opts.workingResources,
               resumePrompt: opts.resumePrompt,
               needSync: opts.needSync,
               provider: opts.provider,

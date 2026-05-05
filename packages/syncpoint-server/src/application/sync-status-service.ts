@@ -9,9 +9,9 @@
 import * as repo from "../repositories.js";
 import { sgListActive, sgList } from "./sync-gate-service.js";
 import { isAgentBlocked, evaluateConstraints } from "syncpoint-core";
-import { fcListClaims, fcDetectConflicts } from "./file-claim-service.js";
+import { rcList, rcDetectConflicts } from "./resource-claim-service.js";
 import { stxListActive } from "./sync-transaction-service.js";
-import { ppList } from "./patch-proposal-service.js";
+import { opList } from "./operation-service.js";
 import { buildProjection } from "./projection-service.js";
 
 // ── Shared helpers ──────────────────────────────────────
@@ -53,7 +53,7 @@ export function classifyBlockers(opts: {
   activeTransactions: ReturnType<typeof stxListActive>;
   pendingHandoffs: Array<any>;
   pendingReviews: Array<any>;
-  pendingPatches: Array<any>;
+  pendingOperations: Array<any>;
   agentName: (id: string) => string;
   taskTitle: (id: string) => string;
 }): UnifiedBlocker[] {
@@ -113,21 +113,19 @@ export function classifyBlockers(opts: {
     });
   }
 
-  // Blocking Patches (SUBMITTED = awaiting approval, CONFLICTING = needs fix)
-  const blockingPatches = opts.pendingPatches.filter(p =>
-    p.status === "SUBMITTED" || p.status === "CONFLICTING"
+  // Blocking Operations (SUBMITTED = awaiting approval)
+  const blockingOps = opts.pendingOperations.filter(op =>
+    op.status === "SUBMITTED"
   );
-  for (const p of blockingPatches) {
+  for (const op of blockingOps) {
     blockers.push({
-      type: "patch_proposal",
-      id: p.id,
-      reason: p.status === "SUBMITTED" ? "patch_awaiting_approval" : "patch_conflict",
-      description: `Patch "${p.title}" by ${opts.agentName(p.agentId)}`,
-      requiredAgents: p.status === "SUBMITTED"
-        ? [{ id: "", name: "(approver)" }]
-        : [{ id: p.agentId, name: opts.agentName(p.agentId) }],
-      status: p.status,
-      relatedTaskId: p.taskId,
+      type: "operation",
+      id: op.id,
+      reason: "operation_awaiting_approval",
+      description: `Operation "${op.title}" by ${opts.agentName(op.actorId)}`,
+      requiredAgents: [{ id: "", name: "(approver)" }],
+      status: op.status,
+      relatedTaskId: op.taskId,
     });
   }
 
@@ -147,10 +145,8 @@ export function buildOverview(input?: OverviewInput) {
   const activeSessions = sessions.filter(s =>
     s.status !== "COMPLETED" && s.status !== "CANCELLED"
   );
-  const claims = input?.taskId
-    ? fcListClaims({ taskId: input.taskId })
-    : fcListClaims();
-  const conflicts = fcDetectConflicts(input?.sessionId);
+  const claims = rcList(input?.taskId ? { taskId: input.taskId } : undefined);
+  const conflicts = rcDetectConflicts(input?.sessionId ? { sessionId: input.sessionId } : undefined);
   const scopeFilter = buildScopeFilter(input);
   const gates = sgListActive(scopeFilter);
   const allGates = sgList(scopeFilter);
@@ -165,9 +161,9 @@ export function buildOverview(input?: OverviewInput) {
       provider: a.provider,
       role: a.role,
       blocked: gates.some(g => isAgentBlocked(g, a.id)),
-      claimedFiles: claims
-        .filter(c => c.agentId === a.id && c.status === "ACTIVE")
-        .map(c => c.paths),
+      claimedResources: claims
+        .filter(c => c.actorId === a.id && c.status === "ACTIVE")
+        .map(c => c.resources.map(r => `${r.type}:${r.locator}`).join(",")),
       pendingWakes: wakeRequests.filter(w => w.targetAgentId === a.id).length,
     })),
     activeSessions: activeSessions.map(s => ({
@@ -177,7 +173,12 @@ export function buildOverview(input?: OverviewInput) {
       relationshipMode: (s as any).relationshipMode ?? "manager-delegate",
     })),
     claims: claims.filter(c => c.status === "ACTIVE"),
-    conflicts,
+    conflicts: conflicts.map(c => ({
+      overlappingLocator: c.overlappingLocator,
+      isHardConflict: c.isHardConflict,
+      claimA: c.claimA,
+      claimB: c.claimB,
+    })),
     activeGates: gates.map(g => ({
       id: g.id, taskId: g.taskId, status: g.status,
       reason: g.reason, description: g.description,
@@ -224,15 +225,15 @@ export function buildSnapshot(input?: SnapshotInput) {
   const agents = repo.listAgents();
   const tasks = repo.listTasks();
 
-  // Scoped: claims, conflicts, gates, transactions, patches, wakes
-  const activeClaims = fcListClaims(sessionId ? { sessionId } : undefined)
+  // Scoped: claims, conflicts, gates, transactions, operations, wakes
+  const activeClaims = rcList(sessionId ? { sessionId } : undefined)
     .filter(c => c.status === "ACTIVE");
-  const conflicts = fcDetectConflicts(sessionId);
+  const conflicts = rcDetectConflicts(sessionId ? { sessionId } : undefined);
   const activeGates = sgListActive(scopeFilter);
   const allGates = sgList(scopeFilter);
   const activeTransactions = stxListActive(scopeFilter);
-  const pendingPatches = ppList(sessionId ? { sessionId } : undefined).filter(p =>
-    p.status === "DRAFT" || p.status === "SUBMITTED" || p.status === "CONFLICTING" || p.status === "APPROVED"
+  const pendingOps = opList(sessionId ? { sessionId } : undefined).filter(op =>
+    op.status === "DRAFT" || op.status === "SUBMITTED" || op.status === "APPROVED"
   );
   const wakeRequests = repo.listQueuedWakeRequests(sessionId);
 
@@ -272,7 +273,7 @@ export function buildSnapshot(input?: SnapshotInput) {
     );
     const scopedBlockingGates = activeGates.filter(g => isAgentBlocked(g, a.id));
     const blocked = scopedBlockingGates.length > 0;
-    const agentClaims = activeClaims.filter(c => c.agentId === a.id);
+    const agentClaims = activeClaims.filter(c => c.actorId === a.id);
     const agentWakes = wakeRequests.filter(w => w.targetAgentId === a.id);
 
     // P4D: lightweight constraint visibility per agent
@@ -283,11 +284,17 @@ export function buildSnapshot(input?: SnapshotInput) {
       for (const ta of agentAssignments) {
         try {
           const capsule = repo.getLatestCapsule(ta.taskId, a.id);
-          const wf = capsule?.workingFiles
-            ? capsule.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+          const wr = capsule?.workingResources
+            ? capsule.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
             : [];
-          const proj = buildProjection({ taskId: ta.taskId, workingFiles: wf });
-          const decision = evaluateConstraints({ action: "resume", projection: proj, touchedFiles: wf.length > 0 ? wf : undefined });
+          const proj = buildProjection({ taskId: ta.taskId, workingResources: wr });
+          const decision = evaluateConstraints({
+            action: "resume",
+            projection: proj,
+            touchedResources: wr.length > 0
+              ? wr.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+              : undefined,
+          });
           constraintBlockerCount += decision.blockers.length;
           constraintWarningCount += decision.warnings.length;
           if (!decision.permitted) constraintBlocked = true;
@@ -312,9 +319,9 @@ export function buildSnapshot(input?: SnapshotInput) {
         taskTitle: taskTitle(ta.taskId),
         status: ta.status,
       })),
-      claimedFiles: agentClaims.map(c => ({
+      claimedResources: agentClaims.map(c => ({
         claimId: c.id,
-        paths: c.paths,
+        resources: c.resources,
         mode: c.mode,
         taskId: c.taskId,
       })),
@@ -322,22 +329,22 @@ export function buildSnapshot(input?: SnapshotInput) {
     };
   });
 
-  // ── 3. File Ownership ──
-  const fileSection = {
+  // ── 3. Resource Ownership ──
+  const resourceSection = {
     activeClaims: activeClaims.map(c => ({
       id: c.id,
-      agentId: c.agentId,
-      agentName: agentName(c.agentId),
+      actorId: c.actorId,
+      actorName: agentName(c.actorId),
       taskId: c.taskId,
       taskTitle: taskTitle(c.taskId),
-      paths: c.paths,
+      resources: c.resources,
       mode: c.mode,
     })),
     conflicts: conflicts.map(c => ({
-      overlappingPath: c.overlappingPath,
+      overlappingLocator: c.overlappingLocator,
       isHardConflict: c.isHardConflict,
-      claimA: { id: c.claimA.id, agentId: c.claimA.agentId, agentName: agentName(c.claimA.agentId), mode: c.claimA.mode },
-      claimB: { id: c.claimB.id, agentId: c.claimB.agentId, agentName: agentName(c.claimB.agentId), mode: c.claimB.mode },
+      claimA: { id: c.claimA.id, actorId: c.claimA.actorId, actorName: agentName(c.claimA.actorId), mode: c.claimA.mode },
+      claimB: { id: c.claimB.id, actorId: c.claimB.actorId, actorName: agentName(c.claimB.actorId), mode: c.claimB.mode },
     })),
     stats: {
       totalClaims: activeClaims.length,
@@ -357,24 +364,23 @@ export function buildSnapshot(input?: SnapshotInput) {
     activeTransactions,
     pendingHandoffs,
     pendingReviews,
-    pendingPatches,
+    pendingOperations: pendingOps,
     agentName,
     taskTitle,
   });
 
-  // ── 5. Patch / Review Queue ──
-  const patchSection = pendingPatches.map(p => ({
-    id: p.id,
-    title: p.title,
-    agentId: p.agentId,
-    agentName: agentName(p.agentId),
-    status: p.status,
-    touchedFiles: p.touchedFiles || "",
-    taskId: p.taskId,
-    taskTitle: taskTitle(p.taskId),
-    needsAction: p.status === "SUBMITTED" ? "approve_or_reject"
-      : p.status === "APPROVED" ? "apply"
-      : p.status === "CONFLICTING" ? "fix_and_resubmit"
+  // ── 5. Operation / Review Queue ──
+  const operationSection = pendingOps.map(op => ({
+    id: op.id,
+    title: op.title,
+    actorId: op.actorId,
+    actorName: agentName(op.actorId),
+    status: op.status,
+    targetResources: op.targetResources,
+    taskId: op.taskId,
+    taskTitle: taskTitle(op.taskId),
+    needsAction: op.status === "SUBMITTED" ? "approve_or_reject"
+      : op.status === "APPROVED" ? "apply"
       : "submit",
   }));
 
@@ -401,10 +407,10 @@ export function buildSnapshot(input?: SnapshotInput) {
     timestamp: new Date().toISOString(),
     sessions: sessionSection,
     agents: agentSection,
-    fileOwnership: fileSection,
+    resourceOwnership: resourceSection,
     blockers,
     blockerCount: blockers.length,
-    patches: patchSection,
+    operations: operationSection,
     wakeQueue: wakeSection,
     gateStats,
     summary: {
@@ -413,7 +419,7 @@ export function buildSnapshot(input?: SnapshotInput) {
       blockedAgentCount: agentSection.filter(a => a.blocked).length,
       activeClaimCount: activeClaims.length,
       hardConflictCount: conflicts.filter(c => c.isHardConflict).length,
-      pendingPatchCount: pendingPatches.length,
+      pendingOperationCount: pendingOps.length,
       pendingWakeCount: wakeRequests.length,
       blockerCount: blockers.length,
       constraintBlockedAgents: agentSection.filter(a => a.constraintBlocked).length,

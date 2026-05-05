@@ -18,6 +18,7 @@ import { sgCheckAgent } from "./sync-gate-service.js";
 import { assembleProtocolGate, injectProjectionIntoGate, validateCapsule, formatProtocolGatePrompt, formatCapsuleReality, formatValidationNotes } from "./protocol-gate-service.js";
 import { buildProjection } from "./projection-service.js";
 import type { ProjectedReality } from "syncpoint-core";
+import "./_scope-matchers.js";
 
 // ── Types ────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ export interface LoopCheckpointInput {
   phase?: string;
   completed?: string;
   remaining?: string;
-  workingFiles?: string;
+  workingResources?: string;
   resumePrompt?: string;
   needSync?: boolean;
   provider?: string;
@@ -211,22 +212,22 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   }
 
   // 0b. P3B — Build projection and inject into gate
-  //     workingFiles come from latest capsule if available
+  //     workingResources come from latest capsule if available
   const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
-  const capsuleWorkingFiles = latestCapsule?.workingFiles
-    ? latestCapsule.workingFiles.split(",").map((f: string) => f.trim()).filter(Boolean)
+  const capsuleWorkingResources = latestCapsule?.workingResources
+    ? latestCapsule.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
     : [];
   const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
   const contract = repo.getContractForTask(task.id);
   const projection: ProjectedReality = buildProjection({
     taskId: task.id,
-    workingFiles: capsuleWorkingFiles,
+    workingResources: capsuleWorkingResources,
     currentModules: [],
     capsuleId: latestCapsule?.id,
     checkpointId: latestCheckpoint?.id,
     contractId: contract?.id,
     capsuleHash: latestCapsule
-      ? computeContentHash(latestCapsule.goal, latestCapsule.workingFiles, latestCapsule.completedWork, latestCapsule.remainingWork)
+      ? computeContentHash(latestCapsule.goal, latestCapsule.workingResources, latestCapsule.completedWork, latestCapsule.remainingWork)
       : undefined,
     checkpointHash: latestCheckpoint
       ? computeContentHash(latestCheckpoint.summary, latestCheckpoint.progress)
@@ -250,7 +251,9 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   const constraintDecision = evaluateConstraints({
     action: "resume",
     projection,
-    touchedFiles: capsuleWorkingFiles.length > 0 ? capsuleWorkingFiles : undefined,
+    touchedResources: capsuleWorkingResources.length > 0
+      ? capsuleWorkingResources.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+      : undefined,
   });
   const constraintWarnings = [
     ...constraintDecision.blockers.map(b => `[BLOCKED] ${b.rule}: ${b.message}`),
@@ -448,7 +451,7 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
     currentPhase: input.phase || (latestCapsule?.currentPhase ?? ""),
     confirmedDecisions: latestCapsule?.confirmedDecisions ?? "",
     interfaceContract: latestCapsule?.interfaceContract ?? "",
-    workingFiles: input.workingFiles || (latestCapsule?.workingFiles ?? ""),
+    workingResources: input.workingResources || (latestCapsule?.workingResources ?? ""),
     completedWork: input.completed || "",
     remainingWork: input.remaining || "",
     risks: input.risks ?? "",
@@ -509,7 +512,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
     currentPhase: "handoff",
     confirmedDecisions: latestCapsule?.confirmedDecisions ?? "",
     interfaceContract: latestCapsule?.interfaceContract ?? "",
-    workingFiles: latestCapsule?.workingFiles ?? "",
+    workingResources: latestCapsule?.workingResources ?? "",
     completedWork: latestCapsule?.completedWork ?? "",
     remainingWork: latestCapsule?.remainingWork ?? "",
     risks: latestCapsule?.risks ?? "",
@@ -541,7 +544,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   // P2: build projected reality for handoff receiver
   const receiverProjection = buildProjection({
     taskId: task.id,
-    workingFiles: ctx.latestCapsule?.workingFiles?.split(",").map(f => f.trim()).filter(Boolean) ?? [],
+    workingResources: ctx.latestCapsule?.workingResources?.split(",").map(f => f.trim()).filter(Boolean) ?? [],
   });
 
   // P2: inject projected reality into handoff context prompt

@@ -18,7 +18,8 @@ import {
   orchAdvanceSession,
   orchRequestReview,
 } from "../application/orchestration-service.js";
-import { fcClaimFiles } from "../application/file-claim-service.js";
+import { rcClaim } from "../application/resource-claim-service.js";
+import { opCreate, opSubmit } from "../application/operation-service.js";
 import { sgRequest } from "../application/sync-gate-service.js";
 import { appRouter } from "../../src/router.js";
 
@@ -70,9 +71,9 @@ describe("syncStatus.snapshot", () => {
     expect(snap.summary).toBeTruthy();
     expect(snap.sessions).toBeInstanceOf(Array);
     expect(snap.agents).toBeInstanceOf(Array);
-    expect(snap.fileOwnership).toBeTruthy();
+    expect(snap.resourceOwnership).toBeTruthy();
     expect(snap.blockers).toBeInstanceOf(Array);
-    expect(snap.patches).toBeInstanceOf(Array);
+    expect(snap.operations).toBeInstanceOf(Array);
     expect(snap.wakeQueue).toBeInstanceOf(Array);
     expect(snap.gateStats).toBeTruthy();
   });
@@ -93,18 +94,20 @@ describe("syncStatus.snapshot", () => {
     expect(exec!.activeAssignments[0].taskTitle).toBe("Snapshot feature");
   });
 
-  it("file claims appear in fileOwnership", async () => {
-    fcClaimFiles({
-      agentId: execId,
+  it("resource claims appear in resourceOwnership", async () => {
+    rcClaim({
+      actorId: execId,
       taskId,
       sessionId,
-      paths: "src/snapshot.ts",
+      resources: [{ type: "file", locator: "src/snapshot.ts", metadata: "" }],
     });
     const snap = await caller.syncStatus.snapshot();
-    expect(snap.fileOwnership.activeClaims.length).toBeGreaterThanOrEqual(1);
-    const claim = snap.fileOwnership.activeClaims.find((c: any) => c.paths === "src/snapshot.ts");
+    expect(snap.resourceOwnership.activeClaims.length).toBeGreaterThanOrEqual(1);
+    const claim = snap.resourceOwnership.activeClaims.find((c: any) =>
+      c.resources?.some((r: any) => r.locator === "src/snapshot.ts")
+    );
     expect(claim).toBeTruthy();
-    expect(claim!.agentName).toBe("exec-p9");
+    expect(claim!.actorName).toBe("exec-p9");
   });
 
   it("sync gate appears in blockers", async () => {
@@ -155,7 +158,7 @@ describe("syncStatus.snapshot sessionId scoping", () => {
     orchAdvanceSession(otherSessionId);
 
     // Claim in session 2
-    fcClaimFiles({ agentId: otherExecId, taskId: otherTaskId, sessionId: otherSessionId, paths: "src/other.ts" });
+    rcClaim({ actorId: otherExecId, taskId: otherTaskId, sessionId: otherSessionId, resources: [{ type: "file", locator: "src/other.ts", metadata: "" }] });
     // Gate in session 2
     sgRequest({
       taskId: otherTaskId, sessionId: otherSessionId, reason: "manual_sync",
@@ -172,7 +175,9 @@ describe("syncStatus.snapshot sessionId scoping", () => {
 
   it("scoped snapshot excludes claims from other sessions", async () => {
     const scoped = await caller.syncStatus.snapshot({ sessionId });
-    const otherClaim = scoped.fileOwnership.activeClaims.find((c: any) => c.paths === "src/other.ts");
+    const otherClaim = scoped.resourceOwnership.activeClaims.find((c: any) =>
+      c.resources?.some((r: any) => r.locator === "src/other.ts")
+    );
     expect(otherClaim).toBeUndefined();
   });
 
@@ -198,29 +203,34 @@ describe("syncStatus.snapshot sessionId scoping", () => {
   it("global snapshot includes both sessions", async () => {
     const global = await caller.syncStatus.snapshot();
     expect(global.sessions.length).toBe(2);
-    expect(global.fileOwnership.activeClaims.some((c: any) => c.paths === "src/other.ts")).toBe(true);
-    expect(global.fileOwnership.activeClaims.some((c: any) => c.paths === "src/snapshot.ts")).toBe(true);
+    expect(global.resourceOwnership.activeClaims.some((c: any) =>
+      c.resources?.some((r: any) => r.locator === "src/other.ts")
+    )).toBe(true);
+    expect(global.resourceOwnership.activeClaims.some((c: any) =>
+      c.resources?.some((r: any) => r.locator === "src/snapshot.ts")
+    )).toBe(true);
   });
 });
 
-// ── Patch as blocker ──
+// ── Operation as blocker ──
 
-describe("syncStatus.snapshot patch blockers", () => {
-  it("SUBMITTED patch appears in blockers", async () => {
-    const { ppPropose, ppSubmit } = await import("../application/patch-proposal-service.js");
-    const pp = ppPropose({
-      sessionId, taskId, agentId: execId,
-      title: "Fix typo", patchText: "--- a/x\n+++ b/x\n",
+describe("syncStatus.snapshot operation blockers", () => {
+  it("SUBMITTED operation appears in blockers", async () => {
+    const op = opCreate({
+      type: "code_patch",
+      actorId: execId,
+      taskId,
+      sessionId,
+      title: "Fix typo",
     });
-    ppSubmit(pp.id);
+    opSubmit(op.id);
 
     const snap = await caller.syncStatus.snapshot();
-    const patchBlocker = snap.blockers.find((b: any) =>
-      b.type === "patch_proposal" && b.id === pp.id
+    const opBlocker = snap.blockers.find((b: any) =>
+      b.type === "operation" && b.id === op.id
     );
-    expect(patchBlocker).toBeTruthy();
-    // ppSubmit auto-checks; may end up SUBMITTED or CONFLICTING depending on claims
-    expect(["patch_awaiting_approval", "patch_conflict"]).toContain(patchBlocker!.reason);
+    expect(opBlocker).toBeTruthy();
+    expect(opBlocker!.reason).toBe("operation_awaiting_approval");
     // Also in blockerCount
     expect(snap.summary.blockerCount).toBeGreaterThanOrEqual(1);
   });

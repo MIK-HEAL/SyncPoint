@@ -38,8 +38,8 @@ import {
   pmAdd,
   pmApprove,
   pmExport,
-  fcClaimFiles,
-  fcReleaseClaim,
+  rcClaim,
+  rcRelease,
   stxCreate,
   stxApprove,
   stxResolve,
@@ -239,11 +239,11 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
   orchAcceptAssignment(assignment.id);
 
   // ── Stage 3: Agent A claims the file (BEFORE starting work — required in peer-contract) ──
-  const claimA = fcClaimFiles({
-    agentId: agentA.id,
+  const claimA = rcClaim({
+    actorId: agentA.id,
     taskId: task.id,
     sessionId: sessionResult.session.id,
-    paths: "src/shared-config.ts",
+    resources: [{ type: "file", locator: "src/shared-config.ts", metadata: "" }],
     mode: "exclusive",
   });
 
@@ -279,11 +279,11 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
   });
   repo.assignTask(taskB.id, agentB.id);
 
-  const claimB = fcClaimFiles({
-    agentId: agentB.id,
+  const claimB = rcClaim({
+    actorId: agentB.id,
     taskId: taskB.id,
     sessionId: sessionResult.session.id,
-    paths: "src/shared-config.ts",
+    resources: [{ type: "file", locator: "src/shared-config.ts", metadata: "" }],
     mode: "exclusive",
   });
 
@@ -333,7 +333,7 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
     try { sgAck(claimB.gateId, agentB.id, "Ready to take over"); } catch {}
     try { sgResolve(claimB.gateId, "File ownership transferred from Agent A to Agent B"); } catch {}
   }
-  fcReleaseClaim(claimA.claim.id);
+  rcRelease(claimA.claim.id);
 
   // ── Show resolved state ──
   const resolvedSnapshot = buildSnapshot({ sessionId: sessionResult.session.id }) as Snapshot;
@@ -519,7 +519,7 @@ export function registerDemoCommands(program: Command): void {
         currentPhase: "review",
         confirmedDecisions: "Use local SQLite state, CLI, MCP, and evidence-backed review.",
         interfaceContract: "Review approval requires checklist + evidence + no open changes.",
-        workingFiles: "packages/syncpoint-cli/src/commands/demo.ts, docs/review-workflow.md",
+        workingResources: "packages/syncpoint-cli/src/commands/demo.ts, docs/review-workflow.md",
         completedWork: "Session, task, contract, memory, checkpoint, capsule, review evidence, and approval gate are created.",
         remainingWork: "Present the generated report.",
         risks: "Demo is local-first and does not claim autonomous model scheduling.",

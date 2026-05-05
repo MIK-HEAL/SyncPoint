@@ -43,7 +43,6 @@ export function validateSyncGateTransition(from: SyncGateStatus, to: SyncGateSta
 // ── Reason ──────────────────────────────────────────
 
 export enum SyncGateReason {
-  FILE_CONFLICT = "file_conflict",
   RESOURCE_CONFLICT = "resource_conflict",
   PHASE_TRANSITION = "phase_transition",
   MANUAL_REQUEST = "manual_request",

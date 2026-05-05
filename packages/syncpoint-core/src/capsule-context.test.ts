@@ -80,7 +80,7 @@ describe("ProtocolGateSummarySchema", () => {
       counts: {
         pinnedRules: 0,
         contractConstraints: 0,
-        fileClaims: 0,
+        resourceClaims: 0,
         activeGates: 0,
         activeTransactions: 0,
         pendingReviews: 0,
@@ -100,7 +100,7 @@ describe("ProtocolGateSummarySchema", () => {
       counts: {
         pinnedRules: 0,
         contractConstraints: 0,
-        fileClaims: 0,
+        resourceClaims: 0,
         activeGates: 0,
         activeTransactions: 0,
         pendingReviews: 0,

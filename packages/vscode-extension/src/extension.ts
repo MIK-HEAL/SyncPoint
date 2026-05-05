@@ -2,8 +2,8 @@
  * SyncPoint VS Code Extension — Editor Sync View (P9).
  *
  * Connects to local SyncPoint server via tRPC SDK.
- * Displays a comprehensive sync map: sessions, agents, file ownership,
- * blockers, patches, and wake queue in a unified tree view.
+ * Displays a comprehensive sync map: sessions, agents, resource ownership,
+ * blockers, operations, and wake queue in a unified tree view.
  */
 
 import * as vscode from "vscode";
@@ -105,7 +105,7 @@ class SyncViewProvider implements vscode.TreeDataProvider<SyncNode> {
         s.blockerCount > 0 ? "warning" : "pass",
         `Sessions: ${s.activeSessionCount} | Agents: ${s.agentCount} | Blocked: ${s.blockedAgentCount}\n` +
         `Claims: ${s.activeClaimCount} | Hard conflicts: ${s.hardConflictCount}\n` +
-        `Patches: ${s.pendingPatchCount} | Wakes: ${s.pendingWakeCount}`
+        `Operations: ${s.pendingOperationCount} | Wakes: ${s.pendingWakeCount}`
       ));
 
       // ── 1. Sessions ──
@@ -134,9 +134,10 @@ class SyncViewProvider implements vscode.TreeDataProvider<SyncNode> {
               ta.status === "IN_PROGRESS" ? "play" : "circle-outline"
             ));
           }
-          if (a.claimedFiles.length) {
-            for (const c of a.claimedFiles) {
-              children.push(item(c.paths, `${c.mode}`, c.mode === "exclusive" ? "lock" : "unlock"));
+          if (a.claimedResources.length) {
+            for (const c of a.claimedResources) {
+              const locs = c.resources.map((r: any) => r.locator).join(", ");
+              children.push(item(locs, `${c.mode}`, c.mode === "exclusive" ? "lock" : "unlock"));
             }
           }
           return item(
@@ -149,30 +150,31 @@ class SyncViewProvider implements vscode.TreeDataProvider<SyncNode> {
         })
       ));
 
-      // ── 3. File Ownership ──
-      const fo = data.fileOwnership;
-      const fileChildren: SyncNode[] = [];
+      // ── 3. Resource Ownership ──
+      const fo = data.resourceOwnership;
+      const resourceChildren: SyncNode[] = [];
       for (const c of fo.activeClaims) {
-        fileChildren.push(item(
-          c.paths,
-          `${c.agentName} \u2022 ${c.mode}`,
+        const locs = c.resources.map((r: any) => r.locator).join(", ");
+        resourceChildren.push(item(
+          locs,
+          `${c.actorName} \u2022 ${c.mode}`,
           c.mode === "exclusive" ? "lock" : "unlock",
           `Task: ${c.taskTitle}`
         ));
       }
       if (fo.conflicts.length) {
-        fileChildren.push(section("Conflicts", "flame",
+        resourceChildren.push(section("Conflicts", "flame",
           fo.conflicts.map((c: any) =>
             item(
-              c.overlappingPath,
-              c.isHardConflict ? "HARD CONFLICT" : "soft overlap",
-              c.isHardConflict ? "error" : "warning",
-              `${c.claimA.agentName} (${c.claimA.mode}) vs ${c.claimB.agentName} (${c.claimB.mode})`
+              c.overlappingLocator,
+              "conflict",
+              "warning",
+              `${c.claimA.actorName} (${c.claimA.mode}) vs ${c.claimB.actorName} (${c.claimB.mode})`
             )
           )
         ));
       }
-      root.push(section("File Ownership", "file-symlink-file", fileChildren,
+      root.push(section("Resource Ownership", "file-symlink-file", resourceChildren,
         `${fo.stats.totalClaims} claims, ${fo.stats.hardConflicts} conflicts`));
 
       // ── 4. Sync Blockers ──
@@ -194,16 +196,16 @@ class SyncViewProvider implements vscode.TreeDataProvider<SyncNode> {
         })
       ));
 
-      // ── 5. Patches ──
-      root.push(section("Patches", "diff",
-        data.patches.map((p: any) =>
+      // ── 5. Operations ──
+      root.push(section("Operations", "diff",
+        data.operations.map((op: any) =>
           item(
-            p.title,
-            `${p.status} \u2022 ${p.needsAction}`,
-            p.status === "APPROVED" ? "pass" :
-            p.status === "CONFLICTING" ? "error" :
-            p.status === "SUBMITTED" ? "eye" : "edit",
-            `By: ${p.agentName}\nFiles: ${p.touchedFiles}\nTask: ${p.taskTitle}`
+            op.title,
+            `${op.status} \u2022 ${op.needsAction}`,
+            op.status === "APPROVED" ? "pass" :
+            op.status === "CONFLICTING" ? "error" :
+            op.status === "SUBMITTED" ? "eye" : "edit",
+            `By: ${op.actorName}\nTask: ${op.taskTitle}`
           )
         )
       ));

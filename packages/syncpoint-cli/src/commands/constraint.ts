@@ -14,7 +14,7 @@ constraintCmd
   .description("Query the Constraint Runtime to check if an action is permitted")
   .addOption(
     new Option("--action <action>", "Action to evaluate")
-      .choices(["resume", "start_assignment", "wake_start", "patch_submit", "patch_apply"])
+      .choices(["resume", "start_assignment", "wake_start", "operation_submit", "operation_apply"])
       .makeOptionMandatory()
   )
   .option("--task <id>", "Task ID")
@@ -22,12 +22,12 @@ constraintCmd
   .option("--session <id>", "Session ID")
   .option("--assignment <id>", "Assignment ID")
   .option("--wake <id>", "Wake request ID")
-  .option("--patch <id>", "Patch proposal ID")
-  .option("--files <paths>", "Comma-separated touched files (debug/preview override)")
+  .option("--operation <id>", "Operation ID")
+  .option("--files <paths>", "Comma-separated touched resources (debug/preview override)")
   .option("--json", "JSON output")
   .action((opts) => {
     try {
-      const touchedFiles = opts.files
+      const touchedResources = opts.files
         ? opts.files.split(",").map((f: string) => f.trim()).filter(Boolean)
         : undefined;
 
@@ -38,8 +38,8 @@ constraintCmd
         sessionId: opts.session,
         assignmentId: opts.assignment,
         wakeRequestId: opts.wake,
-        patchId: opts.patch,
-        touchedFiles,
+        operationId: opts.operation,
+        touchedResources,
       });
 
       if (opts.json) {

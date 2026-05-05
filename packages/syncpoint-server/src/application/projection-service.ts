@@ -20,6 +20,7 @@ import {
   collectProjectMemories,
   getMemoryVersion,
 } from "../repositories.js";
+import "./_scope-matchers.js";
 
 // ── Projection Cache ──────────────────────────────────────
 

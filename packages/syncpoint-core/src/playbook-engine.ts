@@ -40,7 +40,7 @@ export const PlaybookActionKind = z.enum([
   "handoff",
 
   // Mode-specific sync actions
-  "claim-files",
+  "claim-resources",
   "sync-checkpoint",
 
   // Terminal / informational
@@ -179,18 +179,18 @@ export function computeNextActions(snap: SessionSnapshot): NextAction[] {
             targetIds: { assignmentId: a.id, taskId: a.taskId },
           });
         } else if (a.status === TaskAssignmentStatus.ACCEPTED) {
-          // peer-contract: claim files before starting work
+          // peer-contract: claim resources before starting work
           const hasClaims = (snap.activeClaimTaskIds ?? []).includes(a.taskId);
-          if (syncRules.requiresFileClaim && !hasClaims) {
+          if (syncRules.requiresResourceClaim && !hasClaims) {
             actions.push({
-              action: "claim-files",
-              reason: `Mode ${mode}: claim file ownership before starting work on task ${a.taskId}.`,
-              cliHint: `syncpoint file claim --agent ${agentId} --task ${a.taskId} --paths "src/..."`,
-              mcpToolHint: "syncpoint_file_claim",
+              action: "claim-resources",
+              reason: `Mode ${mode}: claim resource ownership before starting work on task ${a.taskId}.`,
+              cliHint: `syncpoint rc claim --agent ${agentId} --task ${a.taskId} --resources "..."`,
+              mcpToolHint: "syncpoint_rc_claim",
               priority: 1,
               targetIds: { assignmentId: a.id, taskId: a.taskId },
             });
-            // claim-files is required before start — don't suggest start-work yet
+            // claim-resources is required before start — don't suggest start-work yet
           } else {
             actions.push({
               action: "start-work",

@@ -30,6 +30,44 @@ export interface ProjectionScope {
   files?: string[];
   modules?: string[];
   taskTypes?: string[];
+  [key: string]: string[] | undefined;
+}
+
+// ── Pluggable Scope Matcher ─────────────────────────────
+
+/**
+ * A ScopeMatcher handles scope matching for a specific scope field
+ * (e.g. "files", "modules"). Plugins register matchers so core never
+ * needs domain-specific matching logic like glob or prefix overlap.
+ */
+export interface ScopeMatcher {
+  /** The scope field name this matcher handles (e.g. "files"). */
+  field: string;
+  /**
+   * Return the subset of `targets` that match any of `patterns`.
+   * An empty result means no overlap.
+   */
+  findOverlaps(patterns: string[], targets: string[]): string[];
+}
+
+const _scopeMatchers = new Map<string, ScopeMatcher>();
+
+export function registerScopeMatcher(m: ScopeMatcher): void {
+  _scopeMatchers.set(m.field, m);
+}
+
+export function getScopeMatcher(field: string): ScopeMatcher | undefined {
+  return _scopeMatchers.get(field);
+}
+
+export function clearScopeMatcherRegistry(): void {
+  _scopeMatchers.clear();
+}
+
+/** Default exact-match overlap: pattern matches target if they're identical. */
+function defaultFindOverlaps(patterns: string[], targets: string[]): string[] {
+  const pSet = new Set(patterns);
+  return targets.filter(t => pSet.has(t));
 }
 
 /** A single projected item in one of the reality buckets. */
@@ -49,7 +87,7 @@ export interface ProjectionItem {
 
 /** A detected conflict between projected items. */
 export interface ProjectionConflict {
-  kind: "contradicting_facts" | "overlapping_constraints" | "file_scope_collision";
+  kind: "contradicting_facts" | "overlapping_constraints" | "scope_collision";
   itemA: ProjectionSource;
   itemB: ProjectionSource;
   description: string;
@@ -111,8 +149,8 @@ export interface ProjectionInput {
 export interface ProjectionContext {
   taskId: string;
   memoryVersion: number;
-  /** Files currently being worked on (for appliesTo matching) */
-  workingFiles?: string[];
+  /** Resource locators currently being worked on (for appliesTo matching) */
+  workingResources?: string[];
   /** Current module context (for appliesTo matching) */
   currentModules?: string[];
   /** Optional IDs for audit trail (createdFrom only, NOT used in cache key) */
@@ -172,7 +210,7 @@ export function computeProjectionLookupKey(
 function lookupKeyParts(ctx: ProjectionContext, memoriesFingerprints: string[]): string[] {
   return [
     `task:${ctx.taskId}`,
-    `wf:${(ctx.workingFiles ?? []).sort().join(",")}`,
+    `wr:${(ctx.workingResources ?? []).sort().join(",")}`,
     `cm:${(ctx.currentModules ?? []).sort().join(",")}`,
     `caph:${ctx.capsuleHash ?? ""}`,
     `cph:${ctx.checkpointHash ?? ""}`,
@@ -187,6 +225,7 @@ interface ParsedAppliesTo {
   files?: string[];
   modules?: string[];
   taskTypes?: string[];
+  [key: string]: string[] | undefined;
 }
 
 function parseAppliesTo(raw: string): ParsedAppliesTo | null {
@@ -199,39 +238,37 @@ function parseAppliesTo(raw: string): ParsedAppliesTo | null {
 }
 
 /**
- * Check if a memory's appliesTo scope is relevant to the current context.
- * If appliesTo is empty/null, the memory is always relevant (project-wide).
+ * Context values for scope matching, keyed by scope field name.
+ * Populated from ProjectionContext.workingResources, currentModules, etc.
  */
+interface ScopeContextMap {
+  files: string[];
+  modules: string[];
+  [key: string]: string[];
+}
+
 function isRelevantToContext(
   appliesTo: ParsedAppliesTo | null,
-  workingFiles: string[],
-  currentModules: string[],
+  scopeContext: ScopeContextMap,
 ): boolean {
   if (!appliesTo) return true; // no scope restriction → always relevant
 
   let hasScope = false;
   let matched = false;
 
-  if (appliesTo.files && appliesTo.files.length > 0) {
+  // Check each scope field via registered matchers (or exact match fallback)
+  for (const [field, patterns] of Object.entries(appliesTo)) {
+    if (!patterns || !Array.isArray(patterns) || patterns.length === 0) continue;
     hasScope = true;
-    // Simple prefix/glob matching: file pattern matches if any working file starts with it
-    // or the pattern ends with /** and the working file is under that path
-    for (const pattern of appliesTo.files) {
-      const prefix = pattern.replace(/\*\*?\/?$/, "");
-      if (workingFiles.some(wf => wf === pattern || wf.startsWith(prefix))) {
-        matched = true;
-        break;
-      }
-    }
-  }
-
-  if (appliesTo.modules && appliesTo.modules.length > 0) {
-    hasScope = true;
-    for (const mod of appliesTo.modules) {
-      if (currentModules.some(cm => cm === mod || cm.startsWith(mod + "/"))) {
-        matched = true;
-        break;
-      }
+    const targets = scopeContext[field] ?? [];
+    if (targets.length === 0) continue;
+    const matcher = _scopeMatchers.get(field);
+    const overlaps = matcher
+      ? matcher.findOverlaps(patterns, targets)
+      : defaultFindOverlaps(patterns, targets);
+    if (overlaps.length > 0) {
+      matched = true;
+      break;
     }
   }
 
@@ -244,7 +281,7 @@ function isRelevantToContext(
 
 /**
  * Detect conflicts between projected items.
- * Simple heuristic: two items in the same bucket with overlapping file scope.
+ * Heuristic: two items in the same bucket with overlapping scope on any field.
  */
 function detectConflicts(items: ProjectionItem[], parsedScopes: Map<string, ParsedAppliesTo | null>): ProjectionConflict[] {
   const conflicts: ProjectionConflict[] = [];
@@ -255,21 +292,26 @@ function detectConflicts(items: ProjectionItem[], parsedScopes: Map<string, Pars
       const b = items[j];
       const scopeA = parsedScopes.get(a.source.sourceMemoryId);
       const scopeB = parsedScopes.get(b.source.sourceMemoryId);
+      if (!scopeA || !scopeB) continue;
 
-      // File scope collision: both have file scopes that overlap
-      if (scopeA?.files?.length && scopeB?.files?.length) {
-        const filesA = new Set(scopeA.files.map(f => f.replace(/\*\*?\/?$/, "")));
-        const overlap = scopeB.files.some(f => {
-          const prefix = f.replace(/\*\*?\/?$/, "");
-          return filesA.has(prefix) || [...filesA].some(a => prefix.startsWith(a) || a.startsWith(prefix));
-        });
-        if (overlap) {
+      // Check every scope field for overlap
+      for (const field of Object.keys(scopeA)) {
+        const patternsA = scopeA[field];
+        const patternsB = scopeB[field];
+        if (!patternsA?.length || !patternsB?.length) continue;
+
+        const matcher = _scopeMatchers.get(field);
+        const overlaps = matcher
+          ? matcher.findOverlaps(patternsA, patternsB)
+          : defaultFindOverlaps(patternsA, patternsB);
+        if (overlaps.length > 0) {
           conflicts.push({
-            kind: "file_scope_collision",
+            kind: "scope_collision",
             itemA: a.source,
             itemB: b.source,
-            description: `File scope overlap between "${a.title}" and "${b.title}"`,
+            description: `Scope overlap (${field}) between "${a.title}" and "${b.title}"`,
           });
+          break; // one collision per pair is enough
         }
       }
     }
@@ -389,8 +431,14 @@ export function compileProjection(
   ctx: ProjectionContext,
 ): ProjectedReality {
   const now = new Date().toISOString();
-  const workingFiles = ctx.workingFiles ?? [];
+  const workingResources = ctx.workingResources ?? [];
   const currentModules = ctx.currentModules ?? [];
+
+  // Build scope context for appliesTo matching
+  const scopeContext: ScopeContextMap = {
+    files: workingResources,
+    modules: currentModules,
+  };
 
   // Buckets
   const verifiedFacts: ProjectionItem[] = [];
@@ -433,7 +481,7 @@ export function compileProjection(
     // Principle 1: Minimal Reality — appliesTo filter
     const parsed = parseAppliesTo(mem.appliesTo);
     parsedScopes.set(mem.id, parsed);
-    if (!isRelevantToContext(parsed, workingFiles, currentModules)) {
+    if (!isRelevantToContext(parsed, scopeContext)) {
       continue; // not relevant to current task context
     }
 

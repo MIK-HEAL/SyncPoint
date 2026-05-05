@@ -77,7 +77,7 @@ describe("P12 Capsule Validation", () => {
     const capsule = repo.createCapsule({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       goal: "Build feature", currentPhase: "implementation",
-      confirmedDecisions: "", interfaceContract: "", workingFiles: "",
+      confirmedDecisions: "", interfaceContract: "", workingResources: "",
       completedWork: "", remainingWork: "rest", risks: "", blockers: "",
       nextSteps: "Continue", resumePrompt: "Keep going",
     });
@@ -104,7 +104,7 @@ describe("P12 Capsule Validation", () => {
     const capsule = repo.createCapsule({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       goal: "Build", currentPhase: "phase", confirmedDecisions: "",
-      interfaceContract: "", workingFiles: "", completedWork: "",
+      interfaceContract: "", workingResources: "", completedWork: "",
       remainingWork: "", risks: "", blockers: "", nextSteps: "",
       resumePrompt: "",
     });
@@ -130,7 +130,7 @@ describe("P12 Capsule Validation", () => {
     const capsule = repo.createCapsule({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       goal: "Build", currentPhase: "phase", confirmedDecisions: "",
-      interfaceContract: "", workingFiles: "", completedWork: "",
+      interfaceContract: "", workingResources: "", completedWork: "",
       remainingWork: "", risks: "", blockers: "Waiting for API spec",
       nextSteps: "", resumePrompt: "",
     });
@@ -156,7 +156,7 @@ describe("P12 Capsule Validation", () => {
     const capsule = repo.createCapsule({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       goal: "Build", currentPhase: "phase", confirmedDecisions: "",
-      interfaceContract: "", workingFiles: "", completedWork: "",
+      interfaceContract: "", workingResources: "", completedWork: "",
       remainingWork: "", risks: "", blockers: "", nextSteps: "",
       resumePrompt: "",
     });
@@ -187,7 +187,7 @@ describe("P12 Extended Capsule Fields", () => {
     const capsule = repo.createCapsule({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       goal: "Refactor auth", currentPhase: "implementation",
-      confirmedDecisions: "", interfaceContract: "", workingFiles: "",
+      confirmedDecisions: "", interfaceContract: "", workingResources: "",
       completedWork: "", remainingWork: "token refresh",
       risks: "", blockers: "", nextSteps: "Implement refresh",
       resumePrompt: "Continue with token refresh",
@@ -227,7 +227,7 @@ describe("P12 Extended Capsule Fields", () => {
     const capsule = repo.createCapsule({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       goal: "Build", currentPhase: "phase", confirmedDecisions: "",
-      interfaceContract: "", workingFiles: "", completedWork: "",
+      interfaceContract: "", workingResources: "", completedWork: "",
       remainingWork: "", risks: "", blockers: "", nextSteps: "",
       resumePrompt: "",
     });
@@ -257,7 +257,7 @@ describe("P12 ResumeContext includes extended capsule fields", () => {
     repo.createCapsule({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       goal: "Build feature", currentPhase: "implementation",
-      confirmedDecisions: "", interfaceContract: "", workingFiles: "",
+      confirmedDecisions: "", interfaceContract: "", workingResources: "",
       completedWork: "", remainingWork: "rest", risks: "", blockers: "",
       nextSteps: "Continue", resumePrompt: "Keep going",
       intentScope: "Feature X only",

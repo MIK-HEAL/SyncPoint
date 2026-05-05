@@ -17,7 +17,7 @@ import type {
 import * as repo from "../repositories.js";
 import { rwAddEvidence, rwEvaluateGate, rwListChangeRequests } from "./review-workflow-service.js";
 import { orchGetSessionStatus } from "./orchestration-service.js";
-import { fcListClaims } from "./file-claim-service.js";
+import { rcList } from "./resource-claim-service.js";
 
 // ── Input / Output Types ────────────────────────────
 
@@ -117,7 +117,7 @@ export function pbGetNextAction(input: NextActionInput): NextActionResult {
     gates,
     openChanges,
     relationshipMode: (status.session as any).relationshipMode ?? undefined,
-    activeClaimTaskIds: fcListClaims({ agentId: input.agentId, status: "ACTIVE" })
+    activeClaimTaskIds: rcList({ actorId: input.agentId, status: "ACTIVE" })
       .map(c => c.taskId)
       .filter((v, i, a) => a.indexOf(v) === i),
   };

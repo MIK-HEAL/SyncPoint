@@ -78,12 +78,3 @@ export {
   CODE_PLUGIN_VALIDATORS,
 } from "./validators.js";
 
-// Compat (FileClaim ↔ ResourceClaim, PatchProposal ↔ Operation)
-export {
-  fileClaimToResourceClaim,
-  resourceConflictToFileConflict,
-  patchProposalToOperation,
-  operationToPatchProposal,
-  patchStatusToOperationStatus,
-  operationStatusToPatchStatus,
-} from "./compat.js";

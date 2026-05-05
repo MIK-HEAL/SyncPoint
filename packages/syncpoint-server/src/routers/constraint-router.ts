@@ -12,8 +12,8 @@ const ConstraintCheckActionSchema = z.enum([
   "resume",
   "start_assignment",
   "wake_start",
-  "patch_submit",
-  "patch_apply",
+  "operation_submit",
+  "operation_apply",
 ]);
 
 export const constraintRouter = t.router({
@@ -30,9 +30,9 @@ export const constraintRouter = t.router({
       sessionId: z.string().optional(),
       assignmentId: z.string().optional(),
       wakeRequestId: z.string().optional(),
-      patchId: z.string().optional(),
+      operationId: z.string().optional(),
       contextMode: z.enum(["capsule-first", "capsule-only", "capsule-locked"]).optional(),
-      touchedFiles: z.array(z.string()).optional(),
+      touchedResources: z.array(z.string()).optional(),
     }))
     .query(({ input }) => constraintCheck(input as any)),
 });

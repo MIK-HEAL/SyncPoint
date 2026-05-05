@@ -117,7 +117,7 @@ export const contextCapsules = sqliteTable("context_capsule", {
   currentPhase: text("current_phase").notNull().default(""),
   confirmedDecisions: text("confirmed_decisions").notNull().default(""),
   interfaceContract: text("interface_contract").notNull().default(""),
-  workingFiles: text("working_files").notNull().default(""),
+  workingResources: text("working_files").notNull().default(""),
   completedWork: text("completed_work").notNull().default(""),
   remainingWork: text("remaining_work").notNull().default(""),
   risks: text("risks").notNull().default(""),

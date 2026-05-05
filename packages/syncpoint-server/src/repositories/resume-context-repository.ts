@@ -149,7 +149,7 @@ function buildResumePrompt(
     if (capsule.goal) lines.push(`**Goal**: ${capsule.goal}`);
     if (capsule.currentPhase) lines.push(`**Phase**: ${capsule.currentPhase}`);
     if (capsule.confirmedDecisions) lines.push(`**Decisions**: ${capsule.confirmedDecisions}`);
-    if (capsule.workingFiles) lines.push(`**Files**: ${capsule.workingFiles}`);
+    if (capsule.workingResources) lines.push(`**Resources**: ${capsule.workingResources}`);
     if (capsule.completedWork) lines.push(`**Done**: ${capsule.completedWork}`);
     if (capsule.remainingWork) lines.push(`**Remaining**: ${capsule.remainingWork}`);
     if (capsule.risks) lines.push(`**Risks**: ${capsule.risks}`);
@@ -249,7 +249,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
       goal: capsule.goal,
       currentPhase: capsule.currentPhase,
       confirmedDecisions: capsule.confirmedDecisions,
-      workingFiles: capsule.workingFiles,
+      workingResources: capsule.workingResources,
       completedWork: capsule.completedWork,
       remainingWork: capsule.remainingWork,
       risks: capsule.risks,

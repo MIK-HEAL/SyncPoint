@@ -83,7 +83,7 @@ export function registerContextCommands(program: Command): void {
         .option("--phase <phase>", "Current phase", "")
         .option("--decisions <json>", "Confirmed decisions (JSON)", "")
         .option("--interface <json>", "Interface contract (JSON)", "")
-        .option("--working-files <json>", "Working files (JSON)", "")
+        .option("--working-resources <json>", "Working resources (JSON)", "")
         .option("--completed <text>", "Completed work", "")
         .option("--remaining <text>", "Remaining work", "")
         .option("--risks <text>", "Risks", "")
@@ -99,7 +99,7 @@ export function registerContextCommands(program: Command): void {
             currentPhase: opts.phase,
             confirmedDecisions: opts.decisions,
             interfaceContract: opts.interface,
-            workingFiles: opts.workingFiles,
+            workingResources: opts.workingResources,
             completedWork: opts.completed,
             remainingWork: opts.remaining,
             risks: opts.risks,

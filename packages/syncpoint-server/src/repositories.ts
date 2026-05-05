@@ -145,13 +145,6 @@ export {
   listActiveResourceClaims,
 } from "./repositories/resource-claim-repository.js";
 
-export {
-  createFileClaim,
-  getFileClaim,
-  releaseFileClaim,
-  listFileClaims,
-  listActiveFileClaims,
-} from "./repositories/file-claim-repository.js";
 
 export {
   createSyncGate,
@@ -162,12 +155,6 @@ export {
   listActiveSyncGates,
 } from "./repositories/sync-gate-repository.js";
 
-export {
-  createPatchProposal,
-  getPatchProposal,
-  updatePatchProposal,
-  listPatchProposals,
-} from "./repositories/patch-proposal-repository.js";
 
 export {
   createOperation,

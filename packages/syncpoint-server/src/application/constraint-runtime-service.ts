@@ -5,7 +5,7 @@
  * Does NOT mutate any state — purely read-only.
  *
  * Three responsibilities:
- *   1. Collect action context (resolve workingFiles / touchedFiles from DB).
+ *   1. Collect action context (resolve workingResources / touchedResources from DB).
  *   2. Build projection via buildProjection().
  *   3. Evaluate constraints via evaluateConstraints() and format output.
  *
@@ -23,6 +23,7 @@ import type {
 } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { buildProjection } from "./projection-service.js";
+import "./_scope-matchers.js";
 
 // ── Types ────────────────────────────────────────────────
 
@@ -30,8 +31,8 @@ export type ConstraintCheckAction =
   | "resume"
   | "start_assignment"
   | "wake_start"
-  | "patch_submit"
-  | "patch_apply";
+  | "operation_submit"
+  | "operation_apply";
 
 export interface ConstraintRuntimeCheckInput {
   action: ConstraintCheckAction;
@@ -40,9 +41,9 @@ export interface ConstraintRuntimeCheckInput {
   sessionId?: string;
   assignmentId?: string;
   wakeRequestId?: string;
-  patchId?: string;
+  operationId?: string;
   contextMode?: ContextMode;
-  touchedFiles?: string[];
+  touchedResources?: string[];
 }
 
 export interface ConstraintViolationView {
@@ -74,9 +75,9 @@ export interface ConstraintRuntimeView {
     taskId?: string;
     agentId?: string;
     sessionId?: string;
-    workingFiles: string[];
-    touchedFiles: string[];
-    source: "capsule" | "file_claims" | "patch" | "explicit";
+    workingResources: string[];
+    touchedResources: string[];
+    source: "capsule" | "resource_claims" | "operation" | "explicit";
   };
   runtimeUnavailable?: {
     message: string;
@@ -106,34 +107,34 @@ interface ResolvedInput {
   taskId: string;
   agentId?: string;
   sessionId?: string;
-  workingFiles: string[];
-  touchedFiles: string[];
-  source: "capsule" | "file_claims" | "patch" | "explicit";
+  workingResources: string[];
+  touchedResources: string[];
+  source: "capsule" | "resource_claims" | "operation" | "explicit";
 }
 
 function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
   if (!input.taskId) throw new Error("taskId required for action 'resume'");
   if (!input.agentId) throw new Error("agentId required for action 'resume'");
 
-  if (input.touchedFiles?.length) {
+  if (input.touchedResources?.length) {
     return {
       taskId: input.taskId,
       agentId: input.agentId,
       sessionId: input.sessionId,
-      workingFiles: input.touchedFiles,
-      touchedFiles: input.touchedFiles,
+      workingResources: input.touchedResources,
+      touchedResources: input.touchedResources,
       source: "explicit",
     };
   }
 
   const latestCapsule = repo.getLatestCapsule(input.taskId, input.agentId);
-  const workingFiles = parseCsvFiles(latestCapsule?.workingFiles);
+  const workingResources = parseCsvFiles(latestCapsule?.workingResources);
   return {
     taskId: input.taskId,
     agentId: input.agentId,
     sessionId: input.sessionId,
-    workingFiles,
-    touchedFiles: workingFiles,
+    workingResources,
+    touchedResources: workingResources,
     source: "capsule",
   };
 }
@@ -143,26 +144,26 @@ function resolveStartAssignmentInput(input: ConstraintRuntimeCheckInput): Resolv
 
   const ta = repo.getTaskAssignment(input.assignmentId);
 
-  if (input.touchedFiles?.length) {
+  if (input.touchedResources?.length) {
     return {
       taskId: ta.taskId,
       agentId: ta.assigneeAgentId,
       sessionId: ta.sessionId,
-      workingFiles: input.touchedFiles,
-      touchedFiles: input.touchedFiles,
+      workingResources: input.touchedResources,
+      touchedResources: input.touchedResources,
       source: "explicit",
     };
   }
 
-  const agentClaims = repo.listFileClaims({ agentId: ta.assigneeAgentId, status: "ACTIVE" });
-  const claimedFiles = agentClaims.flatMap(c => parseCsvFiles(c.paths));
+  const agentClaims = repo.listResourceClaims({ actorId: ta.assigneeAgentId, status: "ACTIVE" });
+  const claimedLocators = agentClaims.flatMap(c => c.resources.map((r: any) => r.locator));
   return {
     taskId: ta.taskId,
     agentId: ta.assigneeAgentId,
     sessionId: ta.sessionId,
-    workingFiles: claimedFiles,
-    touchedFiles: claimedFiles,
-    source: "file_claims",
+    workingResources: claimedLocators,
+    touchedResources: claimedLocators,
+    source: "resource_claims",
   };
 }
 
@@ -184,53 +185,53 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
     sessionId = input.sessionId;
   }
 
-  if (input.touchedFiles?.length) {
+  if (input.touchedResources?.length) {
     return {
       taskId,
       agentId,
       sessionId,
-      workingFiles: input.touchedFiles,
-      touchedFiles: input.touchedFiles,
+      workingResources: input.touchedResources,
+      touchedResources: input.touchedResources,
       source: "explicit",
     };
   }
 
   const latestCapsule = repo.getLatestCapsule(taskId, agentId);
-  const workingFiles = parseCsvFiles(latestCapsule?.workingFiles);
+  const workingResources = parseCsvFiles(latestCapsule?.workingResources);
   return {
     taskId,
     agentId,
     sessionId,
-    workingFiles,
-    touchedFiles: workingFiles,
+    workingResources,
+    touchedResources: workingResources,
     source: "capsule",
   };
 }
 
-function resolvePatchInput(input: ConstraintRuntimeCheckInput, action: "patch_submit" | "patch_apply"): ResolvedInput {
-  if (!input.patchId) throw new Error(`patchId required for action '${action}'`);
+function resolveOperationInput(input: ConstraintRuntimeCheckInput, action: "operation_submit" | "operation_apply"): ResolvedInput {
+  if (!input.operationId) throw new Error(`operationId required for action '${action}'`);
 
-  const proposal = repo.getPatchProposal(input.patchId);
+  const op = repo.getOperation(input.operationId);
 
-  if (input.touchedFiles?.length) {
+  if (input.touchedResources?.length) {
     return {
-      taskId: proposal.taskId,
-      agentId: proposal.agentId,
-      sessionId: proposal.sessionId || undefined,
-      workingFiles: input.touchedFiles,
-      touchedFiles: input.touchedFiles,
+      taskId: op.taskId,
+      agentId: op.actorId,
+      sessionId: op.sessionId || undefined,
+      workingResources: input.touchedResources,
+      touchedResources: input.touchedResources,
       source: "explicit",
     };
   }
 
-  const touchedFiles = parseCsvFiles(proposal.touchedFiles);
+  const targetLocators = (op.targetResources ?? []).map((r: any) => r.locator).filter(Boolean);
   return {
-    taskId: proposal.taskId,
-    agentId: proposal.agentId,
-    sessionId: proposal.sessionId || undefined,
-    workingFiles: touchedFiles,
-    touchedFiles: touchedFiles,
-    source: "patch",
+    taskId: op.taskId,
+    agentId: op.actorId,
+    sessionId: op.sessionId || undefined,
+    workingResources: targetLocators,
+    touchedResources: targetLocators,
+    source: "operation",
   };
 }
 
@@ -242,9 +243,9 @@ function resolveInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
       return resolveStartAssignmentInput(input);
     case "wake_start":
       return resolveWakeStartInput(input);
-    case "patch_submit":
-    case "patch_apply":
-      return resolvePatchInput(input, input.action);
+    case "operation_submit":
+    case "operation_apply":
+      return resolveOperationInput(input, input.action);
     default:
       throw new Error(`Unknown action: ${input.action}`);
   }
@@ -269,13 +270,15 @@ export function constraintCheck(input: ConstraintRuntimeCheckInput): ConstraintR
   try {
     const projection = buildProjection({
       taskId: resolved.taskId,
-      workingFiles: resolved.workingFiles,
+      workingResources: resolved.workingResources,
     });
 
     const decision = evaluateConstraints({
-      action: input.action,
+      action: input.action as any,
       projection,
-      touchedFiles: resolved.touchedFiles.length > 0 ? resolved.touchedFiles : undefined,
+      touchedResources: resolved.touchedResources.length > 0
+        ? resolved.touchedResources.map(loc => ({ type: "file" as const, locator: loc, metadata: "" }))
+        : undefined,
     });
 
     return {
@@ -299,8 +302,8 @@ export function constraintCheck(input: ConstraintRuntimeCheckInput): ConstraintR
         taskId: resolved.taskId,
         agentId: resolved.agentId,
         sessionId: resolved.sessionId,
-        workingFiles: resolved.workingFiles,
-        touchedFiles: resolved.touchedFiles,
+        workingResources: resolved.workingResources,
+        touchedResources: resolved.touchedResources,
         source: resolved.source,
       },
     };
@@ -325,8 +328,8 @@ export function constraintCheck(input: ConstraintRuntimeCheckInput): ConstraintR
         taskId: resolved.taskId,
         agentId: resolved.agentId,
         sessionId: resolved.sessionId,
-        workingFiles: resolved.workingFiles,
-        touchedFiles: resolved.touchedFiles,
+        workingResources: resolved.workingResources,
+        touchedResources: resolved.touchedResources,
         source: resolved.source,
       },
       runtimeUnavailable: { message },

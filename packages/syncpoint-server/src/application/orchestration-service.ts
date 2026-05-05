@@ -206,27 +206,33 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
     throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting work.`);
   }
 
-  // P7: peer-contract requires file claims before starting work
+  // P7: peer-contract requires resource claims before starting work
   const session = repo.getSession(ta0.sessionId);
   if ((session as any).relationshipMode === RelationshipMode.PEER_CONTRACT) {
-    const claims = repo.listActiveFileClaims(ta0.sessionId);
-    const agentClaims = claims.filter(c => c.agentId === ta0.assigneeAgentId);
+    const claims = repo.listActiveResourceClaims({ sessionId: ta0.sessionId });
+    const agentClaims = claims.filter(c => c.actorId === ta0.assigneeAgentId);
     if (agentClaims.length === 0) {
       throw new Error(
-        `peer-contract mode requires file claims before starting work. ` +
-        `Agent ${ta0.assigneeAgentId} has no active file claims. ` +
-        `Use 'syncpoint file claim' first.`
+        `peer-contract mode requires resource claims before starting work. ` +
+        `Agent ${ta0.assigneeAgentId} has no active resource claims. ` +
+        `Use 'syncpoint resource claim' first.`
       );
     }
   }
 
   // P4C: Constraint Runtime enforcement
   try {
-    // Use agent's file claims as workingFiles context for constraint evaluation
-    const agentClaims = repo.listFileClaims({ agentId: ta0.assigneeAgentId, status: "ACTIVE" });
-    const claimedFiles = agentClaims.flatMap(c => (c.paths || "").split(",").filter(Boolean));
-    const projection = buildProjection({ taskId: ta0.taskId, workingFiles: claimedFiles });
-    const decision = evaluateConstraints({ action: "start_assignment", projection, touchedFiles: claimedFiles.length > 0 ? claimedFiles : undefined });
+    // Use agent's resource claims as workingResources context for constraint evaluation
+    const agentClaims = repo.listResourceClaims({ actorId: ta0.assigneeAgentId, status: "ACTIVE" });
+    const claimedLocators = agentClaims.flatMap(c => c.resources.map((r: any) => r.locator));
+    const projection = buildProjection({ taskId: ta0.taskId, workingResources: claimedLocators });
+    const decision = evaluateConstraints({
+      action: "start_assignment",
+      projection,
+      touchedResources: claimedLocators.length > 0
+        ? claimedLocators.map((loc: string) => ({ type: "file" as const, locator: loc, metadata: "" }))
+        : undefined,
+    });
     if (!decision.permitted) {
       const reasons = decision.blockers.map(b => b.message).join("; ");
       throw new Error(`Constraint violation: ${reasons}`);

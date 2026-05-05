@@ -113,6 +113,9 @@ export {
   computeProjectionLookupKey,
   computeContentHash,
   resolveProjectionRoute,
+  registerScopeMatcher,
+  getScopeMatcher,
+  clearScopeMatcherRegistry,
 } from "./projection.js";
 
 export type {
@@ -127,6 +130,7 @@ export type {
   ProjectionInput,
   ProjectionContext,
   ProjectionRoute,
+  ScopeMatcher,
 } from "./projection.js";
 
 // P4A Constraint Runtime + PR4 Typed Validators
@@ -134,6 +138,9 @@ export {
   evaluateConstraints,
   parseRuntimeSpec,
   resolveRuntimeSpec,
+  registerConstraintRuleEvaluator,
+  getConstraintRuleEvaluator,
+  clearConstraintRuleEvaluatorRegistry,
 } from "./constraint-runtime.js";
 
 export type {
@@ -143,6 +150,7 @@ export type {
   ConstraintInput,
   ConstraintRuleType,
   ConstraintRuntimeSpec,
+  ConstraintRuleEvaluator,
 } from "./constraint-runtime.js";
 
 // Prompt Template Engine
@@ -305,8 +313,9 @@ export {
   ResourceClaimCreateSchema,
   resourceLocatorsOverlap,
   detectResourceClaimConflicts,
-  filePathsToResourceRefs,
-  resourceRefsToFilePaths,
+  registerResourceMatcher,
+  getResourceMatcher,
+  clearResourceMatcherRegistry,
 } from "./resource.js";
 
 export type {
@@ -314,6 +323,7 @@ export type {
   ResourceClaim,
   ResourceClaimCreate,
   ResourceConflict,
+  ResourceMatcher,
 } from "./resource.js";
 
 // Generic Operation Protocol
@@ -355,25 +365,6 @@ export type {
   OperationValidator,
   OperationValidationContext,
 } from "./validator.js";
-
-// FileClaim / Conflict Awareness (compat façade over ResourceClaim)
-export {
-  FileClaimStatus,
-  FileClaimMode,
-  FileClaimSchema,
-  FileClaimCreateSchema,
-  parseClaimPaths,
-  pathsOverlap,
-  detectConflicts,
-  fileClaimToResourceClaim,
-  resourceConflictToFileConflict,
-} from "./file-claim.js";
-
-export type {
-  FileClaim,
-  FileClaimCreate,
-  FileConflict,
-} from "./file-claim.js";
 
 // SyncGate
 export {
@@ -440,30 +431,6 @@ export type {
   SyncTransaction,
   SyncTransactionCreate,
 } from "./sync-transaction.js";
-
-// PatchProposal (compat façade over Operation)
-export {
-  PatchProposalStatus,
-  validatePatchTransition,
-  PatchProposalSchema,
-  PatchProposalCreateSchema,
-  extractTouchedFiles,
-  isValidPatchFormat,
-  findUncoveredFiles,
-  findConflictingClaims,
-  runPatchChecks,
-  patchProposalToOperation,
-  operationToPatchProposal,
-  patchStatusToOperationStatus,
-  operationStatusToPatchStatus,
-} from "./patch-proposal.js";
-
-export type {
-  PatchProposal,
-  PatchProposalCreate,
-  PatchCheckItem,
-  PatchCheckResult,
-} from "./patch-proposal.js";
 
 // Runtime Identity
 export {

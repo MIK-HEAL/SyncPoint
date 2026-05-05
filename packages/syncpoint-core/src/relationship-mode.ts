@@ -38,7 +38,7 @@ export const MODE_PHASE_FLOW: Record<RelationshipMode, string[]> = {
   ],
   [RelationshipMode.PEER_CONTRACT]: [
     "contract",      // peers agree on scope boundary
-    "claim-files",   // each peer claims file ownership
+    "claim-resources", // each peer claims resource ownership
     "work",          // parallel work (with checkpoints)
     "checkpoint",    // checkpoint to sync state
     "sync",          // sync gate when overlap detected
@@ -60,8 +60,8 @@ export const MODE_PHASE_FLOW: Record<RelationshipMode, string[]> = {
 export interface ModeSyncRule {
   /** Sync gate required before this phase? */
   requiresSyncGate: boolean;
-  /** File claim required before work? */
-  requiresFileClaim: boolean;
+  /** Resource claim required before work? */
+  requiresResourceClaim: boolean;
   /** Checkpoint required before this phase? */
   requiresCheckpoint: boolean;
   /** Review required before advancing? */
@@ -73,21 +73,21 @@ export interface ModeSyncRule {
 export const MODE_SYNC_RULES: Record<RelationshipMode, ModeSyncRule> = {
   [RelationshipMode.MANAGER_DELEGATE]: {
     requiresSyncGate: false,
-    requiresFileClaim: false,
+    requiresResourceClaim: false,
     requiresCheckpoint: true,
     requiresReview: true,
     allowsParallelWork: false,
   },
   [RelationshipMode.PEER_CONTRACT]: {
     requiresSyncGate: true,
-    requiresFileClaim: true,
+    requiresResourceClaim: true,
     requiresCheckpoint: true,
     requiresReview: true,
     allowsParallelWork: true,
   },
   [RelationshipMode.HANDOFF_RESUME]: {
     requiresSyncGate: false,
-    requiresFileClaim: false,
+    requiresResourceClaim: false,
     requiresCheckpoint: true,
     requiresReview: false,
     allowsParallelWork: false,
@@ -108,7 +108,7 @@ export const MODE_WAKE_VERBS: Record<RelationshipMode, string[]> = {
   ],
   [RelationshipMode.PEER_CONTRACT]: [
     "plan", "plan-tasks", "accept", "accept-assignment",
-    "claim-files", "checkpoint", "sync", "sync-checkpoint",
+    "claim-resources", "checkpoint", "sync", "sync-checkpoint",
     "review", "start-review", "request-review",
     "approve", "advance-session", "resume", "address-changes",
   ],
@@ -132,7 +132,7 @@ export const REQUIRED_BEFORE_START: Record<RelationshipMode, string[]> = {
   ],
   [RelationshipMode.PEER_CONTRACT]: [
     "accept",
-    "claim-files",
+    "claim-resources",
   ],
   [RelationshipMode.HANDOFF_RESUME]: [
     "accept",
@@ -159,13 +159,13 @@ export const RECOMMENDED_ACTIONS: Record<RelationshipMode, string[]> = {
  */
 export const FORBIDDEN_ACTIONS: Record<RelationshipMode, string[]> = {
   [RelationshipMode.MANAGER_DELEGATE]: [
-    "claim-files", "sync-checkpoint", "handoff", "capsule",
+    "claim-resources", "sync-checkpoint", "handoff", "capsule",
   ],
   [RelationshipMode.PEER_CONTRACT]: [
     "handoff", "capsule",
   ],
   [RelationshipMode.HANDOFF_RESUME]: [
-    "claim-files", "sync-checkpoint", "start-review", "request-review",
+    "claim-resources", "sync-checkpoint", "start-review", "request-review",
   ],
 };
 
@@ -200,7 +200,7 @@ export function getModeDescription(mode: RelationshipMode): string {
     case RelationshipMode.MANAGER_DELEGATE:
       return "Manager delegates tasks to executor(s). Executor reports back. Manager/reviewer approves. Sequential, hierarchical coordination.";
     case RelationshipMode.PEER_CONTRACT:
-      return "Peers agree on scope boundaries via contracts. File claims prevent conflicts. Sync gates enforce coordination at overlap points. Parallel work with structured merge.";
+      return "Peers agree on scope boundaries via contracts. Resource claims prevent conflicts. Sync gates enforce coordination at overlap points. Parallel work with structured merge.";
     case RelationshipMode.HANDOFF_RESUME:
       return "One agent packages context into a capsule and hands off to the next. Sequential relay — each agent picks up where the previous left off.";
   }

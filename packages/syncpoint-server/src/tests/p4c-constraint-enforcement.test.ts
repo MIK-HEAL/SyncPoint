@@ -13,7 +13,7 @@ import * as repo from "../../src/repositories.js";
 import { loopResume } from "../application/loop-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "../application/orchestration-service.js";
 import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
-import { fcClaimFiles } from "../application/file-claim-service.js";
+import { rcClaim } from "../application/resource-claim-service.js";
 import { pmAdd, pmApprove } from "../application/project-memory-service.js";
 import { MemoryKind, TaskStatus, WakeRequestStatus } from "syncpoint-core";
 
@@ -64,12 +64,12 @@ beforeAll(() => {
     checkpointId: cp.id,
     goal: "test",
     currentPhase: "development",
-    workingFiles: "src/core/index.ts,src/core/utils.ts",
+    workingResources: "src/core/index.ts,src/core/utils.ts",
   } as any);
 
   // Seed: do_not_touch memory protecting src/core (project-wide, no appliesTo filter)
-  // This will be picked up by projection and trigger do_not_touch_file_overlap
-  // when touchedFiles (from capsule workingFiles) overlap with the scope.
+  // This will be picked up by projection and trigger do_not_touch_scope_overlap
+  // when touchedResources (from capsule workingResources) overlap with the scope.
   const m1 = pmAdd({
     category: "gotcha" as any,
     title: "Core is frozen",
@@ -102,13 +102,13 @@ describe("P4C: loopResume constraint enforcement", () => {
     const result = loopResume({ agentId: agent2Id, taskId });
     expect(result.ok).toBe(true);
     expect(result.constraintWarnings.length).toBeGreaterThan(0);
-    // Should contain do_not_touch blocker (workingFiles overlap protected scope)
-    expect(result.constraintWarnings.some(w => w.includes("do_not_touch_file_overlap"))).toBe(true);
+    // Should contain do_not_touch blocker (workingResources overlap protected scope)
+    expect(result.constraintWarnings.some(w => w.includes("do_not_touch_scope_overlap"))).toBe(true);
   });
 
   it("constraintWarnings include rule name and [BLOCKED] prefix", () => {
     const result = loopResume({ agentId: agent2Id, taskId });
-    const blockerWarning = result.constraintWarnings.find(w => w.includes("do_not_touch_file_overlap"));
+    const blockerWarning = result.constraintWarnings.find(w => w.includes("do_not_touch_scope_overlap"));
     expect(blockerWarning).toBeDefined();
     expect(blockerWarning).toContain("[BLOCKED]");
   });
@@ -128,12 +128,12 @@ describe("P4C: orchStartAssignment constraint enforcement", () => {
     assignmentId = assignment.id;
     orchAcceptAssignment(assignmentId);
 
-    // Claim files that overlap with do_not_touch scope
-    fcClaimFiles({
+    // Claim resources that overlap with do_not_touch scope
+    rcClaim({
       sessionId,
-      agentId: agent2Id,
+      actorId: agent2Id,
       taskId: task2.id,
-      paths: "src/core/index.ts",
+      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "" }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -167,7 +167,7 @@ describe("P4C: wakeStart constraint enforcement", () => {
   let wakeTaskId: string;
 
   beforeAll(() => {
-    // Create a separate task with capsule whose workingFiles overlap with protected scope
+    // Create a separate task with capsule whose workingResources overlap with protected scope
     const wTask = repo.createTask({ title: "Wake constraint task", description: "" });
     wakeTaskId = wTask.id;
     repo.assignTask(wakeTaskId, agent2Id);
@@ -191,7 +191,7 @@ describe("P4C: wakeStart constraint enforcement", () => {
       checkpointId: wCp.id,
       goal: "test",
       currentPhase: "development",
-      workingFiles: "src/core/index.ts",
+      workingResources: "src/core/index.ts",
     } as any);
 
     // Create a wake request for the constrained task
@@ -223,7 +223,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
   let wakeNextTaskId: string;
 
   beforeAll(() => {
-    // Create a task with capsule whose workingFiles overlap do_not_touch scope
+    // Create a task with capsule whose workingResources overlap do_not_touch scope
     const wnTask = repo.createTask({ title: "Wake next constraint task", description: "" });
     wakeNextTaskId = wnTask.id;
     repo.assignTask(wakeNextTaskId, agent1Id);
@@ -247,7 +247,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
       checkpointId: wnCp.id,
       goal: "test",
       currentPhase: "development",
-      workingFiles: "src/core/main.ts",
+      workingResources: "src/core/main.ts",
     } as any);
 
     // Create a QUEUED wake request for agent1 on this constrained task
@@ -268,7 +268,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
     });
   });
 
-  it("wakeNext returns null when agent's capsule workingFiles overlap do_not_touch", () => {
+  it("wakeNext returns null when agent's capsule workingResources overlap do_not_touch", () => {
     const result = wakeNext(agent1Id);
     expect(result).toBeNull();
   });

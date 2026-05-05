@@ -206,7 +206,7 @@ export const SYNC_VERB_WHITELIST: readonly string[] = [
   // Mapped playbook actions
   "plan-tasks", "accept-assignment", "start-review",
   "request-review", "advance-session", "address-changes",
-  "claim-files", "sync-checkpoint",
+  "claim-resources", "sync-checkpoint",
 ] as const;
 
 export interface WakeContext {

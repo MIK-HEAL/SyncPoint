@@ -12,7 +12,7 @@ export const capsuleRouter = t.router({
       currentPhase: z.string().default(""),
       confirmedDecisions: z.string().default(""),
       interfaceContract: z.string().default(""),
-      workingFiles: z.string().default(""),
+      workingResources: z.string().default(""),
       completedWork: z.string().default(""),
       remainingWork: z.string().default(""),
       risks: z.string().default(""),

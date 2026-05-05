@@ -1,9 +1,8 @@
 /**
  * Operation — generic operation protocol.
  *
- * Generalizes the concept of "patch proposal" to any operation type.
- * PatchProposal is the first specialization (type="code_patch"), but the
- * protocol supports image_edit, video_cut, or any future operation type.
+ * Supports any operation type (e.g. "code_patch", "image_edit", "video_cut").
+ * Plugins define specific operation types and their validators.
  */
 
 import { z } from "zod";

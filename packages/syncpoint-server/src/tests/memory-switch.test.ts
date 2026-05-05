@@ -32,7 +32,7 @@ describe("Memory Switch Engine", () => {
       goal: "Implement auth API",
       currentPhase: "implementation",
       confirmedDecisions: "JWT auth",
-      workingFiles: "src/auth/login.ts",
+      workingResources: "src/auth/login.ts",
       completedWork: "Schema defined",
       remainingWork: "Implement handler",
       nextSteps: "Write login endpoint",

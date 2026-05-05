@@ -54,7 +54,7 @@ export const loopRouter = t.router({
       phase: z.string().optional(),
       completed: z.string().optional(),
       remaining: z.string().optional(),
-      workingFiles: z.string().optional(),
+      workingResources: z.string().optional(),
       resumePrompt: z.string().optional(),
       needSync: z.boolean().optional(),
       provider: z.string().optional(),

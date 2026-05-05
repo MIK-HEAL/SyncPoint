@@ -54,7 +54,7 @@ beforeAll(async () => {
     checkpointId,
     goal: "Build React components",
     currentPhase: "implementation",
-    workingFiles: "src/components/Button.tsx",
+    workingResources: "src/components/Button.tsx",
     remainingWork: "Finish Button styling",
     nextSteps: "Add hover states",
     resumePrompt: "Continue building Button component with hover states",

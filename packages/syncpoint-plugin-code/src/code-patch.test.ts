@@ -6,12 +6,16 @@ import {
   findConflictingClaims,
   runCodePatchChecks,
 } from "./code-patch.js";
-import type { FileClaim } from "syncpoint-core";
+import type { ResourceClaim } from "syncpoint-core";
+import { ResourceClaimMode, ResourceClaimStatus } from "syncpoint-core";
+import { parseClaimPaths } from "./file-resource.js";
 
-function makeClaim(id: string, agentId: string, paths: string, mode = "exclusive"): FileClaim {
+function makeClaim(id: string, actorId: string, paths: string, mode = "exclusive"): ResourceClaim {
   return {
-    id, agentId, taskId: "t1", sessionId: "s1",
-    paths, mode: mode as any, status: "ACTIVE" as any,
+    id, actorId, taskId: "t1", sessionId: "s1",
+    resources: parseClaimPaths(paths).map(p => ({ type: "file", locator: p, metadata: "" })),
+    mode: mode === "exclusive" ? ResourceClaimMode.EXCLUSIVE : ResourceClaimMode.SHARED,
+    status: ResourceClaimStatus.ACTIVE,
     createdAt: "", releasedAt: "",
   };
 }

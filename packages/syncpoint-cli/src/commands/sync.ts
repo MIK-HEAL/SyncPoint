@@ -61,11 +61,11 @@ export function registerSyncCommands(program: Command): void {
     .requiredOption("--agent <agentId>", "Requesting agent ID")
     .option("--required <agentIds>", "Comma-separated required agent IDs; defaults to --agent")
     .option("--session <sessionId>", "Session ID")
-    .option("--reason <reason>", "file_conflict|phase_transition|manual_request|checkpoint_required|context_drift", "manual_request")
+    .option("--reason <reason>", "resource_conflict|phase_transition|manual_request|checkpoint_required|context_drift", "manual_request")
     .option("--description <text>", "Sync request description", "")
-    .option("--files <paths>", "Related files")
+    .option("--resources <paths>", "Related resources")
     .option("--checkpoint <id>", "Related checkpoint ID")
-    .option("--claims <ids>", "Related file claim IDs")
+    .option("--claims <ids>", "Related resource claim IDs")
     .option("--json", "Output JSON")
     .action((opts) => {
       const result = sgRequest({
@@ -75,7 +75,7 @@ export function registerSyncCommands(program: Command): void {
         requiredAgentIds: csv(opts.required).length > 0 ? csv(opts.required) : [opts.agent],
         reason: opts.reason,
         description: opts.description,
-        relatedFiles: opts.files,
+        relatedFiles: opts.resources,
         relatedCheckpointId: opts.checkpoint,
         relatedClaimIds: opts.claims,
       });

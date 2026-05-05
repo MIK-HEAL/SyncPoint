@@ -23,7 +23,7 @@ export function formatCapsuleSummary(capsule: {
   agentId: string;
   goal: string;
   currentPhase: string;
-  workingFiles?: string;
+  workingResources?: string;
   completedWork?: string;
   remainingWork?: string;
   nextSteps?: string;
@@ -38,7 +38,7 @@ export function formatCapsuleSummary(capsule: {
     `- **Goal**: ${capsule.goal || "(empty)"}`,
     `- **Phase**: ${capsule.currentPhase || "(empty)"}`,
   ];
-  if (capsule.workingFiles) lines.push(`- **Files**: ${capsule.workingFiles}`);
+  if (capsule.workingResources) lines.push(`- **Resources**: ${capsule.workingResources}`);
   if (capsule.completedWork) lines.push(`- **Completed**: ${capsule.completedWork}`);
   if (capsule.remainingWork) lines.push(`- **Remaining**: ${capsule.remainingWork}`);
   if (capsule.nextSteps) lines.push(`- **Next**: ${capsule.nextSteps}`);

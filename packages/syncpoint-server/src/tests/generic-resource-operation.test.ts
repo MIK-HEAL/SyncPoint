@@ -19,12 +19,6 @@ import {
 import {
   opCreate, opSubmit, opCheck, opApprove, opApply, opCancel, opStatus, opList,
 } from "../application/operation-service.js";
-import {
-  fcClaimFiles, fcReleaseClaim,
-} from "../application/file-claim-service.js";
-import {
-  ppPropose,
-} from "../application/patch-proposal-service.js";
 
 let sqlite: Database.Database;
 let db: SyncPointDb;
@@ -196,60 +190,3 @@ describe("Operation service", () => {
   });
 });
 
-// ── Dual-write ──────────────────────────────────────────
-
-describe("Dual-write from legacy services", () => {
-  it("fcClaimFiles mirrors to resource_claim table", () => {
-    const beforeCount = rcList({ actorId: agentId, resourceType: "file" }).length;
-    fcClaimFiles({
-      agentId,
-      taskId,
-      paths: "src/dual-write-test.ts",
-      mode: "exclusive",
-      autoGate: false,
-    });
-    const afterCount = rcList({ actorId: agentId, resourceType: "file" }).length;
-    expect(afterCount).toBe(beforeCount + 1);
-  });
-
-  it("fcReleaseClaim only releases the matching mirrored resource claim", () => {
-    const first = fcClaimFiles({
-      agentId,
-      taskId,
-      paths: "src/release-one.ts",
-      mode: "exclusive",
-      autoGate: false,
-    });
-    fcClaimFiles({
-      agentId,
-      taskId,
-      paths: "src/release-two.ts",
-      mode: "exclusive",
-      autoGate: false,
-    });
-
-    fcReleaseClaim(first.claim.id);
-
-    const activeMirrors = rcList({
-      actorId: agentId,
-      taskId,
-      resourceType: "file",
-      status: "ACTIVE",
-    });
-    expect(activeMirrors.some(c => c.resources.some(r => r.locator === "src/release-one.ts"))).toBe(false);
-    expect(activeMirrors.some(c => c.resources.some(r => r.locator === "src/release-two.ts"))).toBe(true);
-  });
-
-  it("ppPropose mirrors to operation table", () => {
-    const beforeCount = opList({ type: "code_patch", actorId: agentId }).length;
-    ppPropose({
-      sessionId: "s1",
-      taskId,
-      agentId,
-      title: "dual write patch",
-      patchText: "--- a/src/foo.ts\n+++ b/src/foo.ts\n@@ -1 +1 @@\n-old\n+new",
-    });
-    const afterCount = opList({ type: "code_patch", actorId: agentId }).length;
-    expect(afterCount).toBe(beforeCount + 1);
-  });
-});

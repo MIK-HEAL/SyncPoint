@@ -13,7 +13,7 @@
 import { Command, Option } from "commander";
 import {
   buildSnapshot,
-  fcClaimFiles,
+  rcClaim,
   loopResume,
   loopCheckpoint,
   wakeNext,
@@ -67,11 +67,16 @@ export function registerFacadeCommands(program: Command): void {
     .option("--json", "Machine-readable JSON output")
     .action((paths, opts) => {
       const agentId = requireAgentId(opts.agent);
-      const result = fcClaimFiles({
-        agentId,
+      const resources = paths.split(",").map((p: string) => ({
+        type: "file" as const,
+        locator: p.trim(),
+        metadata: "",
+      }));
+      const result = rcClaim({
+        actorId: agentId,
         taskId: opts.task,
         sessionId: opts.session,
-        paths,
+        resources,
         mode: opts.mode,
       });
 
@@ -85,8 +90,7 @@ export function registerFacadeCommands(program: Command): void {
         console.log("");
         console.log("Conflicts detected:");
         for (const c of result.conflicts) {
-          const severity = c.isHardConflict ? "HARD" : "soft";
-          console.log(`  [${severity}] ${c.overlappingPath}`);
+          console.log(`  [conflict] ${c.overlappingLocator}`);
         }
       }
       if (result.gateId) {
@@ -139,7 +143,7 @@ export function registerFacadeCommands(program: Command): void {
               phase: capsule.currentPhase,
               completedWork: capsule.completedWork,
               remainingWork: capsule.remainingWork,
-              workingFiles: capsule.workingFiles,
+              workingResources: capsule.workingResources,
               blockers: capsule.blockers,
               nextSteps: capsule.nextSteps,
             };
@@ -194,7 +198,7 @@ export function registerFacadeCommands(program: Command): void {
     .option("--phase <text>", "Current phase", "")
     .option("--completed <text>", "Completed work", "")
     .option("--remaining <text>", "Remaining work", "")
-    .option("--working-files <text>", "Working files", "")
+    .option("--working-resources <text>", "Working resources", "")
     .option("--need-sync", "Flag task as needing sync", false)
     .option("--json", "Machine-readable JSON output")
     .action((opts) => {
@@ -212,7 +216,7 @@ export function registerFacadeCommands(program: Command): void {
           phase: opts.phase,
           completed: opts.completed,
           remaining: opts.remaining,
-          workingFiles: opts.workingFiles,
+          workingResources: opts.workingResources,
           needSync: opts.needSync,
         });
 
