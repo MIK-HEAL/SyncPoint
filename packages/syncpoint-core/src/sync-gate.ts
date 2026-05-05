@@ -44,6 +44,7 @@ export function validateSyncGateTransition(from: SyncGateStatus, to: SyncGateSta
 
 export enum SyncGateReason {
   FILE_CONFLICT = "file_conflict",
+  RESOURCE_CONFLICT = "resource_conflict",
   PHASE_TRANSITION = "phase_transition",
   MANUAL_REQUEST = "manual_request",
   CHECKPOINT_REQUIRED = "checkpoint_required",
@@ -64,6 +65,7 @@ export const SyncGateSchema = z.object({
   reason: z.nativeEnum(SyncGateReason),
   description: z.string(),
   relatedFiles: z.string(),
+  relatedResourcesJson: z.string(),
   relatedCheckpointId: z.string(),
   relatedClaimIds: z.string(),
   status: z.nativeEnum(SyncGateStatus),
@@ -82,6 +84,7 @@ export const SyncGateCreateSchema = z.object({
   reason: z.nativeEnum(SyncGateReason).default(SyncGateReason.MANUAL_REQUEST),
   description: z.string().default(""),
   relatedFiles: z.string().default(""),
+  relatedResourcesJson: z.string().default(""),
   relatedCheckpointId: z.string().default(""),
   relatedClaimIds: z.string().default(""),
 });

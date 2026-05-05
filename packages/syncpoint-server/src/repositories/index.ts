@@ -32,6 +32,10 @@ export {
   listQueuedWakeRequests, updateWakeRequestStatus, hasActiveWakeForAgent,
 } from "./wake-repository.js";
 export {
+  createResourceClaim, getResourceClaim, releaseResourceClaim,
+  listResourceClaims, listActiveResourceClaims,
+} from "./resource-claim-repository.js";
+export {
   createFileClaim, getFileClaim, releaseFileClaim,
   listFileClaims, listActiveFileClaims,
 } from "./file-claim-repository.js";
@@ -39,3 +43,7 @@ export {
   createSyncGate, getSyncGate, updateSyncGateStatus, updateSyncGateAckedAgents,
   listSyncGates, listActiveSyncGates,
 } from "./sync-gate-repository.js";
+export {
+  createOperation, getOperation, updateOperation,
+  listOperations,
+} from "./operation-repository.js";

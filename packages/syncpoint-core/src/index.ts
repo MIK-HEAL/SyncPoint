@@ -296,7 +296,67 @@ export type {
   WakeContext,
 } from "./wake.js";
 
-// FileClaim / Conflict Awareness
+// Generic Resource Protocol
+export {
+  ResourceClaimStatus,
+  ResourceClaimMode,
+  ResourceRefSchema,
+  ResourceClaimSchema,
+  ResourceClaimCreateSchema,
+  resourceLocatorsOverlap,
+  detectResourceClaimConflicts,
+  filePathsToResourceRefs,
+  resourceRefsToFilePaths,
+} from "./resource.js";
+
+export type {
+  ResourceRef,
+  ResourceClaim,
+  ResourceClaimCreate,
+  ResourceConflict,
+} from "./resource.js";
+
+// Generic Operation Protocol
+export {
+  OperationStatus,
+  validateOperationTransition,
+  OperationSchema,
+  OperationCreateSchema,
+} from "./operation.js";
+
+export type {
+  Operation,
+  OperationCreate,
+  OperationCheckItem,
+  OperationCheckResult,
+  OperationApproval,
+} from "./operation.js";
+
+// Generic StateSnapshot
+export {
+  StateSnapshotSchema,
+  StateSnapshotCreateSchema,
+} from "./state-snapshot.js";
+
+export type {
+  StateSnapshot,
+  StateSnapshotCreate,
+} from "./state-snapshot.js";
+
+// Generic Validator Protocol
+export {
+  registerOperationValidator,
+  getValidatorsForOperation,
+  runOperationValidation,
+  clearValidatorRegistry,
+} from "./validator.js";
+
+export type {
+  OperationValidator,
+  OperationValidationContext,
+} from "./validator.js";
+
+// FileClaim / Conflict Awareness (compat façade over ResourceClaim)
 export {
   FileClaimStatus,
   FileClaimMode,
@@ -305,6 +365,8 @@ export {
   parseClaimPaths,
   pathsOverlap,
   detectConflicts,
+  fileClaimToResourceClaim,
+  resourceConflictToFileConflict,
 } from "./file-claim.js";
 
 export type {
@@ -379,7 +441,7 @@ export type {
   SyncTransactionCreate,
 } from "./sync-transaction.js";
 
-// PatchProposal
+// PatchProposal (compat façade over Operation)
 export {
   PatchProposalStatus,
   validatePatchTransition,
@@ -390,6 +452,10 @@ export {
   findUncoveredFiles,
   findConflictingClaims,
   runPatchChecks,
+  patchProposalToOperation,
+  operationToPatchProposal,
+  patchStatusToOperationStatus,
+  operationStatusToPatchStatus,
 } from "./patch-proposal.js";
 
 export type {

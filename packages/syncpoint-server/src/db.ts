@@ -399,6 +399,19 @@ export function runMigrations(db: Database.Database): void {
       updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS resource_claim (
+      id              TEXT PRIMARY KEY,
+      actor_id        TEXT NOT NULL,
+      task_id         TEXT NOT NULL,
+      session_id      TEXT NOT NULL DEFAULT '',
+      resource_type   TEXT NOT NULL,
+      resources_json  TEXT NOT NULL,
+      mode            TEXT NOT NULL DEFAULT 'exclusive',
+      status          TEXT NOT NULL DEFAULT 'ACTIVE',
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      released_at     TEXT NOT NULL DEFAULT ''
+    );
+
     CREATE TABLE IF NOT EXISTS file_claim (
       id          TEXT PRIMARY KEY,
       agent_id    TEXT NOT NULL REFERENCES agent(id),
@@ -409,6 +422,23 @@ export function runMigrations(db: Database.Database): void {
       status      TEXT NOT NULL DEFAULT 'ACTIVE',
       created_at  TEXT NOT NULL DEFAULT (datetime('now')),
       released_at TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS operation (
+      id                      TEXT PRIMARY KEY,
+      type                    TEXT NOT NULL,
+      actor_id                TEXT NOT NULL,
+      task_id                 TEXT NOT NULL,
+      session_id              TEXT NOT NULL DEFAULT '',
+      title                   TEXT NOT NULL,
+      summary                 TEXT NOT NULL DEFAULT '',
+      target_resources_json   TEXT NOT NULL DEFAULT '[]',
+      payload_ref             TEXT NOT NULL DEFAULT '',
+      status                  TEXT NOT NULL DEFAULT 'DRAFT',
+      check_result            TEXT NOT NULL DEFAULT '',
+      decision_summary        TEXT NOT NULL DEFAULT '',
+      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS patch_proposal (
@@ -509,6 +539,8 @@ export function runMigrations(db: Database.Database): void {
   // PR4 typed constraint validator
   addColumn("project_memory", "validator_type", "TEXT NOT NULL DEFAULT ''");
   addColumn("project_memory", "validator_config", "TEXT NOT NULL DEFAULT ''");
+  // Plugin architecture: generic resource_claim + operation + sync_gate forward compat
+  addColumn("sync_gate", "related_resources_json", "TEXT NOT NULL DEFAULT ''");
   // Memory version counter — single row table
   db.exec(`
     CREATE TABLE IF NOT EXISTS memory_version (

@@ -138,6 +138,14 @@ export {
 } from "./repositories/wake-repository.js";
 
 export {
+  createResourceClaim,
+  getResourceClaim,
+  releaseResourceClaim,
+  listResourceClaims,
+  listActiveResourceClaims,
+} from "./repositories/resource-claim-repository.js";
+
+export {
   createFileClaim,
   getFileClaim,
   releaseFileClaim,
@@ -160,6 +168,13 @@ export {
   updatePatchProposal,
   listPatchProposals,
 } from "./repositories/patch-proposal-repository.js";
+
+export {
+  createOperation,
+  getOperation,
+  updateOperation,
+  listOperations,
+} from "./repositories/operation-repository.js";
 
 export {
   createSyncTransaction,

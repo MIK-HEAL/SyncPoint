@@ -22,6 +22,7 @@ export function createSyncGate(data: SyncGateCreate): SyncGate {
     reason: data.reason ?? "manual_request",
     description: data.description ?? "",
     relatedFiles: data.relatedFiles ?? "",
+    relatedResourcesJson: data.relatedResourcesJson ?? "",
     relatedCheckpointId: data.relatedCheckpointId ?? "",
     relatedClaimIds: data.relatedClaimIds ?? "",
     status: SyncGateStatus.NEEDS_SYNC,

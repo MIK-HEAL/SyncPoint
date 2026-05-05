@@ -326,6 +326,21 @@ export const wakeRequests = sqliteTable("wake_request", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// ── ResourceClaim (generic) ───────────────────────────
+
+export const resourceClaims = sqliteTable("resource_claim", {
+  id: text("id").primaryKey(),
+  actorId: text("actor_id").notNull(),
+  taskId: text("task_id").notNull(),
+  sessionId: text("session_id").notNull().default(""),
+  resourceType: text("resource_type").notNull(),
+  resourcesJson: text("resources_json").notNull(),
+  mode: text("mode").notNull().default("exclusive"),
+  status: text("status").notNull().default("ACTIVE"),
+  createdAt: text("created_at").notNull(),
+  releasedAt: text("released_at").notNull().default(""),
+});
+
 // ── FileClaim ─────────────────────────────────────────
 
 export const fileClaims = sqliteTable("file_claim", {
@@ -352,6 +367,7 @@ export const syncGates = sqliteTable("sync_gate", {
   reason: text("reason").notNull().default("manual_request"),
   description: text("description").notNull().default(""),
   relatedFiles: text("related_files").notNull().default(""),
+  relatedResourcesJson: text("related_resources_json").notNull().default(""),
   relatedCheckpointId: text("related_checkpoint_id").notNull().default(""),
   relatedClaimIds: text("related_claim_ids").notNull().default(""),
   status: text("status").notNull().default("NEEDS_SYNC"),
@@ -373,6 +389,25 @@ export const syncTransactions = sqliteTable("sync_transaction", {
   rejectedByIds: text("rejected_by_ids").notNull().default(""),
   gateId: text("gate_id").notNull().default(""),
   status: text("status").notNull().default("OPEN"),
+  decisionSummary: text("decision_summary").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ── Operation (generic) ──────────────────────────────
+
+export const operations = sqliteTable("operation", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  actorId: text("actor_id").notNull(),
+  taskId: text("task_id").notNull(),
+  sessionId: text("session_id").notNull().default(""),
+  title: text("title").notNull(),
+  summary: text("summary").notNull().default(""),
+  targetResourcesJson: text("target_resources_json").notNull().default("[]"),
+  payloadRef: text("payload_ref").notNull().default(""),
+  status: text("status").notNull().default("DRAFT"),
+  checkResult: text("check_result").notNull().default(""),
   decisionSummary: text("decision_summary").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

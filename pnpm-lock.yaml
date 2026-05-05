@@ -75,6 +75,16 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/syncpoint-plugin-code:
+    dependencies:
+      syncpoint-core:
+        specifier: workspace:*
+        version: link:../syncpoint-core
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/syncpoint-sdk:
     dependencies:
       '@trpc/client':

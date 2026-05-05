@@ -20,6 +20,7 @@ import {
   runPatchChecks,
   evaluateConstraints,
   EventType,
+  filePathsToResourceRefs,
 } from "syncpoint-core";
 import type { PatchProposal, PatchCheckResult } from "syncpoint-core";
 import * as repo from "../repositories.js";
@@ -69,6 +70,20 @@ export function ppPropose(input: PatchProposeInput): PatchProposal {
     updated.id,
     JSON.stringify({ title: input.title, touchedFiles }),
   );
+
+  // Dual-write: mirror to generic operation table
+  try {
+    repo.createOperation({
+      type: "code_patch",
+      actorId: input.agentId,
+      taskId: input.taskId,
+      sessionId: input.sessionId,
+      title: input.title,
+      summary: input.summary ?? "",
+      targetResources: filePathsToResourceRefs(touchedFiles.join(",")),
+      payloadRef: "",
+    });
+  } catch { /* best-effort mirror */ }
 
   return updated;
 }

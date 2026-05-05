@@ -6,6 +6,9 @@
  */
 
 import { z } from "zod";
+import type { Operation } from "./operation.js";
+import { OperationStatus } from "./operation.js";
+import { filePathsToResourceRefs } from "./resource.js";
 
 // ── Status ──────────────────────────────────────────
 
@@ -107,6 +110,7 @@ export interface PatchCheckResult {
 /**
  * Extract touched file paths from a unified diff patch text.
  * Looks for lines starting with --- a/ or +++ b/ or diff --git.
+ * @deprecated Use `extractTouchedFiles` from `syncpoint-plugin-code` instead.
  */
 export function extractTouchedFiles(patchText: string): string[] {
   const files = new Set<string>();
@@ -138,6 +142,7 @@ export function extractTouchedFiles(patchText: string): string[] {
 
 /**
  * Check if a patch text looks like a valid unified diff.
+ * @deprecated Use `isValidPatchFormat` from `syncpoint-plugin-code` instead.
  */
 export function isValidPatchFormat(patchText: string): boolean {
   if (!patchText.trim()) return false;
@@ -148,8 +153,101 @@ export function isValidPatchFormat(patchText: string): boolean {
 import type { FileClaim } from "./file-claim.js";
 import { parseClaimPaths, pathsOverlap, FileClaimMode } from "./file-claim.js";
 
+// ── PatchProposal ↔ Operation(type="code_patch") mapping ────
+
+const PATCH_STATUS_TO_OP: Record<string, OperationStatus> = {
+  [PatchProposalStatus.DRAFT]: OperationStatus.DRAFT,
+  [PatchProposalStatus.SUBMITTED]: OperationStatus.SUBMITTED,
+  [PatchProposalStatus.CONFLICTING]: OperationStatus.CONFLICTING,
+  [PatchProposalStatus.APPROVED]: OperationStatus.APPROVED,
+  [PatchProposalStatus.REJECTED]: OperationStatus.REJECTED,
+  [PatchProposalStatus.APPLIED]: OperationStatus.APPLIED,
+  [PatchProposalStatus.CANCELLED]: OperationStatus.CANCELLED,
+};
+
+const OP_STATUS_TO_PATCH: Record<string, PatchProposalStatus> = {
+  [OperationStatus.DRAFT]: PatchProposalStatus.DRAFT,
+  [OperationStatus.SUBMITTED]: PatchProposalStatus.SUBMITTED,
+  [OperationStatus.CONFLICTING]: PatchProposalStatus.CONFLICTING,
+  [OperationStatus.APPROVED]: PatchProposalStatus.APPROVED,
+  [OperationStatus.REJECTED]: PatchProposalStatus.REJECTED,
+  [OperationStatus.APPLIED]: PatchProposalStatus.APPLIED,
+  [OperationStatus.CANCELLED]: PatchProposalStatus.CANCELLED,
+};
+
+/**
+ * Convert a PatchProposal to a generic Operation(type="code_patch").
+ * @deprecated Use `patchProposalToOperation` from `syncpoint-plugin-code` instead.
+ */
+export function patchProposalToOperation(pp: PatchProposal): Operation {
+  return {
+    id: pp.id,
+    type: "code_patch",
+    actorId: pp.agentId,
+    taskId: pp.taskId,
+    sessionId: pp.sessionId,
+    title: pp.title,
+    summary: pp.summary,
+    targetResources: filePathsToResourceRefs(pp.touchedFiles),
+    payloadRef: "",
+    status: PATCH_STATUS_TO_OP[pp.status] ?? OperationStatus.DRAFT,
+    checkResult: pp.checkResult,
+    decisionSummary: pp.decisionSummary,
+    createdAt: pp.createdAt,
+    updatedAt: pp.updatedAt,
+  };
+}
+
+/**
+ * Convert a generic Operation back to PatchProposal shape.
+ * Only valid for operations with type="code_patch".
+ * @deprecated Use `operationToPatchProposal` from `syncpoint-plugin-code` instead.
+ */
+export function operationToPatchProposal(
+  op: Operation,
+  patchText: string,
+  relatedClaimIds: string,
+): PatchProposal {
+  return {
+    id: op.id,
+    sessionId: op.sessionId,
+    taskId: op.taskId,
+    agentId: op.actorId,
+    title: op.title,
+    summary: op.summary,
+    patchText,
+    touchedFiles: op.targetResources
+      .filter(r => r.type === "file")
+      .map(r => r.locator)
+      .join(","),
+    relatedClaimIds,
+    status: OP_STATUS_TO_PATCH[op.status] ?? PatchProposalStatus.DRAFT,
+    checkResult: op.checkResult,
+    decisionSummary: op.decisionSummary,
+    createdAt: op.createdAt,
+    updatedAt: op.updatedAt,
+  };
+}
+
+/**
+ * Map PatchProposalStatus to OperationStatus.
+ * @deprecated Use `patchStatusToOperationStatus` from `syncpoint-plugin-code` instead.
+ */
+export function patchStatusToOperationStatus(s: PatchProposalStatus): OperationStatus {
+  return PATCH_STATUS_TO_OP[s] ?? OperationStatus.DRAFT;
+}
+
+/**
+ * Map OperationStatus to PatchProposalStatus.
+ * @deprecated Use `operationStatusToPatchStatus` from `syncpoint-plugin-code` instead.
+ */
+export function operationStatusToPatchStatus(s: OperationStatus): PatchProposalStatus {
+  return OP_STATUS_TO_PATCH[s] ?? PatchProposalStatus.DRAFT;
+}
+
 /**
  * Check which touched files are NOT covered by the agent's active claims.
+ * @deprecated Use `findUncoveredFiles` from `syncpoint-plugin-code` instead.
  */
 export function findUncoveredFiles(
   touchedFiles: string[],
@@ -166,6 +264,7 @@ export function findUncoveredFiles(
 
 /**
  * Find active claims from OTHER agents that conflict with the touched files.
+ * @deprecated Use `findConflictingClaims` from `syncpoint-plugin-code` instead.
  */
 export function findConflictingClaims(
   touchedFiles: string[],
@@ -184,6 +283,7 @@ export function findConflictingClaims(
 
 /**
  * Run all patch checks and return a combined result.
+ * @deprecated Use `runCodePatchChecks` from `syncpoint-plugin-code` instead.
  */
 export function runPatchChecks(opts: {
   patchText: string;

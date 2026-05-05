@@ -35,6 +35,7 @@ export interface SyncGateRequestInput {
   reason?: string;
   description?: string;
   relatedFiles?: string;
+  relatedResourcesJson?: string;
   relatedCheckpointId?: string;
   relatedClaimIds?: string;
 }
@@ -66,6 +67,7 @@ export function sgRequest(input: SyncGateRequestInput): SyncGateStatusResult {
     reason: (input.reason as SyncGateReason) ?? SyncGateReason.MANUAL_REQUEST,
     description: input.description ?? "",
     relatedFiles: input.relatedFiles ?? "",
+    relatedResourcesJson: input.relatedResourcesJson ?? "",
     relatedCheckpointId: input.relatedCheckpointId ?? "",
     relatedClaimIds: input.relatedClaimIds ?? "",
   };

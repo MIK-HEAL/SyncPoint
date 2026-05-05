@@ -8,12 +8,13 @@
  *   fcDetectConflicts — detect overlapping file claims
  */
 
-import { detectConflicts, FileClaimStatus, SyncGateReason } from "syncpoint-core";
+import { detectConflicts, FileClaimStatus, SyncGateReason, filePathsToResourceRefs } from "syncpoint-core";
 import type { FileClaim, FileClaimCreate, FileConflict } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import { EventType } from "syncpoint-core";
 import { sgRequest } from "./sync-gate-service.js";
+import type { ResourceRef } from "syncpoint-core";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -42,6 +43,40 @@ export interface ListClaimsInput {
   status?: string;
 }
 
+function mirroredFileRefs(paths: string, fileClaimId: string): ResourceRef[] {
+  const metadata = JSON.stringify({ source: "file_claim", fileClaimId });
+  return filePathsToResourceRefs(paths).map(ref => ({ ...ref, metadata }));
+}
+
+function metadataFileClaimId(ref: ResourceRef): string | null {
+  if (!ref.metadata) return null;
+  try {
+    const parsed = JSON.parse(ref.metadata);
+    return typeof parsed?.fileClaimId === "string" ? parsed.fileClaimId : null;
+  } catch {
+    return null;
+  }
+}
+
+function fileLocatorsKey(refs: ResourceRef[]): string {
+  return refs
+    .filter(ref => ref.type === "file")
+    .map(ref => ref.locator)
+    .sort()
+    .join("\n");
+}
+
+function isMirroredClaimForFileClaim(genericClaim: { resources: ResourceRef[] }, fileClaim: FileClaim): boolean {
+  if (genericClaim.resources.some(ref => metadataFileClaimId(ref) === fileClaim.id)) {
+    return true;
+  }
+
+  // Fallback for unlabeled mirrors created before mirror metadata existed.
+  const expectedKey = fileLocatorsKey(filePathsToResourceRefs(fileClaim.paths));
+  const actualKey = fileLocatorsKey(genericClaim.resources);
+  return expectedKey.length > 0 && actualKey === expectedKey;
+}
+
 // ── Use Cases ──────────────────────────────────────────
 
 /**
@@ -60,6 +95,17 @@ export function fcClaimFiles(input: ClaimFilesInput): ClaimFilesResult {
   };
 
   const claim = repo.createFileClaim(create);
+
+  // Dual-write: mirror to generic resource_claim table
+  try {
+    repo.createResourceClaim({
+      actorId: input.agentId,
+      taskId: input.taskId,
+      sessionId: input.sessionId,
+      resources: mirroredFileRefs(input.paths, claim.id),
+      mode: input.mode as any,
+    });
+  } catch { /* best-effort mirror */ }
 
   logEvent(
     EventType.FILE_CLAIMED,
@@ -125,6 +171,22 @@ export function fcClaimFiles(input: ClaimFilesInput): ClaimFilesResult {
  */
 export function fcReleaseClaim(claimId: string): FileClaim {
   const claim = repo.releaseFileClaim(claimId);
+
+  // Dual-write: try to release any matching generic claims
+  try {
+    const genericClaims = repo.listResourceClaims({
+      actorId: claim.agentId,
+      taskId: claim.taskId,
+      sessionId: claim.sessionId || undefined,
+      resourceType: "file",
+      status: "ACTIVE",
+    });
+    for (const gc of genericClaims) {
+      if (isMirroredClaimForFileClaim(gc, claim)) {
+        repo.releaseResourceClaim(gc.id);
+      }
+    }
+  } catch { /* best-effort mirror */ }
 
   logEvent(
     EventType.FILE_RELEASED,

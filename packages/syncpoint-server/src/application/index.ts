@@ -166,6 +166,20 @@ export type {
   WakeListInput,
 } from "./wake-engine-service.js";
 
+// ResourceClaim (generic)
+export {
+  rcClaim,
+  rcRelease,
+  rcList,
+  rcDetectConflicts,
+} from "./resource-claim-service.js";
+
+export type {
+  ClaimResourcesInput,
+  ClaimResourcesResult,
+  ListResourceClaimsInput,
+} from "./resource-claim-service.js";
+
 // FileClaim / Conflict Awareness
 export {
   fcClaimFiles,
@@ -214,6 +228,24 @@ export type {
   SyncTxCreateInput,
   SyncTxStatusResult,
 } from "./sync-transaction-service.js";
+
+// Operation (generic)
+export {
+  opCreate,
+  opSubmit,
+  opCheck,
+  opApprove,
+  opReject,
+  opApply,
+  opCancel,
+  opStatus,
+  opList,
+} from "./operation-service.js";
+
+export type {
+  OperationCreateInput,
+  OperationStatusResult,
+} from "./operation-service.js";
 
 // PatchProposal
 export {
