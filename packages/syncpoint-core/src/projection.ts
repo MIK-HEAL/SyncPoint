@@ -435,9 +435,13 @@ export function compileProjection(
   const currentModules = ctx.currentModules ?? [];
 
   // Build scope context for appliesTo matching
+  // "files" and "resources" both map to workingResources so that either
+  // appliesTo field name can match. Plugins register ScopeMatchers for
+  // their preferred field name (e.g. "resources" for generic-agent plugin).
   const scopeContext: ScopeContextMap = {
     files: workingResources,
     modules: currentModules,
+    resources: workingResources,
   };
 
   // Buckets
@@ -495,7 +499,7 @@ export function compileProjection(
       content: mem.content,
       title: mem.title,
       kind: mem.kind,
-      scope: parsed ? { files: parsed.files, modules: parsed.modules, taskTypes: parsed.taskTypes } : undefined,
+      scope: parsed ? { ...parsed } as ProjectionScope : undefined,
       validatorType: mem.validatorType || undefined,
       validatorConfig: mem.validatorConfig || undefined,
     };

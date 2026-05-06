@@ -5,5 +5,7 @@ export default defineWorkspace([
   "packages/syncpoint-server",
   "packages/syncpoint-sdk",
   "packages/syncpoint-cli",
+  "packages/syncpoint-plugin-code",
+  "packages/syncpoint-plugin-generic-agent",
   "packages/vscode-extension",
 ]);

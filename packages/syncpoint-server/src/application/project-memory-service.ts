@@ -143,7 +143,7 @@ export class UnknownValidatorTypeError extends Error {
 }
 
 /** Runtime-known validator types (matches ConstraintRuleType in constraint-runtime.ts). */
-const KNOWN_VALIDATOR_TYPES = ["file_forbidden", "module_forbidden", "require_review", "custom"] as const;
+const KNOWN_VALIDATOR_TYPES = ["file_forbidden", "module_forbidden", "require_review", "custom", "resource_forbidden"] as const;
 
 /**
  * P4: Validate that blocking hard_constraints have a known validatorType.

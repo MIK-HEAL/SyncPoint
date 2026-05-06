@@ -85,6 +85,16 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/syncpoint-plugin-generic-agent:
+    dependencies:
+      syncpoint-core:
+        specifier: workspace:*
+        version: link:../syncpoint-core
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/syncpoint-sdk:
     dependencies:
       '@trpc/client':
@@ -130,6 +140,9 @@ importers:
       syncpoint-plugin-code:
         specifier: workspace:*
         version: link:../syncpoint-plugin-code
+      syncpoint-plugin-generic-agent:
+        specifier: workspace:*
+        version: link:../syncpoint-plugin-generic-agent
       zod:
         specifier: ^3.23.0
         version: 3.25.76

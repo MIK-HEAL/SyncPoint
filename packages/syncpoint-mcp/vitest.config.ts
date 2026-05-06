@@ -13,6 +13,7 @@ export default defineConfig({
       { find: "syncpoint-server/application", replacement: resolve(__dirname, "../syncpoint-server/src/application/index.ts") },
       { find: "syncpoint-server/repositories", replacement: resolve(__dirname, "../syncpoint-server/src/repositories/index.ts") },
       { find: "syncpoint-plugin-code", replacement: resolve(__dirname, "../syncpoint-plugin-code/src/index.ts") },
+      { find: "syncpoint-plugin-generic-agent", replacement: resolve(__dirname, "../syncpoint-plugin-generic-agent/src/index.ts") },
       { find: "syncpoint-server", replacement: resolve(__dirname, "../syncpoint-server/src/index.ts") },
       { find: /^(\..+)\.js$/, replacement: "$1.ts" },
     ],

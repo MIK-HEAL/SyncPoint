@@ -43,6 +43,7 @@
   "dependencies": {
     "syncpoint-core": "workspace:*",
     "syncpoint-plugin-code": "workspace:*",
+    "syncpoint-plugin-generic-agent": "workspace:*",
     "@trpc/server": "^11.0.0",
     "@trpc/client": "^11.0.0",
     "drizzle-orm": "^0.36.0",
