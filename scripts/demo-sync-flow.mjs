@@ -126,21 +126,21 @@ async function createBlockedState() {
   app.orchAcceptAssignment(assignmentA.id);
   app.orchAcceptAssignment(assignmentB.id);
 
-  const claimAResult = app.fcClaimFiles({
-    agentId: agentA.id,
+  const claimAResult = app.rcClaim({
+    actorId: agentA.id,
     taskId: taskA.id,
     sessionId: session.id,
-    paths: "src/shared-config.ts",
+    resources: [{ type: "file", locator: "src/shared-config.ts", metadata: "" }],
     mode: "exclusive",
   });
 
   app.orchStartAssignment(assignmentA.id);
 
-  const claimBResult = app.fcClaimFiles({
-    agentId: agentB.id,
+  const claimBResult = app.rcClaim({
+    actorId: agentB.id,
     taskId: taskB.id,
     sessionId: session.id,
-    paths: "src/shared-config.ts",
+    resources: [{ type: "file", locator: "src/shared-config.ts", metadata: "" }],
     mode: "exclusive",
   });
 
@@ -157,8 +157,8 @@ async function createBlockedState() {
     summary: "Base shared config prepared; Agent B must review before continuing.",
     progress: "70%",
     nextSteps: "Agent B approves the checkpoint transaction, then takes ownership for the follow-up patch.",
-    workingFiles: "src/shared-config.ts",
-    blockers: "Waiting on sync transaction approval and file-claim conflict resolution.",
+    workingResources: "src/shared-config.ts",
+    blockers: "Waiting on sync transaction approval and resource-claim conflict resolution.",
     needSync: true,
   });
 
@@ -204,10 +204,10 @@ async function resolveState(meta) {
     throw new Error("Metadata does not contain fileConflictGateId. Re-run --stage blocked.");
   }
 
-  safeGateAck(ids.fileConflictGateId, ids.agentAId, "Agent A acknowledges the overlapping file claim and will release ownership.");
+  safeGateAck(ids.fileConflictGateId, ids.agentAId, "Agent A acknowledges the overlapping resource claim and will release ownership.");
   safeGateAck(ids.fileConflictGateId, ids.agentBId, "Agent B acknowledges the conflict and waits for ownership transfer.");
-  safeGateResolve(ids.fileConflictGateId, "Agent A releases the file claim; Agent B owns the follow-up patch.");
-  app.fcReleaseClaim(ids.claimAId);
+  safeGateResolve(ids.fileConflictGateId, "Agent A releases the resource claim; Agent B owns the follow-up operation.");
+  app.rcRelease(ids.claimAId);
 
   const txBefore = app.stxStatus(ids.syncTransactionId);
   if (txBefore.tx.status === "WAITING_APPROVAL") {
@@ -229,26 +229,27 @@ async function resolveState(meta) {
   const patchText = buildPatchText();
   fs.writeFileSync(patchPath, patchText, "utf8");
 
-  const proposal = app.ppPropose({
+  const operation = app.opCreate({
+    type: "code_patch",
     sessionId: ids.sessionId,
     taskId: ids.taskBId,
-    agentId: ids.agentBId,
+    actorId: ids.agentBId,
     title: "Agent B updates shared config after sync",
     summary: "Follow-up patch after claim conflict and checkpoint transaction are resolved.",
-    patchText,
+    targetResources: [{ type: "file", locator: "src/shared-config.ts", metadata: "" }],
   });
-  const submitted = app.ppSubmit(proposal.id);
+  const submitted = app.opSubmit(operation.id);
 
   if (!submitted.checkResult?.allPassed) {
-    throw new Error(`Patch checks failed: ${JSON.stringify(submitted.checkResult, null, 2)}`);
+    throw new Error(`Operation checks failed: ${JSON.stringify(submitted.checkResult, null, 2)}`);
   }
 
-  app.ppApprove(proposal.id, ids.agentAId, "Patch checks passed after ownership transfer.");
-  const applied = app.ppApply(proposal.id);
+  app.opApprove(operation.id, ids.agentAId, "Operation checks passed after ownership transfer.");
+  const applied = app.opApply(operation.id);
   writeAppliedConfig();
 
   const activeGates = app.sgListActive({ sessionId: ids.sessionId });
-  const patchStatus = app.ppStatus(applied.id);
+  const operationStatus = app.opStatus(applied.id);
 
   return {
     ...meta,
@@ -256,10 +257,10 @@ async function resolveState(meta) {
     resolvedAt: new Date().toISOString(),
     ids: {
       ...ids,
-      patchProposalId: applied.id,
+      operationId: applied.id,
     },
     startBStatus,
-    patchCheck: patchStatus.checkResult,
+    operationCheck: operationStatus.checkResult,
     activeGateIdsAfterResolve: activeGates.map(g => g.id),
   };
 }
@@ -362,7 +363,7 @@ function printBlockedSummary(meta) {
   printLine("Task B", meta.ids.taskBId);
   printLine("Claim A", meta.ids.claimAId);
   printLine("Claim B", meta.ids.claimBId);
-  printLine("File conflict gate", meta.ids.fileConflictGateId);
+  printLine("Resource conflict gate", meta.ids.fileConflictGateId);
   printLine("Checkpoint", meta.ids.checkpointId);
   printLine("Sync transaction", meta.ids.syncTransactionId);
   printLine("Transaction gate", meta.ids.syncTransactionGateId);
@@ -373,24 +374,24 @@ function printBlockedSummary(meta) {
 }
 
 function printResolvedSummary(meta) {
-  printHeader("Sync state resolved and patch applied");
+  printHeader("Sync state resolved and operation applied");
   printLine("Project", meta.projectDir);
   printLine("Session", meta.ids.sessionId);
-  printLine("Patch proposal", meta.ids.patchProposalId);
+  printLine("Operation", meta.ids.operationId);
   printLine("Patch file", patchPath);
   printLine("Agent B start", meta.startBStatus);
-  printLine("Patch checks", meta.patchCheck?.allPassed ? "ALL PASSED" : "UNKNOWN");
+  printLine("Operation checks", meta.operationCheck?.allPassed ? "ALL PASSED" : "UNKNOWN");
   printLine("Active gates after resolve", meta.activeGateIdsAfterResolve.join(", ") || "none");
-  printNextCommands(meta.projectDir, meta.ids.sessionId, meta.ids.agentBId, meta.ids.patchProposalId);
+  printNextCommands(meta.projectDir, meta.ids.sessionId, meta.ids.agentBId, meta.ids.operationId);
 }
 
-function printNextCommands(targetProject, sessionId, agentId, patchId) {
+function printNextCommands(targetProject, sessionId, agentId, operationId) {
   console.log("");
   console.log("Inspect with CLI from the demo project:");
   console.log(`  syncpoint sync status --session ${sessionId}`);
   console.log(`  syncpoint sync status --session ${sessionId} --agent ${agentId}`);
   console.log(`  syncpoint patch list --session ${sessionId}`);
-  if (patchId) console.log(`  syncpoint patch status --patch ${patchId}`);
+  if (operationId) console.log(`  syncpoint patch status --id ${operationId}`);
   console.log("");
   console.log("Start the server from the demo project, then open Sync View:");
   console.log(`  Project: ${targetProject}`);

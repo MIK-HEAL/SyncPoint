@@ -18,7 +18,7 @@ syncpoint loop boot --agent <agentId> --task <taskId> --provider cursor
 syncpoint loop checkpoint --agent <agentId> --task <taskId> \
   --summary "Header component done" \
   --next-steps "Add navigation" \
-  --working-files "src/Dashboard.tsx"
+  --working-resources "src/Dashboard.tsx"
 
 # 5. Resume after context switch
 syncpoint loop resume --agent <agentId> --task <taskId> --provider cursor
@@ -95,7 +95,7 @@ syncpoint loop checkpoint \
   [--phase "implementation"] \
   [--completed "Done work"] \
   [--remaining "Left to do"] \
-  [--working-files "src/foo.ts, src/bar.ts"] \
+  [--working-resources "src/foo.ts, src/bar.ts"] \
   [--resume-prompt "Custom resume text"] \
   [--risks "Any risks"] \
   [--blockers "Any blockers"] \
@@ -227,8 +227,9 @@ agent add → task create → task assign
 ### Memory Switch Flow
 
 ```
-memory set --key code-style --content "Use TypeScript strict mode"
-→ loop boot (generates .cursorrules with pinned memory)
+knowledge add --category convention --title "Code style" --content "Use TypeScript strict mode" --by <agentId>
+→ knowledge approve <memoryId> --by <agentId>
+→ loop boot (generates .cursorrules with projected memory)
 → loop resume (re-generates with latest context)
 ```
 

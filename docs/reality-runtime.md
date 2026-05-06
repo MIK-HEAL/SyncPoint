@@ -1,6 +1,6 @@
 # SyncPoint — Reality Runtime Architecture
 
-> **Status**: Implemented — P0 through P4 complete (866 tests passing)  
+> **Status**: Implemented — P0 through P4 complete
 > **Scope**: Memory → Executable Layered Reality upgrade
 
 ---
@@ -373,14 +373,14 @@ protocol_rule         → protocolRules
 
 **P4A — Core Evaluator** (`syncpoint-core/src/constraint-runtime.ts`):
 - `evaluateConstraints(input): ConstraintDecision` — pure function, no I/O
-- Six evaluators: `projection_invalid`, `projection_conflict`, `do_not_touch_file_overlap`, `protocol_gate_blocked`, `capsule_locked_invalid`, `hard_constraint_advisory`
+- Core evaluators: `projection_invalid`, `projection_conflict`, `do_not_touch_scope_overlap`, `protocol_gate_blocked`, `capsule_locked_invalid`, typed hard constraints, and advisory hard constraints
 - Scope prefix matching for file overlap detection
 - Returns `{ permitted, blockers[], warnings[], projectionId }`
 
-**P4B — Operation Enforcement** (`operation-service.ts`):
-- `opCheck()` calls `buildProjection` → `evaluateConstraints(action: "operation_submit")`
-- Blockers → `checkResult.constraintViolations[]` + check item per violation
-- Graceful fallback when projection unavailable
+**P4B — Operation Validation** (`operation-service.ts`):
+- `opCheck()` runs registered `OperationValidator`s for the operation type/resource types
+- Code patch validation is provided by `syncpoint-plugin-code`
+- Constraint Runtime visibility for operation contexts is exposed through `constraintCheck(action: "operation_submit" | "operation_apply")`
 
 **P4C — Execution Entry Points**:
 - `loopResume` — capsule-locked mode throws; default mode returns `constraintWarnings[]`
@@ -404,7 +404,7 @@ protocol_rule         → protocolRules
 
 These are orthogonal concerns. A valid capsule does NOT imply permission to proceed. An execution permit does NOT imply the capsule is current.
 
-**Tests**: 24 core + 4 patch enforcement + 7 execution entry points + 17 visibility = **52 constraint tests**
+**Tests**: covered by core constraint tests, server execution-entry tests, visibility tests, and Project Memory validator guard tests.
 
 ---
 
@@ -457,12 +457,12 @@ These invariants must be maintained across all phases:
 | P3A | Projection compiler (pure core + server service) | ✅ | 36 |
 | P3B | Raw PM leak closure (17 surfaces sealed) | ✅ | 6 |
 | P4A | Constraint evaluator (pure core, 6 rules) | ✅ | 24 |
-| P4B | Operation enforcement (opCheck constraint integration) | ✅ | 4 |
+| P4B | Operation validation and operation-context visibility | ✅ | see current test output |
 | P4C | Execution entry points (loop/orch/wake blocking) | ✅ | 7 |
 | P4D | Visibility layer (service + tRPC + MCP + CLI + snapshot) | ✅ | 17 |
 | P5 | Documentation realignment | 🔄 | — |
 
-**Total at P4D acceptance**: 430 core + 382 server + 48 mcp + 1 cli + 1 sdk + 4 vscode = **866 tests**
+Current package-level test counts are maintained by the test runner output rather than this historical architecture document.
 
 ---
 

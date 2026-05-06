@@ -69,7 +69,7 @@ Prompt: syncpoint_session_playbook — role-specific playbook with next actions
    syncpoint session assign-role --session <id> --agent <revId> --role reviewer
    ```
 
-3. **Plan tasks** — decompose work, assign executors, and define file/review boundaries
+3. **Plan tasks** — decompose work, assign executors, and define resource/review boundaries
    ```bash
    syncpoint session plan --session <id> --task <taskId> --assignee <execId>
    ```
@@ -81,7 +81,7 @@ Prompt: syncpoint_session_playbook — role-specific playbook with next actions
 
 ### EXECUTING Phase
 
-5. **Monitor blockers** — check next actions, session status, file claims, and gates
+5. **Monitor blockers** — check next actions, session status, resource claims, and gates
    ```bash
    syncpoint playbook next-action --session <id> --agent <archId>
    syncpoint session status --session <id>
@@ -148,9 +148,9 @@ Prompt: syncpoint_session_playbook — role-specific playbook with next actions
 
 2. **Add checklist items**
    ```bash
-   syncpoint review checklist-add --review <id> --title "Build passes" --required
-   syncpoint review checklist-add --review <id> --title "Tests pass" --required
-   syncpoint review checklist-add --review <id> --title "Types check" --required
+   syncpoint review checklist-add --review <id> --title "Build passes"
+   syncpoint review checklist-add --review <id> --title "Tests pass"
+   syncpoint review checklist-add --review <id> --title "Types check"
    ```
 
 3. **Capture evidence** from commands

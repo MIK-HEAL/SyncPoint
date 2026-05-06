@@ -44,16 +44,19 @@ evaluateConstraints(input: ConstraintInput): ConstraintDecision
 | `warnings` | `ConstraintViolation[]` | Advisory notices (never block) |
 | `projectionId` | `string` | Which projection was evaluated |
 
-### Six Evaluation Rules
+### Core Evaluation Rules
 
 | Rule | Blocks? | Trigger |
 |------|---------|---------|
 | `projection_invalid` | Yes | Projection validity is `invalid` |
 | `projection_conflict` | Yes | Unresolved `blocking` conflicts in projection |
-| `do_not_touch_file_overlap` | Yes | `touchedResources` overlap with `do_not_touch` scope from `constraintRules` |
+| `do_not_touch_scope_overlap` | Yes | `touchedResources` overlap with `do_not_touch` scope from `constraintRules` |
 | `protocol_gate_blocked` | Yes | Active protocol gate blocks the action |
 | `capsule_locked_invalid` | Yes | `capsule-locked` mode with failed capsule validation |
-| `hard_constraint_advisory` | No | `hard_constraint` exists in projection (warning only) |
+| `hard_constraint_require_review` | Yes | `require_review` typed hard constraint fires on operation submit/apply |
+| `hard_constraint_advisory` | No | Untyped or non-claimed `hard_constraint` exists in projection |
+
+Domain-specific typed constraints are handled by registered `ConstraintRuleEvaluator`s. If no evaluator claims a typed rule at runtime, the entry does not become a blocker and is surfaced through the advisory path.
 
 ### Scope Matching
 
@@ -74,9 +77,10 @@ The Constraint Runtime is called at every execution boundary:
 | `orchStartAssignment` | `start_assignment` | Agent's active resource claims | Throws `Error("Constraint violation: ...")` |
 | `wakeStart` | `wake_start` | Latest capsule `.workingResources` | Throws |
 | `wakeNext` | `wake_start` | Latest capsule `.workingResources` | Returns `null` (graceful skip) |
-| `opCheck` | `operation_submit` | `operation.targetResources` | `constraintViolations[]` on check result |
 
-All entry points use try/catch around `buildProjection` — if projection is unavailable, execution is **allowed** (graceful degradation, not silent failure).
+Operation submit/apply contexts are available through the read-only `constraintCheck` visibility API. The operation lifecycle itself currently runs `OperationValidator`s in `opCheck()`; it does not mutate operation status based on Constraint Runtime output.
+
+All enforcement entry points use try/catch around `buildProjection` — if projection is unavailable, execution is **allowed** (graceful degradation, not silent failure).
 
 ---
 
@@ -90,7 +94,7 @@ All entry points use try/catch around `buildProjection` — if projection is una
 constraintCheck(input): ConstraintRuntimeView
 ```
 
-Read-only unified query that reproduces P4C enforcement decisions exactly, without exposing raw Project Memory content.
+Read-only unified query that uses the same evaluator as P4C enforcement decisions, without exposing raw Project Memory content.
 
 **Input resolution per action**:
 
@@ -111,7 +115,7 @@ Read-only unified query that reproduces P4C enforcement decisions exactly, witho
   warnings: Array<{ rule, sourceMemoryId, projectionId, message, evidence }>
   projection: { projectionId, cacheKey, validity, memoryVersion, createdFrom }
   inputs: { taskId, agentId, workingResources, touchedResources, source }
-  runtimeUnavailable?: string   // set when projection fails (graceful degradation)
+  runtimeUnavailable?: { message: string }   // set when projection fails (graceful degradation)
 }
 ```
 
@@ -161,7 +165,6 @@ Summary adds:
 | Suite | File | Count |
 |-------|------|-------|
 | P4A Core | `syncpoint-core/src/constraint-runtime.test.ts` | 24 |
-| P4B Patch | `syncpoint-server/src/tests/p4b-patch-enforcement.test.ts` | 4 |
 | P4C Entry Points | `syncpoint-server/src/tests/p4c-constraint-enforcement.test.ts` | 7 |
 | P4D Visibility | `syncpoint-server/src/tests/p4d-constraint-visibility.test.ts` | 17 |
-| **Total** | | **52** |
+| Project Memory validator guards | `syncpoint-server/src/tests/p2-schema-v2.test.ts` | see current test output |

@@ -59,7 +59,7 @@ registerOperationValidator({
   operationTypes: ["image_edit"],
   resourceTypes: ["image"],
   validate(ctx) {
-    const valid = ctx.payload?.includes("width") ?? false;
+    const valid = ctx.operation.targetResources.some(r => r.metadata.includes("width"));
     return [{
       check: "image_dimensions",
       passed: valid,
@@ -83,7 +83,7 @@ interface OperationValidationContext {
   operation: Operation;
   actorClaims: ResourceClaim[];      // claims belonging to the operation's actor
   allActiveClaims: ResourceClaim[];  // claims across all actors
-  payload?: string;                  // operation payload (e.g. patch text)
+  payload?: string;                  // optional operation payload, if supplied by the caller
 }
 
 interface OperationCheckItem {
@@ -105,6 +105,8 @@ interface OperationCheckItem {
 **Matching rules**: A validator fires when:
 1. Its `operationTypes` is empty (wildcard) **or** contains the operation's `type`, **AND**
 2. Its `resourceTypes` is empty (wildcard) **or** overlaps with the operation's `targetResources` types.
+
+The current application `opCheck()` path passes operation metadata and resource claims to validators. The core validation interface supports optional `payload`, but callers must explicitly supply it when using `runOperationValidation()` directly.
 
 ### 3. ScopeMatcher — projection scoping
 
@@ -162,14 +164,15 @@ registerConstraintRuleEvaluator({
     const locators = input.touchedResources
       ?.filter(r => r.type === "db_table")
       .map(r => r.locator) ?? [];
-    const forbidden = spec.files ?? [];  // reuse files field or define custom
+    const forbidden = ((item.scope as any)?.tables ?? []) as string[];
     const overlap = locators.filter(l => forbidden.includes(l));
     if (overlap.length > 0) {
       return {
         rule: "table_forbidden",
         message: `Touches forbidden tables: ${overlap.join(", ")}`,
-        severity: "hard" as const,
-        source: item.id,
+        sourceMemoryId: item.source.sourceMemoryId,
+        projectionId: input.projection.projectionId,
+        evidence: overlap,
       };
     }
     return null;
@@ -198,16 +201,16 @@ interface ConstraintRuleEvaluator {
 | `getConstraintRuleEvaluator(ruleType)` | Retrieve the registered evaluator, or `undefined` |
 | `clearConstraintRuleEvaluatorRegistry()` | Remove all evaluators (testing only) |
 
-**Built-in rule types** (registered by `syncpoint-plugin-code` or server):
+**Known rule types**:
 
 | Rule Type | Semantics |
 |---|---|
-| `file_forbidden` | Blocks when touched files overlap with forbidden file patterns |
-| `module_forbidden` | Blocks when current modules overlap with forbidden modules |
-| `require_review` | Blocks unless a review has been completed |
-| `custom` | Generic evaluator for custom constraint logic |
+| `file_forbidden` | Reserved validator type; blocks only when a matching evaluator is registered |
+| `module_forbidden` | Reserved validator type; blocks only when a matching evaluator is registered |
+| `require_review` | Core-handled rule for operation submit/apply contexts |
+| `custom` | Reserved custom type; advisory unless claimed by runtime logic |
 
-**How core uses it**: `evaluateConstraints()` iterates over projected `hard_constraint` entries. If an entry has a `validatorType`, the runtime dispatches to the matching `ConstraintRuleEvaluator`. If the evaluator returns a `ConstraintViolation`, it becomes a blocker. If no evaluator is registered for the type, `requireValidatorForBlockingConstraint()` throws `UnknownValidatorTypeError`.
+**How core uses it**: `evaluateConstraints()` iterates over projected `hard_constraint` entries. If an entry has a `validatorType` that is handled by core or has a matching registered `ConstraintRuleEvaluator`, the runtime evaluates it. If the evaluator returns a `ConstraintViolation`, it becomes a blocker. `UnknownValidatorTypeError` is thrown earlier by Project Memory create/update validation when a blocking `hard_constraint` uses an unrecognized `validatorType`.
 
 ---
 
@@ -309,7 +312,7 @@ interface ResourceClaim {
 
 | Name | Checks |
 |---|---|
-| `code_patch_format` | Payload is a valid unified diff |
+| `code_patch_format` | Payload is a valid unified diff when payload text is supplied |
 | `code_patch_claim_coverage` | All touched files are covered by the actor's active claims |
 | `code_patch_no_hard_conflict` | No other agent's exclusive claims conflict with touched files |
 
@@ -361,7 +364,7 @@ registerOperationValidator({
   operationTypes: ["db_migration"],
   resourceTypes: ["db_table"],
   validate(ctx) {
-    const hasRollback = ctx.payload?.includes("-- rollback:") ?? false;
+    const hasRollback = ctx.operation.summary.includes("rollback");
     return [{
       check: "migration_has_rollback",
       passed: hasRollback,
@@ -435,7 +438,7 @@ If no extension is registered for a given type, core falls back to safe defaults
 - **No ResourceMatcher** → exact locator equality for overlap detection
 - **No OperationValidator** → operation passes all checks (empty check result)
 - **No ScopeMatcher** → exact string matching on scope field values
-- **No ConstraintRuleEvaluator** → `UnknownValidatorTypeError` for typed constraints (blocks by default)
+- **No ConstraintRuleEvaluator** → reserved typed constraints are not claimed at runtime and fall back to advisory unless core handles the rule
 
 ---
 

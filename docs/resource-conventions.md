@@ -107,7 +107,7 @@ These are **independent systems**:
 - `ResourceRef.type` determines **claim overlap** detection (via `ResourceMatcher`)
 - `appliesTo` fields determine **projection scoping** (via `ScopeMatcher`)
 
-They often align (file claims ↔ `files` scope), but are not required to. A `binary_asset` claim does not automatically interact with `appliesTo.files` scoping — they serve different purposes:
+They often align (file resource claims ↔ `files` scope), but are not required to. A `binary_asset` claim does not automatically interact with `appliesTo.files` scoping — they serve different purposes:
 
 | System | Question it answers | Extension point |
 |---|---|---|
@@ -120,4 +120,4 @@ They often align (file claims ↔ `files` scope), but are not required to. A `bi
 
 - **Typed capsule resources**: Currently `workingResources` on context capsules is a freeform comma-separated string. A future enhancement would store `ResourceRef[]` to carry type information, eliminating the `type: "file"` default assumption in constraint evaluation.
 - **Metadata schema per type**: The `metadata` field is currently unstructured. If structured metadata becomes valuable (e.g. image dimensions for layout constraint checking), plugins could register metadata schemas per resource type.
-- **Cross-type constraints**: Currently, different resource types never conflict. If needed, a `CrossTypeMatcher` could be introduced for cases like "a file claim on `db/schema.sql` should conflict with a `db_table` claim on `users`."
+- **Cross-type constraints**: Currently, different resource types never conflict. If needed, a `CrossTypeMatcher` could be introduced for cases like "a `file` resource claim on `db/schema.sql` should conflict with a `db_table` claim on `users`."

@@ -349,7 +349,7 @@ SyncPoint provides runtime identity tools for manual binding and inspection:
 
 With a bound connection:
 
-- `syncpoint_file_claim` can omit `agentId`
+- `syncpoint_resource_claim` can omit `agentId`
 - `syncpoint_loop_resume` can omit `agentId`
 - `syncpoint_session_next_action` can omit `agentId`
 - `syncpoint_sync_ack` can omit `agentId`

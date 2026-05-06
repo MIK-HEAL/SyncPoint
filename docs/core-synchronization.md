@@ -6,7 +6,7 @@ SyncPoint is a protocol layer for **synchronization truncation**:
 multiple editor AIs work in one codebase
   -> each agent wants to continue
   -> SyncPoint checks shared local sync state
-  -> unresolved claim / gate / transaction / review / patch blocks continuation
+  -> unresolved claim / gate / transaction / review / operation blocks continuation
   -> the required agents align
   -> only then does work continue
 ```
@@ -20,8 +20,8 @@ Every core primitive answers one of four protocol questions:
 | # | Question | Example |
 |---|---|---|
 | 1 | **Who is changing what?** | Agent A owns `src/auth.ts`; Agent B owns `src/api/*` |
-| 2 | **When must they synchronize?** | File claims overlap; a checkpoint needs approval; a patch conflicts |
-| 3 | **What must be confirmed?** | Checkpoint summary, file boundary, review evidence, patch safety |
+| 2 | **When must they synchronize?** | Resource claims overlap; a checkpoint needs approval; an operation conflicts |
+| 3 | **What must be confirmed?** | Checkpoint summary, resource boundary, review evidence, operation safety |
 | 4 | **Who continues after confirmation?** | Wake the reviewer, resume the executor, hand off to the next agent |
 
 If a feature does not answer one of these questions, it is supporting infrastructure, not the core protocol.
@@ -63,14 +63,14 @@ Acknowledgement is awareness. Resolution is permission to continue.
 
 ## Core Primitives
 
-### 1. File Claim
+### 1. Resource Claim
 
-`FileClaim` records file ownership:
+`ResourceClaim` records resource ownership:
 
-- **agent**: who intends to modify the files
+- **actor**: who intends to modify the resources
 - **task**: why the files are being touched
 - **session**: which collaboration scope owns the claim
-- **paths**: exact paths or globs
+- **resources**: typed locators such as `file:src/auth.ts`, `binary_asset:assets/hero.png`, or `db_table:users`
 - **mode**: `exclusive` or `shared`
 
 When active claims overlap, SyncPoint detects a conflict. A hard exclusive overlap can create a `SyncGate` automatically.
@@ -90,7 +90,7 @@ Gate reasons include:
 
 | Reason | Meaning |
 |---|---|
-| `file_conflict` | Agents claim overlapping ownership |
+| `resource_conflict` | Agents claim overlapping resource ownership |
 | `checkpoint_required` | A checkpoint must be approved before continuing |
 | `phase_transition` | Session phase requires coordination |
 | `context_drift` | Resume context is unsafe or stale |
@@ -111,20 +111,20 @@ checkpoint created
 
 This is how SyncPoint turns "I saved progress" into "the next agent may safely continue from this confirmed state."
 
-### 4. Patch Proposal
+### 4. Operation
 
-`PatchProposal` makes AI-generated patches auditable before they are treated as applied.
+`Operation` makes a tracked unit of work auditable before it is treated as applied. Code patches are represented as `type: "code_patch"` operations, while plugins can define other operation types such as `asset_edit`.
 
-Checks include:
+Registered validators can check:
 
 | Check | Purpose |
 |---|---|
-| Patch format valid | The text looks like a unified diff |
-| Files extracted | SyncPoint knows which files are touched |
-| Files covered by claims | The submitting agent owns the touched files |
+| Payload or metadata format | Domain-specific payload/metadata is valid when supplied |
+| Target resources known | SyncPoint knows which resources are touched |
+| Resources covered by claims | The submitting actor owns the touched resources |
 | No hard conflict | No other active exclusive claim overlaps |
 
-Submitted or conflicting patches appear as blockers in Sync View until approved, rejected, fixed, or applied.
+Submitted or conflicting operations appear as blockers in Sync View until approved, rejected, fixed, or applied.
 
 ### 5. Wake with Semantic Intent
 
@@ -135,7 +135,7 @@ Valid wake actions are sync verbs:
 ```text
 plan
 accept
-claim-files
+claim-resources
 checkpoint
 sync-checkpoint
 review
@@ -163,11 +163,11 @@ SyncPoint is enforced in the application layer used by CLI, MCP, SDK, tRPC, and 
 
 | Entry point | Enforcement behavior |
 |---|---|
-| `orchStartAssignment()` | Blocks start if the assignee has active gates; `peer-contract` also requires file claims |
+| `orchStartAssignment()` | Blocks start if the assignee has active gates; `peer-contract` also requires resource claims |
 | `loopResume()` | Blocks resume if context policy or hard gates fail |
 | `wakeNext()` | Suppresses wake dispatch while the target agent is blocked |
 | `wakeStart()` | Prevents starting a queued wake through an unresolved gate |
-| `patch submit/check` | Blocks approval when patch ownership or conflict checks fail |
+| `opSubmit()` / `opCheck()` | Blocks approval when operation ownership or conflict checks fail |
 
 This is protocol-level hard truncation. It is not an operating-system file lock.
 
@@ -178,10 +178,10 @@ Relationship mode defines which synchronization rules are expected in a session.
 | Mode | Collaboration pattern | Sync rule |
 |---|---|---|
 | `manager-delegate` | Architect assigns; executor reports; reviewer approves | plan -> accept -> checkpoint -> review -> approve |
-| `peer-contract` | Peers work in parallel with explicit boundaries | contract -> claim files -> checkpoint sync -> patch/review |
+| `peer-contract` | Peers work in parallel with explicit boundaries | contract -> claim resources -> checkpoint sync -> operation/review |
 | `handoff-resume` | One agent transfers work to another | capsule -> handoff -> accept -> resume |
 
-`peer-contract` is the clearest mode for demonstrating synchronization truncation because file claims are required before work starts.
+`peer-contract` is the clearest mode for demonstrating synchronization truncation because resource claims are required before work starts.
 
 ## Sync View Model
 
@@ -190,10 +190,10 @@ The VS Code extension reads a single sync snapshot and renders six sections:
 | Section | What it shows |
 |---|---|
 | Sessions | Active sessions, modes, and agent roles |
-| Active Work | Assignments, claimed files, blocked agents |
-| File Ownership | Claims and hard conflicts |
-| Blockers | Gates, sync transactions, handoffs, reviews, submitted/conflicting patches |
-| Patches | Patch proposal state and required next action |
+| Active Work | Assignments, claimed resources, blocked agents |
+| Resource Ownership | Claims and hard conflicts |
+| Blockers | Gates, sync transactions, handoffs, reviews, submitted/conflicting operations |
+| Operations | Operation state and required next action |
 | Wake Queue | Pending sync obligations and their semantic source |
 
 The view is not a separate source of truth. It is a visual projection of the same protocol state.
@@ -204,5 +204,5 @@ The view is not a separate source of truth. It is a visual projection of the sam
 2. **Resolution over acknowledgement** — `SYNC_ACKED` still blocks.
 3. **Local-first** — SQLite state under `.syncpoint/`; no cloud dependency.
 4. **Protocol over platform** — Core rules are portable; entry points are adapters.
-5. **Evidence before continuation** — Checkpoints, reviews, and patches carry auditable state.
-6. **One story everywhere** — README, CLI, MCP, and Sync View all describe claims, gates, blockers, transactions, patches, and wakes.
+5. **Evidence before continuation** — Checkpoints, reviews, and operations carry auditable state.
+6. **One story everywhere** — README, CLI, MCP, and Sync View all describe claims, gates, blockers, transactions, operations, and wakes.

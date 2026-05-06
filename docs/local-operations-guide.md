@@ -14,7 +14,7 @@ SyncPoint is the local state and enforcement layer between editor AI agents.
 
 ```text
 agent action
-  -> check claims / gates / transactions / reviews / patches
+  -> check claims / gates / transactions / reviews / operations
   -> stop if blocked
   -> synchronize with required agents
   -> continue only after the blocker is resolved
@@ -24,10 +24,10 @@ The operator experience has four surfaces:
 
 | Surface | Use it for |
 |---|---|
-| CLI | Create sessions, inspect blockers, resolve gates, approve transactions, manage patches |
-| MCP | Let editor agents claim files, checkpoint, hand off, resume, review, and wake through tools/prompts |
+| CLI | Create sessions, inspect blockers, resolve gates, approve transactions, manage resource claims and operations |
+| MCP | Let editor agents claim resources, checkpoint, hand off, resume, review, submit operations, and wake through tools/prompts |
 | Server | Share one local SyncPoint state with SDK, extension, and tRPC clients |
-| VS Code Sync View | See sessions, active work, file ownership, blockers, patches, and wake queue |
+| VS Code Sync View | See sessions, active work, resource ownership, blockers, operations, and wake queue |
 
 ## MCP Identity And Connection Setup
 
@@ -208,28 +208,29 @@ Create tasks and assignments:
 syncpoint task create --title "Agent A updates shared config" --description "Prepare base config change"
 syncpoint task create --title "Agent B proposes follow-up patch" --description "Patch same config after sync"
 
-syncpoint session plan --session <sessionId> --task <taskA> --agent <agentA>
-syncpoint session plan --session <sessionId> --task <taskB> --agent <agentB>
+syncpoint session plan --session <sessionId> --task <taskA> --assignee <agentA>
+syncpoint session plan --session <sessionId> --task <taskB> --assignee <agentB>
 
 syncpoint session accept --assignment <assignmentA>
 syncpoint session accept --assignment <assignmentB>
 ```
 
-## File Claims
+## Resource Claims
 
-File claims answer:
+Resource claims answer:
 
 ```text
-Who owns which files right now?
+Who owns which resources right now?
 ```
 
-Editor agents usually claim files through MCP because the claim is part of their tool-using workflow:
+Editor agents usually claim resources through MCP because the claim is part of their tool-using workflow:
 
 ```text
-syncpoint_file_claim {
+syncpoint_resource_claim {
   "taskId": "<taskA>",
   "sessionId": "<sessionId>",
-  "paths": "src/shared-config.ts",
+  "type": "file",
+  "locators": "src/shared-config.ts",
   "mode": "exclusive"
 }
 ```
@@ -241,14 +242,16 @@ The CLI facade also accepts agent names:
 
 ```bash
 syncpoint claim src/shared-config.ts --agent executor-a --task <taskA> --session <sessionId>
+syncpoint claim assets/hero-banner.png --type binary_asset --agent designer --task <taskA>
 ```
 
-If another agent claims the same file exclusively, SyncPoint detects a hard conflict and creates a `SyncGate` automatically.
+If another agent claims the same resource exclusively, SyncPoint detects a hard conflict and creates a `SyncGate` automatically.
 
-For a runnable CLI-oriented demonstration of file claims, use the script in [`demo-sync-truncation.md`](demo-sync-truncation.md):
+For runnable CLI-oriented demonstrations, use:
 
 ```bash
-node scripts/demo-sync-flow.mjs --stage blocked
+syncpoint demo conflict --stage blocked
+syncpoint demo resource
 ```
 
 ## Start Or Resume Work
@@ -352,46 +355,33 @@ syncpoint sync tx resolve --tx <txId> --summary "Checkpoint accepted."
 
 The transaction has its own bound `SyncGate`; resolving the transaction releases that gate.
 
-## Use Patch Proposals
+## Use Operations For Code Patches
 
-Create a unified diff file, for example `proposal.patch`:
-
-```diff
-diff --git a/src/shared-config.ts b/src/shared-config.ts
---- a/src/shared-config.ts
-+++ b/src/shared-config.ts
-@@
--export const syncMode = "manual";
-+export const syncMode = "protocol-gated";
-```
-
-Create the proposal:
+Create the operation record:
 
 ```bash
 syncpoint patch propose \
   --session <sessionId> \
   --task <taskId> \
   --agent <agentId> \
-  --title "Update shared config sync mode" \
-  --summary "Small follow-up patch after claim handoff" \
-  --file proposal.patch
+  --title "Update shared config sync mode"
 ```
 
 Submit and inspect checks:
 
 ```bash
-syncpoint patch submit --patch <patchId>
-syncpoint patch status --patch <patchId>
+syncpoint patch submit --id <operationId>
+syncpoint patch status --id <operationId>
 ```
 
 Approve and mark applied:
 
 ```bash
-syncpoint patch approve --patch <patchId> --agent <approverAgentId> --summary "Claim checks passed."
-syncpoint patch apply --patch <patchId>
+syncpoint patch approve --id <operationId> --agent <approverAgentId> --summary "Claim checks passed."
+syncpoint patch apply --id <operationId>
 ```
 
-`patch apply` marks the approved proposal as applied in SyncPoint state. It does not replace your normal code review or Git workflow.
+The current CLI command group is still named `patch` for compatibility, but it delegates to the generic operation lifecycle (`opCreate`, `opSubmit`, `opCheck`, `opApprove`, `opApply`). The CLI command shown above creates lifecycle state only: it does not read a patch file, infer touched resources, or apply a diff to your working tree. Ownership/conflict validators run when an operation has `targetResources`, as in application-level integrations and demos that create operations directly.
 
 ## Wake Queue
 
@@ -414,9 +404,9 @@ When debugging a collaboration flow, inspect these sections:
 | Sync Status | Overall blocker count |
 | Sessions | Session mode and role bindings |
 | Active Work | Assignment status and blocked agents |
-| File Ownership | Active claims and hard overlaps |
-| Blockers | Gates, sync transactions, reviews, handoffs, submitted/conflicting patches |
-| Patches | Patch lifecycle and check results |
+| Resource Ownership | Active claims and hard overlaps |
+| Blockers | Gates, sync transactions, reviews, handoffs, submitted/conflicting operations |
+| Operations | Operation lifecycle and check results |
 | Wake Queue | Queued sync obligations |
 
 If Sync View and CLI disagree, confirm that both are using the same `.syncpoint/` database and server project root.
@@ -473,10 +463,12 @@ High-value MCP tools and prompts:
 
 | Name | Purpose |
 |---|---|
-| `syncpoint_file_claim` | Declare file ownership; may create conflict gates |
-| `syncpoint_file_release` | Release ownership after handoff or resolution |
-| `syncpoint_resume` | Resume with current context and blockers |
-| `syncpoint_checkpoint` | Prepare a structured checkpoint |
+| `syncpoint_resource_claim` | Declare resource ownership; may create conflict gates |
+| `syncpoint_resource_release` | Release ownership after handoff or resolution |
+| `syncpoint_loop_resume` | Resume with current context and blockers |
+| `syncpoint_loop_checkpoint` | Prepare a structured checkpoint |
+| `syncpoint_operation_create` | Create an operation such as a code patch or asset edit |
+| `syncpoint_operation_submit` | Submit an operation for validation |
 | `syncpoint_wake_briefing` | Explain a pending sync obligation |
 | `syncpoint_session_playbook` | Show role-specific next actions |
 
@@ -493,19 +485,19 @@ syncpoint patch list --session <sessionId>
 
 Then inspect Sync View **Blockers**.
 
-### The patch cannot be approved
+### The operation cannot be approved
 
 Run:
 
 ```bash
-syncpoint patch check --patch <patchId>
+syncpoint patch check --id <operationId>
 ```
 
 Common causes:
 
-- **Missing claim**: The patch touches files the agent does not own.
+- **Missing claim**: The operation touches resources the agent does not own.
 - **Hard conflict**: Another active exclusive claim overlaps.
-- **Invalid diff**: The patch text is not a recognizable unified diff.
+- **Invalid payload**: For integrations that supply payload text to validators, the operation payload may fail domain-specific checks.
 
 ### The extension shows no data
 
@@ -520,10 +512,10 @@ Verify:
 
 Before allowing an agent to continue, answer:
 
-1. **Claim**: Does this agent own the files it will touch?
+1. **Claim**: Does this agent own the resources it will touch?
 2. **Gate**: Is any gate still active?
 3. **Transaction**: Is the latest checkpoint approved and resolved?
-4. **Patch**: Has the patch passed ownership/conflict checks?
+4. **Operation**: Has the operation passed the checks that apply to its recorded resources and metadata?
 5. **Wake**: Is the next action a sync obligation, not arbitrary autonomous work?
 
 If any answer is unclear, stop and synchronize before continuing.
