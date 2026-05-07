@@ -11,11 +11,12 @@ import type {
   OperationValidator,
   OperationValidationContext,
   OperationCheckItem,
+  ResourceRef,
   ResourceClaimMode,
 } from "syncpoint-core";
+import { resourceLocatorsOverlap } from "syncpoint-core";
 import { GENERIC_OPERATION_TYPES } from "./operation-types.js";
 import { GENERIC_RESOURCE_TYPES } from "./resource-types.js";
-import { locatorPathsOverlap } from "./locator.js";
 
 // ── Helpers ──────────────────────────────────────────
 
@@ -23,19 +24,17 @@ function isGenericResource(type: string): boolean {
   return (GENERIC_RESOURCE_TYPES as readonly string[]).includes(type);
 }
 
-/** Get locators for target resources that are generic types. */
-function genericTargetLocators(ctx: OperationValidationContext): string[] {
+/** Get target ResourceRefs that are generic types. */
+function genericTargetRefs(ctx: OperationValidationContext): ResourceRef[] {
   return ctx.operation.targetResources
-    .filter(r => isGenericResource(r.type))
-    .map(r => r.locator);
+    .filter(r => isGenericResource(r.type));
 }
 
-/** Get all claimed locators (generic types) for the actor. */
-function claimedLocators(ctx: OperationValidationContext): string[] {
+/** Get all claimed ResourceRefs (generic types) for the actor. */
+function claimedRefs(ctx: OperationValidationContext): ResourceRef[] {
   return ctx.actorClaims
     .flatMap(c => c.resources)
-    .filter(r => isGenericResource(r.type))
-    .map(r => r.locator);
+    .filter(r => isGenericResource(r.type));
 }
 
 // ── Validators ───────────────────────────────────────
@@ -48,14 +47,14 @@ export const genericClaimCoverageValidator: OperationValidator = {
   operationTypes: [...GENERIC_OPERATION_TYPES],
   resourceTypes: [...GENERIC_RESOURCE_TYPES],
   validate(ctx: OperationValidationContext): OperationCheckItem[] {
-    const targets = genericTargetLocators(ctx);
+    const targets = genericTargetRefs(ctx);
     if (targets.length === 0) {
       return [{ check: "generic_claim_coverage", passed: true, detail: "No generic resources to check" }];
     }
 
-    const claimed = claimedLocators(ctx);
+    const claimed = claimedRefs(ctx);
     const uncovered = targets.filter(t =>
-      !claimed.some(c => locatorPathsOverlap(t, c)),
+      !claimed.some(c => resourceLocatorsOverlap(t, c)),
     );
 
     return [{
@@ -63,7 +62,7 @@ export const genericClaimCoverageValidator: OperationValidator = {
       passed: uncovered.length === 0,
       detail: uncovered.length === 0
         ? "All target resources are covered by actor's active claims"
-        : `Uncovered resources: ${uncovered.join(", ")}`,
+        : `Uncovered resources: ${uncovered.map(r => r.locator).join(", ")}`,
     }];
   },
 };
@@ -76,7 +75,7 @@ export const genericNoHardConflictValidator: OperationValidator = {
   operationTypes: [...GENERIC_OPERATION_TYPES],
   resourceTypes: [...GENERIC_RESOURCE_TYPES],
   validate(ctx: OperationValidationContext): OperationCheckItem[] {
-    const targets = genericTargetLocators(ctx);
+    const targets = genericTargetRefs(ctx);
     if (targets.length === 0) {
       return [{ check: "generic_no_hard_conflict", passed: true, detail: "No generic resources to check" }];
     }
@@ -86,7 +85,7 @@ export const genericNoHardConflictValidator: OperationValidator = {
     );
     const conflicting = otherExclusive.filter(c =>
       c.resources.some(r =>
-        isGenericResource(r.type) && targets.some(t => locatorPathsOverlap(t, r.locator)),
+        isGenericResource(r.type) && targets.some(t => resourceLocatorsOverlap(t, r)),
       ),
     );
 

@@ -4,6 +4,8 @@
 
 **Stop agent drift before it becomes a merge conflict.**
 
+Coordinate coding agents, design agents, data agents — any AI that shares resources.
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-green?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![pnpm](https://img.shields.io/badge/pnpm-%E2%89%A59-orange?logo=pnpm)](https://pnpm.io/)
@@ -25,14 +27,17 @@ They fail because they **continue from different realities**.
 - A handoff loses the blockers, risks, and review state the previous agent built up.
 - A hard constraint says "do not touch the auth module." The agent touches it. Nothing stops it.
 - Two agents race on the same interface. The slower one overwrites the faster one's work.
+- A design agent updates a frozen brand logo. No constraint enforces the freeze.
 
 By the time you notice, the damage is a merge conflict — or worse, silently wrong code in production.
 
 ## What SyncPoint Does
 
-SyncPoint is a **local coordination protocol** for editor AI agents.
+SyncPoint is a **local coordination protocol** for AI agents that share resources.
 
-Before an agent starts, resumes, wakes, checkpoints, or applies a patch, SyncPoint checks whether the continuation path is safe. If it isn't, **it blocks**.
+Before an agent starts, resumes, wakes, checkpoints, or applies a change, SyncPoint checks whether the continuation path is safe. If it isn't, **it blocks**.
+
+> **Not just code.** SyncPoint coordinates any addressable resource — source files, binary assets, design artifacts, documents, datasets. The same claim/gate/constraint loop works for `src/auth.ts` and `assets/hero-banner.png`. See [Beyond Code](docs/beyond-code.md).
 
 ```text
 Agent wants to continue
@@ -62,7 +67,7 @@ SyncPoint enforces boundaries through five protocol primitives:
 
 | Primitive | What it does |
 |---|---|
-| **FileClaim** | Agent declares "I will touch these files" — overlapping claims create blockers automatically |
+| **ResourceClaim** | Agent declares "I will touch these resources" — overlapping claims create blockers automatically |
 | **SyncGate** | A hard stop — the agent cannot continue until the gate is resolved, not just acknowledged |
 | **SyncTransaction** | A checkpoint that requires approval before another agent can resume from it |
 | **PatchProposal** | A diff that is checked for ownership, format, and constraint violations before apply |
