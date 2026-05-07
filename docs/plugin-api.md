@@ -327,6 +327,95 @@ registerCodePlugin();
 
 ---
 
+## First-Party Plugin: syncpoint-plugin-generic-agent
+
+`syncpoint-plugin-generic-agent` teaches SyncPoint how to handle non-code resource types. It is the protocol-level plugin for any shared resource that is not a source file.
+
+### What it provides
+
+| Module | Exports | Purpose |
+|---|---|---|
+| `matchers.ts` | `GENERIC_RESOURCE_MATCHERS` | URI-path-prefix overlap for `artifact`, `binary_asset`, `document`, `design_asset`, `dataset_slice` |
+| `validators.ts` | `genericClaimCoverageValidator`, `genericNoHardConflictValidator`, `genericPayloadPresentValidator` | Claim coverage, hard conflict, payload presence for generic operations |
+| `constraint-evaluators.ts` | `resourceForbiddenEvaluator` | Blocks operations touching resources listed in a `resource_forbidden` hard constraint |
+| `scope-matchers.ts` | `resourcesScopeMatcher`, `assetTypesScopeMatcher` | Scope field matching for `resources` and `assetTypes` in appliesTo |
+| `index.ts` | `registerGenericAgentPlugin()` | One-call idempotent registration |
+
+### Supported resource types
+
+`artifact`, `binary_asset`, `document`, `design_asset`, `dataset_slice`
+
+### Supported operation types
+
+`artifact_update`, `artifact_review`, `artifact_transform`, `asset_generate`, `asset_edit`, `asset_update`
+
+### Validators registered
+
+| Name | Checks |
+|---|---|
+| `generic_claim_coverage` | All target resources are covered by the actor's active claims |
+| `generic_no_hard_conflict` | No other agent's exclusive claims conflict with target resources |
+| `generic_payload_present` | Operation has a payload or payloadRef |
+
+### Constraint rule evaluators registered
+
+| Rule Type | Behavior |
+|---|---|
+| `resource_forbidden` | Blocks when operation's `targetResources` overlap with forbidden resource locators defined in a `hard_constraint`'s `appliesTo.resources` scope |
+
+### Registration
+
+```ts
+import { registerGenericAgentPlugin } from "syncpoint-plugin-generic-agent";
+
+registerGenericAgentPlugin();
+// Safe to call multiple times — idempotent.
+```
+
+Auto-registered at server startup via `_plugin-init.ts` alongside `syncpoint-plugin-code`.
+
+---
+
+## Operation Constraint Enforcement
+
+Starting with PR5, `opCheck()` and `opApply()` integrate the **Constraint Runtime** as a hard blocker alongside the existing `OperationValidator` pipeline.
+
+### opCheck flow
+
+```text
+opCheck(operationId)
+  │
+  ├── runOperationValidation()     → OperationCheckItem[]
+  │     └── generic_claim_coverage, generic_no_hard_conflict, generic_payload_present, ...
+  │
+  ├── evaluateConstraints()        → ConstraintDecision
+  │     └── resource_forbidden, do_not_touch, projection gates, ...
+  │
+  ├── if blockers:
+  │     ├── add "constraint_runtime" check item (passed: false)
+  │     ├── write constraintViolations to checkResult
+  │     └── transition SUBMITTED → CONFLICTING
+  │
+  └── return { operation, checkResult }
+```
+
+### opApply flow
+
+```text
+opApply(operationId)
+  │
+  ├── validate transition (APPROVED → APPLIED)
+  │
+  ├── evaluateConstraints(action: "operation_apply")
+  │     └── if blockers → throw Error (apply rejected)
+  │
+  └── update status → APPLIED
+```
+
+This ensures that even if a constraint was added between check and apply, the operation is re-evaluated before it takes effect.
+
+---
+
 ## Writing a New Plugin
 
 ### Step 1: Define your resource type
@@ -430,9 +519,10 @@ Plugin registers at startup
        │
        └── ConstraintRuleEvaluator ► evaluateConstraints()
                                      └── typed hard_constraint enforcement
+                                     └── used by opCheck, opApply (PR5)
 ```
 
-When an agent calls `syncpoint_resource_claim`, core's conflict detection delegates to the registered `ResourceMatcher` for the resource type. When an agent calls `syncpoint_operation_submit` or `syncpoint_operation_check`, core's validation pipeline runs all matching `OperationValidator`s. During `loopResume`, the projection engine uses `ScopeMatcher`s to filter relevant Project Memory, and the constraint runtime uses `ConstraintRuleEvaluator`s to enforce typed constraints.
+When an agent calls `syncpoint_resource_claim`, core's conflict detection delegates to the registered `ResourceMatcher` for the resource type. When an agent calls `syncpoint_operation_submit` or `syncpoint_operation_check`, core's validation pipeline runs all matching `OperationValidator`s **and** the Constraint Runtime evaluates all projected constraints against the operation's target resources. During `loopResume`, the projection engine uses `ScopeMatcher`s to filter relevant Project Memory, and the constraint runtime uses `ConstraintRuleEvaluator`s to enforce typed constraints.
 
 If no extension is registered for a given type, core falls back to safe defaults:
 - **No ResourceMatcher** → exact locator equality for overlap detection
@@ -446,8 +536,7 @@ If no extension is registered for a given type, core falls back to safe defaults
 
 The plugin API is functional and auto-wired:
 
-- `syncpoint-plugin-code` is registered at server startup via `_plugin-init.ts`. All application services that evaluate constraints or build projections import this module, ensuring the code plugin's validators and file resource matcher are active.
-- The file `ResourceMatcher` (prefix/directory overlap) is registered for `type: "file"`.
-- Three `OperationValidator`s are registered for `code_patch` + `file` (format, claim coverage, hard conflict).
-- `ScopeMatcher`s for `files` and `modules` are registered via `_scope-matchers.ts`.
-- Four `ConstraintRuleEvaluator` types are recognized: `file_forbidden`, `module_forbidden`, `require_review`, `custom`.
+- **`syncpoint-plugin-code`** is registered at server startup via `_plugin-init.ts`. File `ResourceMatcher`, three `OperationValidator`s for `code_patch` + `file`, and scope matchers for `files`/`modules` are active.
+- **`syncpoint-plugin-generic-agent`** is registered at server startup via `_plugin-init.ts`. Five `ResourceMatcher`s for generic resource types, three `OperationValidator`s for generic operations, `resource_forbidden` `ConstraintRuleEvaluator`, and scope matchers for `resources`/`assetTypes` are active.
+- `opCheck()` and `opApply()` run both the `OperationValidator` pipeline and the `Constraint Runtime` as hard blockers (PR5).
+- Five `ConstraintRuleEvaluator` types are recognized: `file_forbidden`, `module_forbidden`, `resource_forbidden`, `require_review`, `custom`.

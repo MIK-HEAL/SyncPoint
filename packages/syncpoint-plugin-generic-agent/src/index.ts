@@ -1,6 +1,6 @@
 /**
  * syncpoint-plugin-generic-agent — plugin for generic (non-code) resource
- * ownership, multi-modal operation validation, and constraint enforcement.
+ * ownership, operation validation, and constraint enforcement.
  *
  * Call registerGenericAgentPlugin() once at startup to activate:
  *   - ResourceMatchers for artifact, binary_asset, document, design_asset, dataset_slice

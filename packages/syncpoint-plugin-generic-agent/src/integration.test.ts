@@ -130,6 +130,15 @@ describe("registerGenericAgentPlugin", () => {
     expect(names).toContain("generic_payload_present");
   });
 
+  it("registers validators for asset_update operation type", () => {
+    registerGenericAgentPlugin();
+    const vs = getValidatorsForOperation("asset_update", ["binary_asset"]);
+    const names = vs.map(v => v.name);
+    expect(names).toContain("generic_claim_coverage");
+    expect(names).toContain("generic_no_hard_conflict");
+    expect(names).toContain("generic_payload_present");
+  });
+
   it("registers resource_forbidden evaluator", () => {
     registerGenericAgentPlugin();
     expect(getConstraintRuleEvaluator("resource_forbidden")).toBeDefined();

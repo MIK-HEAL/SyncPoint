@@ -72,6 +72,7 @@ Read these only after the core story is clear:
 - **Reality runtime** — [`reality-runtime.md`](reality-runtime.md)
 - **Plugin API** — [`plugin-api.md`](plugin-api.md)
 - **Resource conventions** — [`resource-conventions.md`](resource-conventions.md)
+- **Beyond code** — [`beyond-code.md`](beyond-code.md)
 
 ## The One-Sentence Definitions
 

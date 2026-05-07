@@ -294,6 +294,7 @@ packages/
 ├── syncpoint-cli          # operator CLI for sessions, gates, transactions, patches, constraints
 ├── syncpoint-mcp          # MCP adapter for editor AI agents
 ├── syncpoint-plugin-code  # code-domain plugin — file claims, patch validators, compat adapters
+├── syncpoint-plugin-generic-agent  # generic resource plugin — artifact/binary/document claims, validators, constraint evaluators
 ├── syncpoint-sdk          # typed client for integrations
 └── vscode-extension       # Sync View for claims, blockers, patches, wakes
 ```
@@ -336,6 +337,7 @@ Architecture and runtime:
 | [`docs/constraint-runtime.md`](docs/constraint-runtime.md) | Constraint evaluation rules, enforcement entry points, visibility layer |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layer boundary principles and code placement guide |
 | [`docs/plugin-api.md`](docs/plugin-api.md) | Plugin extension points — ResourceMatcher, OperationValidator, writing new plugins |
+| [`docs/beyond-code.md`](docs/beyond-code.md) | SyncPoint as a resource-first protocol — beyond code files |
 | [`docs/resource-conventions.md`](docs/resource-conventions.md) | Resource locator/metadata conventions, appliesTo scoping, type standards |
 
 Operational guides:
@@ -370,6 +372,7 @@ Operational guides:
 | Stale resume | [`examples/stale-resume`](examples/stale-resume) | Resume from outdated capsule — warned |
 | Review gate | [`examples/review-gate`](examples/review-gate) | Checkpoint requires approval — blocked |
 | Handoff | [`examples/handoff`](examples/handoff) | Context transfer between agents |
+| Generic agent collaboration | [`examples/generic-agent-collaboration`](examples/generic-agent-collaboration) | Non-code resources + Constraint Runtime |
 
 For the interactive version, run `syncpoint demo`.
 
@@ -391,6 +394,14 @@ node packages/syncpoint-cli/dist/main.js demo
 node packages/syncpoint-cli/dist/main.js status
 node packages/syncpoint-cli/dist/main.js --help
 ```
+
+## Beyond Code
+
+SyncPoint is a **resource-first synchronization protocol**, not a multimodal semantic engine. The same `ResourceClaim → Operation → Constraint Runtime` loop that protects source files also protects binary assets, design artifacts, documents, and any other addressable resource.
+
+What SyncPoint does not do: parse images, analyze video, run embeddings, or invoke model-specific reasoning. Those are the domain of specialized tools. SyncPoint ensures their outputs go through a coordinated, constraint-checked protocol.
+
+See [`docs/beyond-code.md`](docs/beyond-code.md) for details.
 
 ---
 

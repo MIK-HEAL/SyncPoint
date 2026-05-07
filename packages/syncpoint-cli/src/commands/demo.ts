@@ -15,9 +15,6 @@ import {
   ProjectMemoryScope,
   ProjectMemorySourceType,
   ChecklistItemStatus,
-  registerOperationValidator,
-  registerResourceMatcher,
-  getResourceMatcher,
 } from "syncpoint-core";
 import { getSyncpointDir, initSyncpointDir } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
@@ -495,96 +492,11 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
   // ── Part 2: Operation lifecycle (asset_edit) ──
   // ══════════════════════════════════════════════════════
 
-  // Register binary_asset-specific validators to demonstrate the plugin pattern
-  if (!getResourceMatcher("binary_asset")) {
-    registerResourceMatcher({
-      type: "binary_asset",
-      locatorsOverlap(a: string, b: string): boolean {
-        const na = a.replace(/\/+$/, "");
-        const nb = b.replace(/\/+$/, "");
-        if (na === nb) return true;
-        if (na.startsWith(nb + "/") || nb.startsWith(na + "/")) return true;
-        return false;
-      },
-    });
-  }
+  // Validators and resource matchers for binary_asset are provided by
+  // syncpoint-plugin-generic-agent (auto-registered via _plugin-init.ts).
+  // No inline registration needed.
 
-  registerOperationValidator({
-    name: "asset_claim_coverage",
-    operationTypes: ["asset_edit"],
-    resourceTypes: ["binary_asset"],
-    validate(ctx) {
-      const targetLocators = ctx.operation.targetResources
-        .filter(r => r.type === "binary_asset")
-        .map(r => r.locator);
-      const claimedLocators = ctx.actorClaims
-        .flatMap(c => c.resources)
-        .filter(r => r.type === "binary_asset")
-        .map(r => r.locator);
-      const uncovered = targetLocators.filter(
-        t => !claimedLocators.some(c => c === t),
-      );
-      return [{
-        check: "asset_claim_coverage",
-        passed: uncovered.length === 0,
-        detail: uncovered.length === 0
-          ? "All target assets are covered by active claims"
-          : `Uncovered assets: ${uncovered.join(", ")}`,
-      }];
-    },
-  });
-
-  registerOperationValidator({
-    name: "asset_stale_state",
-    operationTypes: ["asset_edit"],
-    resourceTypes: ["binary_asset"],
-    validate(ctx) {
-      // Check that the actor has a capsule whose workingResources mention the target assets
-      const targetLocators = ctx.operation.targetResources
-        .filter(r => r.type === "binary_asset")
-        .map(r => r.locator);
-      const latestCapsule = repo.getLatestCapsule(ctx.operation.taskId, ctx.operation.actorId);
-      const capsuleResources = latestCapsule?.workingResources
-        ? latestCapsule.workingResources.split(",").map((s: string) => s.trim()).filter(Boolean)
-        : [];
-      const stale = targetLocators.filter(t => !capsuleResources.includes(t));
-      return [{
-        check: "asset_stale_state",
-        passed: stale.length === 0,
-        detail: stale.length === 0
-          ? "All target assets are covered by the latest capsule"
-          : `Stale assets (not in latest capsule): ${stale.join(", ")}`,
-      }];
-    },
-  });
-
-  registerOperationValidator({
-    name: "asset_no_hard_conflict",
-    operationTypes: ["asset_edit"],
-    resourceTypes: ["binary_asset"],
-    validate(ctx) {
-      const targetLocators = ctx.operation.targetResources
-        .filter(r => r.type === "binary_asset")
-        .map(r => r.locator);
-      const otherClaims = ctx.allActiveClaims.filter(
-        c => c.actorId !== ctx.operation.actorId && c.mode === "exclusive",
-      );
-      const conflicts = otherClaims.filter(c =>
-        c.resources.some(r =>
-          r.type === "binary_asset" && targetLocators.includes(r.locator),
-        ),
-      );
-      return [{
-        check: "asset_no_hard_conflict",
-        passed: conflicts.length === 0,
-        detail: conflicts.length === 0
-          ? "No conflicting exclusive claims from other actors"
-          : `Conflicts with claims: ${conflicts.map(c => c.id).join(", ")}`,
-      }];
-    },
-  });
-
-  // Designer checkpoints with current asset state (needed for stale-state validation)
+  // Designer checkpoints with current asset state
   const designerCheckpoint = repo.createCheckpoint({
     taskId: task.id,
     agentId: designer.id,
@@ -623,6 +535,7 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
     targetResources: [
       { type: "binary_asset", locator: "assets/hero-banner.png", metadata: "1920x600 PNG" },
     ],
+    payloadRef: "binary://assets/hero-banner-v2.png",
   });
 
   opSubmit(operation.id);

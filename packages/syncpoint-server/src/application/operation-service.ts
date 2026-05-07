@@ -17,11 +17,13 @@ import {
   OperationStatus,
   validateOperationTransition,
   runOperationValidation,
+  evaluateConstraints,
   EventType,
 } from "syncpoint-core";
-import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef } from "syncpoint-core";
+import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef, ConstraintViolation } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
+import { buildProjection } from "./projection-service.js";
 import "./_plugin-init.js";
 
 // ── Types ──────────────────────────────────────────────
@@ -110,6 +112,17 @@ export function opCheck(operationId: string): OperationStatusResult {
     allActiveClaims,
   });
 
+  // Run Constraint Runtime evaluation
+  const constraintViolations = runConstraintCheck(operation, "operation_submit");
+
+  if (constraintViolations.length > 0) {
+    items.push({
+      check: "constraint_runtime",
+      passed: false,
+      detail: `Blocked by ${constraintViolations.length} constraint violation(s): ${constraintViolations.map(v => v.rule).join(", ")}`,
+    });
+  }
+
   const allPassed = items.every(i => i.passed);
 
   const checkResult: OperationCheckResult = {
@@ -118,6 +131,7 @@ export function opCheck(operationId: string): OperationStatusResult {
     targetResources: operation.targetResources,
     uncoveredResources: [],
     conflictingClaimIds: [],
+    ...(constraintViolations.length > 0 ? { constraintViolations } : {}),
   };
 
   // Auto-move to CONFLICTING if checks fail
@@ -193,12 +207,21 @@ export function opReject(operationId: string, actorId: string, reason?: string):
 
 /**
  * Mark an approved operation as applied.
+ * Runs a final constraint check (action: "operation_apply") before allowing apply.
  */
 export function opApply(operationId: string): Operation {
   const operation = repo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.APPLIED)) {
     throw new Error(`Cannot apply operation ${operationId} from ${operation.status}`);
+  }
+
+  // Final constraint check before apply
+  const violations = runConstraintCheck(operation, "operation_apply");
+  if (violations.length > 0) {
+    throw new Error(
+      `Cannot apply operation ${operationId}: blocked by constraint runtime — ${violations.map(v => v.message).join("; ")}`,
+    );
   }
 
   const updated = repo.updateOperation(operationId, {
@@ -251,4 +274,37 @@ export function opList(opts?: {
   status?: string;
 }): Operation[] {
   return repo.listOperations(opts);
+}
+
+// ── Constraint Runtime Helper ─────────────────────────
+
+/**
+ * Run constraint runtime evaluation for an operation.
+ * Returns blockers (empty array = no violations).
+ * Gracefully returns empty on projection build failure (degraded mode).
+ */
+function runConstraintCheck(
+  operation: Operation,
+  action: "operation_submit" | "operation_apply",
+): ConstraintViolation[] {
+  try {
+    const touchedResources = operation.targetResources;
+    if (!touchedResources.length) return [];
+
+    const projection = buildProjection({
+      taskId: operation.taskId,
+      workingResources: touchedResources.map(r => r.locator),
+    });
+
+    const decision = evaluateConstraints({
+      action,
+      projection,
+      touchedResources,
+    });
+
+    return decision.blockers;
+  } catch {
+    // Projection unavailable — degrade gracefully, do not block
+    return [];
+  }
 }

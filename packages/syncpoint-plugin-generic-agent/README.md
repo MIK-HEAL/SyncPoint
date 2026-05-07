@@ -1,6 +1,6 @@
 # syncpoint-plugin-generic-agent
 
-> SyncPoint plugin for generic (non-code) resource ownership, multi-modal operation validation, and constraint enforcement.
+> SyncPoint plugin for generic (non-code) resource ownership, operation validation, and constraint enforcement.
 
 ## Overview
 

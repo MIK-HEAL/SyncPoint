@@ -8,6 +8,7 @@ export const GENERIC_OPERATION_TYPES = [
   "artifact_transform",
   "asset_generate",
   "asset_edit",
+  "asset_update",
 ] as const;
 
 export type GenericOperationType = (typeof GENERIC_OPERATION_TYPES)[number];

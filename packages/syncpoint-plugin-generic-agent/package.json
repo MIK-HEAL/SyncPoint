@@ -1,7 +1,7 @@
 {
   "name": "syncpoint-plugin-generic-agent",
   "version": "0.1.0",
-  "description": "SyncPoint plugin — generic resource ownership, multi-modal operation validation, and constraint enforcement",
+  "description": "SyncPoint plugin — generic resource ownership, operation validation, and constraint enforcement",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
