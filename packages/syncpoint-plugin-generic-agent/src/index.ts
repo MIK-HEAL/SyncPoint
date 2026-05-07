@@ -27,6 +27,7 @@ import { GENERIC_RESOURCE_MATCHERS } from "./matchers.js";
 import { GENERIC_VALIDATORS } from "./validators.js";
 import { resourceForbiddenEvaluator } from "./constraint-evaluators.js";
 import { resourcesScopeMatcher, assetTypesScopeMatcher } from "./scope-matchers.js";
+import { GENERIC_RESOURCE_TYPES } from "./resource-types.js";
 
 // ── Plugin registration ──────────────────────────────
 
@@ -61,9 +62,15 @@ export function registerGenericAgentPlugin(): void {
   }
 
   // 4. Scope matchers for projection appliesTo filtering
+  // resources matcher only checks generic resource types (not "file")
   if (!getScopeMatcher("resources")) {
-    registerScopeMatcher({ field: "resources", findOverlaps: resourcesScopeMatcher });
+    registerScopeMatcher({
+      field: "resources",
+      findOverlaps: resourcesScopeMatcher,
+      resourceTypes: [...GENERIC_RESOURCE_TYPES],
+    });
   }
+  // assetTypes has no resourceTypes filter — it matches a context dimension, not locators
   if (!getScopeMatcher("assetTypes")) {
     registerScopeMatcher({ field: "assetTypes", findOverlaps: assetTypesScopeMatcher });
   }

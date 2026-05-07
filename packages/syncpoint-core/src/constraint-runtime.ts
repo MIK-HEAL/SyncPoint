@@ -24,7 +24,7 @@ import type { ResourceRef } from "./resource.js";
 
 /**
  * Constraint rule type string. No longer a closed enum — plugins register
- * evaluators for domain-specific rule types (e.g. "file_forbidden").
+ * evaluators for domain-specific rule types (e.g. "resource_forbidden").
  * Core only knows "require_review" and "custom" as built-ins.
  */
 export type ConstraintRuleType = string;
@@ -47,10 +47,10 @@ export interface ConstraintRuntimeSpec {
 /**
  * A ConstraintRuleEvaluator handles evaluation for a specific rule type.
  * Plugins register evaluators so core never needs domain-specific logic
- * (e.g. file glob matching, module prefix matching).
+ * (e.g. file glob matching, resource URI overlap).
  */
 export interface ConstraintRuleEvaluator {
-  /** The rule type this evaluator handles (e.g. "file_forbidden"). */
+  /** The rule type this evaluator handles (e.g. "resource_forbidden"). */
   ruleType: string;
   /**
    * Evaluate the constraint against the input.
@@ -79,7 +79,7 @@ export function clearConstraintRuleEvaluatorRegistry(): void {
 
 /**
  * Parse a runtime spec from memory content.
- * Supports embedded JSON: `<!-- runtime-spec: {"rule":"file_forbidden"} -->`
+ * Supports embedded JSON: `<!-- runtime-spec: {"rule":"resource_forbidden"} -->`
  * Returns null if no spec found.
  */
 export function parseRuntimeSpec(content: string): ConstraintRuntimeSpec | null {
@@ -136,14 +136,28 @@ export function resolveRuntimeSpec(item: ProjectionItem): ConstraintRuntimeSpec 
   return null;
 }
 
+/** Core built-in rule types (not domain-specific). */
+const CORE_RULE_TYPES = ["require_review", "custom"] as const;
+
 /**
  * A rule type is "known" if it's a built-in or if a plugin has registered
  * an evaluator for it.
  */
 function isKnownRule(type: string): boolean {
-  return type === "require_review"
-    || type === "custom"
+  return (CORE_RULE_TYPES as readonly string[]).includes(type)
     || _ruleEvaluators.has(type);
+}
+
+/**
+ * Check if a constraint rule type is known to the runtime.
+ * Returns true for core built-ins ("require_review", "custom") and
+ * any rule type that has a registered ConstraintRuleEvaluator from a plugin.
+ *
+ * Used by the server to validate `validatorType` on Project Memory creation
+ * without maintaining a hardcoded allowlist.
+ */
+export function isConstraintRuleKnown(type: string): boolean {
+  return isKnownRule(type);
 }
 
 // ── Types ────────────────────────────────────────────────
@@ -189,24 +203,28 @@ export interface ConstraintInput {
 // ── Scope overlap helpers ───────────────────────────
 
 /**
- * Extract locator strings from touched resources.
- */
-function touchedLocators(resources: ResourceRef[] | undefined): string[] {
-  if (!resources?.length) return [];
-  return resources.map(r => r.locator);
-}
-
-/**
- * Find all touched locators that overlap with a constraint's scope,
+ * Find all touched resources that overlap with a constraint's scope,
  * checking every scope field via registered ScopeMatchers.
+ *
+ * Resource-type-aware: if a ScopeMatcher declares `resourceTypes`,
+ * only resources of those types are checked against that scope field.
+ * This prevents cross-domain false positives (e.g. a binary_asset
+ * locator accidentally matching a `files` scope pattern).
+ *
  * Falls back to exact match if no matcher is registered.
  */
-function findAllScopeOverlaps(locators: string[], scope: ProjectionScope | undefined): string[] {
-  if (!scope || !locators.length) return [];
+function findAllScopeOverlaps(resources: ResourceRef[], scope: ProjectionScope | undefined): string[] {
+  if (!scope || !resources.length) return [];
   const overlaps = new Set<string>();
   for (const [field, patterns] of Object.entries(scope)) {
     if (!patterns?.length) continue;
     const matcher = getScopeMatcher(field);
+    // Pre-filter resources by the matcher's declared resource types
+    const filtered = matcher?.resourceTypes?.length
+      ? resources.filter(r => matcher.resourceTypes!.includes(r.type))
+      : resources;
+    const locators = filtered.map(r => r.locator);
+    if (!locators.length) continue;
     const hits = matcher
       ? matcher.findOverlaps(patterns, locators)
       : locators.filter(loc => patterns.includes(loc)); // exact match fallback
@@ -250,13 +268,13 @@ function evaluateDoNotTouchScopeOverlap(
   input: ConstraintInput,
   blockers: ConstraintViolation[],
 ): void {
-  const locators = touchedLocators(input.touchedResources);
-  if (!locators.length) return;
+  const resources = input.touchedResources;
+  if (!resources?.length) return;
 
   const doNotTouchRules = input.projection.constraintRules.filter(isDoNotTouch);
 
   for (const item of doNotTouchRules) {
-    const overlaps = findAllScopeOverlaps(locators, item.scope);
+    const overlaps = findAllScopeOverlaps(resources, item.scope);
     if (overlaps.length > 0) {
       blockers.push({
         rule: "do_not_touch_scope_overlap",
@@ -304,7 +322,7 @@ function evaluateCapsuleLockedInvalid(
  * These can produce blockers (not just advisory) when violation evidence exists.
  *
  * Core handles "require_review" and "custom" built-ins.
- * Domain-specific rules (e.g. "file_forbidden") dispatch to plugin evaluators.
+ * Domain-specific rules (e.g. "resource_forbidden") dispatch to plugin evaluators.
  */
 function evaluateHardConstraintTyped(
   input: ConstraintInput,

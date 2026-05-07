@@ -9,9 +9,19 @@
  *   registerCodePlugin();
  */
 
-import { getValidatorsForOperation, registerOperationValidator, registerResourceMatcher, getResourceMatcher } from "syncpoint-core";
+import {
+  getValidatorsForOperation,
+  registerOperationValidator,
+  registerResourceMatcher,
+  getResourceMatcher,
+  registerConstraintRuleEvaluator,
+  getConstraintRuleEvaluator,
+  registerScopeMatcher,
+  getScopeMatcher,
+} from "syncpoint-core";
 import { CODE_PLUGIN_VALIDATORS } from "./validators.js";
 import { pathsOverlap } from "./file-resource.js";
+import { CODE_PLUGIN_CONSTRAINT_EVALUATORS, prefixFindOverlaps } from "./constraint-evaluators.js";
 
 // ── Plugin registration ─────────────────────────────
 
@@ -40,6 +50,23 @@ export function registerCodePlugin(): void {
       registeredNames.add(v.name);
     }
   }
+
+  // Register ConstraintRuleEvaluators (file_forbidden, module_forbidden)
+  for (const e of CODE_PLUGIN_CONSTRAINT_EVALUATORS) {
+    if (!getConstraintRuleEvaluator(e.ruleType)) {
+      registerConstraintRuleEvaluator(e);
+    }
+  }
+
+  // Register ScopeMatchers for files and modules
+  // resourceTypes: ["file"] ensures non-file resources don't trigger file-scoped constraints
+  if (!getScopeMatcher("files")) {
+    registerScopeMatcher({ field: "files", findOverlaps: prefixFindOverlaps, resourceTypes: ["file"] });
+  }
+  if (!getScopeMatcher("modules")) {
+    registerScopeMatcher({ field: "modules", findOverlaps: prefixFindOverlaps, resourceTypes: ["file"] });
+  }
+
   _registered = true;
 }
 
@@ -87,4 +114,12 @@ export {
   codePatchNoHardConflictValidator,
   CODE_PLUGIN_VALIDATORS,
 } from "./validators.js";
+
+// Constraint evaluators
+export {
+  fileForbiddenEvaluator,
+  moduleForbiddenEvaluator,
+  CODE_PLUGIN_CONSTRAINT_EVALUATORS,
+  prefixFindOverlaps,
+} from "./constraint-evaluators.js";
 

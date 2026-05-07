@@ -1,5 +1,35 @@
 # Core Synchronization Protocol
 
+AI coding agents drift out of sync surprisingly fast.
+
+One agent changes auth logic. Another updates the frontend token flow. A third refactors API schemas. Each change can be reasonable in isolation, but the agents no longer share the same project reality.
+
+SyncPoint exists for that moment.
+
+```text
+Without SyncPoint:
+  agents keep working
+  assumptions diverge
+  ownership is unclear
+  stale checkpoints get reused
+  handoffs lose blockers
+  conflicts appear late
+
+With SyncPoint:
+  SyncGate triggered
+  pause
+  synchronize ownership, checkpoint, review, or operation state
+  resume safely
+```
+
+The core loop is:
+
+```text
+pause -> sync -> resume
+```
+
+`SyncGate` prevents AI agents from silently drifting out of sync.
+
 SyncPoint is a protocol layer for **synchronization truncation**:
 
 ```text

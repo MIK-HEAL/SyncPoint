@@ -141,6 +141,7 @@ export {
   registerConstraintRuleEvaluator,
   getConstraintRuleEvaluator,
   clearConstraintRuleEvaluatorRegistry,
+  isConstraintRuleKnown,
 } from "./constraint-runtime.js";
 
 export type {

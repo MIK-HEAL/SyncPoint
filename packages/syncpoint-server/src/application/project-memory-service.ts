@@ -10,6 +10,7 @@ import {
   ProjectionTarget,
   isValidProjection,
   defaultKindFromCategory,
+  isConstraintRuleKnown,
 } from "syncpoint-core";
 import type { ProjectMemory, ProjectMemoryCreate, MemoryDedupResult } from "syncpoint-core";
 import * as repo from "../repositories.js";
@@ -122,7 +123,7 @@ export class MissingValidatorError extends Error {
     super(
       `Blocking hard_constraint requires a validatorType. ` +
       `Without a typed validator, the constraint is advisory only. ` +
-      `Provide validatorType (one of: ${KNOWN_VALIDATOR_TYPES.join(", ")}) ` +
+      `Provide a validatorType registered by a plugin (e.g. "file_forbidden", "resource_forbidden") ` +
       `to enable runtime enforcement.`
     );
     this.name = "MissingValidatorError";
@@ -130,23 +131,23 @@ export class MissingValidatorError extends Error {
 }
 
 /**
- * P4: Unknown validatorType — not executable by constraint runtime.
+ * P4: Unknown validatorType — not registered by any plugin or core built-in.
  */
 export class UnknownValidatorTypeError extends Error {
   constructor(given: string) {
     super(
       `Unknown validatorType "${given}". ` +
-      `Must be one of: ${KNOWN_VALIDATOR_TYPES.join(", ")}.`
+      `No constraint rule evaluator is registered for this type. ` +
+      `Ensure the appropriate plugin is loaded (e.g. syncpoint-plugin-code for "file_forbidden").`
     );
     this.name = "UnknownValidatorTypeError";
   }
 }
 
-/** Runtime-known validator types (matches ConstraintRuleType in constraint-runtime.ts). */
-const KNOWN_VALIDATOR_TYPES = ["file_forbidden", "module_forbidden", "require_review", "custom", "resource_forbidden"] as const;
-
 /**
  * P4: Validate that blocking hard_constraints have a known validatorType.
+ * Uses isConstraintRuleKnown() from core, which checks core built-ins
+ * and plugin-registered evaluators — no hardcoded allowlist.
  */
 function requireValidatorForBlockingConstraint(
   kind: string,
@@ -157,7 +158,7 @@ function requireValidatorForBlockingConstraint(
     if (!validatorType || validatorType.trim().length === 0) {
       throw new MissingValidatorError();
     }
-    if (!(KNOWN_VALIDATOR_TYPES as readonly string[]).includes(validatorType.trim())) {
+    if (!isConstraintRuleKnown(validatorType.trim())) {
       throw new UnknownValidatorTypeError(validatorType);
     }
   }

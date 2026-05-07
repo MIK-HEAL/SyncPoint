@@ -168,6 +168,72 @@ describe("compileProjection — appliesTo filtering", () => {
   });
 });
 
+describe("compileProjection — resource-type-aware appliesTo filtering", () => {
+  beforeEach(() => {
+    clearScopeMatcherRegistry();
+    const prefixFindOverlaps = (patterns: string[], targets: string[]): string[] =>
+      targets.filter(t =>
+        patterns.some(p => {
+          const prefix = p.replace(/\*\*?\/?$/, "");
+          return t === p || t.startsWith(prefix);
+        }),
+      );
+    // Register with resourceTypes: ["file"] like the real code plugin
+    registerScopeMatcher({ field: "files", findOverlaps: prefixFindOverlaps, resourceTypes: ["file"] });
+    registerScopeMatcher({ field: "modules", findOverlaps: prefixFindOverlaps, resourceTypes: ["file"] });
+  });
+
+  it("excludes file-scoped memory when only non-file resources are working", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
+    const r = compileProjection([mem], makeCtx({
+      workingResources: ["src/auth/logo.png"],
+      workingResourceRefs: [{ type: "binary_asset", locator: "src/auth/logo.png", metadata: "" }],
+    }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+  });
+
+  it("includes file-scoped memory when file resources are working", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
+    const r = compileProjection([mem], makeCtx({
+      workingResources: ["src/auth/session.ts"],
+      workingResourceRefs: [{ type: "file", locator: "src/auth/session.ts", metadata: "" }],
+    }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+
+  it("mixed resources: file-scoped memory included only due to file resource", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
+    const r = compileProjection([mem], makeCtx({
+      workingResources: ["src/auth/session.ts", "src/auth/logo.png"],
+      workingResourceRefs: [
+        { type: "file", locator: "src/auth/session.ts", metadata: "" },
+        { type: "binary_asset", locator: "src/auth/logo.png", metadata: "" },
+      ],
+    }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+
+  it("module-scoped memory still uses currentModules when typed resources are provided", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ modules: ["core"] }) });
+    const r = compileProjection([mem], makeCtx({
+      currentModules: ["core"],
+      workingResources: ["src/unrelated.ts"],
+      workingResourceRefs: [{ type: "file", locator: "src/unrelated.ts", metadata: "" }],
+    }));
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+
+  it("falls back to string-only matching when workingResourceRefs not provided", () => {
+    const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
+    // No workingResourceRefs — should fall back to scopeContext (all locators)
+    const r = compileProjection([mem], makeCtx({
+      workingResources: ["src/auth/logo.png"],
+    }));
+    // Without resourceRefs, the locator text matches — backward compat
+    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+  });
+});
+
 describe("compileProjection — conflict detection", () => {
   it("detects scope_collision between two constraint rules", () => {
     const a = makeMem({

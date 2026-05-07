@@ -1,21 +1,7 @@
 /**
- * Register scope matchers for file/module prefix overlap.
- * Import this module to ensure matchers are registered (idempotent).
+ * Scope matchers for file/module prefix overlap are now registered by
+ * syncpoint-plugin-code via registerCodePlugin().
+ *
+ * This module is kept as a no-op so existing imports don't break.
+ * It will be removed once all import sites are cleaned up.
  */
-import { registerScopeMatcher, getScopeMatcher } from "syncpoint-core";
-
-function prefixFindOverlaps(patterns: string[], locators: string[]): string[] {
-  return locators.filter(loc =>
-    patterns.some(p => {
-      const prefix = p.replace(/\*\*?\/?$/, "");
-      return loc === p || loc.startsWith(prefix);
-    }),
-  );
-}
-
-if (!getScopeMatcher("files")) {
-  registerScopeMatcher({ field: "files", findOverlaps: prefixFindOverlaps });
-}
-if (!getScopeMatcher("modules")) {
-  registerScopeMatcher({ field: "modules", findOverlaps: prefixFindOverlaps });
-}

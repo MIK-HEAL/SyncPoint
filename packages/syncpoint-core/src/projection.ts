@@ -13,6 +13,7 @@
  */
 
 import { createHash } from "node:crypto";
+import type { ResourceRef } from "./resource.js";
 
 // ── V2 kind/validity enums (re-export not needed, just reference values) ──
 
@@ -25,11 +26,13 @@ export interface ProjectionSource {
   confidence: string;
 }
 
-/** Structured scope for runtime constraint evaluation. */
+/**
+ * Structured scope for runtime constraint evaluation.
+ * Keys are scope field names (e.g. "files", "modules", "resources");
+ * values are pattern arrays. Plugins register ScopeMatchers for
+ * their fields — core never interprets field names directly.
+ */
 export interface ProjectionScope {
-  files?: string[];
-  modules?: string[];
-  taskTypes?: string[];
   [key: string]: string[] | undefined;
 }
 
@@ -43,6 +46,15 @@ export interface ProjectionScope {
 export interface ScopeMatcher {
   /** The scope field name this matcher handles (e.g. "files"). */
   field: string;
+  /**
+   * Optional resource type filter. When set, scope overlap checks will
+   * pre-filter touched resources to only those whose `type` matches one
+   * of the declared types. This prevents cross-domain false positives
+   * (e.g. a binary_asset locator matching a `files` scope pattern).
+   *
+   * If undefined or empty, all resource types are considered.
+   */
+  resourceTypes?: string[];
   /**
    * Return the subset of `targets` that match any of `patterns`.
    * An empty result means no overlap.
@@ -79,7 +91,7 @@ export interface ProjectionItem {
   kind?: string;
   /** Structured scope parsed from appliesTo — used by P4 Constraint Runtime. */
   scope?: ProjectionScope;
-  /** PR4: Typed validator type (e.g. "file_forbidden", "module_forbidden", "require_review"). */
+  /** PR4: Typed validator type (e.g. "resource_forbidden", "require_review"). */
   validatorType?: string;
   /** PR4: Typed validator config (JSON-serialized). */
   validatorConfig?: string;
@@ -151,6 +163,13 @@ export interface ProjectionContext {
   memoryVersion: number;
   /** Resource locators currently being worked on (for appliesTo matching) */
   workingResources?: string[];
+  /**
+   * Typed resource refs for resource-type-aware appliesTo filtering.
+   * When provided, scope matchers with `resourceTypes` will only see
+   * locators from matching resource types, reducing context noise.
+   * Falls back to `workingResources` (all locators) if not provided.
+   */
+  workingResourceRefs?: ResourceRef[];
   /** Current module context (for appliesTo matching) */
   currentModules?: string[];
   /** Optional IDs for audit trail (createdFrom only, NOT used in cache key) */
@@ -222,9 +241,6 @@ function lookupKeyParts(ctx: ProjectionContext, memoriesFingerprints: string[]):
 // ── appliesTo filter ─────────────────────────────────────
 
 interface ParsedAppliesTo {
-  files?: string[];
-  modules?: string[];
-  taskTypes?: string[];
   [key: string]: string[] | undefined;
 }
 
@@ -242,14 +258,13 @@ function parseAppliesTo(raw: string): ParsedAppliesTo | null {
  * Populated from ProjectionContext.workingResources, currentModules, etc.
  */
 interface ScopeContextMap {
-  files: string[];
-  modules: string[];
   [key: string]: string[];
 }
 
 function isRelevantToContext(
   appliesTo: ParsedAppliesTo | null,
   scopeContext: ScopeContextMap,
+  resourceRefs?: ResourceRef[],
 ): boolean {
   if (!appliesTo) return true; // no scope restriction → always relevant
 
@@ -260,9 +275,26 @@ function isRelevantToContext(
   for (const [field, patterns] of Object.entries(appliesTo)) {
     if (!patterns || !Array.isArray(patterns) || patterns.length === 0) continue;
     hasScope = true;
-    const targets = scopeContext[field] ?? [];
-    if (targets.length === 0) continue;
     const matcher = _scopeMatchers.get(field);
+    // Resource-type-aware filtering: if resourceRefs available and matcher
+    // declares resourceTypes, only use locators from matching types for
+    // locator-backed fields. Independent context dimensions such as modules
+    // should continue using their own scopeContext values.
+    const contextTargets = scopeContext[field] ?? [];
+    const allResourceLocators = resourceRefs
+      ? new Set(resourceRefs.map(r => r.locator))
+      : undefined;
+    const isLocatorBackedField = contextTargets.length === 0
+      || contextTargets.every(t => allResourceLocators?.has(t));
+    let targets: string[];
+    if (resourceRefs && matcher?.resourceTypes?.length && isLocatorBackedField) {
+      targets = resourceRefs
+        .filter(r => matcher.resourceTypes!.includes(r.type))
+        .map(r => r.locator);
+    } else {
+      targets = contextTargets;
+    }
+    if (targets.length === 0) continue;
     const overlaps = matcher
       ? matcher.findOverlaps(patterns, targets)
       : defaultFindOverlaps(patterns, targets);
@@ -485,7 +517,7 @@ export function compileProjection(
     // Principle 1: Minimal Reality — appliesTo filter
     const parsed = parseAppliesTo(mem.appliesTo);
     parsedScopes.set(mem.id, parsed);
-    if (!isRelevantToContext(parsed, scopeContext)) {
+    if (!isRelevantToContext(parsed, scopeContext, ctx.workingResourceRefs)) {
       continue; // not relevant to current task context
     }
 
