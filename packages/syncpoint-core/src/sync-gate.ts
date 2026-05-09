@@ -470,3 +470,121 @@ export function hasPartialAcks(gate: SyncGate): boolean {
   const acked = parseIdList(gate.ackedAgentIds);
   return acked.length > 0 && !allAcked(gate);
 }
+
+// ── Gate Detailed Status ─────────────────────────────
+
+export type GateAction =
+  | "ack"
+  | "vote"
+  | "change_vote"
+  | "owner_override"
+  | "resolve"
+  | "cancel"
+  | "request_more_info"
+  | "view_only";
+
+export interface GateDetailedStatus {
+  gate: SyncGate;
+  policy: GatePolicy;
+  pendingAgentIds: string[];
+  ackedAgentIds: string[];
+  requiredAgentIds: string[];
+  votes: GateVote[];
+  voteCounts: Record<GateVoteKind, number>;
+  eligibleVoterIds: string[];
+  deadlineAt?: string;
+  escalationAgentIds: string[];
+  livenessPreview: LivenessDecision;
+  isBlocking: boolean;
+  requiresHuman: boolean;
+}
+
+/**
+ * Compute available actions for a specific agent on a gate.
+ */
+export function computeAvailableActions(
+  gate: SyncGate,
+  agentId: string,
+  votes: GateVote[],
+): GateAction[] {
+  if (!isGateBlocking(gate)) return ["view_only"];
+
+  const policy = parseGatePolicy(gate);
+  const required = parseIdList(gate.requiredAgentIds);
+  const acked = parseIdList(gate.ackedAgentIds);
+  const isRequired = required.includes(agentId);
+  const isOwner = gate.requestedByAgentId === agentId;
+  const isEscalation = (policy.escalationAgentIds ?? []).includes(agentId);
+
+  // Deduplicate votes by agent
+  const lastVoteByAgent = new Map<string, GateVoteKind>();
+  for (const v of votes) lastVoteByAgent.set(v.agentId, v.vote);
+  const hasVoted = lastVoteByAgent.has(agentId);
+  const hasAcked = acked.includes(agentId);
+
+  const actions: GateAction[] = [];
+
+  if (isRequired && !hasAcked) {
+    actions.push("ack");
+  }
+
+  if (isRequired || isOwner) {
+    actions.push(hasVoted ? "change_vote" : "vote");
+  }
+
+  if (isOwner && policy.kind === GatePolicyKind.OWNER_OVERRIDE) {
+    actions.push("owner_override");
+  }
+
+  if (isEscalation || isOwner) {
+    actions.push("resolve", "cancel", "request_more_info");
+  }
+
+  return actions.length > 0 ? actions : ["view_only"];
+}
+
+/**
+ * Compute the full detailed status of a gate.
+ * Pure function — no I/O. Caller provides gate + votes.
+ */
+export function computeGateDetails(
+  gate: SyncGate,
+  votes: GateVote[],
+  now?: Date,
+): GateDetailedStatus {
+  const policy = parseGatePolicy(gate);
+  const required = parseIdList(gate.requiredAgentIds);
+  const acked = parseIdList(gate.ackedAgentIds);
+  const pending = required.filter(id => !acked.includes(id));
+  const voteCts = countVotes(votes);
+
+  // Eligible voters: required agents + owner + escalation agents (deduplicated)
+  const eligibleSet = new Set<string>([
+    ...required,
+    gate.requestedByAgentId,
+    ...(policy.escalationAgentIds ?? []),
+  ]);
+
+  const livenessPreview = evaluateGateLiveness(gate, votes, now ?? new Date());
+
+  const requiresHuman =
+    gate.status === SyncGateStatus.TIMED_OUT ||
+    gate.status === SyncGateStatus.ESCALATED ||
+    policy.kind === GatePolicyKind.HUMAN_REQUIRED;
+
+  return {
+    gate,
+    policy,
+    pendingAgentIds: pending,
+    ackedAgentIds: acked,
+    requiredAgentIds: required,
+    votes,
+    voteCounts: voteCts,
+    eligibleVoterIds: [...eligibleSet],
+    deadlineAt: policy.deadlineAt,
+    escalationAgentIds: policy.escalationAgentIds ?? [],
+    livenessPreview,
+    isBlocking: isGateBlocking(gate),
+    requiresHuman,
+  };
+}

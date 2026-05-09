@@ -21,7 +21,7 @@ import {
   pbGetNextAction, pbCaptureEvidence, pbGetActiveSession,
   wakeList, wakeGet, wakeNext, wakeAck, wakeStart, wakeDone, wakeFail, wakeSkip, wakeEngineStats,
   rcClaim, rcRelease, rcList, rcDetectConflicts,
-  sgRequest, sgAck, sgResolve, sgCancel, sgStatus, sgList, sgListActive, sgCheckAgent,
+  sgRequest, sgAck, sgResolve, sgCancel, sgStatus, sgStatusDetailed, sgList, sgListActive, sgCheckAgent, sgVote,
   stxCreate, stxApprove, stxReject, stxResolve, stxCancel, stxStatus, stxList,
   opCreate, opSubmit, opCheck, opApprove, opReject, opApply, opCancel, opStatus, opList,
   constraintCheck,
@@ -1144,17 +1144,40 @@ export function registerTools(server: McpServer): void {
     "syncpoint_sync_status",
     {
       title: "Sync Gate Status",
-      description: "Get detailed status of a sync gate — pending agents, acknowledgements, blocking state.",
-      inputSchema: { gateId: z.string() },
+      description: "Get full detailed status of a sync gate — policy, votes, pending/acked agents, eligible voters, deadline, liveness preview, and available actions for a specific agent.",
+      inputSchema: {
+        gateId: z.string(),
+        agentId: z.string().optional().describe("If provided, includes available actions for this agent"),
+      },
     },
-    async ({ gateId }) => {
+    async ({ gateId, agentId }) => {
       try {
-        const result = sgStatus(gateId);
+        const detail = sgStatusDetailed(gateId, agentId);
+        return ok(detail);
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_sync_vote",
+    {
+      title: "Cast Sync Gate Vote",
+      description: "Cast or change a vote on a sync gate. Only eligible voters (required agents, owner, escalation agents) may vote. Vote kinds: approve, reject, abstain, escalate.",
+      inputSchema: {
+        gateId: z.string(),
+        agentId: z.string(),
+        vote: z.enum(["approve", "reject", "abstain", "escalate"]),
+        summary: z.string().optional().default(""),
+      },
+    },
+    async ({ gateId, agentId, vote, summary }) => {
+      try {
+        const result = sgVote(gateId, agentId, vote, summary);
         return ok({
           gate: result.gate,
           pending: result.pending,
-          allAcknowledged: result.allAcknowledged,
           isBlocking: result.isBlocking,
+          message: `Vote '${vote}' cast by ${agentId} on gate ${gateId}. Gate status: ${result.gate.status}.`,
         });
       } catch (e) { return fail(e); }
     }

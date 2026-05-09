@@ -219,7 +219,9 @@ describe("tools", () => {
     expect(names).toContain("syncpoint_next_action");
     expect(names).toContain("syncpoint_capture_evidence");
     expect(names).toContain("syncpoint_active_session");
-    expect(tools.length).toBeGreaterThanOrEqual(33);
+    expect(names).toContain("syncpoint_sync_status");
+    expect(names).toContain("syncpoint_sync_vote");
+    expect(tools.length).toBeGreaterThanOrEqual(35);
   });
 
   it("syncpoint_loop_status should return agent info", async () => {
@@ -874,5 +876,58 @@ describe("prompts", () => {
     const text = (result.messages[0].content as any).text;
     expect(text).toContain("handing off");
     expect(text).toContain(to.id);
+  });
+});
+
+// ── SyncGate MCP tools smoke ────────────────────────
+
+describe("sync gate MCP tools", () => {
+  let gateId: string;
+
+  it("syncpoint_sync_request creates a gate", async () => {
+    const agents = repo.listAgents();
+    const tasks = repo.listTasks();
+    const result: any = await client.callTool({
+      name: "syncpoint_sync_request",
+      arguments: {
+        taskId: tasks[0].id,
+        requestedByAgentId: agents[0].id,
+        requiredAgentIds: agents.map(a => a.id),
+        reason: "manual_request",
+        description: "MCP smoke test gate",
+      },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.gate).toBeDefined();
+    expect(data.gate.status).toBe("SYNC_REQUESTED");
+    gateId = data.gate.id;
+  });
+
+  it("syncpoint_sync_status returns detailed status with policy and votes", async () => {
+    const agents = repo.listAgents();
+    const result: any = await client.callTool({
+      name: "syncpoint_sync_status",
+      arguments: { gateId, agentId: agents[0].id },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.gate).toBeDefined();
+    expect(data.policy).toBeDefined();
+    expect(data.pendingAgentIds).toBeDefined();
+    expect(data.eligibleVoterIds).toBeDefined();
+    expect(data.voteCounts).toBeDefined();
+    expect(data.availableActions).toBeDefined();
+    expect(data.isBlocking).toBe(true);
+  });
+
+  it("syncpoint_sync_vote casts a vote and returns status", async () => {
+    const agents = repo.listAgents();
+    // agents[0] is both owner and required — eligible to vote
+    const result: any = await client.callTool({
+      name: "syncpoint_sync_vote",
+      arguments: { gateId, agentId: agents[0].id, vote: "approve", summary: "looks good" },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.message).toContain("Vote 'approve' cast");
+    expect(data.gate).toBeDefined();
   });
 });

@@ -556,8 +556,59 @@ export function runMigrations(db: Database.Database): void {
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  // Migration: deduplicate legacy votes before creating unique index.
+  // Old schema allowed multiple votes per (gate_id, agent_id). Keep only the
+  // latest row (highest rowid) for each pair so the unique index can be created.
+  db.exec(`
+    DELETE FROM sync_gate_vote
+    WHERE rowid NOT IN (
+      SELECT MAX(rowid) FROM sync_gate_vote GROUP BY gate_id, agent_id
+    );
+  `);
   // Unique constraint: one vote per agent per gate (last vote wins via upsert in repo)
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_gate_vote_agent ON sync_gate_vote(gate_id, agent_id);`);
+  // Agent manifest table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_manifest (
+      agent_id                    TEXT PRIMARY KEY,
+      capabilities_json           TEXT NOT NULL DEFAULT '[]',
+      escalation_preference_json  TEXT NOT NULL DEFAULT '{}',
+      availability                TEXT NOT NULL DEFAULT 'online',
+      can_handle_human_escalation INTEGER NOT NULL DEFAULT 0,
+      tags_json                   TEXT NOT NULL DEFAULT '[]',
+      created_at                  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at                  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  // Negotiation session table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS negotiation_session (
+      id                  TEXT PRIMARY KEY,
+      gate_id             TEXT NOT NULL,
+      participant_ids     TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'OPEN',
+      current_round       INTEGER NOT NULL DEFAULT 0,
+      config_json         TEXT NOT NULL DEFAULT '{}',
+      round_started_at    TEXT,
+      deadline_at         TEXT,
+      resolved_by_agent_id TEXT,
+      resolution_summary  TEXT,
+      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  // Negotiation message table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS negotiation_message (
+      id          TEXT PRIMARY KEY,
+      session_id  TEXT NOT NULL,
+      agent_id    TEXT NOT NULL,
+      round       INTEGER NOT NULL DEFAULT 0,
+      kind        TEXT NOT NULL,
+      content     TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
   // Memory version counter — single row table
   db.exec(`
     CREATE TABLE IF NOT EXISTS memory_version (

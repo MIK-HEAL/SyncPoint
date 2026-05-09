@@ -10,7 +10,7 @@ import { getDb, closeDb } from "../../src/db.js";
 import * as repo from "../../src/repositories.js";
 import {
   sgRequest, sgAck, sgResolve, sgCancel,
-  sgStatus, sgList, sgListActive, sgCheckAgent, sgVote,
+  sgStatus, sgStatusDetailed, sgList, sgListActive, sgCheckAgent, sgVote,
 } from "./sync-gate-service.js";
 import { rcClaim, rcRelease } from "./resource-claim-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "./orchestration-service.js";
@@ -590,5 +590,186 @@ describe("SyncGate vote upsert regression", () => {
     sgVote(gid2, agent3Id, "reject");
     const afterReject = sgStatus(gid2);
     expect(afterReject.gate.status).toBe(SyncGateStatus.ESCALATED);
+  });
+});
+
+// ── Commit A: sgStatus lazy reconcile ──
+
+describe("sgStatus lazy reconcile", () => {
+  it("sgStatus on expired deadline gate transitions to ESCALATED", () => {
+    // Gate with deadline in the past → should be escalated on sgStatus()
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent2Id, agent3Id],
+      policy: {
+        kind: "quorum_ack",
+        quorum: 1,
+        deadlineAt: "2020-01-01T00:00:00Z",
+        timeoutAction: "escalate",
+        escalationAgentIds: [agent1Id],
+      } as any,
+    });
+    const gid = r.gate.id;
+
+    // Before sgStatus: gate is still SYNC_REQUESTED (deadline not evaluated yet)
+    const rawGate = repo.getSyncGate(gid);
+    expect(rawGate.status).toBe(SyncGateStatus.SYNC_REQUESTED);
+
+    // sgStatus triggers lazy reconcile → deadline expired → escalated
+    const result = sgStatus(gid);
+    expect(result.gate.status).toBe(SyncGateStatus.ESCALATED);
+  });
+
+  it("sgStatus on expired deadline with cancel action transitions to CANCELLED", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent2Id],
+      policy: {
+        kind: "all_required",
+        deadlineAt: "2020-01-01T00:00:00Z",
+        timeoutAction: "cancel",
+      } as any,
+    });
+    const gid = r.gate.id;
+
+    const result = sgStatus(gid);
+    expect(result.gate.status).toBe(SyncGateStatus.CANCELLED);
+  });
+
+  it("sgListActive reconciles expired gates (removes them from active list)", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent2Id],
+      policy: {
+        kind: "quorum_ack",
+        quorum: 1,
+        deadlineAt: "2020-01-01T00:00:00Z",
+        timeoutAction: "cancel",
+      } as any,
+    });
+    const gid = r.gate.id;
+
+    // Gate exists as active before reconcile
+    const beforeList = repo.listActiveSyncGates({ taskId: task1Id });
+    const foundBefore = beforeList.some(g => g.id === gid);
+    expect(foundBefore).toBe(true);
+
+    // sgListActive reconciles → expired gate gets cancelled → no longer active
+    const activeAfter = sgListActive({ taskId: task1Id });
+    const foundAfter = activeAfter.some(g => g.id === gid);
+    expect(foundAfter).toBe(false);
+  });
+});
+
+// ── Commit A: DB-level vote upsert (single row) ──
+
+describe("DB vote upsert guarantees single row per agent", () => {
+  it("repeated votes from same agent produce exactly one DB row", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent1Id, agent2Id, agent3Id],
+      policy: { kind: "majority_veto" } as any,
+    });
+    const gid = r.gate.id;
+
+    // Agent2 votes 3 times
+    sgVote(gid, agent2Id, "approve");
+    sgVote(gid, agent2Id, "reject");
+    sgVote(gid, agent2Id, "abstain");
+
+    // DB should have exactly 1 row for agent2 on this gate
+    const votes = repo.listGateVotes(gid);
+    const agent2Votes = votes.filter((v: any) => v.agentId === agent2Id);
+    expect(agent2Votes.length).toBe(1);
+    expect(agent2Votes[0].vote).toBe("abstain"); // last vote wins
+  });
+});
+
+// ── Commit B: sgStatusDetailed ──
+
+describe("sgStatusDetailed", () => {
+  it("returns pendingAgentIds and ackedAgentIds for PARTIALLY_ACKED gate", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent2Id, agent3Id],
+    });
+    sgAck(r.gate.id, agent2Id, "acked");
+
+    const detail = sgStatusDetailed(r.gate.id);
+    expect(detail.ackedAgentIds).toContain(agent2Id);
+    expect(detail.pendingAgentIds).toContain(agent3Id);
+    expect(detail.pendingAgentIds).not.toContain(agent2Id);
+  });
+
+  it("returns voteCounts after votes", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent1Id, agent2Id, agent3Id],
+      policy: { kind: "majority_veto" } as any,
+    });
+    sgVote(r.gate.id, agent1Id, "approve");
+    sgVote(r.gate.id, agent2Id, "reject");
+
+    const detail = sgStatusDetailed(r.gate.id);
+    expect(detail.voteCounts.approve).toBe(1);
+    expect(detail.voteCounts.reject).toBe(1);
+  });
+
+  it("returns availableActions for a specific agent", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent2Id, agent3Id],
+      policy: { kind: "owner_override" } as any,
+    });
+
+    // Owner should get owner_override, resolve, cancel
+    const ownerDetail = sgStatusDetailed(r.gate.id, agent1Id);
+    expect(ownerDetail.availableActions).toContain("owner_override");
+    expect(ownerDetail.availableActions).toContain("resolve");
+
+    // Required unacked agent should get ack + vote
+    const agentDetail = sgStatusDetailed(r.gate.id, agent2Id);
+    expect(agentDetail.availableActions).toContain("ack");
+    expect(agentDetail.availableActions).toContain("vote");
+  });
+
+  it("marks requiresHuman for escalated gate", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent2Id],
+      policy: {
+        kind: "quorum_ack",
+        quorum: 1,
+        deadlineAt: "2020-01-01T00:00:00Z",
+        timeoutAction: "escalate",
+        escalationAgentIds: [agent1Id],
+      } as any,
+    });
+
+    const detail = sgStatusDetailed(r.gate.id);
+    expect(detail.requiresHuman).toBe(true);
+    expect(detail.gate.status).toBe(SyncGateStatus.ESCALATED);
+  });
+
+  it("returns eligibleVoterIds including owner and escalation", () => {
+    const r = sgRequest({
+      taskId: task1Id,
+      requestedByAgentId: agent1Id,
+      requiredAgentIds: [agent2Id],
+      policy: { kind: "majority_veto", escalationAgentIds: [agent3Id] } as any,
+    });
+
+    const detail = sgStatusDetailed(r.gate.id);
+    expect(detail.eligibleVoterIds).toContain(agent1Id); // owner
+    expect(detail.eligibleVoterIds).toContain(agent2Id); // required
+    expect(detail.eligibleVoterIds).toContain(agent3Id); // escalation
   });
 });

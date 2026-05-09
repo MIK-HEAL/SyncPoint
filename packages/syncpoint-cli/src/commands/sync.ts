@@ -9,8 +9,10 @@ import {
   sgResolve,
   sgCancel,
   sgStatus,
+  sgStatusDetailed,
   sgList,
   sgCheckAgent,
+  sgVote,
   stxCreate,
   stxApprove,
   stxReject,
@@ -133,8 +135,33 @@ export function registerSyncCommands(program: Command): void {
     .option("--json", "Output JSON")
     .action((opts) => {
       if (opts.gate) {
-        const result = sgStatus(opts.gate);
-        printGateStatus(result, !!opts.json);
+        const detail = sgStatusDetailed(opts.gate, opts.agent);
+        if (opts.json) { print(detail, true); return; }
+
+        console.log(`SyncGate: ${detail.gate.id} [${detail.gate.status}]`);
+        console.log(`  Task: ${detail.gate.taskId}`);
+        if (detail.gate.sessionId) console.log(`  Session: ${detail.gate.sessionId}`);
+        console.log(`  Policy: ${detail.policy.kind}`);
+        console.log(`  Required: ${detail.requiredAgentIds.join(", ") || "none"}`);
+        console.log(`  Acked: ${detail.ackedAgentIds.join(", ") || "none"}`);
+        console.log(`  Pending: ${detail.pendingAgentIds.join(", ") || "none"}`);
+        console.log(`  Blocking: ${detail.isBlocking ? "yes" : "no"}`);
+        if (detail.deadlineAt) console.log(`  Deadline: ${detail.deadlineAt}`);
+        if (detail.requiresHuman) console.log(`  Requires Human: yes`);
+        if (detail.escalationAgentIds.length) console.log(`  Escalation: ${detail.escalationAgentIds.join(", ")}`);
+
+        const vc = detail.voteCounts;
+        const totalVotes = vc.approve + vc.reject + vc.abstain + vc.escalate;
+        if (totalVotes > 0) {
+          console.log(`  Votes: approve=${vc.approve} reject=${vc.reject} abstain=${vc.abstain} escalate=${vc.escalate}`);
+        }
+        console.log(`  Liveness: ${detail.livenessPreview.action} — ${detail.livenessPreview.reason}`);
+
+        if (detail.availableActions) {
+          console.log(`  Your actions: ${(detail.availableActions as string[]).join(", ")}`);
+        }
+        if (detail.gate.description) console.log(`  Description: ${detail.gate.description}`);
+        if (detail.gate.decisionSummary) console.log(`  Decision: ${detail.gate.decisionSummary}`);
         return;
       }
 
@@ -158,6 +185,21 @@ export function registerSyncCommands(program: Command): void {
           console.log(`  Gates: ${block.blockingGates.map(g => g.id).join(", ")}`);
         }
       }
+    });
+
+  sync
+    .command("vote")
+    .description("Cast a vote on a synchronization gate")
+    .requiredOption("--gate <gateId>", "SyncGate ID")
+    .requiredOption("--agent <agentId>", "Voting agent ID")
+    .requiredOption("--vote <kind>", "Vote kind: approve, reject, abstain, escalate")
+    .option("--summary <text>", "Vote summary", "")
+    .option("--json", "Output JSON")
+    .action((opts) => {
+      const result = sgVote(opts.gate, opts.agent, opts.vote, opts.summary);
+      if (opts.json) { print(result, true); return; }
+      console.log(`Vote cast: ${opts.vote} by ${opts.agent} on gate ${opts.gate}`);
+      console.log(`  Gate status: ${result.gate.status}`);
     });
 
   // ── Sync Transaction subcommands ──

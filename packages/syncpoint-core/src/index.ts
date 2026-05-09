@@ -397,6 +397,8 @@ export {
   evaluateGateLiveness,
   isGateBlocking,
   hasPartialAcks,
+  computeAvailableActions,
+  computeGateDetails,
 } from "./sync-gate.js";
 
 export type {
@@ -407,6 +409,8 @@ export type {
   GateVote,
   GateVoteCreate,
   LivenessDecision,
+  GateAction,
+  GateDetailedStatus,
 } from "./sync-gate.js";
 
 // Relationship Mode
@@ -487,3 +491,45 @@ export type {
   CapsuleValidation,
   CapsuleExtendedFields,
 } from "./capsule-context.js";
+
+// Negotiation Protocol
+export {
+  NegotiationStatus,
+  NEGOTIATION_TRANSITIONS,
+  validateNegotiationTransition,
+  NegotiationMessageKind,
+  DEFAULT_NEGOTIATION_CONFIG,
+  NegotiationConfigSchema,
+  NegotiationSessionSchema,
+  NegotiationMessageSchema,
+  parseNegotiationConfig,
+  isNegotiationExpired,
+  isRoundExpired,
+  detectDeadlock,
+  evaluateNegotiation,
+} from "./negotiation.js";
+
+export type {
+  NegotiationConfig,
+  NegotiationSession,
+  NegotiationMessage,
+} from "./negotiation.js";
+
+// Agent Manifest + Escalation Routing
+export {
+  AgentCapabilitySchema,
+  EscalationOptIn,
+  EscalationPreferenceSchema,
+  AgentAvailability,
+  AgentManifestSchema,
+  DEFAULT_AGENT_MANIFEST,
+  routeEscalation,
+} from "./agent-manifest.js";
+
+export type {
+  AgentCapability,
+  EscalationPreference,
+  AgentManifest,
+  EscalationCandidate,
+  EscalationRoutingInput,
+} from "./agent-manifest.js";

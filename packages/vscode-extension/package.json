@@ -59,6 +59,34 @@
       {
         "command": "syncpoint.writeRulesFile",
         "title": "SyncPoint: Write Rules File"
+      },
+      {
+        "command": "syncpoint.gateApprove",
+        "title": "SyncPoint: Gate — Approve"
+      },
+      {
+        "command": "syncpoint.gateReject",
+        "title": "SyncPoint: Gate — Reject"
+      },
+      {
+        "command": "syncpoint.gateAbstain",
+        "title": "SyncPoint: Gate — Abstain"
+      },
+      {
+        "command": "syncpoint.gateEscalate",
+        "title": "SyncPoint: Gate — Escalate"
+      },
+      {
+        "command": "syncpoint.gateResolve",
+        "title": "SyncPoint: Gate — Resolve"
+      },
+      {
+        "command": "syncpoint.gateCancel",
+        "title": "SyncPoint: Gate — Cancel"
+      },
+      {
+        "command": "syncpoint.openDecisionPanel",
+        "title": "SyncPoint: Open Decision Panel"
       }
     ]
   },

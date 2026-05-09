@@ -34,6 +34,13 @@ describe("SyncPoint VS Code Extension", () => {
     expect(commands).toContain("syncpoint.resumePrompt");
     expect(commands).toContain("syncpoint.copyResumePrompt");
     expect(commands).toContain("syncpoint.writeRulesFile");
+    expect(commands).toContain("syncpoint.gateApprove");
+    expect(commands).toContain("syncpoint.gateReject");
+    expect(commands).toContain("syncpoint.gateAbstain");
+    expect(commands).toContain("syncpoint.gateEscalate");
+    expect(commands).toContain("syncpoint.gateResolve");
+    expect(commands).toContain("syncpoint.gateCancel");
+    expect(commands).toContain("syncpoint.openDecisionPanel");
   });
 
   it("package.json declares tree views", async () => {

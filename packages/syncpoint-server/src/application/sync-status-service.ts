@@ -7,8 +7,8 @@
  */
 
 import * as repo from "../repositories.js";
-import { sgListActive, sgList } from "./sync-gate-service.js";
-import { isAgentBlocked, evaluateConstraints } from "syncpoint-core";
+import { sgListActive, sgList, sgStatusDetailed } from "./sync-gate-service.js";
+import { isAgentBlocked, evaluateConstraints, parseGatePolicy, SyncGateStatus } from "syncpoint-core";
 import { rcList, rcDetectConflicts } from "./resource-claim-service.js";
 import { stxListActive } from "./sync-transaction-service.js";
 import { opList } from "./operation-service.js";
@@ -47,6 +47,12 @@ export interface UnifiedBlocker {
   requiredAgents: Array<{ id: string; name: string }>;
   status: string;
   relatedTaskId?: string;
+  gateDetails?: {
+    policy: string;
+    deadlineAt?: string;
+    escalationAgentIds: string[];
+    requiresHuman: boolean;
+  };
 }
 
 export function classifyBlockers(opts: {
@@ -63,6 +69,11 @@ export function classifyBlockers(opts: {
   // Sync Gates
   for (const g of opts.activeGates) {
     const reqIds = (g.requiredAgentIds || "").split(",").filter(Boolean);
+    const policy = parseGatePolicy(g);
+    const requiresHuman =
+      g.status === SyncGateStatus.TIMED_OUT ||
+      g.status === SyncGateStatus.ESCALATED ||
+      policy.kind === "human_required";
     blockers.push({
       type: "sync_gate",
       id: g.id,
@@ -71,6 +82,12 @@ export function classifyBlockers(opts: {
       requiredAgents: reqIds.map(id => ({ id, name: opts.agentName(id) })),
       status: g.status,
       relatedTaskId: g.taskId || undefined,
+      gateDetails: {
+        policy: policy.kind,
+        deadlineAt: policy.deadlineAt,
+        escalationAgentIds: policy.escalationAgentIds ?? [],
+        requiresHuman,
+      },
     });
   }
 

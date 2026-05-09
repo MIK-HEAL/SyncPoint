@@ -29,8 +29,10 @@ import {
   detectResourceClaimConflicts,
   LivenessAction,
   GateVoteKind,
+  computeGateDetails,
+  computeAvailableActions,
 } from "syncpoint-core";
-import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision } from "syncpoint-core";
+import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision, GateDetailedStatus, GateAction } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 
@@ -353,10 +355,25 @@ export function sgCancel(gateId: string, reason?: string): SyncGate {
 
 /**
  * Get detailed gate status.
+ * Performs lazy reconcile to ensure returned state reflects current liveness.
  */
 export function sgStatus(gateId: string): SyncGateStatusResult {
+  return sgReconcile(gateId);
+}
+
+/**
+ * Get full detailed gate status with policy, votes, eligible voters, actions.
+ * Performs lazy reconcile first. If agentId provided, includes availableActions for that agent.
+ */
+export function sgStatusDetailed(gateId: string, agentId?: string): GateDetailedStatus & { availableActions?: GateAction[] } {
+  sgReconcile(gateId);
   const gate = repo.getSyncGate(gateId);
-  return buildStatusResult(gate);
+  const votes = repo.listGateVotes(gateId);
+  const details = computeGateDetails(gate, votes);
+  if (agentId) {
+    return { ...details, availableActions: computeAvailableActions(gate, agentId, votes) };
+  }
+  return details;
 }
 
 /**
@@ -368,9 +385,22 @@ export function sgList(opts?: { taskId?: string; sessionId?: string; status?: st
 
 /**
  * List active (blocking) sync gates.
+ * Performs lazy reconcile on all active gates first.
  */
 export function sgListActive(opts?: { taskId?: string; sessionId?: string }): SyncGate[] {
+  sgReconcileActive(opts);
   return repo.listActiveSyncGates(opts);
+}
+
+/**
+ * Batch reconcile all active gates matching the given filters.
+ * Shared entry point for sgListActive, sgCheckAgent, snapshot, and background tick.
+ */
+export function sgReconcileActive(opts?: { taskId?: string; sessionId?: string }): void {
+  const activeGates = repo.listActiveSyncGates(opts);
+  for (const g of activeGates) {
+    sgReconcile(g.id);
+  }
 }
 
 /**
@@ -378,12 +408,8 @@ export function sgListActive(opts?: { taskId?: string; sessionId?: string }): Sy
  * This is the enforcement point — call before allowing resume/wake/start-work.
  */
 export function sgCheckAgent(agentId: string, opts?: { taskId?: string; sessionId?: string }): AgentBlockCheck {
-  const activeGates = repo.listActiveSyncGates(opts);
-
-  // Lazy reconcile: evaluate liveness for all active gates before checking
-  for (const g of activeGates) {
-    sgReconcile(g.id);
-  }
+  // Lazy reconcile: evaluate liveness for all active gates
+  sgReconcileActive(opts);
 
   // Re-fetch after reconcile — some gates may have been resolved
   const refreshedGates = repo.listActiveSyncGates(opts);

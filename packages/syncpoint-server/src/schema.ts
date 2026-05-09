@@ -446,6 +446,48 @@ export const patchProposals = sqliteTable("patch_proposal", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// ── Agent Manifest ──────────────────────────────────
+
+export const agentManifests = sqliteTable("agent_manifest", {
+  agentId: text("agent_id").primaryKey(),
+  capabilitiesJson: text("capabilities_json").notNull().default("[]"),
+  escalationPreferenceJson: text("escalation_preference_json").notNull().default("{}"),
+  availability: text("availability").notNull().default("online"),
+  canHandleHumanEscalation: integer("can_handle_human_escalation", { mode: "boolean" }).notNull().default(false),
+  tagsJson: text("tags_json").notNull().default("[]"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ── Negotiation Session ─────────────────────────────
+
+export const negotiationSessions = sqliteTable("negotiation_session", {
+  id: text("id").primaryKey(),
+  gateId: text("gate_id").notNull(),
+  participantIds: text("participant_ids").notNull(),
+  status: text("status").notNull().default("OPEN"),
+  currentRound: integer("current_round").notNull().default(0),
+  configJson: text("config_json").notNull().default("{}"),
+  roundStartedAt: text("round_started_at"),
+  deadlineAt: text("deadline_at"),
+  resolvedByAgentId: text("resolved_by_agent_id"),
+  resolutionSummary: text("resolution_summary"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ── Negotiation Message ─────────────────────────────
+
+export const negotiationMessages = sqliteTable("negotiation_message", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  agentId: text("agent_id").notNull(),
+  round: integer("round").notNull().default(0),
+  kind: text("kind").notNull(),
+  content: text("content").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 // ── PinnedMemory ──────────────────────────────────────
 
 export const pinnedMemories = sqliteTable("pinned_memory", {

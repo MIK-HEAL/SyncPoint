@@ -188,9 +188,12 @@ export {
   sgResolve,
   sgCancel,
   sgStatus,
+  sgStatusDetailed,
   sgList,
   sgListActive,
   sgCheckAgent,
+  sgVote,
+  sgReconcileActive,
 } from "./sync-gate-service.js";
 
 export type {
@@ -268,3 +271,22 @@ export {
   formatValidationNotes,
   formatCapsuleReality,
 } from "./protocol-gate-service.js";
+
+// Negotiation Protocol
+export {
+  negStart,
+  negMessage,
+  negReconcile,
+  negResolve,
+  negEscalate,
+  negStatus,
+} from "./negotiation-service.js";
+
+// Agent Manifest + Escalation Routing
+export {
+  manifestUpsert,
+  manifestGet,
+  manifestList,
+  manifestDelete,
+  routeGateEscalation,
+} from "./escalation-routing-service.js";
