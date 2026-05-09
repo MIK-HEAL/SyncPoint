@@ -151,8 +151,13 @@ export {
   getSyncGate,
   updateSyncGateStatus,
   updateSyncGateAckedAgents,
+  updateSyncGatePolicyJson,
   listSyncGates,
   listActiveSyncGates,
+  listGatesByRelatedClaimIds,
+  createGateVote,
+  getGateVote,
+  listGateVotes,
 } from "./repositories/sync-gate-repository.js";
 
 

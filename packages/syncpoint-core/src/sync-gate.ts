@@ -1,12 +1,15 @@
 /**
  * SyncGate — synchronization barrier.
  *
- * A SyncGate blocks affected agents from proceeding until all
- * required agents acknowledge. Status flow:
+ * A SyncGate blocks affected agents from proceeding until the gate's
+ * liveness policy is satisfied.  Status flow:
  *
- *   NEEDS_SYNC → SYNC_REQUESTED → SYNC_ACKED → READY_TO_CONTINUE
+ *   NEEDS_SYNC → SYNC_REQUESTED → PARTIALLY_ACKED → SYNC_ACKED → READY_TO_CONTINUE
  *
- * Gates can also be CANCELLED.
+ * Sideband states:
+ *   ESCALATED, TIMED_OUT, BYPASS_REQUESTED, CANCELLED
+ *
+ * TIMED_OUT does NOT auto-pass — it enters the decision layer.
  */
 
 import { z } from "zod";
@@ -18,10 +21,18 @@ export enum SyncGateStatus {
   NEEDS_SYNC = "NEEDS_SYNC",
   /** Sync has been formally requested; waiting for acknowledgements */
   SYNC_REQUESTED = "SYNC_REQUESTED",
+  /** Some (but not all) required agents have acknowledged */
+  PARTIALLY_ACKED = "PARTIALLY_ACKED",
   /** All required agents have acknowledged */
   SYNC_ACKED = "SYNC_ACKED",
   /** Gate resolved — agents may continue */
   READY_TO_CONTINUE = "READY_TO_CONTINUE",
+  /** Gate escalated — handed to escalationAgentIds or human */
+  ESCALATED = "ESCALATED",
+  /** Gate timed out — NOT auto-pass, enters decision layer */
+  TIMED_OUT = "TIMED_OUT",
+  /** An agent requested bypass — pending owner/human approval */
+  BYPASS_REQUESTED = "BYPASS_REQUESTED",
   /** Gate cancelled — no longer relevant */
   CANCELLED = "CANCELLED",
 }
@@ -30,9 +41,37 @@ export enum SyncGateStatus {
 
 export const SYNC_GATE_TRANSITIONS: Record<SyncGateStatus, SyncGateStatus[]> = {
   [SyncGateStatus.NEEDS_SYNC]: [SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.CANCELLED],
-  [SyncGateStatus.SYNC_REQUESTED]: [SyncGateStatus.SYNC_ACKED, SyncGateStatus.CANCELLED],
+  [SyncGateStatus.SYNC_REQUESTED]: [
+    SyncGateStatus.PARTIALLY_ACKED,
+    SyncGateStatus.SYNC_ACKED,
+    SyncGateStatus.READY_TO_CONTINUE,
+    SyncGateStatus.ESCALATED,
+    SyncGateStatus.TIMED_OUT,
+    SyncGateStatus.CANCELLED,
+  ],
+  [SyncGateStatus.PARTIALLY_ACKED]: [
+    SyncGateStatus.SYNC_ACKED,
+    SyncGateStatus.READY_TO_CONTINUE,
+    SyncGateStatus.ESCALATED,
+    SyncGateStatus.TIMED_OUT,
+    SyncGateStatus.CANCELLED,
+  ],
   [SyncGateStatus.SYNC_ACKED]: [SyncGateStatus.READY_TO_CONTINUE, SyncGateStatus.CANCELLED],
   [SyncGateStatus.READY_TO_CONTINUE]: [],
+  [SyncGateStatus.ESCALATED]: [
+    SyncGateStatus.READY_TO_CONTINUE,
+    SyncGateStatus.CANCELLED,
+  ],
+  [SyncGateStatus.TIMED_OUT]: [
+    SyncGateStatus.ESCALATED,
+    SyncGateStatus.READY_TO_CONTINUE,
+    SyncGateStatus.CANCELLED,
+  ],
+  [SyncGateStatus.BYPASS_REQUESTED]: [
+    SyncGateStatus.READY_TO_CONTINUE,
+    SyncGateStatus.ESCALATED,
+    SyncGateStatus.CANCELLED,
+  ],
   [SyncGateStatus.CANCELLED]: [],
 };
 
@@ -48,6 +87,109 @@ export enum SyncGateReason {
   MANUAL_REQUEST = "manual_request",
   CHECKPOINT_REQUIRED = "checkpoint_required",
   CONTEXT_DRIFT = "context_drift",
+}
+
+// ── Schema ──────────────────────────────────────────
+
+// ── Gate Policy ──────────────────────────────────────
+
+export enum GatePolicyKind {
+  /** Current behavior — all requiredAgentIds must ack */
+  ALL_REQUIRED = "all_required",
+  /** N of M acks is sufficient (quorum field) */
+  QUORUM_ACK = "quorum_ack",
+  /** Majority can veto "continue waiting" — triggers escalation, not auto-pass */
+  MAJORITY_VETO = "majority_veto",
+  /** Designated owner can resolve with reason */
+  OWNER_OVERRIDE = "owner_override",
+  /** High-risk gate: human confirmation required */
+  HUMAN_REQUIRED = "human_required",
+}
+
+export enum GateTimeoutAction {
+  /** Escalate to escalation agents */
+  ESCALATE = "escalate",
+  /** Cancel the gate */
+  CANCEL = "cancel",
+  /** Move to TIMED_OUT for manual decision */
+  AWAIT_DECISION = "await_decision",
+}
+
+export const GatePolicySchema = z.object({
+  kind: z.nativeEnum(GatePolicyKind).default(GatePolicyKind.ALL_REQUIRED),
+  /** Quorum threshold — e.g. 2 means 2 acks suffice. Only used with quorum_ack */
+  quorum: z.number().int().min(1).optional(),
+  /** ISO deadline — gate must resolve by this time or timeout action fires */
+  deadlineAt: z.string().optional(),
+  /** Lease expiry — if no ack activity since this, treat as stale */
+  leaseExpiresAt: z.string().optional(),
+  /** Agents to escalate to when timeout or majority_veto */
+  escalationAgentIds: z.array(z.string()).optional(),
+  /** What happens on timeout */
+  timeoutAction: z.nativeEnum(GateTimeoutAction).default(GateTimeoutAction.ESCALATE),
+  /** Last time liveness was evaluated */
+  lastLivenessCheckAt: z.string().optional(),
+});
+
+export type GatePolicy = z.infer<typeof GatePolicySchema>;
+
+/** Default policy: exact backward-compatible behavior */
+export const DEFAULT_GATE_POLICY: GatePolicy = {
+  kind: GatePolicyKind.ALL_REQUIRED,
+  timeoutAction: GateTimeoutAction.ESCALATE,
+};
+
+// ── Gate Vote ────────────────────────────────────────
+
+export enum GateVoteKind {
+  APPROVE = "approve",
+  REJECT = "reject",
+  ABSTAIN = "abstain",
+  ESCALATE = "escalate",
+}
+
+export const GateVoteSchema = z.object({
+  id: z.string(),
+  gateId: z.string(),
+  agentId: z.string(),
+  vote: z.nativeEnum(GateVoteKind),
+  summary: z.string().default(""),
+  createdAt: z.string(),
+});
+
+export type GateVote = z.infer<typeof GateVoteSchema>;
+
+export const GateVoteCreateSchema = z.object({
+  gateId: z.string(),
+  agentId: z.string(),
+  vote: z.nativeEnum(GateVoteKind),
+  summary: z.string().optional().default(""),
+});
+
+export type GateVoteCreate = z.infer<typeof GateVoteCreateSchema>;
+
+// ── Liveness Decision ────────────────────────────────
+
+export enum LivenessAction {
+  /** Keep blocking — policy not yet satisfied */
+  CONTINUE_BLOCKING = "continue_blocking",
+  /** Escalate to designated agents or human */
+  ESCALATE = "escalate",
+  /** Quorum met — allow resolve */
+  ALLOW_QUORUM_RESOLVE = "allow_quorum_resolve",
+  /** Majority voted to cancel waiting */
+  ALLOW_CANCEL = "allow_cancel",
+  /** Must be resolved by human */
+  REQUIRE_HUMAN_OVERRIDE = "require_human_override",
+  /** Conflict no longer exists — auto-resolve */
+  AUTO_RESOLVE = "auto_resolve",
+}
+
+export interface LivenessDecision {
+  action: LivenessAction;
+  reason: string;
+  /** If ESCALATE, who to notify */
+  escalateTo?: string[];
 }
 
 // ── Schema ──────────────────────────────────────────
@@ -69,6 +211,8 @@ export const SyncGateSchema = z.object({
   relatedClaimIds: z.string(),
   status: z.nativeEnum(SyncGateStatus),
   decisionSummary: z.string(),
+  /** Structured liveness policy (JSON) */
+  policyJson: z.string().default(""),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -86,6 +230,7 @@ export const SyncGateCreateSchema = z.object({
   relatedResourcesJson: z.string().default(""),
   relatedCheckpointId: z.string().default(""),
   relatedClaimIds: z.string().default(""),
+  policy: GatePolicySchema.optional(),
 });
 
 export type SyncGateCreate = z.infer<typeof SyncGateCreateSchema>;
@@ -119,6 +264,167 @@ export function allAcked(gate: SyncGate): boolean {
 }
 
 /**
+ * Check if quorum is met (N acks out of M required).
+ */
+export function quorumMet(gate: SyncGate, quorum: number): boolean {
+  const acked = parseIdList(gate.ackedAgentIds);
+  return acked.length >= quorum;
+}
+
+/**
+ * Parse the gate's policy JSON. Returns DEFAULT_GATE_POLICY if empty/invalid.
+ */
+export function parseGatePolicy(gate: SyncGate): GatePolicy {
+  if (!gate.policyJson) return { ...DEFAULT_GATE_POLICY };
+  try {
+    return GatePolicySchema.parse(JSON.parse(gate.policyJson));
+  } catch {
+    return { ...DEFAULT_GATE_POLICY };
+  }
+}
+
+/**
+ * Count votes by kind, deduplicating by agentId (latest vote wins).
+ * This prevents vote-spamming from inflating counts.
+ */
+export function countVotes(votes: GateVote[]): Record<GateVoteKind, number> {
+  const counts: Record<GateVoteKind, number> = {
+    [GateVoteKind.APPROVE]: 0,
+    [GateVoteKind.REJECT]: 0,
+    [GateVoteKind.ABSTAIN]: 0,
+    [GateVoteKind.ESCALATE]: 0,
+  };
+  // Deduplicate: last vote per agent wins (votes assumed ordered by createdAt asc)
+  const lastVoteByAgent = new Map<string, GateVoteKind>();
+  for (const v of votes) lastVoteByAgent.set(v.agentId, v.vote);
+  for (const kind of lastVoteByAgent.values()) counts[kind]++;
+  return counts;
+}
+
+/**
+ * Evaluate gate liveness — pure function, no side effects.
+ *
+ * Given a gate, its votes, and the current time, determines what
+ * action should be taken. The service layer calls this lazily
+ * (on sgCheckAgent, wakeNext, loopResume) and applies the result.
+ */
+export function evaluateGateLiveness(
+  gate: SyncGate,
+  votes: GateVote[],
+  now: Date,
+): LivenessDecision {
+  // Terminal states — nothing to do
+  if (
+    gate.status === SyncGateStatus.READY_TO_CONTINUE ||
+    gate.status === SyncGateStatus.CANCELLED
+  ) {
+    return { action: LivenessAction.CONTINUE_BLOCKING, reason: "gate already resolved" };
+  }
+
+  const policy = parseGatePolicy(gate);
+
+  // Check deadline timeout first — applies to all policy kinds
+  if (policy.deadlineAt) {
+    const deadline = new Date(policy.deadlineAt);
+    if (now >= deadline) {
+      switch (policy.timeoutAction) {
+        case GateTimeoutAction.ESCALATE:
+          return {
+            action: LivenessAction.ESCALATE,
+            reason: `Deadline passed (${policy.deadlineAt})`,
+            escalateTo: policy.escalationAgentIds,
+          };
+        case GateTimeoutAction.CANCEL:
+          return { action: LivenessAction.ALLOW_CANCEL, reason: `Deadline passed — cancel` };
+        case GateTimeoutAction.AWAIT_DECISION:
+        default:
+          return {
+            action: LivenessAction.REQUIRE_HUMAN_OVERRIDE,
+            reason: `Deadline passed — awaiting decision`,
+            escalateTo: policy.escalationAgentIds,
+          };
+      }
+    }
+  }
+
+  // Check lease expiry (staleness)
+  if (policy.leaseExpiresAt) {
+    const lease = new Date(policy.leaseExpiresAt);
+    if (now >= lease) {
+      return {
+        action: LivenessAction.ESCALATE,
+        reason: `Lease expired (no activity since ${policy.leaseExpiresAt})`,
+        escalateTo: policy.escalationAgentIds,
+      };
+    }
+  }
+
+  // Policy-specific evaluation
+  switch (policy.kind) {
+    case GatePolicyKind.ALL_REQUIRED:
+    default: {
+      // all_required preserves explicit resolve protocol (backward compat):
+      // all ack → SYNC_ACKED, then explicit sgResolve → READY_TO_CONTINUE.
+      // Liveness evaluator only intervenes for timeout/lease.
+      if (allAcked(gate)) {
+        return { action: LivenessAction.CONTINUE_BLOCKING, reason: "All acked — awaiting explicit resolve" };
+      }
+      return { action: LivenessAction.CONTINUE_BLOCKING, reason: `Waiting: ${pendingAgents(gate).join(", ")}` };
+    }
+
+    case GatePolicyKind.QUORUM_ACK: {
+      const q = policy.quorum ?? Math.ceil(parseIdList(gate.requiredAgentIds).length / 2);
+      if (quorumMet(gate, q)) {
+        return { action: LivenessAction.ALLOW_QUORUM_RESOLVE, reason: `Quorum met (${parseIdList(gate.ackedAgentIds).length}/${q})` };
+      }
+      return { action: LivenessAction.CONTINUE_BLOCKING, reason: `Quorum not met (${parseIdList(gate.ackedAgentIds).length}/${q})` };
+    }
+
+    case GatePolicyKind.MAJORITY_VETO: {
+      const required = parseIdList(gate.requiredAgentIds);
+      const voteCounts = countVotes(votes);
+      const majority = Math.floor(required.length / 2) + 1;
+      // Majority reject (and more rejects than approves) → escalate
+      if (voteCounts[GateVoteKind.REJECT] >= majority && voteCounts[GateVoteKind.REJECT] > voteCounts[GateVoteKind.APPROVE]) {
+        return {
+          action: LivenessAction.ESCALATE,
+          reason: `Majority rejected continued waiting (${voteCounts[GateVoteKind.REJECT]}/${majority})`,
+          escalateTo: policy.escalationAgentIds,
+        };
+      }
+      // Majority approve (and more approves than rejects) → allow resolve
+      if (voteCounts[GateVoteKind.APPROVE] >= majority && voteCounts[GateVoteKind.APPROVE] > voteCounts[GateVoteKind.REJECT]) {
+        return { action: LivenessAction.ALLOW_QUORUM_RESOLVE, reason: `Majority approved (${voteCounts[GateVoteKind.APPROVE]}/${majority})` };
+      }
+      return { action: LivenessAction.CONTINUE_BLOCKING, reason: "Voting in progress" };
+    }
+
+    case GatePolicyKind.OWNER_OVERRIDE: {
+      // Owner (requestedByAgentId) latest vote approve → allow
+      // Use last vote per agent (in case of multiple votes, last wins)
+      const lastVoteByAgent = new Map<string, GateVoteKind>();
+      for (const v of votes) lastVoteByAgent.set(v.agentId, v.vote);
+      const ownerLatest = lastVoteByAgent.get(gate.requestedByAgentId);
+      if (ownerLatest === GateVoteKind.APPROVE) {
+        return { action: LivenessAction.AUTO_RESOLVE, reason: "Owner approved override" };
+      }
+      if (allAcked(gate)) {
+        return { action: LivenessAction.AUTO_RESOLVE, reason: "All required agents acked" };
+      }
+      return { action: LivenessAction.CONTINUE_BLOCKING, reason: "Waiting for owner override or full ack" };
+    }
+
+    case GatePolicyKind.HUMAN_REQUIRED: {
+      return {
+        action: LivenessAction.REQUIRE_HUMAN_OVERRIDE,
+        reason: "Human confirmation required",
+        escalateTo: policy.escalationAgentIds,
+      };
+    }
+  }
+}
+
+/**
  * List agents who have not yet acknowledged.
  */
 export function pendingAgents(gate: SyncGate): string[] {
@@ -137,9 +443,30 @@ export function pendingAgents(gate: SyncGate): string[] {
  * A gate is only passed when it reaches READY_TO_CONTINUE.
  */
 export function isAgentBlocked(gate: SyncGate, agentId: string): boolean {
-  if (gate.status === SyncGateStatus.READY_TO_CONTINUE || gate.status === SyncGateStatus.CANCELLED) {
+  if (
+    gate.status === SyncGateStatus.READY_TO_CONTINUE ||
+    gate.status === SyncGateStatus.CANCELLED
+  ) {
     return false;
   }
   const required = parseIdList(gate.requiredAgentIds);
   return required.includes(agentId);
+}
+
+/**
+ * Check if a gate is in a "blocking" status (not yet resolved or cancelled).
+ */
+export function isGateBlocking(gate: SyncGate): boolean {
+  return (
+    gate.status !== SyncGateStatus.READY_TO_CONTINUE &&
+    gate.status !== SyncGateStatus.CANCELLED
+  );
+}
+
+/**
+ * Check if a gate has any acks but not all — useful for PARTIALLY_ACKED detection.
+ */
+export function hasPartialAcks(gate: SyncGate): boolean {
+  const acked = parseIdList(gate.ackedAgentIds);
+  return acked.length > 0 && !allAcked(gate);
 }

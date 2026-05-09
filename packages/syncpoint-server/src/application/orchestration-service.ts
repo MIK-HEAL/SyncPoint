@@ -238,7 +238,8 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
     }
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("Constraint violation:")) throw err;
-    // projection unavailable — skip constraint check
+    // Fail-closed: projection unavailable — block start assignment
+    throw new Error(`Cannot start assignment: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`);
   }
 
   const ta = repo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.IN_PROGRESS);

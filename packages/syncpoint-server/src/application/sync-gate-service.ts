@@ -4,6 +4,8 @@
  * Use cases:
  *   sgRequest    — create a sync gate and move it to SYNC_REQUESTED
  *   sgAck        — agent acknowledges a gate
+ *   sgVote       — agent votes on a gate (approve/reject/abstain/escalate)
+ *   sgReconcile  — evaluate liveness and apply state transitions
  *   sgResolve    — manually resolve a gate (→ READY_TO_CONTINUE)
  *   sgCancel     — cancel a gate
  *   sgStatus     — get gate status with pending/blocked info
@@ -19,9 +21,16 @@ import {
   allAcked,
   pendingAgents,
   isAgentBlocked,
+  isGateBlocking,
+  hasPartialAcks,
   parseIdList,
+  parseGatePolicy,
+  evaluateGateLiveness,
+  detectResourceClaimConflicts,
+  LivenessAction,
+  GateVoteKind,
 } from "syncpoint-core";
-import type { SyncGate, SyncGateCreate } from "syncpoint-core";
+import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 
@@ -38,6 +47,7 @@ export interface SyncGateRequestInput {
   relatedResourcesJson?: string;
   relatedCheckpointId?: string;
   relatedClaimIds?: string;
+  policy?: GatePolicy;
 }
 
 export interface SyncGateStatusResult {
@@ -70,6 +80,7 @@ export function sgRequest(input: SyncGateRequestInput): SyncGateStatusResult {
     relatedResourcesJson: input.relatedResourcesJson ?? "",
     relatedCheckpointId: input.relatedCheckpointId ?? "",
     relatedClaimIds: input.relatedClaimIds ?? "",
+    policy: input.policy,
   };
 
   let gate = repo.createSyncGate(create);
@@ -113,9 +124,12 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
     throw new Error(`Agent ${agentId} is not required for gate ${gateId}`);
   }
 
-  // Verify gate is in SYNC_REQUESTED
-  if (gate.status !== SyncGateStatus.SYNC_REQUESTED) {
-    throw new Error(`Gate ${gateId} is not in SYNC_REQUESTED state (currently ${gate.status})`);
+  // Verify gate is in a state that accepts acks
+  if (
+    gate.status !== SyncGateStatus.SYNC_REQUESTED &&
+    gate.status !== SyncGateStatus.PARTIALLY_ACKED
+  ) {
+    throw new Error(`Gate ${gateId} is not in SYNC_REQUESTED or PARTIALLY_ACKED state (currently ${gate.status})`);
   }
 
   // Add to acked list
@@ -132,17 +146,169 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
     JSON.stringify({ agentId, summary: summary ?? "" }),
   );
 
-  // Auto-advance to SYNC_ACKED when all have acknowledged
+  // Auto-advance status based on ack progress
   if (allAcked(gate)) {
     gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.SYNC_ACKED, summary ?? "");
+  } else if (hasPartialAcks(gate) && gate.status === SyncGateStatus.SYNC_REQUESTED) {
+    gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.PARTIALLY_ACKED);
+  }
+
+  // Run reconcile after ack — quorum/liveness policies may now be satisfied
+  return sgReconcile(gate.id);
+}
+
+/**
+ * Cast a vote on a sync gate. Votes are separate from acks:
+ * ack = "I see it", vote = "I think we should approve/reject/escalate".
+ *
+ * Governance:
+ *   - Only required agents or escalation agents may vote.
+ *   - Vote kind must be a valid GateVoteKind.
+ *   - Duplicate votes update the agent's position (last vote wins at count time).
+ */
+export function sgVote(gateId: string, agentId: string, vote: string, summary?: string): SyncGateStatusResult {
+  const gate = repo.getSyncGate(gateId);
+  if (!isGateBlocking(gate)) {
+    throw new Error(`Gate ${gateId} is already resolved (${gate.status})`);
+  }
+
+  // Validate vote kind
+  const validKinds = Object.values(GateVoteKind) as string[];
+  if (!validKinds.includes(vote)) {
+    throw new Error(`Invalid vote kind "${vote}". Must be one of: ${validKinds.join(", ")}`);
+  }
+
+  // Validate voter eligibility: must be a required agent or escalation agent
+  const policy = parseGatePolicy(gate);
+  const requiredAgents = parseIdList(gate.requiredAgentIds);
+  const escalationAgents = policy.escalationAgentIds ?? [];
+  const eligible = new Set([...requiredAgents, ...escalationAgents, gate.requestedByAgentId]);
+  if (!eligible.has(agentId)) {
+    throw new Error(`Agent ${agentId} is not eligible to vote on gate ${gateId}. Eligible: required, escalation, or owner agents.`);
+  }
+
+  const voteData: GateVoteCreate = {
+    gateId,
+    agentId,
+    vote: vote as GateVoteKind,
+    summary: summary ?? "",
+  };
+  repo.createGateVote(voteData);
+
+  logEvent(
+    EventType.SYNC_GATE_ACKED,
+    "sync_gate",
+    gateId,
+    JSON.stringify({ agentId, vote, summary: summary ?? "", type: "vote" }),
+  );
+
+  // Run reconcile after vote to see if policy is satisfied
+  return sgReconcile(gateId);
+}
+
+/**
+ * Evaluate gate liveness and apply resulting state transitions.
+ * Called lazily before sgCheckAgent, wakeNext, loopResume,
+ * and eagerly after sgAck, sgVote, rcRelease.
+ */
+export function sgReconcile(gateId: string): SyncGateStatusResult {
+  let gate = repo.getSyncGate(gateId);
+  if (!isGateBlocking(gate)) return buildStatusResult(gate);
+
+  const votes = repo.listGateVotes(gateId);
+  const decision = evaluateGateLiveness(gate, votes, new Date());
+
+  switch (decision.action) {
+    case LivenessAction.AUTO_RESOLVE:
+      if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
+        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decision.reason);
+        logEvent(EventType.SYNC_GATE_RESOLVED, "sync_gate", gate.id,
+          JSON.stringify({ reason: decision.reason, auto: true }));
+      }
+      break;
+
+    case LivenessAction.ALLOW_QUORUM_RESOLVE:
+      if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
+        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decision.reason);
+        logEvent(EventType.SYNC_GATE_RESOLVED, "sync_gate", gate.id,
+          JSON.stringify({ reason: decision.reason, quorum: true }));
+      }
+      break;
+
+    case LivenessAction.ESCALATE:
+      if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.ESCALATED)) {
+        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.ESCALATED, decision.reason);
+        logEvent(EventType.SYNC_GATE_REQUESTED, "sync_gate", gate.id,
+          JSON.stringify({ escalatedTo: decision.escalateTo, reason: decision.reason }));
+      }
+      break;
+
+    case LivenessAction.ALLOW_CANCEL:
+      if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.CANCELLED)) {
+        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.CANCELLED, decision.reason);
+        logEvent(EventType.SYNC_GATE_CANCELLED, "sync_gate", gate.id,
+          JSON.stringify({ reason: decision.reason }));
+      }
+      break;
+
+    case LivenessAction.REQUIRE_HUMAN_OVERRIDE:
+      if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.TIMED_OUT)) {
+        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.TIMED_OUT, decision.reason);
+      } else if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.ESCALATED)) {
+        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.ESCALATED, decision.reason);
+      }
+      break;
+
+    case LivenessAction.CONTINUE_BLOCKING:
+    default:
+      // No state change
+      break;
   }
 
   return buildStatusResult(gate);
 }
 
 /**
- * Resolve a sync gate (→ READY_TO_CONTINUE). Can only be done after
- * SYNC_ACKED, or forced from SYNC_REQUESTED.
+ * Reconcile all active gates related to specific claim IDs.
+ * Called when claims are released to auto-resolve conflict gates.
+ *
+ * For resource_conflict gates: re-checks whether the underlying
+ * claim conflict still exists. If not, auto-resolves the gate.
+ */
+export function sgReconcileForClaims(claimIds: string[]): void {
+  const gates = repo.listGatesByRelatedClaimIds(claimIds);
+  for (const gate of gates) {
+    if (!isGateBlocking(gate)) continue;
+
+    // For resource_conflict gates, re-evaluate whether the conflict persists
+    if (gate.reason === SyncGateReason.RESOURCE_CONFLICT && gate.relatedClaimIds) {
+      const relatedIds = parseIdList(gate.relatedClaimIds);
+      // Gather all still-active claims referenced by this gate
+      const activeClaims = relatedIds
+        .map(id => { try { return repo.getResourceClaim(id); } catch { return null; } })
+        .filter((c): c is NonNullable<typeof c> => c != null && c.status === "ACTIVE");
+
+      // Re-run conflict detection on remaining active claims
+      const conflicts = detectResourceClaimConflicts(activeClaims);
+      if (conflicts.length === 0) {
+        // Conflict resolved — auto-resolve gate if transition is valid
+        if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
+          repo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, "Resource conflict resolved (claims released)");
+          logEvent(EventType.SYNC_GATE_RESOLVED, "sync_gate", gate.id,
+            JSON.stringify({ reason: "conflict_resolved", auto: true }));
+          continue;
+        }
+      }
+    }
+
+    // Fallback: run normal liveness reconcile
+    sgReconcile(gate.id);
+  }
+}
+
+/**
+ * Resolve a sync gate (→ READY_TO_CONTINUE). Can be done from
+ * SYNC_ACKED, ESCALATED, TIMED_OUT, or BYPASS_REQUESTED.
  */
 export function sgResolve(gateId: string, decisionSummary?: string): SyncGateStatusResult {
   let gate = repo.getSyncGate(gateId);
@@ -213,7 +379,15 @@ export function sgListActive(opts?: { taskId?: string; sessionId?: string }): Sy
  */
 export function sgCheckAgent(agentId: string, opts?: { taskId?: string; sessionId?: string }): AgentBlockCheck {
   const activeGates = repo.listActiveSyncGates(opts);
-  const blockingGates = activeGates.filter(g => isAgentBlocked(g, agentId));
+
+  // Lazy reconcile: evaluate liveness for all active gates before checking
+  for (const g of activeGates) {
+    sgReconcile(g.id);
+  }
+
+  // Re-fetch after reconcile — some gates may have been resolved
+  const refreshedGates = repo.listActiveSyncGates(opts);
+  const blockingGates = refreshedGates.filter(g => isAgentBlocked(g, agentId));
   return {
     blocked: blockingGates.length > 0,
     blockingGates,
@@ -227,9 +401,6 @@ function buildStatusResult(gate: SyncGate): SyncGateStatusResult {
     gate,
     pending: pendingAgents(gate),
     allAcknowledged: allAcked(gate),
-    isBlocking:
-      gate.status === SyncGateStatus.NEEDS_SYNC ||
-      gate.status === SyncGateStatus.SYNC_REQUESTED ||
-      gate.status === SyncGateStatus.SYNC_ACKED,
+    isBlocking: isGateBlocking(gate),
   };
 }

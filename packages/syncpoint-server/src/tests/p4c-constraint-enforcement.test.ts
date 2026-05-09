@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
 import * as repo from "../../src/repositories.js";
-import { loopResume } from "../application/loop-service.js";
+import { loopResume, LoopError } from "../application/loop-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "../application/orchestration-service.js";
 import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
 import { rcClaim } from "../application/resource-claim-service.js";
@@ -90,27 +90,40 @@ afterAll(() => {
 });
 
 describe("P4C: loopResume constraint enforcement", () => {
-  it("loopResume in capsule-locked mode throws on projection_conflict", () => {
+  it("loopResume in capsule-locked mode throws on constraint violation", () => {
     expect(() => loopResume({
       agentId: agent2Id,
       taskId,
       contextMode: "capsule-locked",
-    })).toThrow(/Constraint violation.*locked mode/);
+    })).toThrow(/Constraint violation/);
   });
 
-  it("loopResume in default mode returns constraintWarnings (not throw)", () => {
-    const result = loopResume({ agentId: agent2Id, taskId });
-    expect(result.ok).toBe(true);
-    expect(result.constraintWarnings.length).toBeGreaterThan(0);
-    // Should contain do_not_touch blocker (workingResources overlap protected scope)
-    expect(result.constraintWarnings.some(w => w.includes("do_not_touch_scope_overlap"))).toBe(true);
+  it("loopResume in default mode also throws on constraint blocker (fail-closed)", () => {
+    // Track 2 hardening: real blockers always block, regardless of mode
+    try {
+      loopResume({ agentId: agent2Id, taskId });
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect((err as Error).message).toMatch(/Constraint violation/);
+      // Error message includes the blocker's human-readable message
+      expect((err as Error).message).toContain("protected scope");
+    }
   });
 
-  it("constraintWarnings include rule name and [BLOCKED] prefix", () => {
-    const result = loopResume({ agentId: agent2Id, taskId });
-    const blockerWarning = result.constraintWarnings.find(w => w.includes("do_not_touch_scope_overlap"));
-    expect(blockerWarning).toBeDefined();
-    expect(blockerWarning).toContain("[BLOCKED]");
+  it("LoopError carries constraintManifest for audit trail on blocked attempts", () => {
+    try {
+      loopResume({ agentId: agent2Id, taskId });
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(LoopError);
+      const loopErr = err as LoopError;
+      expect(loopErr.constraintManifest).toBeDefined();
+      expect(loopErr.constraintManifest!.permitted).toBe(false);
+      expect(loopErr.constraintManifest!.blockerCount).toBeGreaterThan(0);
+      expect(loopErr.constraintManifest!.projectionId).toBeTruthy();
+      expect(loopErr.constraintManifest!.hash).toBeTruthy();
+      expect(loopErr.constraintManifest!.evaluatedAt).toBeTruthy();
+    }
   });
 });
 

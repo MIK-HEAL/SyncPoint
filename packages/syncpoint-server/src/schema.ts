@@ -2,7 +2,7 @@
  * Drizzle ORM schema for SyncPoint SQLite.
  */
 
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // ── Runtime ────────────────────────────────────────────
 
@@ -372,9 +372,23 @@ export const syncGates = sqliteTable("sync_gate", {
   relatedClaimIds: text("related_claim_ids").notNull().default(""),
   status: text("status").notNull().default("NEEDS_SYNC"),
   decisionSummary: text("decision_summary").notNull().default(""),
+  policyJson: text("policy_json").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// ── SyncGate Vote ────────────────────────────────────
+
+export const syncGateVotes = sqliteTable("sync_gate_vote", {
+  id: text("id").primaryKey(),
+  gateId: text("gate_id").notNull(),
+  agentId: text("agent_id").notNull(),
+  vote: text("vote").notNull(),
+  summary: text("summary").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  gateAgentUnique: uniqueIndex("uq_gate_vote_agent").on(table.gateId, table.agentId),
+}));
 
 // ── SyncTransaction ──────────────────────────────────
 

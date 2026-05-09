@@ -338,7 +338,8 @@ export function wakeStart(id: string): WakeRequest {
       }
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("Constraint violation:")) throw err;
-      // projection unavailable — skip constraint check
+      // Fail-closed: projection unavailable — block wake start
+      throw new Error(`Cannot start wake: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`);
     }
   }
 
@@ -394,7 +395,7 @@ export function wakeNext(agentId: string): WakeRequest | null {
           : undefined,
       });
       if (!decision.permitted) return null;
-    } catch { /* projection unavailable — allow wake */ }
+    } catch { /* Fail-closed: projection unavailable — skip this wake */ return null; }
   }
 
   return wr;

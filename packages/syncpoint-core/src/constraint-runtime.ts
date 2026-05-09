@@ -17,7 +17,7 @@ import type {
   ProjectionItem,
   ProjectionScope,
 } from "./projection.js";
-import { getScopeMatcher } from "./projection.js";
+import { getScopeMatcher, computeContentHash } from "./projection.js";
 import type { ResourceRef } from "./resource.js";
 
 // ── Runtime Spec ─────────────────────────────
@@ -186,6 +186,72 @@ export interface ConstraintDecision {
   blockers: ConstraintViolation[];
   warnings: ConstraintViolation[];
   projectionId: string;
+}
+
+/**
+ * ConstraintManifest — a tamper-evident record of the constraint evaluation
+ * that produced a decision. Captures what was evaluated, the inputs, and a
+ * hash for integrity verification.
+ */
+export interface ConstraintManifest {
+  /** Projection that was evaluated */
+  projectionId: string;
+  /** Memory version the projection was built from */
+  memoryVersion: number;
+  /** Action being evaluated */
+  action: RuntimeAction;
+  /** Constraint rules that were evaluated (sourceMemoryId + rule pairs) */
+  evaluatedRules: Array<{ sourceMemoryId: string; rule: string }>;
+  /** Resources that were checked against scopes */
+  touchedResources: string[];
+  /** The decision: permitted or not */
+  permitted: boolean;
+  /** Number of blockers / warnings */
+  blockerCount: number;
+  warningCount: number;
+  /** SHA-256 hash of manifest fields for integrity */
+  hash: string;
+  /** ISO timestamp */
+  evaluatedAt: string;
+}
+
+/**
+ * Build a ConstraintManifest from a decision and its inputs.
+ * This provides an auditable, hashable record of what was enforced.
+ */
+export function buildConstraintManifest(
+  input: ConstraintInput,
+  decision: ConstraintDecision,
+): ConstraintManifest {
+  const touchedResources = (input.touchedResources ?? []).map(r => r.locator);
+  const evaluatedRules = [
+    ...decision.blockers.map(b => ({ sourceMemoryId: b.sourceMemoryId, rule: b.rule })),
+    ...decision.warnings.map(w => ({ sourceMemoryId: w.sourceMemoryId, rule: w.rule })),
+  ];
+
+  const hashPayload = [
+    decision.projectionId,
+    String(input.projection.createdFrom.memoryVersion),
+    input.action,
+    JSON.stringify(evaluatedRules),
+    touchedResources.join(","),
+    String(decision.permitted),
+    String(decision.blockers.length),
+    String(decision.warnings.length),
+  ].join("|");
+
+  return {
+    projectionId: decision.projectionId,
+    memoryVersion: input.projection.createdFrom.memoryVersion,
+    action: input.action,
+    evaluatedRules,
+    touchedResources,
+    permitted: decision.permitted,
+    blockerCount: decision.blockers.length,
+    warningCount: decision.warnings.length,
+    hash: computeContentHash(hashPayload),
+    evaluatedAt: new Date().toISOString(),
+  };
 }
 
 /** Input context for constraint evaluation. */

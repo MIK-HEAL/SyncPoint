@@ -10,8 +10,10 @@ import {
   formatResumePrompt,
   DEFAULT_CONTEXT_MODE,
   evaluateConstraints,
+  buildConstraintManifest,
   computeContentHash,
 } from "syncpoint-core";
+import type { ConstraintManifest } from "syncpoint-core";
 import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
@@ -65,6 +67,7 @@ export interface LoopResumeResult {
   capsuleValid: boolean;
   validationNotes: string[];
   constraintWarnings: string[];
+  constraintManifest?: ConstraintManifest;
 }
 
 export interface LoopCheckpointInput {
@@ -148,9 +151,11 @@ export const EXIT = {
 } as const;
 
 export class LoopError extends Error {
-  constructor(public readonly exitCode: number, message: string) {
+  public readonly constraintManifest?: ConstraintManifest;
+  constructor(public readonly exitCode: number, message: string, opts?: { constraintManifest?: ConstraintManifest }) {
     super(message);
     this.name = "LoopError";
+    this.constraintManifest = opts?.constraintManifest;
   }
 }
 
@@ -250,30 +255,35 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   const capsuleVal = validateCapsule(latestCapsule, latestCheckpoint, task.id, agent.id);
 
   // 1b. P4C: Constraint Runtime enforcement
-  const constraintDecision = evaluateConstraints({
-    action: "resume",
+  const constraintInput = {
+    action: "resume" as const,
     projection,
     touchedResources: capsuleWorkingResources.length > 0
       ? resolveResourceRefs(capsuleWorkingResources, agent.id)
       : undefined,
-  });
+  };
+  const constraintDecision = evaluateConstraints(constraintInput);
+  const constraintManifest = buildConstraintManifest(constraintInput, constraintDecision);
   const constraintWarnings = [
     ...constraintDecision.blockers.map(b => `[BLOCKED] ${b.rule}: ${b.message}`),
     ...constraintDecision.warnings.map(w => `[advisory] ${w.rule}: ${w.message}`),
   ];
 
-  // 1c. capsule-locked mode hard-blocks on any validation failure, protocol gate violation,
-  //     or constraint violations
+  // 1c. Constraint blockers always block, regardless of mode.
+  //     These are typed, validated rules — not advisory.
+  if (!constraintDecision.permitted) {
+    const reasons = constraintDecision.blockers.map(b => b.message).join("; ");
+    throw new LoopError(EXIT.CONTEXT_POLICY, `Constraint violation: ${reasons}`, { constraintManifest });
+  }
+
+  // 1d. capsule-locked mode additionally blocks on protocol gate violations
+  //     and capsule validation failures.
   if (mode === "capsule-locked") {
     if (protocolGate.blocked) {
       throw new LoopError(EXIT.CONTEXT_POLICY, `Protocol gate blocked (locked mode): ${protocolGate.hardBlockers.join("; ")}`);
     }
     if (!capsuleVal.valid) {
       throw new LoopError(EXIT.CONTEXT_POLICY, `Capsule validation failed (locked mode): ${capsuleVal.notes.join("; ")}`);
-    }
-    if (!constraintDecision.permitted) {
-      const reasons = constraintDecision.blockers.map(b => b.message).join("; ");
-      throw new LoopError(EXIT.CONTEXT_POLICY, `Constraint violation (locked mode): ${reasons}`);
     }
   }
 
@@ -422,6 +432,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     capsuleValid: capsuleVal.valid,
     validationNotes: capsuleVal.notes,
     constraintWarnings,
+    constraintManifest,
   };
 }
 

@@ -484,10 +484,12 @@ export function runMigrations(db: Database.Database): void {
       reason                  TEXT NOT NULL DEFAULT 'manual_request',
       description             TEXT NOT NULL DEFAULT '',
       related_files           TEXT NOT NULL DEFAULT '',
+      related_resources_json  TEXT NOT NULL DEFAULT '',
       related_checkpoint_id   TEXT NOT NULL DEFAULT '',
       related_claim_ids       TEXT NOT NULL DEFAULT '',
       status                  TEXT NOT NULL DEFAULT 'NEEDS_SYNC',
       decision_summary        TEXT NOT NULL DEFAULT '',
+      policy_json             TEXT NOT NULL DEFAULT '',
       created_at              TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -541,6 +543,21 @@ export function runMigrations(db: Database.Database): void {
   addColumn("project_memory", "validator_config", "TEXT NOT NULL DEFAULT ''");
   // Plugin architecture: generic resource_claim + operation + sync_gate forward compat
   addColumn("sync_gate", "related_resources_json", "TEXT NOT NULL DEFAULT ''");
+  // SyncGate liveness policy
+  addColumn("sync_gate", "policy_json", "TEXT NOT NULL DEFAULT ''");
+  // SyncGate vote table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_gate_vote (
+      id          TEXT PRIMARY KEY,
+      gate_id     TEXT NOT NULL,
+      agent_id    TEXT NOT NULL,
+      vote        TEXT NOT NULL,
+      summary     TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  // Unique constraint: one vote per agent per gate (last vote wins via upsert in repo)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_gate_vote_agent ON sync_gate_vote(gate_id, agent_id);`);
   // Memory version counter — single row table
   db.exec(`
     CREATE TABLE IF NOT EXISTS memory_version (

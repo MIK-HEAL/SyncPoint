@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   evaluateConstraints,
+  buildConstraintManifest,
   parseRuntimeSpec,
   resolveRuntimeSpec,
   registerConstraintRuleEvaluator,
@@ -971,5 +972,60 @@ describe("PR4: Typed hard constraint evaluation", () => {
     expect(decision.warnings).toHaveLength(1);
     expect(decision.warnings[0].sourceMemoryId).toBe("pm_untyped");
     expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
+  });
+});
+
+// ── ConstraintManifest ────────────────────────────────
+
+describe("buildConstraintManifest", () => {
+  it("builds a manifest with correct fields from decision + input", () => {
+    const proj = emptyProjection({
+      constraintRules: [makeDntRule("dnt1", "Frozen", "Do not touch core", { files: ["src/core"] })],
+    });
+    const input: ConstraintInput = {
+      action: "resume",
+      projection: proj,
+      touchedResources: toRefs("src/core/index.ts"),
+    };
+    const decision = evaluateConstraints(input);
+    expect(decision.permitted).toBe(false);
+
+    const manifest = buildConstraintManifest(input, decision);
+    expect(manifest.projectionId).toBe(proj.projectionId);
+    expect(manifest.memoryVersion).toBe(proj.createdFrom.memoryVersion);
+    expect(manifest.action).toBe("resume");
+    expect(manifest.permitted).toBe(false);
+    expect(manifest.blockerCount).toBeGreaterThan(0);
+    expect(manifest.touchedResources).toContain("src/core/index.ts");
+    expect(manifest.hash).toBeTruthy();
+    expect(manifest.evaluatedAt).toBeTruthy();
+    expect(manifest.evaluatedRules.length).toBe(manifest.blockerCount + manifest.warningCount);
+  });
+
+  it("manifest hash changes when decision changes", () => {
+    const proj = emptyProjection({
+      constraintRules: [makeDntRule("dnt1", "Frozen", "Do not touch core", { files: ["src/core"] })],
+    });
+    // Permitted decision (no overlap)
+    const inputSafe: ConstraintInput = {
+      action: "resume",
+      projection: proj,
+      touchedResources: toRefs("src/other/file.ts"),
+    };
+    const dSafe = evaluateConstraints(inputSafe);
+    const mSafe = buildConstraintManifest(inputSafe, dSafe);
+    expect(mSafe.permitted).toBe(true);
+
+    // Blocked decision (overlap)
+    const inputBlocked: ConstraintInput = {
+      action: "resume",
+      projection: proj,
+      touchedResources: toRefs("src/core/index.ts"),
+    };
+    const dBlocked = evaluateConstraints(inputBlocked);
+    const mBlocked = buildConstraintManifest(inputBlocked, dBlocked);
+    expect(mBlocked.permitted).toBe(false);
+
+    expect(mSafe.hash).not.toBe(mBlocked.hash);
   });
 });

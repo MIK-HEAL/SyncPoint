@@ -281,7 +281,7 @@ export function opList(opts?: {
 /**
  * Run constraint runtime evaluation for an operation.
  * Returns blockers (empty array = no violations).
- * Gracefully returns empty on projection build failure (degraded mode).
+ * Fail-closed: returns a synthetic blocker when projection is unavailable.
  */
 function runConstraintCheck(
   operation: Operation,
@@ -303,8 +303,13 @@ function runConstraintCheck(
     });
 
     return decision.blockers;
-  } catch {
-    // Projection unavailable — degrade gracefully, do not block
-    return [];
+  } catch (err) {
+    // Fail-closed: projection unavailable — block operation
+    return [{
+      rule: "projection_unavailable",
+      sourceMemoryId: "",
+      projectionId: "",
+      message: `Cannot evaluate constraints: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`,
+    }];
   }
 }

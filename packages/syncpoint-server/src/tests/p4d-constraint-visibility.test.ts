@@ -167,12 +167,19 @@ describe("P4D: constraintCheck resume", () => {
     expect(result.inputs.touchedResources).toContain("src/core/index.ts");
   });
 
-  it("result is consistent with loopResume constraintWarnings", () => {
+  it("result is consistent with loopResume constraint enforcement", () => {
     const checkResult = constraintCheck({ action: "resume", taskId, agentId: agent2Id });
-    const resumeResult = loopResume({ agentId: agent2Id, taskId });
-    // Both should see the same do_not_touch blocker
+    // constraintCheck shows blocker
     expect(checkResult.permitted).toBe(false);
-    expect(resumeResult.constraintWarnings.some(w => w.includes("do_not_touch_scope_overlap"))).toBe(true);
+    expect(checkResult.blockers[0]?.rule).toBe("do_not_touch_scope_overlap");
+    const blockerMessage = checkResult.blockers[0]?.message;
+    // loopResume throws with the same blocker message (fail-closed)
+    try {
+      loopResume({ agentId: agent2Id, taskId });
+      expect.unreachable("should have thrown");
+    } catch (err) {
+      expect((err as Error).message).toContain(blockerMessage);
+    }
   });
 
   it("explicit touchedResources override marks source as 'explicit'", () => {

@@ -15,9 +15,11 @@
 
 import {
   evaluateConstraints,
+  buildConstraintManifest,
 } from "syncpoint-core";
 import type {
   ConstraintViolation,
+  ConstraintManifest,
   ProjectionValidityStatus,
   ContextMode,
 } from "syncpoint-core";
@@ -81,6 +83,7 @@ export interface ConstraintRuntimeView {
     touchedResources: string[];
     source: "capsule" | "resource_claims" | "operation" | "explicit";
   };
+  manifest?: ConstraintManifest;
   runtimeUnavailable?: {
     message: string;
   };
@@ -275,19 +278,22 @@ export function constraintCheck(input: ConstraintRuntimeCheckInput): ConstraintR
       workingResources: resolved.workingResources,
     });
 
-    const decision = evaluateConstraints({
+    const constraintInput = {
       action: input.action as any,
       projection,
       touchedResources: resolved.touchedResources.length > 0 && resolved.agentId
         ? resolveResourceRefs(resolved.touchedResources, resolved.agentId)
         : undefined,
-    });
+    };
+    const decision = evaluateConstraints(constraintInput);
+    const manifest = buildConstraintManifest(constraintInput, decision);
 
     return {
       action: input.action,
       permitted: decision.permitted,
       blockers: decision.blockers.map(toView),
       warnings: decision.warnings.map(toView),
+      manifest,
       projection: {
         projectionId: projection.projectionId,
         cacheKey: projection.cacheKey,

@@ -12,8 +12,18 @@ import {
   allAcked,
   pendingAgents,
   isAgentBlocked,
+  GatePolicyKind,
+  GateTimeoutAction,
+  GateVoteKind,
+  LivenessAction,
+  quorumMet,
+  parseGatePolicy,
+  countVotes,
+  evaluateGateLiveness,
+  isGateBlocking,
+  hasPartialAcks,
 } from "./sync-gate.js";
-import type { SyncGate } from "./sync-gate.js";
+import type { SyncGate, GateVote } from "./sync-gate.js";
 
 // ── helpers ─────────────────────────────────────────
 
@@ -28,14 +38,32 @@ function makeGate(overrides: Partial<SyncGate> = {}): SyncGate {
     reason: SyncGateReason.MANUAL_REQUEST,
     description: "test gate",
     relatedFiles: "",
+    relatedResourcesJson: "",
     relatedCheckpointId: "",
     relatedClaimIds: "",
     status: SyncGateStatus.SYNC_REQUESTED,
     decisionSummary: "",
+    policyJson: "",
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",
     ...overrides,
   };
+}
+
+function makeVote(overrides: Partial<GateVote> = {}): GateVote {
+  return {
+    id: "v1",
+    gateId: "g1",
+    agentId: "a2",
+    vote: GateVoteKind.APPROVE,
+    summary: "",
+    createdAt: "2024-01-01",
+    ...overrides,
+  };
+}
+
+function policyJson(policy: Record<string, unknown>): string {
+  return JSON.stringify(policy);
 }
 
 // ── transitions ─────────────────────────────────────
@@ -65,6 +93,42 @@ describe("SyncGate transitions", () => {
     expect(validateSyncGateTransition(SyncGateStatus.NEEDS_SYNC, SyncGateStatus.CANCELLED)).toBe(true);
     expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.CANCELLED)).toBe(true);
     expect(validateSyncGateTransition(SyncGateStatus.SYNC_ACKED, SyncGateStatus.CANCELLED)).toBe(true);
+    expect(validateSyncGateTransition(SyncGateStatus.PARTIALLY_ACKED, SyncGateStatus.CANCELLED)).toBe(true);
+    expect(validateSyncGateTransition(SyncGateStatus.ESCALATED, SyncGateStatus.CANCELLED)).toBe(true);
+    expect(validateSyncGateTransition(SyncGateStatus.TIMED_OUT, SyncGateStatus.CANCELLED)).toBe(true);
+    expect(validateSyncGateTransition(SyncGateStatus.BYPASS_REQUESTED, SyncGateStatus.CANCELLED)).toBe(true);
+  });
+
+  it("SYNC_REQUESTED → PARTIALLY_ACKED is valid", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.PARTIALLY_ACKED)).toBe(true);
+  });
+
+  it("PARTIALLY_ACKED → SYNC_ACKED is valid", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.PARTIALLY_ACKED, SyncGateStatus.SYNC_ACKED)).toBe(true);
+  });
+
+  it("SYNC_REQUESTED → ESCALATED is valid", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.ESCALATED)).toBe(true);
+  });
+
+  it("SYNC_REQUESTED → TIMED_OUT is valid", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.TIMED_OUT)).toBe(true);
+  });
+
+  it("TIMED_OUT → ESCALATED is valid", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.TIMED_OUT, SyncGateStatus.ESCALATED)).toBe(true);
+  });
+
+  it("TIMED_OUT → READY_TO_CONTINUE is valid (human decision)", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.TIMED_OUT, SyncGateStatus.READY_TO_CONTINUE)).toBe(true);
+  });
+
+  it("ESCALATED → READY_TO_CONTINUE is valid", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.ESCALATED, SyncGateStatus.READY_TO_CONTINUE)).toBe(true);
+  });
+
+  it("BYPASS_REQUESTED → READY_TO_CONTINUE is valid", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.BYPASS_REQUESTED, SyncGateStatus.READY_TO_CONTINUE)).toBe(true);
   });
 
   it("backward transitions are invalid", () => {
@@ -153,5 +217,370 @@ describe("isAgentBlocked", () => {
   it("SYNC_ACKED still blocks until READY_TO_CONTINUE", () => {
     expect(isAgentBlocked(makeGate({ status: SyncGateStatus.SYNC_ACKED }), "a2")).toBe(true);
     expect(isAgentBlocked(makeGate({ status: SyncGateStatus.SYNC_ACKED }), "a3")).toBe(true);
+  });
+
+  it("new sideband states still block", () => {
+    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.PARTIALLY_ACKED }), "a2")).toBe(true);
+    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.ESCALATED }), "a2")).toBe(true);
+    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.TIMED_OUT }), "a2")).toBe(true);
+    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.BYPASS_REQUESTED }), "a2")).toBe(true);
+  });
+});
+
+// ── isGateBlocking / hasPartialAcks ─────────────────
+
+describe("isGateBlocking", () => {
+  it("true for all non-terminal states", () => {
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.NEEDS_SYNC }))).toBe(true);
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.SYNC_REQUESTED }))).toBe(true);
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.PARTIALLY_ACKED }))).toBe(true);
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.SYNC_ACKED }))).toBe(true);
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.ESCALATED }))).toBe(true);
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.TIMED_OUT }))).toBe(true);
+  });
+
+  it("false for terminal states", () => {
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.READY_TO_CONTINUE }))).toBe(false);
+    expect(isGateBlocking(makeGate({ status: SyncGateStatus.CANCELLED }))).toBe(false);
+  });
+});
+
+describe("hasPartialAcks", () => {
+  it("false when no acks", () => {
+    expect(hasPartialAcks(makeGate())).toBe(false);
+  });
+
+  it("true when some but not all acked", () => {
+    expect(hasPartialAcks(makeGate({ ackedAgentIds: "a2" }))).toBe(true);
+  });
+
+  it("false when all acked", () => {
+    expect(hasPartialAcks(makeGate({ ackedAgentIds: "a2,a3" }))).toBe(false);
+  });
+});
+
+// ── quorumMet ───────────────────────────────────────
+
+describe("quorumMet", () => {
+  it("false when acks < quorum", () => {
+    expect(quorumMet(makeGate({ ackedAgentIds: "" }), 2)).toBe(false);
+  });
+
+  it("true when acks >= quorum", () => {
+    expect(quorumMet(makeGate({ ackedAgentIds: "a2" }), 1)).toBe(true);
+    expect(quorumMet(makeGate({ ackedAgentIds: "a2,a3" }), 2)).toBe(true);
+  });
+});
+
+// ── countVotes ──────────────────────────────────────
+
+describe("countVotes", () => {
+  it("counts by kind", () => {
+    const votes = [
+      makeVote({ vote: GateVoteKind.APPROVE }),
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a3" }),
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a4" }),
+    ];
+    const c = countVotes(votes);
+    expect(c.approve).toBe(2);
+    expect(c.reject).toBe(1);
+    expect(c.abstain).toBe(0);
+    expect(c.escalate).toBe(0);
+  });
+});
+
+// ── parseGatePolicy ─────────────────────────────────
+
+describe("parseGatePolicy", () => {
+  it("returns default for empty policyJson", () => {
+    const p = parseGatePolicy(makeGate());
+    expect(p.kind).toBe(GatePolicyKind.ALL_REQUIRED);
+  });
+
+  it("parses valid JSON", () => {
+    const p = parseGatePolicy(makeGate({
+      policyJson: policyJson({ kind: "quorum_ack", quorum: 1 }),
+    }));
+    expect(p.kind).toBe(GatePolicyKind.QUORUM_ACK);
+    expect(p.quorum).toBe(1);
+  });
+
+  it("returns default for invalid JSON", () => {
+    const p = parseGatePolicy(makeGate({ policyJson: "not json" }));
+    expect(p.kind).toBe(GatePolicyKind.ALL_REQUIRED);
+  });
+});
+
+// ── evaluateGateLiveness ────────────────────────────
+
+describe("evaluateGateLiveness", () => {
+  const T = new Date("2024-06-01T12:00:00Z");
+
+  // ── all_required (default, backward-compat) ──
+
+  it("all_required: continue blocking when not all acked", () => {
+    const d = evaluateGateLiveness(makeGate(), [], T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  it("all_required: continue blocking when all acked (explicit resolve needed)", () => {
+    const d = evaluateGateLiveness(makeGate({ ackedAgentIds: "a2,a3" }), [], T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  it("terminal state returns continue_blocking (no-op)", () => {
+    const d = evaluateGateLiveness(makeGate({ status: SyncGateStatus.READY_TO_CONTINUE }), [], T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  // ── deadline timeout ──
+
+  it("deadline passed → escalate (default timeoutAction)", () => {
+    const gate = makeGate({
+      policyJson: policyJson({
+        kind: "all_required",
+        deadlineAt: "2024-06-01T11:00:00Z",
+        escalationAgentIds: ["human1"],
+      }),
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.ESCALATE);
+    expect(d.escalateTo).toEqual(["human1"]);
+  });
+
+  it("deadline passed with cancel action → allow cancel", () => {
+    const gate = makeGate({
+      policyJson: policyJson({
+        kind: "all_required",
+        deadlineAt: "2024-06-01T11:00:00Z",
+        timeoutAction: "cancel",
+      }),
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.ALLOW_CANCEL);
+  });
+
+  it("deadline passed with await_decision → require human override", () => {
+    const gate = makeGate({
+      policyJson: policyJson({
+        kind: "all_required",
+        deadlineAt: "2024-06-01T11:00:00Z",
+        timeoutAction: "await_decision",
+      }),
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.REQUIRE_HUMAN_OVERRIDE);
+  });
+
+  it("deadline not yet passed → normal policy evaluation", () => {
+    const gate = makeGate({
+      policyJson: policyJson({
+        kind: "all_required",
+        deadlineAt: "2024-06-01T13:00:00Z",
+      }),
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  // ── lease expiry ──
+
+  it("lease expired → escalate", () => {
+    const gate = makeGate({
+      policyJson: policyJson({
+        kind: "all_required",
+        leaseExpiresAt: "2024-06-01T11:30:00Z",
+        escalationAgentIds: ["sup1"],
+      }),
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.ESCALATE);
+    expect(d.escalateTo).toEqual(["sup1"]);
+  });
+
+  // ── quorum_ack ──
+
+  it("quorum_ack: not met → blocking", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "quorum_ack", quorum: 2 }),
+      ackedAgentIds: "a2",
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  it("quorum_ack: met → allow quorum resolve", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "quorum_ack", quorum: 1 }),
+      ackedAgentIds: "a2",
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
+  });
+
+  it("quorum_ack: defaults to ceil(N/2) when quorum not specified", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "quorum_ack" }),
+      requiredAgentIds: "a1,a2,a3",
+      ackedAgentIds: "a1,a2",
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
+  });
+
+  // ── majority_veto ──
+
+  it("majority_veto: majority reject → escalate (not auto-pass)", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
+    });
+    const votes = [
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a2" }),
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a3" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.ESCALATE);
+    expect(d.escalateTo).toEqual(["sup"]);
+  });
+
+  it("majority_veto: majority approve → allow resolve", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "majority_veto" }),
+    });
+    const votes = [
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a3" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
+  });
+
+  it("majority_veto: no majority → continue blocking", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "majority_veto" }),
+    });
+    const votes = [
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a3" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  // ── owner_override ──
+
+  it("owner_override: owner approved → auto-resolve", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "owner_override" }),
+    });
+    const votes = [
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.AUTO_RESOLVE);
+  });
+
+  it("owner_override: no owner vote, not all acked → blocking", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "owner_override" }),
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  it("owner_override: all acked → auto-resolve even without owner vote", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "owner_override" }),
+      ackedAgentIds: "a2,a3",
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.AUTO_RESOLVE);
+  });
+
+  // ── owner_override vote change regression ──
+
+  it("owner_override: owner reject then approve → latest vote (approve) wins", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "owner_override" }),
+    });
+    // Simulate two votes from owner: reject first, then approve
+    const votes = [
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a1" }),
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.AUTO_RESOLVE);
+    expect(d.reason).toBe("Owner approved override");
+  });
+
+  it("owner_override: owner approve then reject → latest vote (reject) blocks", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "owner_override" }),
+    });
+    const votes = [
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a1" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  });
+
+  // ── majority_veto vote change regression ──
+
+  it("majority_veto: voter changes approve → reject flips majority result", () => {
+    // 3 required agents. majority = floor(3/2)+1 = 2
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
+    });
+    // a2 initially approved, then changed to reject; a3 rejects
+    // Deduped: a2=reject, a3=reject → 2 rejects (majority)
+    const votes = [
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a3" }),
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a2" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.ESCALATE);
+  });
+
+  it("majority_veto: voter changes reject → approve flips to resolve", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "majority_veto" }),
+    });
+    // a2 initially rejected, then changed to approve; a3 approves
+    // Deduped: a2=approve, a3=approve → 2 approves (majority)
+    const votes = [
+      makeVote({ vote: GateVoteKind.REJECT, agentId: "a2" }),
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a3" }),
+      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
+    ];
+    const d = evaluateGateLiveness(gate, votes, T);
+    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
+  });
+
+  // ── human_required ──
+
+  it("human_required: always require human override", () => {
+    const gate = makeGate({
+      policyJson: policyJson({ kind: "human_required", escalationAgentIds: ["human"] }),
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.REQUIRE_HUMAN_OVERRIDE);
+    expect(d.escalateTo).toEqual(["human"]);
+  });
+
+  // ── deadline takes priority over policy ──
+
+  it("deadline overrides quorum even if quorum met", () => {
+    const gate = makeGate({
+      policyJson: policyJson({
+        kind: "quorum_ack",
+        quorum: 1,
+        deadlineAt: "2024-06-01T11:00:00Z",
+      }),
+      ackedAgentIds: "a2",
+    });
+    const d = evaluateGateLiveness(gate, [], T);
+    expect(d.action).toBe(LivenessAction.ESCALATE);
   });
 });

@@ -136,6 +136,7 @@ export type {
 // P4A Constraint Runtime + PR4 Typed Validators
 export {
   evaluateConstraints,
+  buildConstraintManifest,
   parseRuntimeSpec,
   resolveRuntimeSpec,
   registerConstraintRuleEvaluator,
@@ -148,6 +149,7 @@ export type {
   RuntimeAction,
   ConstraintViolation,
   ConstraintDecision,
+  ConstraintManifest,
   ConstraintInput,
   ConstraintRuleType,
   ConstraintRuntimeSpec,
@@ -380,12 +382,31 @@ export {
   allAcked,
   pendingAgents,
   isAgentBlocked,
+  // Liveness
+  GatePolicyKind,
+  GateTimeoutAction,
+  GatePolicySchema,
+  DEFAULT_GATE_POLICY,
+  GateVoteKind,
+  GateVoteSchema,
+  GateVoteCreateSchema,
+  LivenessAction,
+  quorumMet,
+  parseGatePolicy,
+  countVotes,
+  evaluateGateLiveness,
+  isGateBlocking,
+  hasPartialAcks,
 } from "./sync-gate.js";
 
 export type {
   SyncGate,
   SyncGateCreate,
   SyncGateAck,
+  GatePolicy,
+  GateVote,
+  GateVoteCreate,
+  LivenessDecision,
 } from "./sync-gate.js";
 
 // Relationship Mode

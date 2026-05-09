@@ -17,7 +17,7 @@ import {
 import type { ResourceClaim, ResourceClaimCreate, ResourceConflict, ResourceRef } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
-import { sgRequest } from "./sync-gate-service.js";
+import { sgRequest, sgReconcileForClaims } from "./sync-gate-service.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -144,6 +144,10 @@ export function rcRelease(claimId: string): ResourceClaim {
     claim.id,
     JSON.stringify({ actorId: claim.actorId, taskId: claim.taskId }),
   );
+
+  // Reconcile any resource conflict gates related to this claim.
+  // If the conflict no longer exists, the gate may auto-resolve.
+  sgReconcileForClaims([claimId]);
 
   return claim;
 }

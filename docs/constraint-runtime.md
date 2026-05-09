@@ -73,14 +73,32 @@ The Constraint Runtime is called at every execution boundary:
 
 | Entry Point | Action | workingResources Source | On Violation |
 |-------------|--------|------------------------|-------------|
-| `loopResume` | `resume` | Latest capsule `.workingResources` | capsule-locked: throws; default: `constraintWarnings[]` |
+| `loopResume` | `resume` | Latest capsule `.workingResources` | Always throws on blockers (fail-closed); warnings in `constraintWarnings[]` |
 | `orchStartAssignment` | `start_assignment` | Agent's active resource claims | Throws `Error("Constraint violation: ...")` |
 | `wakeStart` | `wake_start` | Latest capsule `.workingResources` | Throws |
 | `wakeNext` | `wake_start` | Latest capsule `.workingResources` | Returns `null` (graceful skip) |
 
 Operation submit/apply contexts are available through the read-only `constraintCheck` visibility API. The operation lifecycle itself currently runs `OperationValidator`s in `opCheck()`; it does not mutate operation status based on Constraint Runtime output.
 
-All enforcement entry points use try/catch around `buildProjection` — if projection is unavailable, execution is **allowed** (graceful degradation, not silent failure).
+All enforcement entry points use try/catch around `buildProjection` — if projection is unavailable, execution is **blocked** (fail-closed). This applies to `loopResume`, `orchStartAssignment`, `wakeStart`, `wakeNext`, `opSubmit`, and `opApply`.
+
+### ConstraintManifest
+
+Every constraint evaluation now produces a `ConstraintManifest` — a tamper-evident audit record:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `projectionId` | `string` | Projection that was evaluated |
+| `memoryVersion` | `number` | Memory version the projection was built from |
+| `action` | `RuntimeAction` | Action being evaluated |
+| `evaluatedRules` | `Array<{sourceMemoryId, rule}>` | Rules that fired |
+| `touchedResources` | `string[]` | Resources checked against scopes |
+| `permitted` | `boolean` | Decision |
+| `blockerCount` / `warningCount` | `number` | Counts |
+| `hash` | `string` | SHA-256 integrity hash of manifest fields |
+| `evaluatedAt` | `string` | ISO timestamp |
+
+Returned by `loopResume` (in `constraintManifest`) and `constraintCheck` (in `manifest`).
 
 ---
 
@@ -154,7 +172,7 @@ Summary adds:
 
 2. **No raw PM content**: Output contains `sourceMemoryId` references but never the memory's `content` field. The `evidence` array contains file paths and scope descriptions, not memory text.
 
-3. **Graceful degradation**: If `buildProjection` fails (e.g., no memories exist yet), the result is `permitted: true` with `runtimeUnavailable` set. This matches P4C behavior — projection unavailable means "allow".
+3. **Fail-closed**: If `buildProjection` fails at enforcement entry points (`loopResume`, `orchStartAssignment`, `wakeStart`, `opApply`), execution is **blocked**. The `constraintCheck` visibility API degrades gracefully with `runtimeUnavailable` set (it is read-only and does not gate execution).
 
 4. **Orthogonal to capsule**: A valid capsule does NOT imply execution permission. An execution permit does NOT imply the capsule is current. These are separate concerns.
 
@@ -164,7 +182,8 @@ Summary adds:
 
 | Suite | File | Count |
 |-------|------|-------|
-| P4A Core | `syncpoint-core/src/constraint-runtime.test.ts` | 24 |
+| P4A Core | `syncpoint-core/src/constraint-runtime.test.ts` | 52 |
 | P4C Entry Points | `syncpoint-server/src/tests/p4c-constraint-enforcement.test.ts` | 7 |
 | P4D Visibility | `syncpoint-server/src/tests/p4d-constraint-visibility.test.ts` | 17 |
+| Adversarial bypass | `syncpoint-server/src/tests/constraint-adversarial.test.ts` | 11 |
 | Project Memory validator guards | `syncpoint-server/src/tests/p2-schema-v2.test.ts` | see current test output |
