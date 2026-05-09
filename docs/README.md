@@ -59,11 +59,12 @@ Stop unsafe continuation before agent drift becomes a codebase problem.
 
 If you are new to the project, read in this order:
 
-1. **Problem and protocol** — [`core-synchronization.md`](core-synchronization.md)
-2. **Visible chaos demo** — [`demo-sync-truncation.md`](demo-sync-truncation.md)
-3. **Shortest demo path** — [`mvp-showcase.md`](mvp-showcase.md)
-4. **Local operator guide** — [`local-operations-guide.md`](local-operations-guide.md)
-5. **CLI agent loop** — [`cli-agent-loop.md`](cli-agent-loop.md)
+1. **SyncPoint tours** — [`tours/README.md`](tours/README.md)
+2. **File shield aha moment** — [`tours/01-file-shield-tour.md`](tours/01-file-shield-tour.md)
+3. **Problem and protocol** — [`core-synchronization.md`](core-synchronization.md)
+4. **Visible chaos demo** — [`demo-sync-truncation.md`](demo-sync-truncation.md)
+5. **Local operator guide** — [`local-operations-guide.md`](local-operations-guide.md)
+6. **CLI agent loop** — [`cli-agent-loop.md`](cli-agent-loop.md)
 
 Read these only after the core story is clear:
 
@@ -105,3 +106,16 @@ With SyncPoint:
 Then explain the implementation.
 
 The implementation matters because it makes the stop real: ownership, gates, checkpoints, reviews, operations, wakes, MCP, CLI, and VS Code all exist to enforce the same `pause -> sync -> resume` loop.
+
+## Tours As Protocol Spec
+
+The tour guides are not marketing samples. They are executable stories for the core protocol:
+
+| Tour | Protocol boundary |
+|---|---|
+| [`01-file-shield-tour.md`](tours/01-file-shield-tour.md) | `ResourceClaim` overlap creates a `SyncGate` before unsafe continuation |
+| [`02-transaction-purity-tour.md`](tours/02-transaction-purity-tour.md) | `SyncTransaction` prevents unapproved checkpoints from becoming base reality |
+| [`03-constraint-enforcement-tour.md`](tours/03-constraint-enforcement-tour.md) | Constraint Runtime blocks a `do_not_touch` scope violation |
+| [`04-liveness-and-escalation-tour.md`](tours/04-liveness-and-escalation-tour.md) | liveness policies turn zombie gates into visible decisions |
+
+When changing gate, transaction, constraint, or liveness behavior, update these tours as part of the same change.

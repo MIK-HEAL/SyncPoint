@@ -57,7 +57,7 @@ You probably need SyncPoint if:
 - You run **more than one AI coding agent** on the same codebase
 - Agents **hand off work** across sessions or to other agents
 - Agents **edit overlapping files** without knowing about each other
-- Reviewers need to **approve AI-generated patches** before they're applied
+- Reviewers need to **approve AI-generated operations** before they're applied
 - Long tasks **resume from stale context** and nobody validates the checkpoint
 - You need to see **who is blocked, why, and what unblocks them**
 
@@ -70,23 +70,23 @@ SyncPoint enforces boundaries through five protocol primitives:
 | **ResourceClaim** | Agent declares "I will touch these resources" — overlapping claims create blockers automatically |
 | **SyncGate** | A hard stop — the agent cannot continue until the gate is resolved, not just acknowledged |
 | **SyncTransaction** | A checkpoint that requires approval before another agent can resume from it |
-| **PatchProposal** | A diff that is checked for ownership, format, and constraint violations before apply |
+| **Operation** | A tracked unit of change checked for ownership, conflicts, and constraints before apply |
 | **Wake** | A sync obligation — "this agent needs to review / approve / acknowledge before continuing" |
 
 These are enforced at every execution boundary. An agent cannot silently skip a gate or ignore a file conflict.
 
 ### What happens under the hood
 
-Each agent carries a **context capsule** — a scoped snapshot of its current task, working files, active constraints, and blockers. The capsule is what the agent sees. But what the agent sees is not what decides whether it can continue.
+Each agent carries a **context capsule** — a scoped snapshot of its current task, working resources, active constraints, and blockers. The capsule is what the agent sees. But what the agent sees is not what decides whether it can continue.
 
 SyncPoint maintains **project memory** — typed, versioned, deduplicated knowledge entries (facts, conventions, risks, hard constraints, do-not-touch rules). These are compiled and scoped per task, so each agent gets only the constraints relevant to its work. Hard constraints and protocol rules are enforced at every execution boundary — they cannot be ignored even if the agent's prompt doesn't mention them.
 
 When an agent tries to continue, SyncPoint checks:
 
-- Does the agent's working files overlap a protected scope? → **blocked**
-- Is there an unresolved file ownership conflict? → **blocked**
+- Do the agent's working resources overlap a protected scope? → **blocked**
+- Is there an unresolved resource ownership conflict? → **blocked**
 - Is there an open gate or pending transaction? → **blocked**
-- Does a patch touch files outside the agent's claim? → **blocked**
+- Does an operation touch resources outside the agent's claim? → **blocked**
 - Is the agent's checkpoint stale or invalid? → **blocked**
 
 If everything is clean, the agent continues. If not, the specific blocker is surfaced with the reason, the source, and what needs to happen to unblock.
@@ -158,7 +158,7 @@ Why:
 syncpoint status
 ```
 
-Shows sessions, agents, file claims, conflicts, blockers, and suggested actions.
+Shows sessions, agents, resource claims, conflicts, blockers, and suggested actions.
 
 ### Stop at the blocked state
 
@@ -170,16 +170,29 @@ Then inspect with `syncpoint status` before continuing.
 
 Full walkthrough: [`docs/demo-sync-truncation.md`](docs/demo-sync-truncation.md)
 
+### Take the tours
+
+The fastest way to understand SyncPoint is to run the protocol tours:
+
+```text
+docs/tours/01-file-shield-tour.md
+docs/tours/02-transaction-purity-tour.md
+docs/tours/03-constraint-enforcement-tour.md
+docs/tours/04-liveness-and-escalation-tour.md
+```
+
+Start with [`docs/tours/README.md`](docs/tours/README.md). The tours are the project’s quick-start guide and living protocol specification.
+
 ## Protocol Primitives
 
 SyncPoint is built around five protocol primitives.
 
 | Primitive | Plain-English meaning | Why it matters |
 |---|---|---|
-| **FileClaim** | "I intend to touch these files." | Makes ownership explicit before work starts |
+| **ResourceClaim** | "I intend to touch these resources." | Makes ownership explicit before work starts |
 | **SyncGate** | "Stop here until this is resolved." | Blocks unsafe start, resume, and wake paths |
 | **SyncTransaction** | "This checkpoint needs approval." | Turns progress into an approved continuation point |
-| **PatchProposal** | "Check this diff before treating it as safe." | Validates patch format, ownership, and conflicts |
+| **Operation** | "Check this unit of change before treating it as safe." | Validates target resources, ownership, conflicts, and constraints |
 | **Wake** | "This agent has a sync obligation." | Notifies the right agent to review, approve, handoff, or resume |
 
 The most important invariant:
@@ -198,17 +211,17 @@ Resolution means "the boundary is now safe to cross."
 create sync session
   -> choose relationship mode: manager-delegate, peer-contract, or handoff-resume
   -> agents accept scoped work
-  -> agents claim files before changing them
+  -> agents claim resources before changing them
   -> overlapping claims create blockers
   -> checkpoint creates a sync transaction when approval is needed
-  -> patch proposal checks touched files against claims and constraints
+  -> operation checks touched resources against claims and constraints
   -> constraint runtime blocks if do_not_touch or hard_constraint is violated
   -> review records evidence and approval state
   -> wake queue tells the next agent what sync action is required
   -> Sync View shows the whole map
 ```
 
-For the clearest first experience, use `peer-contract` mode because file boundaries and conflicts are easy to see.
+For the clearest first experience, use `peer-contract` mode because resource boundaries and conflicts are easy to see.
 
 ## CLI Commands
 
@@ -231,7 +244,7 @@ syncpoint session create --title "..." --architect <id> --mode peer-contract
 syncpoint sync ack --gate <gateId> --agent <agentId>
 syncpoint sync resolve --gate <gateId> --summary "Resolved"
 syncpoint sync tx approve --tx <txId> --agent <agentId>
-syncpoint patch approve --patch <patchId> --agent <agentId>
+syncpoint patch approve --id <operationId> --agent <agentId>
 syncpoint review approve --review <id> --summary "Approved" --by <agentId>
 syncpoint constraint check --action resume --task <taskId> --agent <agentId>
 ```
@@ -283,9 +296,9 @@ The VS Code extension provides a single visual map of the synchronization state:
 |---|---|
 | **Sessions** | Current sync sessions and relationship modes |
 | **Active Work** | Assignments, work status, and constraint blocks |
-| **File Ownership** | Active file claims and hard conflicts |
+| **Resource Ownership** | Active resource claims and hard conflicts |
 | **Blockers** | Gates, transactions, reviews, and handoffs that stop continuation |
-| **Patches** | Patch proposals and check results |
+| **Operations** | Operation lifecycle and check results |
 | **Wake Queue** | Pending sync obligations for agents |
 
 This is the operator view for answering: **"Who is blocked, why, and what unblocks them?"**
@@ -296,12 +309,12 @@ This is the operator view for answering: **"Who is blocked, why, and what unbloc
 packages/
 ├── syncpoint-core         # protocol types, state machines, projection compiler, constraint evaluator
 ├── syncpoint-server       # application services, SQLite, tRPC, SSE
-├── syncpoint-cli          # operator CLI for sessions, gates, transactions, patches, constraints
+├── syncpoint-cli          # operator CLI for sessions, gates, transactions, operations, constraints
 ├── syncpoint-mcp          # MCP adapter for editor AI agents
-├── syncpoint-plugin-code  # code-domain plugin — file claims, patch validators, compat adapters
+├── syncpoint-plugin-code  # code-domain plugin — file resources, code operation validators, compat adapters
 ├── syncpoint-plugin-generic-agent  # generic resource plugin — artifact/binary/document claims, validators, constraint evaluators
 ├── syncpoint-sdk          # typed client for integrations
-└── vscode-extension       # Sync View for claims, blockers, patches, wakes
+└── vscode-extension       # Sync View for claims, blockers, operations, wakes
 ```
 
 The architectural rule:
@@ -330,6 +343,7 @@ Start here:
 
 | Document | Best for |
 |---|---|
+| [`docs/tours/README.md`](docs/tours/README.md) | Running the four disaster tours that explain the protocol in practice |
 | [`docs/demo-sync-truncation.md`](docs/demo-sync-truncation.md) | Running the 10-15 minute synchronization truncation demo |
 | [`docs/core-synchronization.md`](docs/core-synchronization.md) | Understanding protocol primitives and invariants |
 | [`docs/local-operations-guide.md`](docs/local-operations-guide.md) | Operating SyncPoint locally with CLI, MCP, server, and Sync View |
