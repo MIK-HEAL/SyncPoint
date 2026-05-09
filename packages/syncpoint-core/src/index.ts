@@ -359,6 +359,30 @@ export type {
   OperationApproval,
 } from "./operation.js";
 
+export {
+  WriteIntent,
+  WritePermitStatus,
+  WriteDecisionReason,
+  WriteResourceHashSchema,
+  WriteDecisionBlockerSchema,
+  WriteDecisionWarningSchema,
+  WriteDecisionSchema,
+  WritePermitSchema,
+  WritePermitCreateSchema,
+  evaluateWriteDecision,
+} from "./write-permit.js";
+
+export type {
+  WriteResourceHash,
+  WriteDecisionBlocker,
+  WriteDecisionWarning,
+  WriteDecision,
+  WritePermit,
+  WritePermitCreate,
+  WriteConstraintDecisionInput,
+  WriteDecisionInput,
+} from "./write-permit.js";
+
 // Generic StateSnapshot
 export {
   StateSnapshotSchema,

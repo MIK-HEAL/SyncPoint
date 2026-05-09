@@ -24,6 +24,8 @@ import { constraintCmd } from "./commands/constraint.js";
 import { registerFacadeCommands } from "./commands/facade.js";
 import { registerConnectCommands } from "./commands/connect.js";
 import { registerWatchCommands } from "./commands/watch.js";
+import { registerWriteCommands } from "./commands/write.js";
+import { registerGuardCommands } from "./commands/guard.js";
 
 const program = new Command();
 let keepDbOpen = false;
@@ -76,6 +78,8 @@ registerDemoCommands(program);
 registerFacadeCommands(program);
 registerConnectCommands(program);
 registerWatchCommands(program);
+registerWriteCommands(program);
+registerGuardCommands(program);
 
 // ── Parse ────────────────────────────────────────────
 

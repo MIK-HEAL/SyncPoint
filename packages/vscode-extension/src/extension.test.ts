@@ -34,6 +34,8 @@ describe("SyncPoint VS Code Extension", () => {
     expect(commands).toContain("syncpoint.resumePrompt");
     expect(commands).toContain("syncpoint.copyResumePrompt");
     expect(commands).toContain("syncpoint.writeRulesFile");
+    expect(commands).toContain("syncpoint.openGuardedFile");
+    expect(commands).toContain("syncpoint.guardedSave");
     expect(commands).toContain("syncpoint.gateApprove");
     expect(commands).toContain("syncpoint.gateReject");
     expect(commands).toContain("syncpoint.gateAbstain");
@@ -77,5 +79,6 @@ describe("SyncPoint VS Code Extension", () => {
     expect(properties["syncpoint.sessionId"]).toBeDefined();
     expect(properties["syncpoint.fileGuard.enabled"].default).toBe(true);
     expect(properties["syncpoint.fileGuard.auditOnly"].default).toBe(false);
+    expect(properties["syncpoint.fileGuard.mode"].default).toBe("audit");
   });
 });

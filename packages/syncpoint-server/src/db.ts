@@ -441,6 +441,25 @@ export function runMigrations(db: Database.Database): void {
       updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS write_permit (
+      id                      TEXT PRIMARY KEY,
+      actor_id                TEXT NOT NULL,
+      task_id                 TEXT NOT NULL,
+      session_id              TEXT NOT NULL DEFAULT '',
+      resources_json          TEXT NOT NULL DEFAULT '[]',
+      intent                  TEXT NOT NULL,
+      operation_id            TEXT NOT NULL DEFAULT '',
+      guarded_root            TEXT NOT NULL DEFAULT '',
+      base_hashes_json        TEXT NOT NULL DEFAULT '[]',
+      expires_at              TEXT NOT NULL,
+      single_use              INTEGER NOT NULL DEFAULT 1,
+      status                  TEXT NOT NULL,
+      decision_json           TEXT NOT NULL,
+      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      consumed_at             TEXT NOT NULL DEFAULT ''
+    );
+
     CREATE TABLE IF NOT EXISTS patch_proposal (
       id                      TEXT PRIMARY KEY,
       session_id              TEXT NOT NULL,
@@ -545,6 +564,7 @@ export function runMigrations(db: Database.Database): void {
   addColumn("sync_gate", "related_resources_json", "TEXT NOT NULL DEFAULT ''");
   // SyncGate liveness policy
   addColumn("sync_gate", "policy_json", "TEXT NOT NULL DEFAULT ''");
+  addColumn("write_permit", "guarded_root", "TEXT NOT NULL DEFAULT ''");
   // SyncGate vote table
   db.exec(`
     CREATE TABLE IF NOT EXISTS sync_gate_vote (

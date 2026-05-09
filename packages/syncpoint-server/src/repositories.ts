@@ -170,6 +170,13 @@ export {
 } from "./repositories/operation-repository.js";
 
 export {
+  createWritePermit,
+  getWritePermit,
+  updateWritePermit,
+  listWritePermits,
+} from "./repositories/write-permit-repository.js";
+
+export {
   createSyncTransaction,
   getSyncTransaction,
   updateSyncTransactionStatus,

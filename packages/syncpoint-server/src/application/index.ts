@@ -213,6 +213,40 @@ export type {
   AuditFileChangeResult,
 } from "./file-audit-service.js";
 
+// WritePermit / controlled writes
+export {
+  writeCheck,
+  writePrepare,
+  writeApply,
+} from "./write-permit-service.js";
+
+export type {
+  WriteCheckInput,
+  WritePrepareInput,
+  WriteApplyInput,
+  WriteCheckResult,
+  WritePrepareResult,
+  WriteApplyResult,
+  FileMutation,
+} from "./write-permit-service.js";
+
+export {
+  guardStatus,
+  guardCreateSession,
+  guardValidateToken,
+  guardRevokeSession,
+} from "./guard-session-service.js";
+
+export type {
+  GuardCreateSessionInput,
+  GuardMode,
+  GuardProxyAdapter,
+  GuardSession,
+  GuardSessionStatus,
+  GuardStatusResult,
+  GuardValidateTokenResult,
+} from "./guard-session-service.js";
+
 // SyncTransaction
 export {
   stxCreate,

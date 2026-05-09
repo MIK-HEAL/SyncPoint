@@ -12,6 +12,7 @@ import type { EventStreamHandle } from "syncpoint-sdk";
 import { formatResumePrompt } from "syncpoint-core";
 import type { PromptFormat, ResumeContext } from "syncpoint-core";
 import { registerFileGuard } from "./file-guard.js";
+import { registerGuardedEditor } from "./guarded-editor.js";
 
 const DEFAULT_URL = "http://127.0.0.1:8765";
 
@@ -574,6 +575,7 @@ export function activate(context: vscode.ExtensionContext) {
     client,
     onAudited: () => syncView.refresh(),
   }));
+  context.subscriptions.push(registerGuardedEditor({ client }));
 
   // Commands
   context.subscriptions.push(

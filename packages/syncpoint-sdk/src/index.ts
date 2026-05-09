@@ -10,6 +10,18 @@
 
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import type { AppRouter } from "syncpoint-server";
+import type {
+  WriteApplyInput,
+  WriteApplyResult,
+  WriteCheckInput,
+  WriteCheckResult,
+  WritePrepareInput,
+  WritePrepareResult,
+  GuardCreateSessionInput,
+  GuardSession,
+  GuardStatusResult,
+  GuardValidateTokenResult,
+} from "syncpoint-server/application";
 
 export type SyncPointClient = ReturnType<typeof createTRPCProxyClient<AppRouter>>;
 
@@ -21,6 +33,36 @@ export function createSyncPointClient(url = DEFAULT_URL): SyncPointClient {
       httpBatchLink({ url: `${url}/trpc` }),
     ],
   });
+}
+
+export interface SyncPointWriteClient {
+  check(input: WriteCheckInput): Promise<WriteCheckResult>;
+  prepare(input: WritePrepareInput): Promise<WritePrepareResult>;
+  apply(input: WriteApplyInput): Promise<WriteApplyResult>;
+}
+
+export function createSyncPointWriteClient(url = DEFAULT_URL): SyncPointWriteClient {
+  const client = createSyncPointClient(url);
+  return {
+    check: (input) => client.write.check.query(input),
+    prepare: (input) => client.write.prepare.mutate(input),
+    apply: (input) => client.write.applyWrite.mutate(input),
+  };
+}
+
+export interface SyncPointGuardClient {
+  status(): Promise<GuardStatusResult>;
+  createSession(input: GuardCreateSessionInput): Promise<GuardSession>;
+  validateToken(token: string): Promise<GuardValidateTokenResult>;
+}
+
+export function createSyncPointGuardClient(url = DEFAULT_URL): SyncPointGuardClient {
+  const client = createSyncPointClient(url);
+  return {
+    status: () => client.guard.status.query(),
+    createSession: (input) => client.guard.createSession.mutate(input),
+    validateToken: (token) => client.guard.validateToken.query({ token }),
+  };
 }
 
 export interface EventStreamHandle {

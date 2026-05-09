@@ -68,6 +68,16 @@
           "type": "boolean",
           "default": false,
           "description": "Log file audit events from VS Code saves without creating or updating SyncGates"
+        },
+        "syncpoint.fileGuard.mode": {
+          "type": "string",
+          "enum": [
+            "audit",
+            "editor-strict",
+            "proxy-strict"
+          ],
+          "default": "audit",
+          "description": "File guard mode. editor-strict enables syncpoint: guarded documents that save through write permits"
         }
       }
     },
@@ -99,6 +109,14 @@
       {
         "command": "syncpoint.writeRulesFile",
         "title": "SyncPoint: Write Rules File"
+      },
+      {
+        "command": "syncpoint.openGuardedFile",
+        "title": "SyncPoint: Open Guarded File"
+      },
+      {
+        "command": "syncpoint.guardedSave",
+        "title": "SyncPoint: Guarded Save"
       },
       {
         "command": "syncpoint.gateApprove",

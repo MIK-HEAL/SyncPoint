@@ -9,6 +9,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { getDb, closeDb, initSyncpointDir } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
 import { pmAdd, pmApprove } from "syncpoint-server/application";
+import { ResourceClaimMode } from "syncpoint-core";
 import { createSyncPointMcpServer } from "./server.js";
 
 import os from "node:os";
@@ -18,10 +19,13 @@ import path from "node:path";
 let client: Client;
 let cleanup: () => void;
 let tmpDir: string;
+let previousProjectRoot: string | undefined;
 
 beforeAll(async () => {
   // Isolated temp project
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-mcp-test-"));
+  previousProjectRoot = process.env.SYNCPOINT_PROJECT_ROOT;
+  process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   getDb();
@@ -91,6 +95,8 @@ beforeAll(async () => {
   cleanup = () => {
     closeDb();
     delete process.env.SYNCPOINT_DB_DIR;
+    if (previousProjectRoot === undefined) delete process.env.SYNCPOINT_PROJECT_ROOT;
+    else process.env.SYNCPOINT_PROJECT_ROOT = previousProjectRoot;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   };
 });
@@ -221,6 +227,11 @@ describe("tools", () => {
     expect(names).toContain("syncpoint_active_session");
     expect(names).toContain("syncpoint_sync_status");
     expect(names).toContain("syncpoint_sync_vote");
+    expect(names).toContain("syncpoint_write_check");
+    expect(names).toContain("syncpoint_write_prepare");
+    expect(names).toContain("syncpoint_write_apply");
+    expect(names).toContain("syncpoint_guard_status");
+    expect(names).toContain("syncpoint_guard_session_create");
     expect(tools.length).toBeGreaterThanOrEqual(35);
   });
 
@@ -324,6 +335,69 @@ describe("tools", () => {
     expect(fs.existsSync(exportPath)).toBe(true);
     const content = fs.readFileSync(exportPath, "utf-8");
     expect(content).toContain("MCP Architecture");
+  });
+
+  it("syncpoint_write_prepare + syncpoint_write_apply should write through a permit", async () => {
+    const agents = repo.listAgents();
+    const tasks = repo.listTasks();
+    const locator = "mcp-write.txt";
+    fs.writeFileSync(path.join(tmpDir, locator), "old");
+    repo.createResourceClaim({
+      actorId: agents[0].id,
+      taskId: tasks[0].id,
+      resources: [{ type: "file", locator, metadata: "" }],
+      mode: ResourceClaimMode.EXCLUSIVE,
+    });
+
+    const prepareResult: any = await client.callTool({
+      name: "syncpoint_write_prepare",
+      arguments: {
+        actorId: agents[0].id,
+        taskId: tasks[0].id,
+        locators: [locator],
+        intent: "modify",
+      },
+    });
+    const prepared = JSON.parse(prepareResult.content[0].text);
+    expect(prepared.decision.permitted).toBe(true);
+    expect(prepared.permit.status).toBe("issued");
+
+    const applyResult: any = await client.callTool({
+      name: "syncpoint_write_apply",
+      arguments: {
+        permitId: prepared.permit.id,
+        mutations: [{ locator, content: "new" }],
+      },
+    });
+    const applied = JSON.parse(applyResult.content[0].text);
+    expect(applied.permit.status).toBe("consumed");
+    expect(fs.readFileSync(path.join(tmpDir, locator), "utf8")).toBe("new");
+  });
+
+  it("syncpoint_guard_status + syncpoint_guard_session_create should expose guard session state", async () => {
+    const agents = repo.listAgents();
+    const tasks = repo.listTasks();
+    const createResult: any = await client.callTool({
+      name: "syncpoint_guard_session_create",
+      arguments: {
+        actorId: agents[0].id,
+        taskId: tasks[0].id,
+        mode: "strict",
+        adapter: "manual",
+      },
+    });
+    const created = JSON.parse(createResult.content[0].text);
+    expect(created.token).toMatch(/^spg_/);
+    expect(created.actorId).toBe(agents[0].id);
+
+    const statusResult: any = await client.callTool({
+      name: "syncpoint_guard_status",
+      arguments: {},
+    });
+    const status = JSON.parse(statusResult.content[0].text);
+    expect(status.proxyAvailable).toBe(false);
+    expect(status.activeSessions.some((session: any) => session.id === created.id)).toBe(true);
+    expect(status.activeSessions[0].token).toBeUndefined();
   });
 
   it("syncpoint_resume_context_get should return context", async () => {

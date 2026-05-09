@@ -427,6 +427,25 @@ export const operations = sqliteTable("operation", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const writePermits = sqliteTable("write_permit", {
+  id: text("id").primaryKey(),
+  actorId: text("actor_id").notNull(),
+  taskId: text("task_id").notNull(),
+  sessionId: text("session_id").notNull().default(""),
+  resourcesJson: text("resources_json").notNull().default("[]"),
+  intent: text("intent").notNull(),
+  operationId: text("operation_id").notNull().default(""),
+  guardedRoot: text("guarded_root").notNull().default(""),
+  baseHashesJson: text("base_hashes_json").notNull().default("[]"),
+  expiresAt: text("expires_at").notNull(),
+  singleUse: integer("single_use", { mode: "boolean" }).notNull().default(true),
+  status: text("status").notNull(),
+  decisionJson: text("decision_json").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  consumedAt: text("consumed_at").notNull().default(""),
+});
+
 // ── PatchProposal ────────────────────────────────────
 
 export const patchProposals = sqliteTable("patch_proposal", {
