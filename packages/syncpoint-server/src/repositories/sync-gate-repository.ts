@@ -59,6 +59,15 @@ export function updateSyncGateAckedAgents(id: string, ackedAgentIds: string): Sy
   return getSyncGate(id);
 }
 
+export function updateSyncGateDescription(id: string, description: string): SyncGate {
+  const db = _getDb();
+  db.update(s.syncGates).set({
+    description,
+    updatedAt: now(),
+  }).where(eq(s.syncGates.id, id)).run();
+  return getSyncGate(id);
+}
+
 export function listSyncGates(opts?: {
   taskId?: string;
   sessionId?: string;

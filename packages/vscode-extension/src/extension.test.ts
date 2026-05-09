@@ -61,5 +61,21 @@ describe("SyncPoint VS Code Extension", () => {
 
     expect(pkg.engines.vscode).toBeDefined();
     expect(pkg.main).toBe("./dist/extension.js");
+    expect(pkg.activationEvents).toContain("onStartupFinished");
+    expect(pkg.activationEvents).toContain("workspaceContains:.syncpoint");
+  });
+
+  it("package.json declares file guard configuration", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const pkgPath = path.resolve(__dirname, "..", "package.json");
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    const properties = pkg.contributes.configuration.properties;
+
+    expect(properties["syncpoint.agentId"]).toBeDefined();
+    expect(properties["syncpoint.taskId"]).toBeDefined();
+    expect(properties["syncpoint.sessionId"]).toBeDefined();
+    expect(properties["syncpoint.fileGuard.enabled"].default).toBe(true);
+    expect(properties["syncpoint.fileGuard.auditOnly"].default).toBe(false);
   });
 });

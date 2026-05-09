@@ -38,7 +38,7 @@ export {
 
 export {
   createSyncGate, getSyncGate, updateSyncGateStatus, updateSyncGateAckedAgents,
-  listSyncGates, listActiveSyncGates,
+  updateSyncGateDescription, listSyncGates, listActiveSyncGates,
 } from "./sync-gate-repository.js";
 export {
   createOperation, getOperation, updateOperation,

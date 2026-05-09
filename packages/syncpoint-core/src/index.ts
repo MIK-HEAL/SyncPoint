@@ -329,6 +329,20 @@ export type {
   ResourceMatcher,
 } from "./resource.js";
 
+export {
+  FileAuditDecisionKind,
+  evaluateFileAuditChange,
+  findMatchingClaims,
+  gateMatchesResource,
+  parseRelatedFileLocators,
+} from "./file-audit.js";
+
+export type {
+  FileAuditGateContext,
+  FileAuditInput,
+  FileAuditDecision,
+} from "./file-audit.js";
+
 // Generic Operation Protocol
 export {
   OperationStatus,

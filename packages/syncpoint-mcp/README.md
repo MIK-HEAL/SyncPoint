@@ -81,6 +81,14 @@ Add to `.vscode/mcp.json`:
 
 ## Capabilities
 
+### Client Support Boundaries
+
+MCP lets editor agents read SyncPoint state and call SyncPoint tools, but it cannot intercept native file writes before they happen.
+
+Use `syncpoint watch <dir>` when you need fast local post-write auditing for direct edits, shell commands, generators, or git operations that bypass MCP tool calls. The watcher records file audit events and can create or update `resource_conflict` SyncGates when a claimed file is modified by the wrong agent.
+
+For a full risk matrix, see [`../../docs/mcp-client-support.md`](../../docs/mcp-client-support.md).
+
 ### Resources (read-only, 15 total)
 
 | URI | Description |

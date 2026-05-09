@@ -73,6 +73,15 @@ interface SnapshotWake {
   createdAt: string;
 }
 
+interface SnapshotEvent {
+  id: string;
+  eventType: string;
+  entityType: string;
+  entityId: string;
+  detail: string;
+  createdAt: string;
+}
+
 export interface Snapshot {
   timestamp: string;
   sessions: SnapshotSession[];
@@ -92,6 +101,7 @@ export interface Snapshot {
   blockerCount: number;
   operations: SnapshotOperation[];
   wakeQueue: SnapshotWake[];
+  recentEvents?: SnapshotEvent[];
   gateStats: { total: number; active: number; resolved: number; cancelled: number };
   summary: {
     activeSessionCount: number;
@@ -158,6 +168,42 @@ function suggestedAction(blocker: UnifiedBlocker): string {
       return `syncpoint operation approve --id ${blocker.id} --agent <agentId>`;
     default:
       return "";
+  }
+}
+
+function agentLabel(id: string, agents: Array<{ id: string; name: string }>): string {
+  return agents.find(a => a.id === id)?.name ?? id;
+}
+
+function formatDeadline(deadlineAt?: string): string | undefined {
+  if (!deadlineAt) return undefined;
+  const deadline = new Date(deadlineAt);
+  if (Number.isNaN(deadline.getTime())) return deadlineAt;
+  const deltaMs = deadline.getTime() - Date.now();
+  const absSeconds = Math.abs(Math.round(deltaMs / 1000));
+  const minutes = Math.floor(absSeconds / 60);
+  const seconds = absSeconds % 60;
+  const suffix = deltaMs >= 0 ? `${minutes}m ${seconds}s remaining` : `${minutes}m ${seconds}s overdue`;
+  return `${deadlineAt} (${suffix})`;
+}
+
+function formatVoteCounts(counts: Record<string, number>): string {
+  const keys = ["approve", "reject", "abstain", "escalate"];
+  return keys.map(key => `${key}:${counts[key] ?? 0}`).join(" ");
+}
+
+function eventSummary(event: SnapshotEvent): string {
+  if (!event.detail) return "";
+  try {
+    const detail = JSON.parse(event.detail);
+    const parts = [
+      detail.locator ? `locator=${detail.locator}` : "",
+      detail.decision ? `decision=${detail.decision}` : "",
+      detail.gateId ? `gate=${detail.gateId}` : "",
+    ].filter(Boolean);
+    return parts.join(" ");
+  } catch {
+    return event.detail;
   }
 }
 
@@ -257,6 +303,28 @@ export function formatStatusOutput(snapshot: Snapshot): string {
         const names = b.requiredAgents.map(a => a.name).join(", ");
         lines.push(`    Required: ${names}`);
       }
+      if (b.gateDetails) {
+        const details = b.gateDetails;
+        const pending = details.pendingAgentIds.map(id => agentLabel(id, b.requiredAgents)).join(", ") || "none";
+        const acked = details.ackedAgentIds.map(id => agentLabel(id, b.requiredAgents)).join(", ") || "none";
+        lines.push(`    Policy: ${details.policy}`);
+        lines.push(`    Pending: ${pending}`);
+        lines.push(`    Acked: ${acked}`);
+        lines.push(`    Votes: ${formatVoteCounts(details.voteCounts)}`);
+        lines.push(`    Eligible voters: ${details.eligibleVoterIds.join(", ") || "none"}`);
+        const deadline = formatDeadline(details.deadlineAt);
+        if (deadline) lines.push(`    Deadline: ${deadline}`);
+        lines.push(`    Liveness: ${details.livenessPreview.action} — ${details.livenessPreview.reason}`);
+        if (details.livenessPreview.escalateTo?.length) {
+          lines.push(`    Escalate to: ${details.livenessPreview.escalateTo.join(", ")}`);
+        }
+        if (details.requiresHuman) {
+          lines.push(`    Human action: required`);
+        }
+        if (details.availableActions?.length) {
+          lines.push(`    Available actions: ${details.availableActions.join(", ")}`);
+        }
+      }
       const action = suggestedAction(b);
       if (action) {
         lines.push(`    Action:`);
@@ -284,6 +352,18 @@ export function formatStatusOutput(snapshot: Snapshot): string {
     lines.push("─".repeat(40));
     for (const w of snapshot.wakeQueue) {
       lines.push(`  ${w.targetAgentName}: ${w.reason || w.sourceEvent} [${w.status}]`);
+    }
+    lines.push("");
+  }
+
+  const recentEvents = snapshot.recentEvents ?? [];
+  if (recentEvents.length > 0) {
+    lines.push("Recent Events");
+    lines.push("─".repeat(40));
+    for (const event of recentEvents) {
+      const summary = eventSummary(event);
+      lines.push(`  ${event.createdAt} ${event.eventType} ${event.entityType}:${event.entityId}`);
+      if (summary) lines.push(`    ${summary}`);
     }
     lines.push("");
   }

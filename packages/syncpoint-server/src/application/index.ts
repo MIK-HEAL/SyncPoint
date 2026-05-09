@@ -202,6 +202,17 @@ export type {
   AgentBlockCheck,
 } from "./sync-gate-service.js";
 
+// FileAudit
+export {
+  auditFileChange,
+  fileAuditListActiveFileClaims,
+} from "./file-audit-service.js";
+
+export type {
+  AuditFileChangeInput,
+  AuditFileChangeResult,
+} from "./file-audit-service.js";
+
 // SyncTransaction
 export {
   stxCreate,

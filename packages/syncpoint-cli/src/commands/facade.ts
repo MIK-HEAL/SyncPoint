@@ -26,6 +26,16 @@ import { formatStatusOutput, formatBlockedExplanation, formatResumeExplanation }
 import type { Snapshot } from "./formatter.js";
 import { resolveAgent } from "./connect.js";
 
+interface StatusOptions {
+  session?: string;
+  agent?: string;
+  json?: boolean;
+  watch?: boolean;
+  interval?: string;
+  events?: string;
+  clear?: boolean;
+}
+
 /**
  * Resolve agent name-or-id to an agent ID. Throws if not found.
  */
@@ -35,24 +45,72 @@ function requireAgentId(nameOrId: string): string {
   return agent.id;
 }
 
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function buildStatusSnapshot(opts: StatusOptions): Snapshot {
+  const agentId = opts.agent ? requireAgentId(opts.agent) : undefined;
+  return buildSnapshot({
+    sessionId: opts.session,
+    agentId,
+    eventsLimit: parsePositiveInt(opts.events, 5),
+  }) as Snapshot;
+}
+
+function renderStatus(opts: StatusOptions): void {
+  const snapshot = buildStatusSnapshot(opts);
+
+  if (opts.json) {
+    console.log(JSON.stringify(snapshot, null, 2));
+    return;
+  }
+
+  if (opts.clear !== false) {
+    process.stdout.write("\x1B[2J\x1B[0f");
+  }
+  console.log(formatStatusOutput(snapshot));
+}
+
+function watchStatus(opts: StatusOptions): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const render = () => {
+      try {
+        renderStatus(opts);
+      } catch (error) {
+        clearInterval(timer);
+        reject(error);
+      }
+    };
+    const timer = setInterval(render, parsePositiveInt(opts.interval, 1000));
+    process.once("SIGINT", () => {
+      clearInterval(timer);
+      resolve();
+    });
+    render();
+  });
+}
+
 export function registerFacadeCommands(program: Command): void {
   // ── syncpoint status ────────────────────────────────
   program
     .command("status")
     .description("Show current synchronization state — who is blocked, why, and what to do")
     .option("--session <sessionId>", "Scope to a specific session")
+    .option("--agent <nameOrId>", "Agent name or ID for agent-specific gate actions")
+    .option("-w, --watch", "Refresh status until Ctrl+C", false)
+    .option("--interval <ms>", "Refresh interval for --watch", "1000")
+    .option("--events <n>", "Number of recent events to show", "5")
+    .option("--no-clear", "Do not clear the terminal between refreshes")
     .option("--json", "Machine-readable JSON output")
-    .action((opts) => {
-      const snapshot = buildSnapshot(
-        opts.session ? { sessionId: opts.session } : undefined,
-      ) as Snapshot;
-
-      if (opts.json) {
-        console.log(JSON.stringify(snapshot, null, 2));
+    .action(async (opts: StatusOptions) => {
+      if (opts.watch) {
+        await watchStatus(opts);
         return;
       }
 
-      console.log(formatStatusOutput(snapshot));
+      renderStatus({ ...opts, clear: false });
     });
 
   // ── syncpoint claim <paths> ─────────────────────────

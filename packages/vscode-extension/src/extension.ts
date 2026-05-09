@@ -11,6 +11,7 @@ import { createSyncPointClient, createEventStream } from "syncpoint-sdk";
 import type { EventStreamHandle } from "syncpoint-sdk";
 import { formatResumePrompt } from "syncpoint-core";
 import type { PromptFormat, ResumeContext } from "syncpoint-core";
+import { registerFileGuard } from "./file-guard.js";
 
 const DEFAULT_URL = "http://127.0.0.1:8765";
 
@@ -569,6 +570,10 @@ export function activate(context: vscode.ExtensionContext) {
   // Unified Sync View — single tree with all 6 sections
   const syncView = new SyncViewProvider();
   vscode.window.registerTreeDataProvider("syncpoint-sync-view", syncView);
+  context.subscriptions.push(registerFileGuard({
+    client,
+    onAudited: () => syncView.refresh(),
+  }));
 
   // Commands
   context.subscriptions.push(

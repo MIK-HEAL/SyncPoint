@@ -52,6 +52,17 @@ export interface UnifiedBlocker {
     deadlineAt?: string;
     escalationAgentIds: string[];
     requiresHuman: boolean;
+    pendingAgentIds: string[];
+    ackedAgentIds: string[];
+    requiredAgentIds: string[];
+    voteCounts: Record<string, number>;
+    eligibleVoterIds: string[];
+    livenessPreview: {
+      action: string;
+      reason: string;
+      escalateTo?: string[];
+    };
+    availableActions?: string[];
   };
 }
 
@@ -63,17 +74,14 @@ export function classifyBlockers(opts: {
   pendingOperations: Array<any>;
   agentName: (id: string) => string;
   taskTitle: (id: string) => string;
+  statusAgentId?: string;
 }): UnifiedBlocker[] {
   const blockers: UnifiedBlocker[] = [];
 
   // Sync Gates
   for (const g of opts.activeGates) {
     const reqIds = (g.requiredAgentIds || "").split(",").filter(Boolean);
-    const policy = parseGatePolicy(g);
-    const requiresHuman =
-      g.status === SyncGateStatus.TIMED_OUT ||
-      g.status === SyncGateStatus.ESCALATED ||
-      policy.kind === "human_required";
+    const details = sgStatusDetailed(g.id, opts.statusAgentId);
     blockers.push({
       type: "sync_gate",
       id: g.id,
@@ -83,10 +91,21 @@ export function classifyBlockers(opts: {
       status: g.status,
       relatedTaskId: g.taskId || undefined,
       gateDetails: {
-        policy: policy.kind,
-        deadlineAt: policy.deadlineAt,
-        escalationAgentIds: policy.escalationAgentIds ?? [],
-        requiresHuman,
+        policy: details.policy.kind,
+        deadlineAt: details.deadlineAt,
+        escalationAgentIds: details.escalationAgentIds,
+        requiresHuman: details.requiresHuman,
+        pendingAgentIds: details.pendingAgentIds,
+        ackedAgentIds: details.ackedAgentIds,
+        requiredAgentIds: details.requiredAgentIds,
+        voteCounts: details.voteCounts,
+        eligibleVoterIds: details.eligibleVoterIds,
+        livenessPreview: {
+          action: details.livenessPreview.action,
+          reason: details.livenessPreview.reason,
+          escalateTo: details.livenessPreview.escalateTo,
+        },
+        availableActions: details.availableActions,
       },
     });
   }
@@ -225,6 +244,8 @@ export function buildOverview(input?: OverviewInput) {
 
 export interface SnapshotInput {
   sessionId?: string;
+  agentId?: string;
+  eventsLimit?: number;
 }
 
 export function buildSnapshot(input?: SnapshotInput) {
@@ -385,6 +406,7 @@ export function buildSnapshot(input?: SnapshotInput) {
     pendingOperations: pendingOps,
     agentName,
     taskTitle,
+    statusAgentId: input?.agentId,
   });
 
   // ── 5. Operation / Review Queue ──
@@ -420,6 +442,7 @@ export function buildSnapshot(input?: SnapshotInput) {
     resolved: allGates.filter(g => g.status === "READY_TO_CONTINUE").length,
     cancelled: allGates.filter(g => g.status === "CANCELLED").length,
   };
+  const recentEvents = repo.listEvents(input?.eventsLimit ?? 5);
 
   return {
     timestamp: new Date().toISOString(),
@@ -430,6 +453,7 @@ export function buildSnapshot(input?: SnapshotInput) {
     blockerCount: blockers.length,
     operations: operationSection,
     wakeQueue: wakeSection,
+    recentEvents,
     gateStats,
     summary: {
       activeSessionCount: scopedSessions.length,

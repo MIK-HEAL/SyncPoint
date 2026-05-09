@@ -151,6 +151,7 @@ export {
   getSyncGate,
   updateSyncGateStatus,
   updateSyncGateAckedAgents,
+  updateSyncGateDescription,
   updateSyncGatePolicyJson,
   listSyncGates,
   listActiveSyncGates,

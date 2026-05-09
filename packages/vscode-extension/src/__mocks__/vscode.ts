@@ -31,6 +31,34 @@ export class ThemeIcon {
 
 export const StatusBarAlignment = { Left: 1, Right: 2 };
 
+export const Disposable = {
+  from: (...items: any[]) => ({ dispose: () => items.forEach(item => item.dispose?.()) }),
+};
+
+let configurationValues: Record<string, any> = {};
+const willSaveHandlers: Function[] = [];
+const didSaveHandlers: Function[] = [];
+
+export function __setConfiguration(values: Record<string, any>): void {
+  configurationValues = values;
+}
+
+export function __resetMockState(): void {
+  configurationValues = {};
+  willSaveHandlers.length = 0;
+  didSaveHandlers.length = 0;
+}
+
+export async function __fireWillSaveTextDocument(document: any): Promise<void> {
+  for (const handler of willSaveHandlers) handler({ document });
+  await new Promise(resolve => setTimeout(resolve, 0));
+}
+
+export async function __fireDidSaveTextDocument(document: any): Promise<void> {
+  for (const handler of didSaveHandlers) handler(document);
+  await new Promise(resolve => setTimeout(resolve, 0));
+}
+
 export const window = {
   registerTreeDataProvider: () => ({ dispose: () => {} }),
   showInputBox: async () => undefined,
@@ -66,10 +94,19 @@ export const env = {
 
 export const workspace = {
   getConfiguration: () => ({
-    get: (_key: string, defaultValue: any) => defaultValue,
+    get: (key: string, defaultValue: any) =>
+      Object.prototype.hasOwnProperty.call(configurationValues, key) ? configurationValues[key] : defaultValue,
   }),
+  onWillSaveTextDocument: (handler: Function) => {
+    willSaveHandlers.push(handler);
+    return { dispose: () => willSaveHandlers.splice(willSaveHandlers.indexOf(handler), 1) };
+  },
+  onDidSaveTextDocument: (handler: Function) => {
+    didSaveHandlers.push(handler);
+    return { dispose: () => didSaveHandlers.splice(didSaveHandlers.indexOf(handler), 1) };
+  },
   openTextDocument: async () => ({}),
-  workspaceFolders: [{ uri: "file:///test" }],
+  workspaceFolders: [{ uri: { fsPath: "/test" } }],
   fs: {
     writeFile: async () => {},
     readFile: async () => new Uint8Array(),

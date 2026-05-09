@@ -10,7 +10,11 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:.syncpoint",
+    "workspaceContains:.syncpoint/syncpoint.db"
+  ],
   "type": "module",
   "main": "./dist/extension.js",
   "contributes": {
@@ -27,9 +31,45 @@
       "syncpoint": [
         {
           "id": "syncpoint-sync-view",
-          "name": "Sync View"
+          "name": "Sync View",
+          "icon": "resources/icon.svg"
         }
       ]
+    },
+    "configuration": {
+      "title": "SyncPoint",
+      "properties": {
+        "syncpoint.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8765",
+          "description": "SyncPoint server URL"
+        },
+        "syncpoint.agentId": {
+          "type": "string",
+          "default": "",
+          "description": "Agent ID used by the VS Code File Audit Guard"
+        },
+        "syncpoint.taskId": {
+          "type": "string",
+          "default": "",
+          "description": "Task ID used by the VS Code File Audit Guard"
+        },
+        "syncpoint.sessionId": {
+          "type": "string",
+          "default": "",
+          "description": "Optional session ID used by the VS Code File Audit Guard"
+        },
+        "syncpoint.fileGuard.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the File Audit Guard: best-effort pre-save warnings and post-save auditing, not a hard filesystem lock or save blocker"
+        },
+        "syncpoint.fileGuard.auditOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log file audit events from VS Code saves without creating or updating SyncGates"
+        }
+      }
     },
     "commands": [
       {

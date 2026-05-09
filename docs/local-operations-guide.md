@@ -63,6 +63,9 @@ one editor window
 Use [`runtime-identity.md`](runtime-identity.md) for identity resolution details,
 `syncpoint_whoami`, and manual fallback examples.
 
+MCP does not provide pre-write filesystem interception. For client support and
+file-write boundary details, see [`mcp-client-support.md`](mcp-client-support.md).
+
 ## Quick Start
 
 The fastest way to get multiple agents running:
@@ -246,6 +249,42 @@ syncpoint claim assets/hero-banner.png --type binary_asset --agent designer --ta
 ```
 
 If another agent claims the same resource exclusively, SyncPoint detects a hard conflict and creates a `SyncGate` automatically.
+
+## Watch Local File Changes
+
+`syncpoint watch <dir>` audits filesystem changes after they happen. It uses `fs.watch`, so it is fast but not a pre-write lock.
+
+The VS Code File Audit Guard has the same product boundary: it provides
+best-effort pre-save warnings and post-save auditing. It does not hard-block a
+save and cannot stop shell, git, scripts, or external processes from writing
+files.
+
+```bash
+syncpoint watch . --agent executor-b --task <taskB> --session <sessionId>
+```
+
+On startup, the watcher scans active file claims in the session or project scope and establishes a hash/mtime baseline. It ignores `.git`, `node_modules`, and `.syncpoint`, debounces file events for 300ms, and normalizes changed files to project-relative locators.
+
+Audit behavior:
+
+| Change | Result |
+|---|---|
+| Unclaimed file changes | Records `FILE_CHANGED` |
+| Current agent changes its own claimed file | Records `FILE_CHANGED` |
+| Another agent's exclusive claimed file changes | Records `FILE_POLLUTION_DETECTED` and creates or updates a `resource_conflict` SyncGate |
+| A blocked agent keeps writing related files | Records `FILE_AUDIT_ALERT` and updates the blocking gate description |
+
+Use audit-only mode when you want events without gate creation:
+
+```bash
+syncpoint watch . --agent executor-b --task <taskB> --session <sessionId> --audit-only
+```
+
+Pair it with the live status dashboard:
+
+```bash
+syncpoint status -w --session <sessionId> --events 10
+```
 
 For runnable CLI-oriented demonstrations, use:
 
