@@ -247,6 +247,26 @@ export type {
   GuardValidateTokenResult,
 } from "./guard-session-service.js";
 
+// Backing Store Reconciliation
+export {
+  reconcileBackingStore,
+  recordAuthorizedWrite,
+} from "./backing-store-reconciliation-service.js";
+
+// File Permission Guard
+export {
+  lockClaimedFiles,
+  unlockClaimedFiles,
+  refreshGuardLocks,
+  isGuardActive,
+} from "./file-permission-guard.js";
+
+export type {
+  ReconcileInput,
+  ReconcileResult,
+  ReconcileFileResult,
+} from "./backing-store-reconciliation-service.js";
+
 // SyncTransaction
 export {
   stxCreate,

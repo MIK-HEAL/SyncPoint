@@ -87,6 +87,7 @@ export enum SyncGateReason {
   MANUAL_REQUEST = "manual_request",
   CHECKPOINT_REQUIRED = "checkpoint_required",
   CONTEXT_DRIFT = "context_drift",
+  BACKING_STORE_BYPASS = "backing_store_bypass",
 }
 
 // ── Schema ──────────────────────────────────────────

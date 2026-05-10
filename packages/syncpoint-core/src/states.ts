@@ -143,6 +143,7 @@ export enum EventType {
   WRITE_BLOCKED = "WRITE_BLOCKED",
   WRITE_STAGED = "WRITE_STAGED",
   WRITE_APPLIED = "WRITE_APPLIED",
+  BACKING_STORE_BYPASS_DETECTED = "BACKING_STORE_BYPASS_DETECTED",
 }
 
 // ── State transitions ──────────────────────────────────

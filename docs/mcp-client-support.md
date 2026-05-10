@@ -10,7 +10,8 @@ SyncPoint can expose synchronization state and tools through MCP, but MCP is not
 | SyncPoint CLI | Yes | Yes | No | Use `syncpoint watch <dir>` for fast post-write auditing |
 | `syncpoint watch` | Yes | Creates/updates gates after changes | No | Detect changed claimed files, log audit events, raise `resource_conflict` gates |
 | VS Code extension | Yes | Extension-dependent | Partial warning only | Use pre-save warnings plus post-save auditing |
-| Controlled write API / future file guard | Yes | Yes | Yes, when all writes go through it | Route writes through SyncPoint-aware APIs |
+| Controlled write API | Yes | Yes | Yes, when the write is routed through it | Use `syncpoint.write.prepare/apply/check` as the write path |
+| Guarded workspace proxy | Yes | Yes | Yes, for writes inside the guarded mount | Run native tools inside the mounted SyncPoint workspace |
 | Raw shell, git, external tools | No | No | No | Pair with `syncpoint watch` and review status events |
 
 ## Boundary
@@ -30,6 +31,19 @@ The VS Code File Audit Guard follows the same boundary: `onWillSaveTextDocument`
 is used for best-effort warnings, and `onDidSaveTextDocument` performs post-save
 auditing. It is not a hard wait/cancel mechanism and does not block shell, git,
 scripts, or external processes from writing files.
+
+## Hard-Blocking Roadmap
+
+MCP support fits into the system-level file lock roadmap in three stages:
+
+| Stage | What becomes hard-blocking | What MCP alone still cannot do |
+|---|---|---|
+| Controlled write API | MCP, SDK, CLI, or plugin writes that call `syncpoint.write.prepare/apply/check` | Intercept a native file write that bypasses those tools |
+| Editor hard-save guard | Supported editor saves routed through a SyncPoint-backed save provider | Stop shell, git, generators, or external processes |
+| Guarded workspace proxy | Native writes inside a mounted SyncPoint workspace | Protect direct writes to the original backing path without OS policy |
+
+This means MCP can participate in hard blocking when it is the write path, but
+MCP is not the interception mechanism for arbitrary local filesystem writes.
 
 ## Recommended Local Setup
 
@@ -51,3 +65,7 @@ fs.watch can audit direct writes after they happen.
 VS Code save hooks can warn before save and audit after save.
 Pre-write blocking requires controlled write paths or editor-specific integration.
 ```
+
+For the full hard-blocking roadmap, including controlled writes, editor hard-save
+guarding, guarded workspace mounts, and optional OS policy adapters, see
+[`system-file-lock-design.md`](system-file-lock-design.md).

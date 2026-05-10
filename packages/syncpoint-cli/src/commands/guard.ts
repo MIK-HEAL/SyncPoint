@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { guardCreateSession, guardRevokeSession, guardStatus, guardValidateToken } from "syncpoint-server/application";
+import { guardCreateSession, guardRevokeSession, guardStatus, guardValidateToken, reconcileBackingStore } from "syncpoint-server/application";
 import type { GuardMode, GuardProxyAdapter } from "syncpoint-server/application";
 import { resolveAgent } from "./connect.js";
 
@@ -94,6 +94,25 @@ export function registerGuardCommands(program: Command): void {
     .option("--json", "Output JSON", false)
     .action((sessionId: string, opts: GuardStatusOptions) => {
       print(guardRevokeSession(sessionId), opts.json === true);
+    });
+
+  guard
+    .command("reconcile")
+    .description("Scan claimed files for unauthorized direct writes to the backing store and raise blockers")
+    .requiredOption("--task <taskId>", "Task ID")
+    .option("--session <sessionId>", "Session ID")
+    .option("--json", "Output JSON", false)
+    .action((opts: { task: string; session?: string; json?: boolean }) => {
+      const result = reconcileBackingStore({ taskId: opts.task, sessionId: opts.session });
+      if (opts.json) {
+        print(result, true);
+      } else {
+        console.log(`Scanned: ${result.scannedFiles} claimed file(s)`);
+        console.log(`Bypasses detected: ${result.bypassesDetected}`);
+        if (result.gatesCreated.length > 0) console.log(`Gates created: ${result.gatesCreated.join(", ")}`);
+        if (result.gatesReused.length > 0) console.log(`Gates updated: ${result.gatesReused.join(", ")}`);
+        if (result.bypassesDetected === 0) console.log("No unauthorized backing store modifications detected.");
+      }
     });
 
   program.addCommand(guard);

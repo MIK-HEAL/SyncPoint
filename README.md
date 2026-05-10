@@ -100,10 +100,26 @@ Architecture details: [`docs/reality-runtime.md`](docs/reality-runtime.md) · [`
 | Agent runner | It does not call model APIs or run autonomous loops |
 | Workflow builder | It does not build arbitrary DAGs or visual flows |
 | Job scheduler | Wake requests are sync obligations, not background jobs |
-| File lock daemon | It enforces paths only when agents route through SyncPoint |
+| File lock daemon | See enforcement levels below |
 | Memory product | Memory supports synchronization, not generic recall |
 
 **SyncPoint is the layer agents call before they continue.**
+
+### Enforcement Levels
+
+SyncPoint's write protection is **layered**, not all-or-nothing:
+
+| Level | What it blocks | What can bypass it |
+|---|---|---|
+| L0 — Audit | Nothing (detects after the fact) | Everything |
+| L1 — Controlled write API | Writes routed through SyncPoint | Any process that doesn't use SyncPoint |
+| L2 — Editor hard-save | Supported editor saves | Shell, git, external tools |
+| L3 — Guarded workspace | All writes inside the project root (file permissions) or mounted workspace (FUSE/WinFsp) | Admin/owner override of permissions; direct writes to the backing store if using mount |
+| L4 — OS policy driver | Native writes at kernel/minifilter level | Admin/root override |
+
+**L1 is a cooperation protocol, not a security boundary.** If Agent B does not route writes through SyncPoint, L1 cannot stop it. This is by design — SyncPoint starts useful without requiring kernel drivers or filesystem mounts.
+
+To actually prevent non-cooperating processes from writing protected files, deploy **L3** via `syncpoint guard session --mode strict`. In strict mode, SyncPoint sets claimed files to read-only and only unlocks them transiently during authorized `writeApply` calls. A reconciliation watcher (`syncpoint guard reconcile`) detects any bypass. See [`docs/system-file-lock-design.md`](docs/system-file-lock-design.md) for the full enforcement architecture.
 
 ## Quick Start
 

@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { getSyncpointDir } from "../db.js";
+import { lockClaimedFiles, unlockClaimedFiles } from "./file-permission-guard.js";
 
 export type GuardMode = "observe" | "stage" | "strict" | "readonly";
 export type GuardSessionStatus = "active" | "expired" | "revoked";
@@ -98,6 +99,16 @@ export function guardCreateSession(input: GuardCreateSessionInput): GuardSession
     expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
   };
   sessions.set(session.id, session);
+
+  if (session.mode === "strict" || session.mode === "readonly") {
+    lockClaimedFiles({
+      guardSessionId: session.id,
+      projectRoot,
+      taskId: input.taskId,
+      sessionId: input.sessionId,
+    });
+  }
+
   return publicSession(session);
 }
 
@@ -114,6 +125,7 @@ export function guardRevokeSession(sessionId: string): Omit<GuardSession, "token
   const session = sessions.get(sessionId);
   if (!session) throw new Error(`Guard session not found: ${sessionId}`);
   session.status = "revoked";
+  unlockClaimedFiles(sessionId);
   return redactSession(session);
 }
 
@@ -122,6 +134,7 @@ function expireOldSessions(): void {
   for (const session of sessions.values()) {
     if (session.status === "active" && new Date(session.expiresAt).getTime() <= now) {
       session.status = "expired";
+      unlockClaimedFiles(session.id);
     }
   }
 }

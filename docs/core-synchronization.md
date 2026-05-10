@@ -63,10 +63,14 @@ If a feature does not answer one of these questions, it is supporting infrastruc
 | Multi-agent runtime | It does not call model APIs or run agent loops |
 | Workflow builder | It does not build arbitrary DAGs or visual flows |
 | Generic scheduler | Wake is not a job queue for arbitrary work |
-| File lock daemon | It does not stop external processes that bypass SyncPoint |
+| File lock daemon | The core protocol does not stop external processes that bypass SyncPoint |
 | Memory product | Project memory only supports synchronization context |
 
-The design assumes agents call SyncPoint before starting, resuming, patching, reviewing, or handing off work.
+The design assumes agents call SyncPoint before starting, resuming, patching,
+reviewing, or handing off work. Hard file-write enforcement is a separate
+roadmap: controlled writes first, editor hard-save next, guarded workspace
+last. For that filesystem enforcement design, see
+[`system-file-lock-design.md`](system-file-lock-design.md).
 
 ## Synchronization Truncation
 
@@ -199,7 +203,21 @@ SyncPoint is enforced in the application layer used by CLI, MCP, SDK, tRPC, and 
 | `wakeStart()` | Prevents starting a queued wake through an unresolved gate |
 | `opSubmit()` / `opCheck()` | Blocks approval when operation ownership or conflict checks fail |
 
-This is protocol-level hard truncation. It is not an operating-system file lock.
+This is protocol-level hard truncation. It is not an operating-system file lock,
+and it does not intercept arbitrary shell, git, generator, or editor writes by
+itself.
+
+The byte-write boundary belongs to the system-level file lock roadmap:
+
+```text
+controlled write API
+  -> editor hard-save guard
+  -> guarded workspace proxy
+```
+
+That separation keeps the core protocol portable while future write paths and
+filesystem proxies enforce the same claims, gates, operations, constraints, and
+projection fail-closed rules before bytes reach protected files.
 
 ## Relationship Modes
 

@@ -18,6 +18,8 @@ import { getSyncpointDir } from "../db.js";
 import { logEvent, now } from "../repositories/_shared.js";
 import { buildProjection } from "./projection-service.js";
 import { sgReconcileActive } from "./sync-gate-service.js";
+import { recordAuthorizedWrite } from "./backing-store-reconciliation-service.js";
+import { temporarilyUnlockForWrite } from "./file-permission-guard.js";
 
 export interface WriteCheckInput {
   actorId: string;
@@ -163,15 +165,22 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
   }
 
   const applied: Array<{ locator: string; sha256?: string; exists: boolean }> = [];
+  const locatorsToWrite = preparedMutations.mutations.map(m => m.mutation.resource.locator);
+  const unlock = temporarilyUnlockForWrite(root, locatorsToWrite);
 
-  for (const { mutation, target, content } of preparedMutations.mutations) {
-    if (mutation.delete) {
-      if (fs.existsSync(target)) fs.unlinkSync(target);
-    } else {
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      atomicWriteFile(target, content);
+  try {
+    for (const { mutation, target, content } of preparedMutations.mutations) {
+      if (mutation.delete) {
+        if (fs.existsSync(target)) fs.unlinkSync(target);
+      } else {
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        atomicWriteFile(target, content);
+      }
+      applied.push({ locator: mutation.resource.locator, ...readResourceHash(root, mutation.resource) });
+      recordAuthorizedWrite(root, mutation.resource.locator);
     }
-    applied.push({ locator: mutation.resource.locator, ...readResourceHash(root, mutation.resource) });
+  } finally {
+    unlock.restore();
   }
 
   if (permit.singleUse) {

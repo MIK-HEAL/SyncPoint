@@ -26,6 +26,7 @@ import {
   opCreate, opSubmit, opCheck, opApprove, opReject, opApply, opCancel, opStatus, opList,
   writeCheck, writePrepare, writeApply,
   guardStatus, guardCreateSession,
+  reconcileBackingStore,
   constraintCheck,
 } from "syncpoint-server/application";
 import { getResumeContext, createRuntime, getRuntime, listRuntimes, updateRuntimeAgent, updateAgentRuntime, getAgent } from "syncpoint-server/repositories";
@@ -1627,6 +1628,23 @@ export function registerTools(server: McpServer): void {
     async (input) => {
       try {
         return ok(guardCreateSession(input));
+      } catch (e) { return fail(e); }
+    }
+  );
+
+  server.registerTool(
+    "syncpoint_guard_reconcile",
+    {
+      title: "Reconcile Backing Store",
+      description: "Scan claimed files on the backing store for unauthorized direct writes (bypasses). Raises BACKING_STORE_BYPASS gates for detected modifications.",
+      inputSchema: {
+        taskId: z.string(),
+        sessionId: z.string().optional(),
+      },
+    },
+    async (input) => {
+      try {
+        return ok(reconcileBackingStore(input));
       } catch (e) { return fail(e); }
     }
   );

@@ -232,7 +232,8 @@ describe("tools", () => {
     expect(names).toContain("syncpoint_write_apply");
     expect(names).toContain("syncpoint_guard_status");
     expect(names).toContain("syncpoint_guard_session_create");
-    expect(tools.length).toBeGreaterThanOrEqual(35);
+    expect(names).toContain("syncpoint_guard_reconcile");
+    expect(tools.length).toBeGreaterThanOrEqual(36);
   });
 
   it("syncpoint_loop_status should return agent info", async () => {
@@ -398,6 +399,18 @@ describe("tools", () => {
     expect(status.proxyAvailable).toBe(false);
     expect(status.activeSessions.some((session: any) => session.id === created.id)).toBe(true);
     expect(status.activeSessions[0].token).toBeUndefined();
+  });
+
+  it("syncpoint_guard_reconcile should scan claimed files and detect no bypass", async () => {
+    const tasks = repo.listTasks();
+    const result: any = await client.callTool({
+      name: "syncpoint_guard_reconcile",
+      arguments: { taskId: tasks[0].id },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.scannedFiles).toBeGreaterThanOrEqual(0);
+    expect(data.bypassesDetected).toBe(0);
+    expect(data.gatesCreated).toEqual([]);
   });
 
   it("syncpoint_resume_context_get should return context", async () => {
