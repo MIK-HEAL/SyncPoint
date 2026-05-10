@@ -74,7 +74,7 @@ function formatExecutePrompt(
 
 function formatReviewPrompt(
   task: { id: string; title: string; status: string } | null,
-  capsule: ResumeContext["latestCapsule"],
+  capsule: ResumeContext["latestSnapshot"],
   checkpoint: ResumeContext["latestCheckpoint"],
   contract: ResumeContext["approvedContract"],
   projectMems: Array<{ id: string; category: string; title: string; content: string }>,
@@ -377,7 +377,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
       if (input.intent === "handoff-receive") {
         handoff = repo.getLatestHandoffForReceiver(input.taskId, input.agentId) ?? null;
         if (handoff) {
-          senderCapsule = repo.getLatestCapsule(input.taskId, handoff.fromAgentId) ?? null;
+          senderCapsule = repo.getLatestContextSnapshot(input.taskId, handoff.fromAgentId) ?? null;
         }
       }
     } catch {
@@ -423,8 +423,8 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
         break;
       case "latest-capsule":
         present = input.intent === "handoff-receive"
-          ? !!(resumeCtx?.latestCapsule || senderCapsule || handoff?.contextSummary)
-          : resumeCtx?.latestCapsule !== null && resumeCtx?.latestCapsule !== undefined;
+          ? !!(resumeCtx?.latestSnapshot || senderCapsule || handoff?.contextSummary)
+          : resumeCtx?.latestSnapshot !== null && resumeCtx?.latestSnapshot !== undefined;
         break;
       case "latest-checkpoint":
         present = resumeCtx?.latestCheckpoint !== null && resumeCtx?.latestCheckpoint !== undefined;
@@ -499,7 +499,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
         break;
       case "risks":
         present = approvedMems.some(m => m.category === "risk") ||
-          (resumeCtx?.latestCapsule?.payloadJson ? (() => { try { const p = JSON.parse(resumeCtx.latestCapsule!.payloadJson); return Array.isArray(p.risks) && p.risks.length > 0; } catch { return false; } })() : false);
+          (resumeCtx?.latestSnapshot?.payloadJson ? (() => { try { const p = JSON.parse(resumeCtx.latestSnapshot!.payloadJson); return Array.isArray(p.risks) && p.risks.length > 0; } catch { return false; } })() : false);
         break;
       default:
         present = false;
@@ -533,7 +533,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
       break;
     case "review":
       prompt = formatReviewPrompt(
-        taskInfo, resumeCtx?.latestCapsule ?? null, resumeCtx?.latestCheckpoint ?? null,
+        taskInfo, resumeCtx?.latestSnapshot ?? null, resumeCtx?.latestCheckpoint ?? null,
         resumeCtx?.approvedContract ?? null, approvedMems,
       );
       break;

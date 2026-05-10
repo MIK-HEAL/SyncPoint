@@ -1,7 +1,7 @@
 /**
- * P12 Capsule Dominant Context — unit tests.
- * Tests: ContextMode enum, CapsuleValidation, ProtocolGateSummary schemas,
- *        validateCapsule logic, prompt formatters.
+ * P12 Snapshot Dominant Context — unit tests.
+ * Tests: ContextMode enum, SnapshotValidation, ProtocolGateSummary schemas,
+ *        validateSnapshot logic, prompt formatters.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -9,15 +9,15 @@ import {
   DEFAULT_CONTEXT_MODE,
   ProtocolRuleSchema,
   ProtocolGateSummarySchema,
-  CapsuleValidationSchema,
-  CapsuleExtendedFieldsSchema,
+  SnapshotValidationSchema,
+  SnapshotExtendedFieldsSchema,
 } from "./context-modes.js";
 
 describe("ContextMode", () => {
   it("parses valid modes", () => {
-    expect(ContextMode.parse("capsule-first")).toBe("capsule-first");
-    expect(ContextMode.parse("capsule-only")).toBe("capsule-only");
-    expect(ContextMode.parse("capsule-locked")).toBe("capsule-locked");
+    expect(ContextMode.parse("snapshot-first")).toBe("snapshot-first");
+    expect(ContextMode.parse("snapshot-only")).toBe("snapshot-only");
+    expect(ContextMode.parse("snapshot-locked")).toBe("snapshot-locked");
   });
 
   it("rejects invalid modes", () => {
@@ -25,8 +25,8 @@ describe("ContextMode", () => {
     expect(() => ContextMode.parse("")).toThrow();
   });
 
-  it("default mode is capsule-first", () => {
-    expect(DEFAULT_CONTEXT_MODE).toBe("capsule-first");
+  it("default mode is snapshot-first", () => {
+    expect(DEFAULT_CONTEXT_MODE).toBe("snapshot-first");
   });
 });
 
@@ -112,9 +112,9 @@ describe("ProtocolGateSummarySchema", () => {
   });
 });
 
-describe("CapsuleValidationSchema", () => {
+describe("SnapshotValidationSchema", () => {
   it("parses a valid validation result", () => {
-    const val = CapsuleValidationSchema.parse({
+    const val = SnapshotValidationSchema.parse({
       valid: true,
       stale: false,
       staleReason: null,
@@ -128,10 +128,10 @@ describe("CapsuleValidationSchema", () => {
   });
 
   it("parses a failing validation", () => {
-    const val = CapsuleValidationSchema.parse({
+    const val = SnapshotValidationSchema.parse({
       valid: false,
       stale: true,
-      staleReason: "Capsule older than checkpoint",
+      staleReason: "Snapshot older than checkpoint",
       scopeMatch: true,
       hasBlockers: true,
       hasEvidence: true,
@@ -143,16 +143,16 @@ describe("CapsuleValidationSchema", () => {
   });
 });
 
-describe("CapsuleExtendedFieldsSchema", () => {
+describe("SnapshotExtendedFieldsSchema", () => {
   it("parses with all defaults", () => {
-    const fields = CapsuleExtendedFieldsSchema.parse({});
+    const fields = SnapshotExtendedFieldsSchema.parse({});
     expect(fields.intentScope).toBe("");
     expect(fields.nonGoals).toBe("");
     expect(fields.doNotTouch).toBe("");
   });
 
   it("accepts provided values", () => {
-    const fields = CapsuleExtendedFieldsSchema.parse({
+    const fields = SnapshotExtendedFieldsSchema.parse({
       intentScope: "Refactor auth module",
       nonGoals: "Do not touch billing",
       doNotTouch: "packages/billing/*",

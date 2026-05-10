@@ -17,7 +17,7 @@ import type { ConstraintManifest } from "syncpoint-core";
 import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
-import { assembleProtocolGate, injectProjectionIntoGate, validateCapsule, formatProtocolGatePrompt, formatCapsuleReality, formatValidationNotes } from "./protocol-gate-service.js";
+import { assembleProtocolGate, injectProjectionIntoGate, validateSnapshot, formatProtocolGatePrompt, formatSnapshotReality, formatValidationNotes } from "./protocol-gate-service.js";
 import { buildProjection } from "./reality-projection-service.js";
 import type { RealityProjection } from "syncpoint-core";
 import "./_scope-matchers.js";
@@ -64,7 +64,7 @@ export interface LoopResumeResult {
   prompt: string;
   contextMode: string;
   protocolGateBlocked: boolean;
-  capsuleValid: boolean;
+  snapshotValid: boolean;
   validationNotes: string[];
   constraintWarnings: string[];
   constraintManifest?: ConstraintManifest;
@@ -93,7 +93,7 @@ export interface LoopCheckpointResult {
   taskId: string;
   agentId: string;
   checkpointId: string;
-  capsuleId: string;
+  snapshotId: string;
   needSync: boolean;
   filesWritten: string[];
   files: Record<string, string>;
@@ -135,7 +135,7 @@ export interface LoopStatusResult {
   taskStatus?: string;
   contractStatus?: string | null;
   checkpointCount?: number;
-  hasCapsule?: boolean;
+  hasSnapshot?: boolean;
   contextReady?: boolean;
   warnings?: string[];
 }
@@ -219,26 +219,26 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   }
 
   // 0b. P3B — Build projection and inject into gate
-  //     workingResources come from latest capsule if available
-  const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
-  let capsuleWorkingResources: string[] = [];
-  if (latestCapsule) {
+  //     workingResources come from latest snapshot if available
+  const latestSnapshot = repo.getLatestContextSnapshot(task.id, agent.id);
+  let snapshotWorkingResources: string[] = [];
+  if (latestSnapshot) {
     try {
-      const cp = JSON.parse(latestCapsule.payloadJson ?? "{}");
-      if (Array.isArray(cp.workingResources)) capsuleWorkingResources = cp.workingResources;
+      const sp = JSON.parse(latestSnapshot.payloadJson ?? "{}");
+      if (Array.isArray(sp.workingResources)) snapshotWorkingResources = sp.workingResources;
     } catch { /* ok */ }
   }
   const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
   const contract = repo.getContractForTask(task.id);
   const projection: RealityProjection = buildProjection({
     taskId: task.id,
-    workingResources: capsuleWorkingResources,
+    workingResources: snapshotWorkingResources,
     currentModules: [],
-    capsuleId: latestCapsule?.id,
+    snapshotId: latestSnapshot?.id,
     checkpointId: latestCheckpoint?.id,
     contractId: contract?.id,
-    capsuleHash: latestCapsule
-      ? computeContentHash(latestCapsule.summary, latestCapsule.payloadJson)
+    snapshotHash: latestSnapshot
+      ? computeContentHash(latestSnapshot.summary, latestSnapshot.payloadJson)
       : undefined,
     checkpointHash: latestCheckpoint
       ? computeContentHash(latestCheckpoint.summary, latestCheckpoint.progress)
@@ -255,15 +255,15 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     throw new LoopError(EXIT.CONTEXT_POLICY, `Context not ready: ${policy.warnings.join("; ")}`);
   }
 
-  // 1a. Capsule validation — agent-scoped checkpoint (latestCheckpoint from step 0b)
-  const capsuleVal = validateCapsule(latestCapsule, latestCheckpoint, task.id, agent.id);
+  // 1a. Snapshot validation — agent-scoped checkpoint (latestCheckpoint from step 0b)
+  const snapshotVal = validateSnapshot(latestSnapshot, latestCheckpoint, task.id, agent.id);
 
   // 1b. P4C: Constraint Runtime enforcement
   const constraintInput = {
     action: "resume" as const,
     projection,
-    touchedResources: capsuleWorkingResources.length > 0
-      ? resolveResourceRefs(capsuleWorkingResources, agent.id)
+    touchedResources: snapshotWorkingResources.length > 0
+      ? resolveResourceRefs(snapshotWorkingResources, agent.id)
       : undefined,
   };
   const constraintDecision = evaluateConstraints(constraintInput);
@@ -280,14 +280,14 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     throw new LoopError(EXIT.CONTEXT_POLICY, `Constraint violation: ${reasons}`, { constraintManifest });
   }
 
-  // 1d. capsule-locked mode additionally blocks on protocol gate violations
-  //     and capsule validation failures.
-  if (mode === "capsule-locked") {
+  // 1d. snapshot-locked mode additionally blocks on protocol gate violations
+  //     and snapshot validation failures.
+  if (mode === "snapshot-locked") {
     if (protocolGate.blocked) {
       throw new LoopError(EXIT.CONTEXT_POLICY, `Protocol gate blocked (locked mode): ${protocolGate.hardBlockers.join("; ")}`);
     }
-    if (!capsuleVal.valid) {
-      throw new LoopError(EXIT.CONTEXT_POLICY, `Capsule validation failed (locked mode): ${capsuleVal.notes.join("; ")}`);
+    if (!snapshotVal.valid) {
+      throw new LoopError(EXIT.CONTEXT_POLICY, `Snapshot validation failed (locked mode): ${snapshotVal.notes.join("; ")}`);
     }
   }
 
@@ -321,21 +321,21 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     const gatePrompt = formatProtocolGatePrompt(protocolGate);
     if (gatePrompt) sections.push(gatePrompt);
 
-    // Layer 2: Capsule Reality
+    // Layer 2: Snapshot Reality
     sections.push(`## Task: ${ctx.task.title}`);
     sections.push(`- ID: ${ctx.task.id}`);
     sections.push(`- Status: ${ctx.task.status}`);
     sections.push(`- Your role: ${ctx.agent.name} (${ctx.agent.role})`);
     sections.push("");
 
-    if (ctx.latestCapsule) {
-      const capsulePrompt = formatCapsuleReality(ctx.latestCapsule as any);
-      if (capsulePrompt) sections.push(capsulePrompt);
+    if (ctx.latestSnapshot) {
+      const snapshotPrompt = formatSnapshotReality(ctx.latestSnapshot as any);
+      if (snapshotPrompt) sections.push(snapshotPrompt);
     }
 
-    // P3B — Inject projected reality (capsulePatch) instead of raw project memories.
+    // P3B — Inject projected reality (contextPatch) instead of raw project memories.
     // Agent sees compiled reality, not raw Project Memory.
-    // Key boundary: hard_constraint → gate only, NOT capsule.
+    // Key boundary: hard_constraint → gate only, NOT snapshot.
     const patch = projection.contextPatch;
     const hasPatchContent =
       patch.verifiedFacts.length > 0 ||
@@ -378,8 +378,8 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
       }
     }
 
-    // capsule-first: also include checkpoint (NOT raw project memories)
-    if (mode === "capsule-first" && ctx.latestCheckpoint) {
+    // snapshot-first: also include checkpoint (NOT raw project memories)
+    if (mode === "snapshot-first" && ctx.latestCheckpoint) {
       sections.push("## Latest Checkpoint");
       sections.push(`- ${ctx.latestCheckpoint.summary}`);
       if (ctx.latestCheckpoint.progress) sections.push(`- Progress: ${ctx.latestCheckpoint.progress}`);
@@ -407,7 +407,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     }
 
     // Layer 3: Validation Notes
-    const valPrompt = formatValidationNotes(capsuleVal);
+    const valPrompt = formatValidationNotes(snapshotVal);
     if (valPrompt) sections.push(valPrompt);
 
     if (ctx.warnings.length > 0) {
@@ -433,8 +433,8 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     prompt,
     contextMode: mode,
     protocolGateBlocked: protocolGate.blocked,
-    capsuleValid: capsuleVal.valid,
-    validationNotes: capsuleVal.notes,
+    snapshotValid: snapshotVal.valid,
+    validationNotes: snapshotVal.notes,
     constraintWarnings,
     constraintManifest,
   };
@@ -458,13 +458,13 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
     needSync: input.needSync ?? false,
   });
 
-  // 2. Create capsule (inherit from latest if not specified)
-  const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
+  // 2. Create snapshot (inherit from latest if not specified)
+  const latestSnapshot = repo.getLatestContextSnapshot(task.id, agent.id);
   let prevPayload: Record<string, unknown> = {};
-  if (latestCapsule) {
-    try { prevPayload = JSON.parse(latestCapsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  if (latestSnapshot) {
+    try { prevPayload = JSON.parse(latestSnapshot.payloadJson ?? "{}"); } catch { /* ok */ }
   }
-  const capsule = repo.createCapsule({
+  const snapshot = repo.createContextSnapshot({
     taskId: task.id,
     agentId: agent.id,
     checkpointId: cp.id,
@@ -500,7 +500,7 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
     taskId: task.id,
     agentId: agent.id,
     checkpointId: cp.id,
-    capsuleId: capsule.id,
+    snapshotId: snapshot.id,
     needSync: input.needSync ?? false,
     filesWritten: Object.keys(instruction.files),
     files: instruction.files,
@@ -512,7 +512,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   const toAgent = repo.getAgent(input.toAgentId);
   const task = repo.getTask(input.taskId);
 
-  // 1. Save sender's final checkpoint + capsule
+  // 1. Save sender's final checkpoint + snapshot
   const cp = repo.createCheckpoint({
     taskId: task.id,
     agentId: fromAgent.id,
@@ -526,12 +526,12 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
     needSync: false,
   });
 
-  const latestCapsule = repo.getLatestCapsule(task.id, fromAgent.id);
+  const latestSnapshot = repo.getLatestContextSnapshot(task.id, fromAgent.id);
   let prevP: Record<string, unknown> = {};
-  if (latestCapsule) {
-    try { prevP = JSON.parse(latestCapsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  if (latestSnapshot) {
+    try { prevP = JSON.parse(latestSnapshot.payloadJson ?? "{}"); } catch { /* ok */ }
   }
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId: task.id,
     agentId: fromAgent.id,
     checkpointId: cp.id,
@@ -568,7 +568,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   // P2: build projected reality for handoff receiver
   const receiverProjection = buildProjection({
     taskId: task.id,
-    workingResources: (() => { if (!ctx.latestCapsule) return []; try { const p = JSON.parse(ctx.latestCapsule.payloadJson); return Array.isArray(p.workingResources) ? p.workingResources : []; } catch { return []; } })(),
+    workingResources: (() => { if (!ctx.latestSnapshot) return []; try { const p = JSON.parse(ctx.latestSnapshot.payloadJson); return Array.isArray(p.workingResources) ? p.workingResources : []; } catch { return []; } })(),
   });
 
   // P2: inject projected reality into handoff context prompt
@@ -606,7 +606,7 @@ export function loopStatus(input: LoopStatusInput): LoopStatusResult {
 
   const task = repo.getTask(taskId);
   const contract = repo.getContractForTask(taskId);
-  const latestCapsule = repo.getLatestCapsule(taskId, agent.id);
+  const latestSnapshot = repo.getLatestContextSnapshot(taskId, agent.id);
   const checkpoints = repo.listCheckpoints(taskId);
   const policy = repo.enforceContextPolicy(taskId, agent.id);
 
@@ -621,7 +621,7 @@ export function loopStatus(input: LoopStatusInput): LoopStatusResult {
     taskStatus: task.status,
     contractStatus: contract?.status ?? null,
     checkpointCount: checkpoints.length,
-    hasCapsule: !!latestCapsule,
+    hasSnapshot: !!latestSnapshot,
     contextReady: policy.ready,
     warnings: policy.warnings,
   };

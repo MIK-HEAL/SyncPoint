@@ -69,7 +69,7 @@ describe("Project Memory Layer", () => {
     const t = (await ctx.rpc("task.create", { title: "Test PM" })) as any;
     await ctx.rpc("task.assign", { taskId: t.id, agentId: a.id });
     const cp = (await ctx.rpc("checkpoint.create", { taskId: t.id, agentId: a.id, summary: "Init" })) as any;
-    await ctx.rpc("capsule.create", {
+    await ctx.rpc("contextSnapshot.create", {
       taskId: t.id,
       agentId: a.id,
       checkpointId: cp.id,

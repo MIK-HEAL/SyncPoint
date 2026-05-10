@@ -51,9 +51,9 @@ export {
 } from "./repositories/contract-repository.js";
 
 export {
-  createCapsule,
-  listCapsules,
-  getLatestCapsule,
+  createContextSnapshot,
+  listContextSnapshots,
+  getLatestContextSnapshot,
 } from "./repositories/context-snapshot-repository.js";
 
 export {
@@ -180,14 +180,14 @@ export {
 } from "./repositories/write-permit-repository.js";
 
 export {
-  createSyncTransaction,
-  getSyncTransaction,
-  updateSyncTransactionStatus,
-  updateSyncTransactionApprovedBy,
-  updateSyncTransactionRejectedBy,
-  updateSyncTransactionGateId,
-  listSyncTransactions,
-  listActiveSyncTransactions,
+  createCheckpointReview,
+  getCheckpointReview,
+  updateCheckpointReviewStatus,
+  updateCheckpointReviewApprovedBy,
+  updateCheckpointReviewRejectedBy,
+  updateCheckpointReviewGateId,
+  listCheckpointReviews,
+  listActiveCheckpointReviews,
 } from "./repositories/checkpoint-review-repository.js";
 
 export {

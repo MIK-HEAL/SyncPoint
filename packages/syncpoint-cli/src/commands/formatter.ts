@@ -478,7 +478,7 @@ export function formatResumeExplanation(opts: {
   agentName: string;
   taskTitle: string;
   blocked: boolean;
-  capsuleValid: boolean;
+  snapshotValid: boolean;
   protocolGateBlocked: boolean;
   validationNotes: string[];
   constraintWarnings: string[];
@@ -504,9 +504,9 @@ export function formatResumeExplanation(opts: {
   lines.push(`Task:  ${opts.taskTitle}`);
   lines.push("");
 
-  // Capsule recovery info
+  // Snapshot recovery info
   if (opts.goal) {
-    lines.push("Capsule:");
+    lines.push("Snapshot:");
     lines.push(`  Goal: ${opts.goal}`);
     if (opts.phase) lines.push(`  Phase: ${opts.phase}`);
     if (opts.workingResources) lines.push(`  Working resources: ${opts.workingResources}`);
@@ -516,13 +516,13 @@ export function formatResumeExplanation(opts: {
   }
 
   // Blockers
-  if (opts.protocolGateBlocked || !opts.capsuleValid || opts.constraintWarnings.length > 0) {
+  if (opts.protocolGateBlocked || !opts.snapshotValid || opts.constraintWarnings.length > 0) {
     lines.push("Blockers:");
     if (opts.protocolGateBlocked) {
       lines.push("  - Protocol gate is blocking continuation");
     }
-    if (!opts.capsuleValid) {
-      lines.push("  - Capsule validation failed");
+    if (!opts.snapshotValid) {
+      lines.push("  - Snapshot validation failed");
     }
     for (const w of opts.constraintWarnings) {
       lines.push(`  - ${w}`);

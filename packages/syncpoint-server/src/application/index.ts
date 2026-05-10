@@ -327,13 +327,15 @@ export type {
   ConstraintViolationView,
 } from "./constraint-evaluation-service.js";
 
-// Protocol Gate & Capsule Validation (P12)
+// Protocol Gate & Snapshot Validation (P12)
 export {
   assembleProtocolGate,
   injectProjectionIntoGate,
+  validateSnapshot,
   validateCapsule,
   formatProtocolGatePrompt,
   formatValidationNotes,
+  formatSnapshotReality,
   formatCapsuleReality,
 } from "./protocol-gate-service.js";
 

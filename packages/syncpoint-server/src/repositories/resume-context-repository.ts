@@ -21,7 +21,7 @@ import type {
 import { _getDb, now } from "./_shared.js";
 import { getAgent } from "./agent-repository.js";
 import { getTask } from "./task-repository.js";
-import { getLatestCapsule } from "./context-snapshot-repository.js";
+import { getLatestContextSnapshot } from "./context-snapshot-repository.js";
 import { collectPinnedMemories } from "./memory-repository.js";
 import { collectProjectMemories } from "./project-memory-repository.js";
 
@@ -207,7 +207,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
   const latestContract = allContracts.length ? allContracts[allContracts.length - 1] : null;
 
   // Latest capsule for this agent+task
-  const capsule = getLatestCapsule(taskId, agentId) ?? null;
+  const capsule = getLatestContextSnapshot(taskId, agentId) ?? null;
 
   // Latest checkpoint for this agent+task
   const checkpoint = _getDb().select().from(s.checkpoints)
@@ -254,7 +254,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
       fileBoundaries: approvedContract.fileBoundaries,
       status: approvedContract.status,
     } : null,
-    latestCapsule: capsule ? {
+    latestSnapshot: capsule ? {
       id: capsule.id,
       kind: capsule.kind,
       summary: capsule.summary,
@@ -275,7 +275,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
     projectMemories: projectMems,
     resumePrompt,
     warnings,
-    contextMode: "capsule-first",
+    contextMode: "snapshot-first",
     generatedAt: now(),
   };
 }

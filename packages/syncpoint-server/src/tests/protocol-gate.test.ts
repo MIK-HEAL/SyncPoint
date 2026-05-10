@@ -1,6 +1,6 @@
 /**
- * P12 Protocol Gate & Capsule Validation — integration tests.
- * Uses in-memory DB to test assembleProtocolGate, validateCapsule,
+ * P12 Protocol Gate & Snapshot Validation — integration tests.
+ * Uses in-memory DB to test assembleProtocolGate, validateSnapshot,
  * and loopResume with context modes.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -59,19 +59,19 @@ vi.mock("../db.js", () => ({
 }));
 
 const repo = await import("../repositories.ts");
-const { validateCapsule } = await import("../application/protocol-gate-service.ts");
+const { validateSnapshot } = await import("../application/protocol-gate-service.ts");
 
-describe("P12 Capsule Validation", () => {
+describe("P12 Snapshot Validation", () => {
   beforeEach(() => { testDb = createTestDb(); });
   afterEach(() => { testDb = undefined as any; });
 
-  it("returns invalid when no capsule exists", () => {
-    const val = validateCapsule(null, null, "task-1", "agent-1");
+  it("returns invalid when no snapshot exists", () => {
+    const val = validateSnapshot(null, null, "task-1", "agent-1");
     expect(val.valid).toBe(false);
-    expect(val.notes).toContain("No context capsule found. Create one before resuming.");
+    expect(val.notes).toContain("No context snapshot found. Create one before resuming.");
   });
 
-  it("returns valid for a fresh capsule with evidence", () => {
+  it("returns valid for a fresh snapshot with evidence", () => {
     const agent = repo.createAgent({ name: "test", provider: "other", role: "backend" });
     const task = repo.createTask({ title: "Test task", description: "" });
     repo.assignTask(task.id, agent.id);
@@ -83,7 +83,7 @@ describe("P12 Capsule Validation", () => {
       risks: "", blockers: "", nextSteps: "Continue", needSync: false,
     });
 
-    const capsule = repo.createCapsule({
+    const capsule = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build feature",
       payloadJson: payloadJson({
@@ -101,7 +101,7 @@ describe("P12 Capsule Validation", () => {
       }),
     });
 
-    const val = validateCapsule(capsule, cp, task.id, agent.id);
+    const val = validateSnapshot(capsule, cp, task.id, agent.id);
     expect(val.valid).toBe(true);
     expect(val.stale).toBe(false);
     expect(val.hasEvidence).toBe(true);
@@ -120,7 +120,7 @@ describe("P12 Capsule Validation", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createCapsule({
+    const capsule = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -139,7 +139,7 @@ describe("P12 Capsule Validation", () => {
     });
 
     // Validate against wrong task
-    const val = validateCapsule(capsule, cp, "other-task", agent.id);
+    const val = validateSnapshot(capsule, cp, "other-task", agent.id);
     expect(val.valid).toBe(false);
     expect(val.scopeMatch).toBe(false);
   });
@@ -156,7 +156,7 @@ describe("P12 Capsule Validation", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createCapsule({
+    const capsule = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -174,7 +174,7 @@ describe("P12 Capsule Validation", () => {
       }),
     });
 
-    const val = validateCapsule(capsule, cp, task.id, agent.id);
+    const val = validateSnapshot(capsule, cp, task.id, agent.id);
     expect(val.valid).toBe(false);
     expect(val.hasBlockers).toBe(true);
     expect(val.notes.some(n => n.includes("Unresolved blockers"))).toBe(true);
@@ -192,7 +192,7 @@ describe("P12 Capsule Validation", () => {
       risks: "", blockers: "", nextSteps: "", needSync: true,
     });
 
-    const capsule = repo.createCapsule({
+    const capsule = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -210,14 +210,14 @@ describe("P12 Capsule Validation", () => {
       }),
     });
 
-    const val = validateCapsule(capsule, cp, task.id, agent.id);
+    const val = validateSnapshot(capsule, cp, task.id, agent.id);
     expect(val.valid).toBe(false);
     expect(val.needsSync).toBe(true);
     expect(val.notes.some(n => n.includes("needSync"))).toBe(true);
   });
 });
 
-describe("P12 Extended Capsule Fields", () => {
+describe("P12 Extended Snapshot Fields", () => {
   beforeEach(() => { testDb = createTestDb(); });
   afterEach(() => { testDb = undefined as any; });
 
@@ -233,7 +233,7 @@ describe("P12 Extended Capsule Fields", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createCapsule({
+    const capsule = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Refactor auth",
       payloadJson: payloadJson({
@@ -265,7 +265,7 @@ describe("P12 Extended Capsule Fields", () => {
     expect(payload.doNotTouch).toEqual(["packages/billing/*"]);
     expect(payload.handoffInstructions).toBe("Reviewer: check token expiry logic");
 
-    const latest = repo.getLatestCapsule(task.id, agent.id);
+    const latest = repo.getLatestContextSnapshot(task.id, agent.id);
     const latestPayload = readPayload(latest!);
     expect(latestPayload.intentScope).toBe("Auth module only");
     expect(latestPayload.nonGoals).toEqual(["Do not touch billing"]);
@@ -283,7 +283,7 @@ describe("P12 Extended Capsule Fields", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createCapsule({
+    const capsule = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -308,7 +308,7 @@ describe("P12 Extended Capsule Fields", () => {
   });
 });
 
-describe("P12 ResumeContext includes extended capsule fields", () => {
+describe("P12 ResumeContext includes extended snapshot fields", () => {
   beforeEach(() => { testDb = createTestDb(); });
   afterEach(() => { testDb = undefined as any; });
 
@@ -324,7 +324,7 @@ describe("P12 ResumeContext includes extended capsule fields", () => {
       risks: "", blockers: "", nextSteps: "Continue", needSync: false,
     });
 
-    repo.createCapsule({
+    repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build feature",
       payloadJson: payloadJson({
@@ -345,9 +345,9 @@ describe("P12 ResumeContext includes extended capsule fields", () => {
     });
 
     const ctx = repo.getResumeContext(task.id, agent.id);
-    expect(ctx.contextMode).toBe("capsule-first");
-    expect(ctx.latestCapsule).toBeDefined();
-    const payload = readPayload(ctx.latestCapsule!);
+    expect(ctx.contextMode).toBe("snapshot-first");
+    expect(ctx.latestSnapshot).toBeDefined();
+    const payload = readPayload(ctx.latestSnapshot!);
     expect(payload.intentScope).toBe("Feature X only");
     expect(payload.nonGoals).toEqual(["No DB changes"]);
   });

@@ -31,23 +31,23 @@ function listText(value: string[] | string | undefined): string {
   return value ?? "";
 }
 
-export function formatCapsuleSummary(capsule: {
+export function formatContextSnapshotSummary(snapshot: {
   id: string;
   agentId: string;
   summary?: string;
   payloadJson: string;
   createdAt: string;
 }): string {
-  const payload = parseSnapshotPayload(capsule.payloadJson);
+  const payload = parseSnapshotPayload(snapshot.payloadJson);
   const workingResources = listText(payload.workingResources);
   const nextSteps = listText(payload.nextSteps);
   const blockers = listText(payload.blockers);
-  const goal = payload.goal || capsule.summary || "";
+  const goal = payload.goal || snapshot.summary || "";
   const lines = [
-    `## Capsule ${capsule.id}`,
+    `## Snapshot ${snapshot.id}`,
     "",
-    `- **Agent**: ${capsule.agentId}`,
-    `- **Created**: ${capsule.createdAt}`,
+    `- **Agent**: ${snapshot.agentId}`,
+    `- **Created**: ${snapshot.createdAt}`,
     `- **Goal**: ${goal || "(empty)"}`,
     `- **Phase**: ${payload.currentPhase || "(empty)"}`,
   ];

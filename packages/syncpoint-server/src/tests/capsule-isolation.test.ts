@@ -20,14 +20,14 @@ describe("Capsule isolation", () => {
     const cp2 = (await ctx.rpc("checkpoint.create", { taskId: t.id, agentId: a2.id, summary: "a2 checkpoint" })) as any;
 
     // Create capsules for different agents on same task
-    await ctx.rpc("capsule.create", {
+    await ctx.rpc("contextSnapshot.create", {
       taskId: t.id,
       agentId: a1.id,
       checkpointId: cp1.id,
       summary: "a1 goal",
       payloadJson: JSON.stringify({ goal: "a1 goal" }),
     });
-    await ctx.rpc("capsule.create", {
+    await ctx.rpc("contextSnapshot.create", {
       taskId: t.id,
       agentId: a2.id,
       checkpointId: cp2.id,
@@ -36,11 +36,11 @@ describe("Capsule isolation", () => {
     });
 
     // getLatest should return the correct capsule for each agent
-    const latest1 = (await ctx.rpc("capsule.getLatest", { taskId: t.id, agentId: a1.id }, "GET")) as any;
+    const latest1 = (await ctx.rpc("contextSnapshot.getLatest", { taskId: t.id, agentId: a1.id }, "GET")) as any;
     expect(JSON.parse(latest1.payloadJson).goal).toBe("a1 goal");
     expect(latest1.agentId).toBe(a1.id);
 
-    const latest2 = (await ctx.rpc("capsule.getLatest", { taskId: t.id, agentId: a2.id }, "GET")) as any;
+    const latest2 = (await ctx.rpc("contextSnapshot.getLatest", { taskId: t.id, agentId: a2.id }, "GET")) as any;
     expect(JSON.parse(latest2.payloadJson).goal).toBe("a2 goal");
     expect(latest2.agentId).toBe(a2.id);
   });
@@ -51,14 +51,14 @@ describe("Capsule isolation", () => {
     await ctx.rpc("task.assign", { taskId: t.id, agentId: a.id });
     const cp = (await ctx.rpc("checkpoint.create", { taskId: t.id, agentId: a.id, summary: "cp" })) as any;
 
-    await ctx.rpc("capsule.create", {
+    await ctx.rpc("contextSnapshot.create", {
       taskId: t.id,
       agentId: a.id,
       checkpointId: cp.id,
       summary: "v1",
       payloadJson: JSON.stringify({ goal: "v1" }),
     });
-    await ctx.rpc("capsule.create", {
+    await ctx.rpc("contextSnapshot.create", {
       taskId: t.id,
       agentId: a.id,
       checkpointId: cp.id,
@@ -66,7 +66,7 @@ describe("Capsule isolation", () => {
       payloadJson: JSON.stringify({ goal: "v2" }),
     });
 
-    const capsules = (await ctx.rpc("capsule.list", { taskId: t.id }, "GET")) as any[];
+    const capsules = (await ctx.rpc("contextSnapshot.list", { taskId: t.id }, "GET")) as any[];
     expect(capsules.length).toBeGreaterThanOrEqual(2);
   });
 });

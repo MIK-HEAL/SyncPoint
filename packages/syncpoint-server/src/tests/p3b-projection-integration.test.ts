@@ -158,7 +158,7 @@ describe("P3B: capsule-locked semantics", () => {
   it("capsule-locked does NOT block when only default-routed hard_constraints exist (P4 enforces)", async () => {
     // hard_constraint with default routing → constraintRules → soft awareness → no block
     // (only hard_constraints with explicit projectionTarget=protocol_gate would block)
-    const result = (await ctx.rpc("loop.resume", { agentId, taskId, contextMode: "capsule-locked" })) as any;
+    const result = (await ctx.rpc("loop.resume", { agentId, taskId, contextMode: "snapshot-locked" })) as any;
     expect(result.ok).toBe(true);
     expect(result.prompt).toContain("[constraint:");
   });

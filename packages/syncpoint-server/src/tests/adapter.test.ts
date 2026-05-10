@@ -48,7 +48,7 @@ beforeAll(async () => {
   await e2e.rpc("contract.updateStatus", { id: contract.id, status: "REVIEWING" }, "POST");
   await e2e.rpc("contract.updateStatus", { id: contract.id, status: "APPROVED" }, "POST");
 
-  await e2e.rpc("capsule.create", {
+  await e2e.rpc("contextSnapshot.create", {
     taskId,
     agentId,
     checkpointId,

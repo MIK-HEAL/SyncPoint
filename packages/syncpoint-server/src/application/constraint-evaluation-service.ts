@@ -70,7 +70,7 @@ export interface ConstraintRuntimeView {
     memoryVersion: number;
     createdFrom: {
       taskId: string;
-      capsuleId?: string;
+      snapshotId?: string;
       checkpointId?: string;
       contractId?: string;
     };
@@ -140,8 +140,8 @@ function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
     };
   }
 
-  const latestCapsule = repo.getLatestCapsule(input.taskId, input.agentId);
-  const workingResources = parsePayloadWorkingResources(latestCapsule);
+  const latestSnapshot = repo.getLatestContextSnapshot(input.taskId, input.agentId);
+  const workingResources = parsePayloadWorkingResources(latestSnapshot);
   return {
     taskId: input.taskId,
     agentId: input.agentId,
@@ -209,8 +209,8 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
     };
   }
 
-  const latestCapsule = repo.getLatestCapsule(taskId, agentId);
-  const workingResources = parsePayloadWorkingResources(latestCapsule);
+  const latestSnapshot = repo.getLatestContextSnapshot(taskId, agentId);
+  const workingResources = parsePayloadWorkingResources(latestSnapshot);
   return {
     taskId,
     agentId,
@@ -309,7 +309,7 @@ export function constraintCheck(input: ConstraintRuntimeCheckInput): ConstraintR
         memoryVersion: projection.createdFrom.memoryVersion,
         createdFrom: {
           taskId: projection.createdFrom.taskId,
-          capsuleId: projection.createdFrom.capsuleId,
+          snapshotId: projection.createdFrom.snapshotId,
           checkpointId: projection.createdFrom.checkpointId,
           contractId: projection.createdFrom.contractId,
         },

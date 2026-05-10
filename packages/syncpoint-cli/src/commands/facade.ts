@@ -25,6 +25,7 @@ import * as repo from "syncpoint-server/repositories";
 import { formatStatusOutput, formatBlockedExplanation, formatResumeExplanation } from "./formatter.js";
 import type { Snapshot } from "./formatter.js";
 import { resolveAgent } from "./connect.js";
+import type { ContextSnapshotPayload } from "syncpoint-core";
 
 interface StatusOptions {
   session?: string;
@@ -162,11 +163,11 @@ export function registerFacadeCommands(program: Command): void {
   // ── syncpoint resume ────────────────────────────────
   program
     .command("resume")
-    .description("Resume work from the latest capsule/checkpoint")
+    .description("Resume work from the latest snapshot/checkpoint")
     .requiredOption("--agent <nameOrId>", "Agent name or ID")
     .requiredOption("--task <taskId>", "Task ID")
     .option("--provider <provider>", "Editor provider override")
-    .addOption(new Option("--context-mode <mode>", "Context mode").choices(["capsule-first", "capsule-only", "capsule-locked"]))
+    .addOption(new Option("--context-mode <mode>", "Context mode").choices(["snapshot-first", "snapshot-only", "snapshot-locked"]))
     .option("--session <sessionId>", "Session ID for protocol gate scoping")
     .option("--json", "Machine-readable JSON output")
     .action((opts) => {
@@ -192,35 +193,37 @@ export function registerFacadeCommands(program: Command): void {
         try { agentName = repo.getAgent(agentId).name; } catch {}
         try { taskTitle = repo.getTask(opts.task).title; } catch {}
 
-        // Get capsule for resume info
-        let capsuleInfo: any = {};
+        // Get snapshot for resume info
+        let snapshotInfo: any = {};
         try {
-          const capsule = repo.getLatestCapsule(opts.task, agentId);
-          if (capsule) {
-            capsuleInfo = {
-              goal: capsule.goal,
-              phase: capsule.currentPhase,
-              completedWork: capsule.completedWork,
-              remainingWork: capsule.remainingWork,
-              workingResources: capsule.workingResources,
-              blockers: capsule.blockers,
-              nextSteps: capsule.nextSteps,
+          const snapshot = repo.getLatestContextSnapshot(opts.task, agentId);
+          if (snapshot) {
+            let payload: ContextSnapshotPayload = {};
+            try { payload = JSON.parse(snapshot.payloadJson) as ContextSnapshotPayload; } catch {}
+            snapshotInfo = {
+              goal: payload.goal,
+              phase: payload.currentPhase,
+              completedWork: payload.completedWork,
+              remainingWork: payload.remainingWork,
+              workingResources: payload.workingResources,
+              blockers: payload.blockers,
+              nextSteps: payload.nextSteps,
             };
           }
         } catch {}
 
-        const blocked = result.protocolGateBlocked || !result.capsuleValid;
+        const blocked = result.protocolGateBlocked || !result.snapshotValid;
 
         const explanation = formatResumeExplanation({
           agentId,
           agentName,
           taskTitle,
           blocked,
-          capsuleValid: result.capsuleValid,
+          snapshotValid: result.snapshotValid,
           protocolGateBlocked: result.protocolGateBlocked,
           validationNotes: result.validationNotes,
           constraintWarnings: result.constraintWarnings,
-          ...capsuleInfo,
+          ...snapshotInfo,
         });
 
         console.log(explanation);
@@ -245,7 +248,7 @@ export function registerFacadeCommands(program: Command): void {
   // ── syncpoint checkpoint ────────────────────────────
   program
     .command("checkpoint")
-    .description("Save progress and create a context capsule")
+    .description("Save progress and create a context snapshot")
     .requiredOption("--agent <nameOrId>", "Agent name or ID")
     .requiredOption("--task <taskId>", "Task ID")
     .requiredOption("--summary <text>", "Checkpoint summary")
@@ -253,7 +256,7 @@ export function registerFacadeCommands(program: Command): void {
     .option("--next-steps <text>", "Next steps", "")
     .option("--risks <text>", "Risks", "")
     .option("--blockers <text>", "Blockers", "")
-    .option("--goal <text>", "Capsule goal")
+    .option("--goal <text>", "Snapshot goal")
     .option("--phase <text>", "Current phase", "")
     .option("--completed <text>", "Completed work", "")
     .option("--remaining <text>", "Remaining work", "")
@@ -286,7 +289,7 @@ export function registerFacadeCommands(program: Command): void {
         }
 
         console.log(`Checkpoint saved: ${result.checkpointId}`);
-        console.log(`Capsule:          ${result.capsuleId}`);
+        console.log(`Snapshot:         ${result.snapshotId}`);
         if (result.needSync) {
           console.log("  Task flagged for sync.");
         }

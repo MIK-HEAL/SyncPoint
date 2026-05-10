@@ -91,21 +91,31 @@ export function registerContextCommands(program: Command): void {
         .option("--next-steps <text>", "Next steps", "")
         .option("--resume-prompt <text>", "Resume prompt", "")
         .action(async (opts) => {
-          const capsule = repo.createCapsule({
+          const splitCsv = (s?: string): string[] =>
+            s ? s.split(",").map(x => x.trim()).filter(Boolean) : [];
+          const parseJsonOrEmpty = (s?: string): unknown => {
+            if (!s) return undefined;
+            try { return JSON.parse(s); } catch { return s; }
+          };
+          const payload = {
+            goal: opts.goal || undefined,
+            currentPhase: opts.phase || undefined,
+            confirmedDecisions: splitCsv(opts.decisions),
+            interfaceContract: parseJsonOrEmpty(opts.interface),
+            workingResources: splitCsv(opts.workingResources),
+            completedWork: opts.completed || undefined,
+            remainingWork: opts.remaining || undefined,
+            risks: splitCsv(opts.risks),
+            blockers: splitCsv(opts.blockers),
+            nextSteps: splitCsv(opts.nextSteps),
+            resumePrompt: opts.resumePrompt || undefined,
+          };
+          const capsule = repo.createContextSnapshot({
             taskId: opts.task,
             agentId: opts.agent,
             checkpointId: opts.checkpoint,
-            goal: opts.goal,
-            currentPhase: opts.phase,
-            confirmedDecisions: opts.decisions,
-            interfaceContract: opts.interface,
-            workingResources: opts.workingResources,
-            completedWork: opts.completed,
-            remainingWork: opts.remaining,
-            risks: opts.risks,
-            blockers: opts.blockers,
-            nextSteps: opts.nextSteps,
-            resumePrompt: opts.resumePrompt,
+            summary: opts.goal ?? "",
+            payloadJson: JSON.stringify(payload),
           });
           console.log(JSON.stringify(capsule, null, 2));
         })
@@ -116,7 +126,7 @@ export function registerContextCommands(program: Command): void {
         .requiredOption("--task <taskId>", "Task ID")
         .requiredOption("--agent <agentId>", "Agent ID")
         .action(async (opts) => {
-          const capsule = repo.getLatestCapsule(opts.task, opts.agent);
+          const capsule = repo.getLatestContextSnapshot(opts.task, opts.agent);
           if (!capsule) {
             console.log("No context capsule found");
             return;
@@ -129,7 +139,7 @@ export function registerContextCommands(program: Command): void {
         .description("List context capsules for a task")
         .requiredOption("--task <taskId>", "Task ID")
         .action(async (opts) => {
-          const capsules = repo.listCapsules(opts.task);
+          const capsules = repo.listContextSnapshots(opts.task);
           console.table(capsules);
         })
     );

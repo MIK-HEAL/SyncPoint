@@ -35,7 +35,7 @@ let taskId: string;
 let sessionId: string;
 let memoryId: string;
 
-const caller = appRouter.createCaller({});
+const caller = appRouter.createCaller({ callerId: null });
 
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-p4d-"));
@@ -74,7 +74,7 @@ beforeAll(() => {
     currentUnderstanding: "",
     changedFiles: "",
   });
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId,
     agentId: agent2Id,
     checkpointId: cp.id,
@@ -115,7 +115,7 @@ beforeAll(() => {
     currentUnderstanding: "",
     changedFiles: "",
   });
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId: safeTask.id,
     agentId: safeAgentId,
     checkpointId: safeCp.id,
@@ -365,7 +365,7 @@ describe("P4D: snapshot constraint visibility", () => {
       currentUnderstanding: "",
       changedFiles: "",
     });
-    repo.createCapsule({
+    repo.createContextSnapshot({
       taskId: snapTask.id,
       agentId: agent2Id,
       checkpointId: snapCp.id,

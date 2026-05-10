@@ -80,7 +80,7 @@ export function registerLoopCommand(program: Command): void {
         .requiredOption("--task <taskId>", "Task ID")
         .option("--provider <provider>", "Editor provider override")
         .option("--format <format>", "Prompt output format: system-prompt|cursorrules|agents-md|clipboard", "system-prompt")
-        .addOption(new Option("--context-mode <mode>", "Context mode").choices(["capsule-first", "capsule-only", "capsule-locked"]))
+        .addOption(new Option("--context-mode <mode>", "Context mode").choices(["snapshot-first", "snapshot-only", "snapshot-locked"]))
         .option("--session <sessionId>", "Session ID for protocol gate scoping")
         .option("--json", "Machine-readable JSON output")
         .action(async (opts) => {
@@ -109,7 +109,7 @@ export function registerLoopCommand(program: Command): void {
     )
     .addCommand(
       new Command("checkpoint")
-        .description("Checkpoint: save progress + capsule + refresh editor rules")
+        .description("Checkpoint: save progress + context snapshot + refresh editor rules")
         .requiredOption("--agent <agentId>", "Agent ID")
         .requiredOption("--task <taskId>", "Task ID")
         .requiredOption("--summary <text>", "Checkpoint summary")
@@ -117,12 +117,12 @@ export function registerLoopCommand(program: Command): void {
         .option("--next-steps <text>", "Next steps", "")
         .option("--risks <text>", "Risks", "")
         .option("--blockers <text>", "Blockers", "")
-        .option("--goal <text>", "Capsule goal (inherits from latest if empty)")
+        .option("--goal <text>", "Snapshot goal (inherits from latest if empty)")
         .option("--phase <text>", "Current phase", "")
         .option("--completed <text>", "Completed work", "")
         .option("--remaining <text>", "Remaining work", "")
         .option("--working-resources <text>", "Working resources", "")
-        .option("--resume-prompt <text>", "Custom resume prompt for capsule")
+        .option("--resume-prompt <text>", "Custom resume prompt for snapshot")
         .option("--need-sync", "Flag task as needing sync", false)
         .option("--provider <provider>", "Editor provider override")
         .option("--json", "Machine-readable JSON output")
@@ -154,7 +154,7 @@ export function registerLoopCommand(program: Command): void {
             } else {
               console.log(`✓ loop checkpoint: ${opts.summary}`);
               console.log(`  Checkpoint: ${result.checkpointId}`);
-              console.log(`  Capsule:    ${result.capsuleId}`);
+              console.log(`  Snapshot:   ${result.snapshotId}`);
               if (result.needSync) console.log("  ⚠ Task flagged for sync");
               for (const f of result.filesWritten) console.log(`  ✓ ${f}`);
             }
@@ -163,7 +163,7 @@ export function registerLoopCommand(program: Command): void {
     )
     .addCommand(
       new Command("handoff")
-        .description("Handoff: save capsule, create handoff, generate rules for receiver")
+        .description("Handoff: save snapshot, create handoff, generate rules for receiver")
         .requiredOption("--task <taskId>", "Task ID")
         .requiredOption("--from <fromAgentId>", "Sending agent ID")
         .requiredOption("--to <toAgentId>", "Receiving agent ID")
@@ -220,7 +220,7 @@ export function registerLoopCommand(program: Command): void {
               console.log(`Task:       ${result.taskTitle} (${result.taskId}) [${result.taskStatus}]`);
               console.log(`Contract:   ${result.contractStatus ?? "none"}`);
               console.log(`Checkpoints: ${result.checkpointCount}`);
-              console.log(`Capsule:    ${result.hasCapsule ? "yes" : "none"}`);
+              console.log(`Snapshot:   ${result.hasSnapshot ? "yes" : "none"}`);
               console.log(`Context:    ${result.contextReady ? "✓ ready" : "✗ not ready"}`);
               if (result.warnings?.length) {
                 console.log("Warnings:");

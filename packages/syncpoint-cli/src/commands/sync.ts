@@ -225,7 +225,7 @@ export function registerSyncCommands(program: Command): void {
         requiredApproverIds: csv(opts.approvers),
       });
       if (opts.json) { print(result, true); return; }
-      console.log(`SyncTransaction created: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`CheckpointReview created: ${result.tx.id} [${result.tx.status}]`);
       console.log(`  Gate: ${result.tx.gateId}`);
       console.log(`  Pending: ${result.pending.join(", ") || "none"}`);
     });
@@ -238,7 +238,7 @@ export function registerSyncCommands(program: Command): void {
     .action((opts) => {
       const result = stxStatus(opts.tx);
       if (opts.json) { print(result, true); return; }
-      console.log(`SyncTransaction: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`CheckpointReview: ${result.tx.id} [${result.tx.status}]`);
       console.log(`  Gate: ${result.tx.gateId}`);
       console.log(`  Checkpoint: ${result.tx.checkpointId}`);
       console.log(`  Approved: ${result.tx.approvedByIds || "none"}`);
@@ -257,7 +257,7 @@ export function registerSyncCommands(program: Command): void {
     .action((opts) => {
       const result = stxApprove(opts.tx, opts.agent, opts.summary);
       if (opts.json) { print(result, true); return; }
-      console.log(`SyncTransaction approved by ${opts.agent}: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`CheckpointReview approved by ${opts.agent}: ${result.tx.id} [${result.tx.status}]`);
       console.log(`  Pending: ${result.pending.join(", ") || "none"}`);
     });
 
@@ -271,7 +271,7 @@ export function registerSyncCommands(program: Command): void {
     .action((opts) => {
       const result = stxReject(opts.tx, opts.agent, opts.reason);
       if (opts.json) { print(result, true); return; }
-      console.log(`SyncTransaction rejected by ${opts.agent}: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`CheckpointReview rejected by ${opts.agent}: ${result.tx.id} [${result.tx.status}]`);
     });
 
   tx
@@ -283,7 +283,7 @@ export function registerSyncCommands(program: Command): void {
     .action((opts) => {
       const result = stxResolve(opts.tx, opts.summary);
       if (opts.json) { print(result, true); return; }
-      console.log(`SyncTransaction resolved: ${result.tx.id} [${result.tx.status}]`);
+      console.log(`CheckpointReview resolved: ${result.tx.id} [${result.tx.status}]`);
     });
 
   tx
@@ -296,7 +296,7 @@ export function registerSyncCommands(program: Command): void {
     .action((opts) => {
       const txs = stxList({ sessionId: opts.session, taskId: opts.task, status: opts.status });
       if (opts.json) { print(txs, true); return; }
-      console.log(`SyncTransactions: ${txs.length}`);
+      console.log(`CheckpointReviews: ${txs.length}`);
       for (const t of txs) {
         console.log(`  ${t.id} [${t.status}] task=${t.taskId} checkpoint=${t.checkpointId}`);
       }

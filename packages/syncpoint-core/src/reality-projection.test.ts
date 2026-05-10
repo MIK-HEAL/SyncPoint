@@ -287,7 +287,7 @@ describe("buildRealityProjection — conflict detection", () => {
 describe("computeProjectionCacheKey", () => {
   it("same inputs produce same key", () => {
     const fps = ["fp1", "fp2"];
-    const ctx = makeCtx({ memoryVersion: 3, capsuleHash: "h1" });
+    const ctx = makeCtx({ memoryVersion: 3, snapshotHash: "h1" });
     const k1 = computeProjectionCacheKey(ctx, fps);
     const k2 = computeProjectionCacheKey(ctx, fps);
     expect(k1).toBe(k2);
@@ -317,15 +317,15 @@ describe("computeProjectionCacheKey", () => {
   // PR1: cache key uses hashes, not IDs
   it("same-content-different-ID produces same key", () => {
     const fps = ["fp1"];
-    const k1 = computeProjectionCacheKey(makeCtx({ capsuleId: "cap-aaa", capsuleHash: "hash-x" }), fps);
-    const k2 = computeProjectionCacheKey(makeCtx({ capsuleId: "cap-bbb", capsuleHash: "hash-x" }), fps);
+    const k1 = computeProjectionCacheKey(makeCtx({ snapshotId: "cap-aaa", snapshotHash: "hash-x" }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ snapshotId: "cap-bbb", snapshotHash: "hash-x" }), fps);
     expect(k1).toBe(k2);
   });
 
   it("same-ID-different-content changes key", () => {
     const fps = ["fp1"];
-    const k1 = computeProjectionCacheKey(makeCtx({ capsuleId: "cap-1", capsuleHash: "hash-old" }), fps);
-    const k2 = computeProjectionCacheKey(makeCtx({ capsuleId: "cap-1", capsuleHash: "hash-new" }), fps);
+    const k1 = computeProjectionCacheKey(makeCtx({ snapshotId: "cap-1", snapshotHash: "hash-old" }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ snapshotId: "cap-1", snapshotHash: "hash-new" }), fps);
     expect(k1).not.toBe(k2);
   });
 
@@ -344,9 +344,9 @@ describe("computeProjectionCacheKey", () => {
   });
 
   it("createdFrom still tracks IDs even though key ignores them", () => {
-    const ctx = makeCtx({ capsuleId: "cap-42", checkpointId: "cp-7", contractId: "con-1" });
+    const ctx = makeCtx({ snapshotId: "cap-42", checkpointId: "cp-7", contractId: "con-1" });
     const r = buildRealityProjection([], ctx);
-    expect(r.createdFrom.capsuleId).toBe("cap-42");
+    expect(r.createdFrom.snapshotId).toBe("cap-42");
     expect(r.createdFrom.checkpointId).toBe("cp-7");
     expect(r.createdFrom.contractId).toBe("con-1");
   });
@@ -512,10 +512,10 @@ describe("buildRealityProjection — target routing integration", () => {
 // ── P1: Cache hash contract regression tests ──────────────
 
 describe("P1: Cache key hash contract hardening", () => {
-  it("IDs do NOT affect cache key — capsuleId variation", () => {
+  it("IDs do NOT affect cache key — snapshotId variation", () => {
     const fps = ["fp-stable"];
-    const ctx1 = makeCtx({ capsuleId: "id-aaa", capsuleHash: "hash-same" });
-    const ctx2 = makeCtx({ capsuleId: "id-bbb", capsuleHash: "hash-same" });
+    const ctx1 = makeCtx({ snapshotId: "id-aaa", snapshotHash: "hash-same" });
+    const ctx2 = makeCtx({ snapshotId: "id-bbb", snapshotHash: "hash-same" });
     expect(computeProjectionCacheKey(ctx1, fps)).toBe(computeProjectionCacheKey(ctx2, fps));
   });
 
@@ -535,8 +535,8 @@ describe("P1: Cache key hash contract hardening", () => {
 
   it("content hash changes DO affect cache key", () => {
     const fps = ["fp-stable"];
-    const k1 = computeProjectionCacheKey(makeCtx({ capsuleHash: "v1" }), fps);
-    const k2 = computeProjectionCacheKey(makeCtx({ capsuleHash: "v2" }), fps);
+    const k1 = computeProjectionCacheKey(makeCtx({ snapshotHash: "v1" }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ snapshotHash: "v2" }), fps);
     expect(k1).not.toBe(k2);
   });
 
@@ -556,8 +556,8 @@ describe("P1: Cache key hash contract hardening", () => {
 
   it("compiled projection uses content hashes in cache key", () => {
     const mem = makeMem({ kind: "fact" });
-    const ctx1 = makeCtx({ capsuleId: "cap-1", capsuleHash: "hash-same" });
-    const ctx2 = makeCtx({ capsuleId: "cap-2", capsuleHash: "hash-same" });
+    const ctx1 = makeCtx({ snapshotId: "cap-1", snapshotHash: "hash-same" });
+    const ctx2 = makeCtx({ snapshotId: "cap-2", snapshotHash: "hash-same" });
     const r1 = buildRealityProjection([mem], ctx1);
     const r2 = buildRealityProjection([mem], ctx2);
     expect(r1.cacheKey).toBe(r2.cacheKey);
@@ -565,17 +565,17 @@ describe("P1: Cache key hash contract hardening", () => {
 
   it("compiled projection cacheKey changes when content hash changes", () => {
     const mem = makeMem({ kind: "fact" });
-    const ctx1 = makeCtx({ capsuleHash: "old-hash" });
-    const ctx2 = makeCtx({ capsuleHash: "new-hash" });
+    const ctx1 = makeCtx({ snapshotHash: "old-hash" });
+    const ctx2 = makeCtx({ snapshotHash: "new-hash" });
     const r1 = buildRealityProjection([mem], ctx1);
     const r2 = buildRealityProjection([mem], ctx2);
     expect(r1.cacheKey).not.toBe(r2.cacheKey);
   });
 
   it("createdFrom still tracks IDs for audit trail", () => {
-    const ctx = makeCtx({ capsuleId: "cap-A", checkpointId: "cp-B", contractId: "con-C" });
+    const ctx = makeCtx({ snapshotId: "cap-A", checkpointId: "cp-B", contractId: "con-C" });
     const r = buildRealityProjection([], ctx);
-    expect(r.createdFrom.capsuleId).toBe("cap-A");
+    expect(r.createdFrom.snapshotId).toBe("cap-A");
     expect(r.createdFrom.checkpointId).toBe("cp-B");
     expect(r.createdFrom.contractId).toBe("con-C");
   });

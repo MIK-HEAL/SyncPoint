@@ -1,20 +1,20 @@
 /**
- * Protocol Gate & Capsule Validation — P12 context assembly layer.
+ * Protocol Gate & Snapshot Validation — P12 context assembly layer.
  *
  * Design principle:
- *   capsule-only means agent working-context only, not protocol-only.
- *   Protocol rules are never absorbed into capsule — they remain a hard external layer.
+ *   snapshot-only means agent working-context only, not protocol-only.
+ *   Protocol rules are never absorbed into snapshot — they remain a hard external layer.
  *
  * Three layers:
  *   1. Protocol Gate   — hard collaboration rules
- *   2. Capsule Reality  — agent's current task working memory
+ *   2. Snapshot Reality — agent's current task working memory
  *   3. Validation Notes — staleness, evidence coverage, missing proof
  */
 
 import type {
   ProtocolRule,
   ProtocolGateSummary,
-  CapsuleValidation,
+  SnapshotValidation,
   ContextSnapshot,
   Checkpoint,
   PeerContract,
@@ -110,7 +110,7 @@ export function assembleProtocolGate(
     CheckpointReviewStatus.REJECTED,
   ]);
   try {
-    const txns = repo.listActiveSyncTransactions({ taskId, sessionId });
+    const txns = repo.listActiveCheckpointReviews({ taskId, sessionId });
     for (const tx of txns) {
       const isBlocking = CR_BLOCKING.has(tx.status as string);
       rules.push({
@@ -239,19 +239,19 @@ export function injectProjectionIntoGate(
 }
 
 // ══════════════════════════════════════════════════════
-// Capsule Validation
+// Snapshot Validation
 // ══════════════════════════════════════════════════════
 
 /**
- * Validate a capsule against the current state.
+ * Validate a snapshot against the current state.
  * Returns a validation result with notes.
  */
-export function validateCapsule(
-  capsule: ContextSnapshot | null | undefined,
+export function validateSnapshot(
+  snapshot: ContextSnapshot | null | undefined,
   checkpoint: Checkpoint | null | undefined,
   taskId: string,
   agentId: string,
-): CapsuleValidation {
+): SnapshotValidation {
   const notes: string[] = [];
   let valid = true;
   let stale = false;
@@ -261,9 +261,9 @@ export function validateCapsule(
   let hasEvidence = !!checkpoint;
   let needsSync = false;
 
-  if (!capsule) {
+  if (!snapshot) {
     valid = false;
-    notes.push("No context capsule found. Create one before resuming.");
+    notes.push("No context snapshot found. Create one before resuming.");
     return {
       valid, stale, staleReason, scopeMatch, hasBlockers,
       hasEvidence, needsSync, notes,
@@ -271,16 +271,16 @@ export function validateCapsule(
   }
 
   // Scope check
-  if (capsule.taskId !== taskId || capsule.agentId !== agentId) {
+  if (snapshot.taskId !== taskId || snapshot.agentId !== agentId) {
     scopeMatch = false;
     valid = false;
-    notes.push("Capsule scope mismatch: taskId or agentId does not match.");
+    notes.push("Snapshot scope mismatch: taskId or agentId does not match.");
   }
 
   // Staleness check
-  if (checkpoint && capsule.createdAt < checkpoint.createdAt) {
+  if (checkpoint && snapshot.createdAt < checkpoint.createdAt) {
     stale = true;
-    staleReason = `Capsule (${capsule.createdAt}) is older than checkpoint (${checkpoint.createdAt}).`;
+    staleReason = `Snapshot (${snapshot.createdAt}) is older than checkpoint (${checkpoint.createdAt}).`;
     valid = false;
     notes.push(`Stale: ${staleReason}`);
   }
@@ -289,12 +289,12 @@ export function validateCapsule(
   if (!checkpoint) {
     hasEvidence = false;
     valid = false;
-    notes.push("No checkpoint found — capsule has no evidence backing.");
+    notes.push("No checkpoint found — snapshot has no evidence backing.");
   }
 
   // Blocker check
   let payload: Record<string, unknown> = {};
-  try { payload = JSON.parse(capsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  try { payload = JSON.parse(snapshot.payloadJson ?? "{}"); } catch { /* ok */ }
   const blockerText = Array.isArray(payload.blockers) ? (payload.blockers as string[]).join(", ") : "";
   if (blockerText.length > 0) {
     hasBlockers = true;
@@ -350,7 +350,7 @@ export function formatProtocolGatePrompt(gate: ProtocolGateSummary): string {
     "peer-contract": "Contract Constraints",
     "resource-claim": "Resource Ownership",
     "sync-gate": "Sync Gates (BLOCKING)",
-    "sync-transaction": "Sync Transactions",
+    "checkpoint-review": "Checkpoint Reviews",
     "review": "Pending Reviews",
     "wake": "Queued Actions",
     "assignment": "Assignment State",
@@ -375,9 +375,9 @@ export function formatProtocolGatePrompt(gate: ProtocolGateSummary): string {
 }
 
 /**
- * Format capsule validation as a prompt section.
+ * Format snapshot validation as a prompt section.
  */
-export function formatValidationNotes(validation: CapsuleValidation): string {
+export function formatValidationNotes(validation: SnapshotValidation): string {
   if (validation.notes.length === 0) return "";
 
   const lines: string[] = [];
@@ -390,13 +390,13 @@ export function formatValidationNotes(validation: CapsuleValidation): string {
 }
 
 /**
- * Format the capsule as the main working context prompt section.
+ * Format the snapshot as the main working context prompt section.
  */
-export function formatCapsuleReality(capsule: ContextSnapshot | null): string {
-  if (!capsule) return "";
+export function formatSnapshotReality(snapshot: ContextSnapshot | null): string {
+  if (!snapshot) return "";
 
   let p: Record<string, unknown> = {};
-  try { p = JSON.parse(capsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  try { p = JSON.parse(snapshot.payloadJson ?? "{}"); } catch { /* ok */ }
   const s = (k: string) => {
     const v = p[k];
     if (Array.isArray(v)) return v.join(", ");
@@ -404,7 +404,7 @@ export function formatCapsuleReality(capsule: ContextSnapshot | null): string {
   };
 
   const lines: string[] = [];
-  lines.push("# Capsule Reality");
+  lines.push("# Snapshot Reality");
   lines.push("This is your current task working memory. Act on this.");
   lines.push("");
 
@@ -439,3 +439,8 @@ export function formatCapsuleReality(capsule: ContextSnapshot | null): string {
 
   return lines.join("\n");
 }
+
+/** @deprecated Use validateSnapshot */
+export const validateCapsule = validateSnapshot;
+/** @deprecated Use formatSnapshotReality */
+export const formatCapsuleReality = formatSnapshotReality;

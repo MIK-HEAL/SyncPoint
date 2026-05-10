@@ -76,7 +76,7 @@ describe("loop lifecycle — single agent", () => {
     expect(cp.id).toBeDefined();
 
     // Create capsule
-    const capsule = await e2e.rpc("capsule.create", {
+    const capsule = await e2e.rpc("contextSnapshot.create", {
       taskId,
       agentId: agentA.id,
       checkpointId: cp.id,
@@ -114,11 +114,11 @@ describe("loop lifecycle — single agent", () => {
     }, "GET") as any;
 
     expect(ctx.ready).toBe(true);
-    expect(ctx.latestCapsule).toBeDefined();
-    const capsulePayload = JSON.parse(ctx.latestCapsule.payloadJson);
+    expect(ctx.latestSnapshot).toBeDefined();
+    const capsulePayload = JSON.parse(ctx.latestSnapshot.payloadJson);
     expect(capsulePayload.goal).toBe("Build dashboard UI");
     // P3B: ctx.resumePrompt is stripped at transport (contains baked-in raw PM)
-    // Resume instructions live in latestCapsule.resumePrompt
+    // Resume instructions live in latestSnapshot.resumePrompt
     expect(capsulePayload.resumePrompt).toContain("Continue building dashboard");
 
     // Enforce policy
@@ -133,7 +133,7 @@ describe("loop lifecycle — single agent", () => {
     const task = await e2e.rpc("task.get", { id: taskId }, "GET") as any;
     const agent = await e2e.rpc("agent.get", { id: agentA.id }, "GET") as any;
     const checkpoints = await e2e.rpc("checkpoint.list", { taskId }, "GET") as any;
-    const capsule = await e2e.rpc("capsule.getLatest", { taskId, agentId: agentA.id }, "GET") as any;
+    const capsule = await e2e.rpc("contextSnapshot.getLatest", { taskId, agentId: agentA.id }, "GET") as any;
 
     expect(task.status).toBe("IN_PROGRESS");
     expect(agent.id).toBe(agentA.id);
@@ -153,7 +153,7 @@ describe("loop lifecycle — handoff between agents", () => {
       nextSteps: "Handoff to codex",
     }, "POST") as any;
 
-    await e2e.rpc("capsule.create", {
+    await e2e.rpc("contextSnapshot.create", {
       taskId,
       agentId: agentA.id,
       checkpointId: cp.id,
@@ -204,7 +204,7 @@ describe("loop lifecycle — handoff between agents", () => {
     }, "POST") as any;
     expect(cp.id).toBeDefined();
 
-    const capsule = await e2e.rpc("capsule.create", {
+    const capsule = await e2e.rpc("contextSnapshot.create", {
       taskId,
       agentId: agentB.id,
       checkpointId: cp.id,
@@ -225,7 +225,7 @@ describe("loop lifecycle — handoff between agents", () => {
       agentId: agentB.id,
     }, "GET") as any;
     expect(ctx.ready).toBe(true);
-    expect(JSON.parse(ctx.latestCapsule.payloadJson).goal).toBe("Build dashboard API");
+    expect(JSON.parse(ctx.latestSnapshot.payloadJson).goal).toBe("Build dashboard API");
   });
 });
 

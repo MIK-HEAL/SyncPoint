@@ -91,7 +91,7 @@ function writeReport(outputPath: string, data: {
   assignmentId: string;
   reviewRequestId: string;
   checkpointId: string;
-  capsuleId: string;
+  snapshotId: string;
   gateStatus: string;
   approvalRecordId: string;
   reviewDecisionId: string;
@@ -114,7 +114,7 @@ function writeReport(outputPath: string, data: {
   lines.push("Project Memory approved");
   lines.push("  -> Architect creates session");
   lines.push("  -> Executor receives task assignment");
-  lines.push("  -> Executor checkpoints + writes context capsule");
+  lines.push("  -> Executor checkpoints + writes context snapshot");
   lines.push("  -> Reviewer checks evidence");
   lines.push("  -> Approval gate passes");
   lines.push("  -> ReviewDecision approved");
@@ -146,7 +146,7 @@ function writeReport(outputPath: string, data: {
   lines.push("## Context Artifacts");
   lines.push("");
   lines.push(`- Checkpoint ID: \`${data.checkpointId}\``);
-  lines.push(`- Context capsule ID: \`${data.capsuleId}\``);
+  lines.push(`- Context snapshot ID: \`${data.snapshotId}\``);
   lines.push(`- Project memory export: \`${data.memoryPath}\``);
   lines.push("");
   lines.push("## Review Result");
@@ -509,19 +509,21 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
     nextSteps: "Submit asset_edit operation",
     needSync: false,
   });
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId: task.id,
     agentId: designer.id,
     checkpointId: designerCheckpoint.id,
-    goal: "Replace hero banner for launch campaign",
-    currentPhase: "implementation",
-    confirmedDecisions: "1920x600 PNG format, new branding",
-    interfaceContract: "",
-    workingResources: "assets/hero-banner.png, assets/campaign-logo.svg",
-    completedWork: "Hero banner design finalized",
-    remainingWork: "Submit asset_edit operation",
-    risks: "",
-    blockers: "",
+    summary: "Replace hero banner for launch campaign",
+    payloadJson: JSON.stringify({
+      goal: "Replace hero banner for launch campaign",
+      currentPhase: "implementation",
+      confirmedDecisions: ["1920x600 PNG format, new branding"],
+      workingResources: ["assets/hero-banner.png", "assets/campaign-logo.svg"],
+      completedWork: "Hero banner design finalized",
+      remainingWork: "Submit asset_edit operation",
+      risks: [],
+      blockers: [],
+    }),
   });
 
   // Designer creates and submits an asset_edit operation
@@ -706,7 +708,7 @@ export function registerDemoCommands(program: Command): void {
 
       const task = repo.createTask({
         title: "MVP: evidence-backed multi-agent review",
-        description: "Show Architect -> Executor -> Reviewer collaboration with checkpoint, capsule, gate, and approval.",
+        description: "Show Architect -> Executor -> Reviewer collaboration with checkpoint, snapshot, gate, and approval.",
       });
       repo.assignTask(task.id, executor.id);
 
@@ -738,7 +740,7 @@ export function registerDemoCommands(program: Command): void {
         taskId: task.id,
         assigneeAgentId: executor.id,
         assignedBy: architect.id,
-        notes: "Use checkpoint, capsule, review evidence, and approval gate.",
+        notes: "Use checkpoint, snapshot, review evidence, and approval gate.",
       });
       orchAdvanceSession(sessionResult.session.id);
       orchAcceptAssignment(assignment.id);
@@ -757,21 +759,24 @@ export function registerDemoCommands(program: Command): void {
         needSync: false,
       });
 
-      const capsule = repo.createCapsule({
+      const snapshot = repo.createContextSnapshot({
         taskId: task.id,
         agentId: executor.id,
         checkpointId: checkpoint.id,
-        goal: "Demonstrate a complete SyncPoint collaboration loop.",
-        currentPhase: "review",
-        confirmedDecisions: "Use local SQLite state, CLI, MCP, and evidence-backed review.",
-        interfaceContract: "Review approval requires checklist + evidence + no open changes.",
-        workingResources: "packages/syncpoint-cli/src/commands/demo.ts, docs/review-workflow.md",
-        completedWork: "Session, task, contract, memory, checkpoint, capsule, review evidence, and approval gate are created.",
-        remainingWork: "Present the generated report.",
-        risks: "Demo is local-first and does not claim autonomous model scheduling.",
-        blockers: "",
-        nextSteps: "Show mvp-demo.md and run session/review status commands.",
-        resumePrompt: "Continue from the generated MVP demo report and inspect the review packet.",
+        summary: "Demonstrate a complete SyncPoint collaboration loop.",
+        payloadJson: JSON.stringify({
+          goal: "Demonstrate a complete SyncPoint collaboration loop.",
+          currentPhase: "review",
+          confirmedDecisions: ["Use local SQLite state, CLI, MCP, and evidence-backed review."],
+          interfaceContract: "Review approval requires checklist + evidence + no open changes.",
+          workingResources: ["packages/syncpoint-cli/src/commands/demo.ts", "docs/review-workflow.md"],
+          completedWork: "Session, task, contract, memory, checkpoint, snapshot, review evidence, and approval gate are created.",
+          remainingWork: "Present the generated report.",
+          risks: ["Demo is local-first and does not claim autonomous model scheduling."],
+          blockers: [],
+          nextSteps: ["Show mvp-demo.md and run session/review status commands."],
+          resumePrompt: "Continue from the generated MVP demo report and inspect the review packet.",
+        }),
       });
 
       orchCompleteAssignment(assignment.id);
@@ -788,7 +793,7 @@ export function registerDemoCommands(program: Command): void {
 
       const checklist = [
         rwCreateChecklistItem({ reviewRequestId: reviewRequest.id, title: "Project memory approved", required: true }),
-        rwCreateChecklistItem({ reviewRequestId: reviewRequest.id, title: "Checkpoint and capsule exist", required: true }),
+        rwCreateChecklistItem({ reviewRequestId: reviewRequest.id, title: "Checkpoint and snapshot exist", required: true }),
         rwCreateChecklistItem({ reviewRequestId: reviewRequest.id, title: "Evidence-backed approval gate", required: true }),
       ];
       for (const item of checklist) {
@@ -847,7 +852,7 @@ export function registerDemoCommands(program: Command): void {
         assignmentId: assignment.id,
         reviewRequestId: reviewRequest.id,
         checkpointId: checkpoint.id,
-        capsuleId: capsule.id,
+        snapshotId: snapshot.id,
         gateStatus: gate.status,
         approvalRecordId: approval.approvalRecord.id,
         reviewDecisionId: approval.reviewDecision.id,

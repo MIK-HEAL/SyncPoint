@@ -1,12 +1,12 @@
 /**
- * Capsule Dominant Context — types and mode definitions.
+ * Snapshot Dominant Context — types and mode definitions.
  *
  * Design principle:
- *   capsule-only means agent working-context only, not protocol-only.
+ *   snapshot-only means agent working-context only, not protocol-only.
  *
  * Three layers:
  *   1. Protocol Gate   — hard collaboration rules (pinned, contract, claims, gates, review/wake)
- *   2. Capsule Reality  — agent's current task working memory
+ *   2. Snapshot Reality — agent's current task working memory
  *   3. Validation Notes — staleness, evidence coverage, missing proof
  */
 
@@ -15,13 +15,13 @@ import { z } from "zod";
 // ── Context Mode ─────────────────────────────────────
 
 export const ContextMode = z.enum([
-  "capsule-first",   // capsule primary, validation notes visible, full prompt
-  "capsule-only",    // capsule + protocol gate summary only, no raw checkpoint/project memory
-  "capsule-locked",  // validated capsule + protocol gate only, hard-block on any gate failure
+  "snapshot-first",   // snapshot primary, validation notes visible, full prompt
+  "snapshot-only",    // snapshot + protocol gate summary only, no raw checkpoint/project memory
+  "snapshot-locked",  // validated snapshot + protocol gate only, hard-block on any gate failure
 ]);
 export type ContextMode = z.infer<typeof ContextMode>;
 
-export const DEFAULT_CONTEXT_MODE: ContextMode = "capsule-first";
+export const DEFAULT_CONTEXT_MODE: ContextMode = "snapshot-first";
 
 // ── Protocol Gate Summary ────────────────────────────
 
@@ -54,32 +54,37 @@ export const ProtocolGateSummarySchema = z.object({
 });
 export type ProtocolGateSummary = z.infer<typeof ProtocolGateSummarySchema>;
 
-// ── Capsule Validation ───────────────────────────────
+// ── Snapshot Validation ──────────────────────────────
 
-export const CapsuleValidationSchema = z.object({
-  /** Overall: is the capsule valid for use? */
+export const SnapshotValidationSchema = z.object({
+  /** Overall: is the snapshot valid for use? */
   valid: z.boolean(),
-  /** Is the capsule stale relative to latest checkpoint? */
+  /** Is the snapshot stale relative to latest checkpoint? */
   stale: z.boolean(),
   staleReason: z.string().nullable(),
-  /** Does the capsule belong to the correct task+agent? */
+  /** Does the snapshot belong to the correct task+agent? */
   scopeMatch: z.boolean(),
-  /** Are there unresolved blockers in the capsule? */
+  /** Are there unresolved blockers in the snapshot? */
   hasBlockers: z.boolean(),
-  /** Evidence: does a checkpoint exist to back the capsule? */
+  /** Evidence: does a checkpoint exist to back the snapshot? */
   hasEvidence: z.boolean(),
   /** Needs sync flag from checkpoint */
   needsSync: z.boolean(),
   /** Human-readable validation notes */
   notes: z.array(z.string()),
 });
-export type CapsuleValidation = z.infer<typeof CapsuleValidationSchema>;
+export type SnapshotValidation = z.infer<typeof SnapshotValidationSchema>;
 
-// ── Extended Capsule Fields (additive) ───────────────
-// These are optional new fields that enrich the capsule.
-// Existing capsules without these fields still work (defaults to "").
+/** @deprecated Use SnapshotValidationSchema */
+export const CapsuleValidationSchema = SnapshotValidationSchema;
+/** @deprecated Use SnapshotValidation */
+export type CapsuleValidation = SnapshotValidation;
 
-export const CapsuleExtendedFieldsSchema = z.object({
+// ── Extended Snapshot Fields (additive) ──────────────
+// These are optional new fields that enrich the snapshot.
+// Existing snapshots without these fields still work (defaults to "").
+
+export const SnapshotExtendedFieldsSchema = z.object({
   intentScope: z.string().default(""),
   nonGoals: z.string().default(""),
   verifiedFacts: z.string().default(""),
@@ -91,4 +96,9 @@ export const CapsuleExtendedFieldsSchema = z.object({
   validationStatus: z.string().default(""),
   staleReason: z.string().default(""),
 });
-export type CapsuleExtendedFields = z.infer<typeof CapsuleExtendedFieldsSchema>;
+export type SnapshotExtendedFields = z.infer<typeof SnapshotExtendedFieldsSchema>;
+
+/** @deprecated Use SnapshotExtendedFieldsSchema */
+export const CapsuleExtendedFieldsSchema = SnapshotExtendedFieldsSchema;
+/** @deprecated Use SnapshotExtendedFields */
+export type CapsuleExtendedFields = SnapshotExtendedFields;

@@ -320,7 +320,7 @@ export function wakeStart(id: string): WakeRequest {
   // P4C: Constraint Runtime enforcement
   if (wr.taskId) {
     try {
-      const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
+      const latestCap = repo.getLatestContextSnapshot(wr.taskId, wr.targetAgentId);
       let wr2: string[] = [];
       if (latestCap) {
         try {
@@ -386,7 +386,7 @@ export function wakeNext(agentId: string): WakeRequest | null {
   const wr = queued[0];
   if (wr.taskId) {
     try {
-      const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
+      const latestCap = repo.getLatestContextSnapshot(wr.taskId, wr.targetAgentId);
       let wr3: string[] = [];
       if (latestCap) {
         try {

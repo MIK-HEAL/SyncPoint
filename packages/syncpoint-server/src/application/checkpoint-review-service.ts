@@ -66,7 +66,7 @@ export function stxCreate(input: SyncTxCreateInput): SyncTxStatusResult {
   });
 
   // 2. Create the transaction
-  let tx = repo.createSyncTransaction({
+  let tx = repo.createCheckpointReview({
     sessionId: input.sessionId,
     taskId: input.taskId,
     checkpointId: input.checkpointId,
@@ -89,7 +89,7 @@ export function stxCreate(input: SyncTxCreateInput): SyncTxStatusResult {
   );
 
   // 3. Auto-advance to WAITING_APPROVAL
-  tx = repo.updateSyncTransactionStatus(tx.id, CheckpointReviewStatus.WAITING_APPROVAL);
+  tx = repo.updateCheckpointReviewStatus(tx.id, CheckpointReviewStatus.WAITING_APPROVAL);
 
   logEvent(
     EventType.SYNC_TX_SUBMITTED,
@@ -105,7 +105,7 @@ export function stxCreate(input: SyncTxCreateInput): SyncTxStatusResult {
  * Approver approves a sync transaction.
  */
 export function stxApprove(txId: string, agentId: string, summary?: string): SyncTxStatusResult {
-  let tx = repo.getSyncTransaction(txId);
+  let tx = repo.getCheckpointReview(txId);
 
   // Verify agent is required approver
   const required = parseIdListCsv(tx.requiredApproverIds);
@@ -122,7 +122,7 @@ export function stxApprove(txId: string, agentId: string, summary?: string): Syn
   const approved = parseIdListCsv(tx.approvedByIds);
   if (!approved.includes(agentId)) {
     approved.push(agentId);
-    tx = repo.updateSyncTransactionApprovedBy(tx.id, approved.join(","));
+    tx = repo.updateCheckpointReviewApprovedBy(tx.id, approved.join(","));
   }
 
   logEvent(
@@ -139,7 +139,7 @@ export function stxApprove(txId: string, agentId: string, summary?: string): Syn
 
   // Auto-advance to APPROVED when all have approved
   if (allApproved(tx)) {
-    tx = repo.updateSyncTransactionStatus(tx.id, CheckpointReviewStatus.APPROVED, summary ?? "");
+    tx = repo.updateCheckpointReviewStatus(tx.id, CheckpointReviewStatus.APPROVED, summary ?? "");
   }
 
   return buildStatusResult(tx);
@@ -149,7 +149,7 @@ export function stxApprove(txId: string, agentId: string, summary?: string): Syn
  * Approver rejects a sync transaction.
  */
 export function stxReject(txId: string, agentId: string, reason?: string): SyncTxStatusResult {
-  let tx = repo.getSyncTransaction(txId);
+  let tx = repo.getCheckpointReview(txId);
 
   // Verify agent is required approver
   const required = parseIdListCsv(tx.requiredApproverIds);
@@ -166,7 +166,7 @@ export function stxReject(txId: string, agentId: string, reason?: string): SyncT
   const rejected = parseIdListCsv(tx.rejectedByIds);
   if (!rejected.includes(agentId)) {
     rejected.push(agentId);
-    tx = repo.updateSyncTransactionRejectedBy(tx.id, rejected.join(","));
+    tx = repo.updateCheckpointReviewRejectedBy(tx.id, rejected.join(","));
   }
 
   logEvent(
@@ -182,7 +182,7 @@ export function stxReject(txId: string, agentId: string, reason?: string): SyncT
   }
 
   // Move to REJECTED immediately on first rejection
-  tx = repo.updateSyncTransactionStatus(tx.id, CheckpointReviewStatus.REJECTED, reason ?? "");
+  tx = repo.updateCheckpointReviewStatus(tx.id, CheckpointReviewStatus.REJECTED, reason ?? "");
 
   return buildStatusResult(tx);
 }
@@ -192,13 +192,13 @@ export function stxReject(txId: string, agentId: string, reason?: string): SyncT
  * Can be called after APPROVED (normal flow) or REJECTED (after follow-up).
  */
 export function stxResolve(txId: string, decisionSummary?: string): SyncTxStatusResult {
-  let tx = repo.getSyncTransaction(txId);
+  let tx = repo.getCheckpointReview(txId);
 
   if (!validateCheckpointReviewTransition(tx.status as CheckpointReviewStatus, CheckpointReviewStatus.RESOLVED)) {
     throw new Error(`Cannot resolve transaction ${txId} from ${tx.status}`);
   }
 
-  tx = repo.updateSyncTransactionStatus(tx.id, CheckpointReviewStatus.RESOLVED, decisionSummary ?? "");
+  tx = repo.updateCheckpointReviewStatus(tx.id, CheckpointReviewStatus.RESOLVED, decisionSummary ?? "");
 
   logEvent(
     EventType.SYNC_TX_RESOLVED,
@@ -223,13 +223,13 @@ export function stxResolve(txId: string, decisionSummary?: string): SyncTxStatus
  * Cancel a sync transaction and its bound SyncGate.
  */
 export function stxCancel(txId: string, reason?: string): CheckpointReview {
-  let tx = repo.getSyncTransaction(txId);
+  let tx = repo.getCheckpointReview(txId);
 
   if (!validateCheckpointReviewTransition(tx.status as CheckpointReviewStatus, CheckpointReviewStatus.CANCELLED)) {
     throw new Error(`Cannot cancel transaction ${txId} from ${tx.status}`);
   }
 
-  tx = repo.updateSyncTransactionStatus(tx.id, CheckpointReviewStatus.CANCELLED, reason ?? "");
+  tx = repo.updateCheckpointReviewStatus(tx.id, CheckpointReviewStatus.CANCELLED, reason ?? "");
 
   logEvent(
     EventType.SYNC_TX_CANCELLED,
@@ -254,7 +254,7 @@ export function stxCancel(txId: string, reason?: string): CheckpointReview {
  * Get detailed transaction status.
  */
 export function stxStatus(txId: string): SyncTxStatusResult {
-  const tx = repo.getSyncTransaction(txId);
+  const tx = repo.getCheckpointReview(txId);
   return buildStatusResult(tx);
 }
 
@@ -266,7 +266,7 @@ export function stxList(opts?: {
   taskId?: string;
   status?: string;
 }): CheckpointReview[] {
-  return repo.listSyncTransactions(opts);
+  return repo.listCheckpointReviews(opts);
 }
 
 /**
@@ -276,7 +276,7 @@ export function stxListActive(opts?: {
   sessionId?: string;
   taskId?: string;
 }): CheckpointReview[] {
-  return repo.listActiveSyncTransactions(opts);
+  return repo.listActiveCheckpointReviews(opts);
 }
 
 // ── Internal ───────────────────────────────────────────

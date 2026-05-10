@@ -130,11 +130,11 @@ export const projectMemoryRouter = t.router({
       taskId: z.string().min(1),
       workingResources: z.array(z.string()).optional(),
       currentModules: z.array(z.string()).optional(),
-      capsuleId: z.string().optional(),
+      snapshotId: z.string().optional(),
       checkpointId: z.string().optional(),
       contractId: z.string().optional(),
       // P1: allow callers to provide content hashes directly
-      capsuleHash: z.string().optional(),
+      snapshotHash: z.string().optional(),
       checkpointHash: z.string().optional(),
       contractHash: z.string().optional(),
     }))

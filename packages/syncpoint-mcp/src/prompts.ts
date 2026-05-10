@@ -15,7 +15,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_resume",
     {
       title: "Resume Task",
-      description: "Generate a synchronization-aware resume prompt for an agent. Includes task state, contract, checkpoint, capsule, pinned memories, project knowledge, and continuation blockers.",
+      description: "Generate a synchronization-aware resume prompt for an agent. Includes task state, contract, checkpoint, snapshot, pinned memories, project knowledge, and continuation blockers.",
       argsSchema: {
         taskId: z.string().describe("Task ID"),
         agentId: z.string().describe("Agent ID"),
@@ -251,7 +251,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_reviewer_checklist",
     {
       title: "Reviewer Checklist",
-      description: "Review sync gate — contract terms, checkpoint evidence, capsule context, and approval checklist.",
+      description: "Review sync gate — contract terms, checkpoint evidence, snapshot context, and approval checklist.",
       argsSchema: {
         taskId: z.string().describe("Task ID"),
         agentId: z.string().describe("Agent ID"),
@@ -338,7 +338,7 @@ export function registerPrompts(server: McpServer): void {
     "syncpoint_review_task",
     {
       title: "Review Task",
-      description: "Generate a reviewer prompt for a specific task with context policy, contract, checkpoint, and capsule.",
+      description: "Generate a reviewer prompt for a specific task with context policy, contract, checkpoint, and snapshot.",
       argsSchema: {
         taskId: z.string().describe("Task ID to review"),
         agentId: z.string().describe("Reviewer agent ID"),

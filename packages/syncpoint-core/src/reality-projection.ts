@@ -116,7 +116,7 @@ export interface ContextPatch {
 /** Audit trail: what produced this projection. */
 export interface ProjectionCreatedFrom {
   taskId: string;
-  capsuleId?: string;
+  snapshotId?: string;
   checkpointId?: string;
   contractId?: string;
   memoryVersion: number;
@@ -173,11 +173,11 @@ export interface ProjectionContext {
   /** Current module context (for appliesTo matching) */
   currentModules?: string[];
   /** Optional IDs for audit trail (createdFrom only, NOT used in cache key) */
-  capsuleId?: string;
+  snapshotId?: string;
   checkpointId?: string;
   contractId?: string;
   /** Content hashes — used in cache key instead of IDs */
-  capsuleHash?: string;
+  snapshotHash?: string;
   checkpointHash?: string;
   contractHash?: string;
 }
@@ -186,7 +186,7 @@ export interface ProjectionContext {
 
 /**
  * Compute a short content hash from one or more string fields.
- * Used to derive capsuleHash / checkpointHash / contractHash
+ * Used to derive snapshotHash / checkpointHash / contractHash
  * from entity content rather than IDs.
  */
 export function computeContentHash(...fields: string[]): string {
@@ -231,7 +231,7 @@ function lookupKeyParts(ctx: ProjectionContext, memoriesFingerprints: string[]):
     `task:${ctx.taskId}`,
     `wr:${(ctx.workingResources ?? []).sort().join(",")}`,
     `cm:${(ctx.currentModules ?? []).sort().join(",")}`,
-    `caph:${ctx.capsuleHash ?? ""}`,
+    `snph:${ctx.snapshotHash ?? ""}`,
     `cph:${ctx.checkpointHash ?? ""}`,
     `conh:${ctx.contractHash ?? ""}`,
     `mfp:${memoriesFingerprints.sort().join(",")}`,
@@ -577,7 +577,7 @@ export function buildRealityProjection(
     projectionId,
     createdFrom: {
       taskId: ctx.taskId,
-      capsuleId: ctx.capsuleId,
+      snapshotId: ctx.snapshotId,
       checkpointId: ctx.checkpointId,
       contractId: ctx.contractId,
       memoryVersion: ctx.memoryVersion,

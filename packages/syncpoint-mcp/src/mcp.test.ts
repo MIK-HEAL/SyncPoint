@@ -52,7 +52,7 @@ beforeAll(async () => {
     nextSteps: "Continue MCP implementation",
     needSync: false,
   });
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId,
     agentId,
     checkpointId: checkpoint.id,
@@ -127,7 +127,7 @@ describe("resources", () => {
     const templateUris = resourceTemplates.map((t: any) => t.uriTemplate);
     expect(templateUris).toContain("syncpoint://task/{taskId}");
     expect(templateUris).toContain("syncpoint://task/{taskId}/checkpoints");
-    expect(templateUris).toContain("syncpoint://task/{taskId}/capsules");
+    expect(templateUris).toContain("syncpoint://task/{taskId}/snapshots");
     expect(templateUris).toContain("syncpoint://task/{taskId}/resume-context/{agentId}");
     expect(templateUris).toContain("syncpoint://project-memory/{category}");
     expect(templateUris).toContain("syncpoint://context/prepare/{intent}/{role}");
@@ -196,11 +196,11 @@ describe("resources", () => {
     expect(text).toContain("Architect Planning Context");
   });
 
-  it("should read task capsules resource", async () => {
+  it("should read task snapshots resource", async () => {
     const tasks = repo.listTasks();
-    const result = await client.readResource({ uri: `syncpoint://task/${tasks[0].id}/capsules` });
+    const result = await client.readResource({ uri: `syncpoint://task/${tasks[0].id}/snapshots` });
     const text = (result.contents[0] as any).text;
-    expect(text).toContain("# Context Capsules");
+    expect(text).toContain("# Context Snapshots");
     expect(text).toContain("Implement MCP server adapter");
     expect(text).toContain("packages/syncpoint-mcp/src");
   });
@@ -492,7 +492,7 @@ describe("tools", () => {
     expect(data.prompt).toContain("Review Checklist");
   });
 
-  it("syncpoint_loop_checkpoint should create checkpoint+capsule", async () => {
+  it("syncpoint_loop_checkpoint should create checkpoint+snapshot", async () => {
     const agents = repo.listAgents();
     const tasks = repo.listTasks();
     const result: any = await client.callTool({
@@ -509,7 +509,7 @@ describe("tools", () => {
     const data = JSON.parse(text);
     expect(data.ok).toBe(true);
     expect(data.checkpointId).toBeDefined();
-    expect(data.capsuleId).toBeDefined();
+    expect(data.snapshotId).toBeDefined();
   });
 
   it("syncpoint_session_create should create session", async () => {

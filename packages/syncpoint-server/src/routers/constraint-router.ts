@@ -31,7 +31,7 @@ export const constraintRouter = t.router({
       assignmentId: z.string().optional(),
       wakeRequestId: z.string().optional(),
       operationId: z.string().optional(),
-      contextMode: z.enum(["capsule-first", "capsule-only", "capsule-locked"]).optional(),
+      contextMode: z.enum(["snapshot-first", "snapshot-only", "snapshot-locked"]).optional(),
       touchedResources: z.array(z.string()).optional(),
     }))
     .query(({ input }) => constraintCheck(input as any)),

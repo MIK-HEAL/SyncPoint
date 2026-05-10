@@ -9,14 +9,14 @@ import { taskRouter } from "./routers/task-router.js";
 import { checkpointRouter, diaryRouter } from "./routers/checkpoint-router.js";
 import { handoffRouter } from "./routers/handoff-router.js";
 import { contractRouter } from "./routers/contract-router.js";
-import { capsuleRouter } from "./routers/context-snapshot-router.js";
+import { contextSnapshotRouter } from "./routers/context-snapshot-router.js";
 import { pinnedMemoryRouter } from "./routers/memory-router.js";
 import { resumeContextRouter, eventRouter, adapterRouter } from "./routers/context-router.js";
 import { loopRouter } from "./routers/loop-router.js";
 import { projectMemoryRouter } from "./routers/project-memory-router.js";
 import { wakeRouter } from "./routers/wake-router.js";
 import { syncStatusRouter } from "./routers/sync-status-router.js";
-import { syncTransactionRouter } from "./routers/checkpoint-review-router.js";
+import { checkpointReviewRouter } from "./routers/checkpoint-review-router.js";
 import { constraintRouter } from "./routers/constraint-router.js";
 import { syncGateRouter } from "./routers/sync-gate-router.js";
 import { negotiationRouter } from "./routers/negotiation-router.js";
@@ -34,7 +34,7 @@ export const appRouter = t.router({
   diary: diaryRouter,
   handoff: handoffRouter,
   contract: contractRouter,
-  capsule: capsuleRouter,
+  contextSnapshot: contextSnapshotRouter,
   event: eventRouter,
   pinnedMemory: pinnedMemoryRouter,
   resumeContext: resumeContextRouter,
@@ -43,7 +43,7 @@ export const appRouter = t.router({
   projectMemory: projectMemoryRouter,
   wake: wakeRouter,
   syncStatus: syncStatusRouter,
-  syncTransaction: syncTransactionRouter,
+  checkpointReview: checkpointReviewRouter,
   constraint: constraintRouter,
   syncGate: syncGateRouter,
   negotiation: negotiationRouter,

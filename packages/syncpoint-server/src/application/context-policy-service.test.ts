@@ -40,7 +40,7 @@ beforeAll(() => {
     nextSteps: "Continue",
     needSync: false,
   });
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId, agentId,
     checkpointId: cp.id,
     summary: "Build feature X",
@@ -141,7 +141,7 @@ describe("prepareContext", () => {
       nextSteps: "Wait for approval",
       needSync: false,
     });
-    repo.createCapsule({
+    repo.createContextSnapshot({
       taskId: t.id,
       agentId: a.id,
       checkpointId: cp.id,
@@ -208,7 +208,7 @@ describe("prepareContext", () => {
       nextSteps: "Receiver continues",
       needSync: false,
     });
-    repo.createCapsule({
+    repo.createContextSnapshot({
       taskId: t.id,
       agentId: from.id,
       checkpointId: cp.id,

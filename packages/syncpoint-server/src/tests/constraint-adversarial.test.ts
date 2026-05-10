@@ -70,7 +70,7 @@ beforeAll(() => {
     currentUnderstanding: "",
     changedFiles: "",
   });
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId,
     agentId: executorId,
     checkpointId: cp.id,
@@ -113,7 +113,7 @@ describe("Adversarial: mode switching does not bypass constraints", () => {
     expect(() => loopResume({
       agentId: executorId,
       taskId,
-      contextMode: "capsule-locked",
+      contextMode: "snapshot-locked",
     })).toThrow(/Constraint violation/);
   });
 
@@ -121,7 +121,7 @@ describe("Adversarial: mode switching does not bypass constraints", () => {
     expect(() => loopResume({
       agentId: executorId,
       taskId,
-      contextMode: "capsule-first",
+      contextMode: "snapshot-first",
     })).toThrow(/Constraint violation/);
   });
 });

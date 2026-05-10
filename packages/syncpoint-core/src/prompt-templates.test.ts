@@ -25,7 +25,7 @@ function makeContext(overrides?: Partial<ResumeContext>): ResumeContext {
       fileBoundaries: "src/auth/*",
       status: "APPROVED",
     },
-    latestCapsule: {
+    latestSnapshot: {
       id: "cap1",
       kind: "resume",
       summary: "Implement auth API",
@@ -68,7 +68,7 @@ function makeContext(overrides?: Partial<ResumeContext>): ResumeContext {
     projectMemories: [],
     resumePrompt: "raw resume prompt",
     warnings: [],
-    contextMode: "capsule-first",
+    contextMode: "snapshot-first",
     generatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -142,7 +142,7 @@ describe("formatResumePrompt", () => {
 
   it("system-prompt warns when no capsule/checkpoint", () => {
     const ctx = makeContext({
-      latestCapsule: null,
+      latestSnapshot: null,
       latestCheckpoint: null,
       ready: false,
       warnings: ["No capsule found"],
@@ -155,7 +155,7 @@ describe("formatResumePrompt", () => {
 
   it("clipboard warns when not ready", () => {
     const ctx = makeContext({
-      latestCapsule: null,
+      latestSnapshot: null,
       latestCheckpoint: null,
       ready: false,
       warnings: ["Missing capsule"],

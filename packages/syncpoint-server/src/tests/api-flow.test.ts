@@ -78,7 +78,7 @@ describe("API flow", () => {
   });
 
   it("creates a context capsule", async () => {
-    const capsule = (await ctx.rpc("capsule.create", {
+    const capsule = (await ctx.rpc("contextSnapshot.create", {
       taskId, agentId, checkpointId,
       summary: "Build REST API",
       payloadJson: JSON.stringify({

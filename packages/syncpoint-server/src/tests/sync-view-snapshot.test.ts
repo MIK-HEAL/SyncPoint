@@ -30,7 +30,7 @@ let reviewerId: string;
 let sessionId: string;
 let taskId: string;
 
-const caller = appRouter.createCaller({});
+const caller = appRouter.createCaller({ callerId: null });
 
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-p9-"));

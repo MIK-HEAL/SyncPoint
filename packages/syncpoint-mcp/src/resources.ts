@@ -12,7 +12,7 @@ import {
   formatAgentSummary,
   formatTaskSummary,
   formatCheckpointSummary,
-  formatCapsuleSummary,
+  formatContextSnapshotSummary,
   formatProjectMemorySummary,
 } from "./format.js";
 
@@ -97,17 +97,17 @@ export function registerResources(server: McpServer): void {
     }
   );
 
-  // ── syncpoint://task/{taskId}/capsules ──
+  // ── syncpoint://task/{taskId}/snapshots ──
   server.registerResource(
-    "syncpoint-task-capsules",
-    new ResourceTemplate("syncpoint://task/{taskId}/capsules", { list: undefined }),
-    { title: "Task Capsules", description: "Context capsules for a task", mimeType: "text/plain" },
+    "syncpoint-task-snapshots",
+    new ResourceTemplate("syncpoint://task/{taskId}/snapshots", { list: undefined }),
+    { title: "Task Snapshots", description: "Context snapshots for a task", mimeType: "text/plain" },
     async (uri, { taskId }) => {
-      const capsules = repo.listCapsules(taskId as string);
+      const snapshots = repo.listContextSnapshots(taskId as string);
       const lines = [
-        "# Context Capsules",
+        "# Context Snapshots",
         "",
-        ...(capsules.length > 0 ? capsules.map(formatCapsuleSummary) : ["No context capsules."]),
+        ...(snapshots.length > 0 ? snapshots.map(formatContextSnapshotSummary) : ["No context snapshots."]),
       ];
       return { contents: [{ uri: uri.href, text: lines.join("\n\n") }] };
     }

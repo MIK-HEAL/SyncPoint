@@ -67,13 +67,13 @@ export function registerTools(server: McpServer): void {
     "syncpoint_loop_resume",
     {
       title: "Loop Resume",
-      description: "Resume a task — enforces context policy, generates adapter files and prompt. agentId is optional if connection is identity-bound. contextMode: capsule-first (default), capsule-only (no raw checkpoint/project memory), capsule-locked (hard-block on any validation failure).",
+      description: "Resume a task — enforces context policy, generates adapter files and prompt. agentId is optional if connection is identity-bound. contextMode: snapshot-first (default), snapshot-only (no raw checkpoint/project memory), snapshot-locked (hard-block on any validation failure).",
       inputSchema: {
         agentId: z.string().optional(),
         taskId: z.string(),
         provider: z.string().optional(),
         format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),
-        contextMode: z.enum(["capsule-first", "capsule-only", "capsule-locked"]).optional(),
+        contextMode: z.enum(["snapshot-first", "snapshot-only", "snapshot-locked"]).optional(),
         sessionId: z.string().optional(),
       },
     },
@@ -91,7 +91,7 @@ export function registerTools(server: McpServer): void {
     "syncpoint_loop_checkpoint",
     {
       title: "Loop Checkpoint",
-      description: "Save a checkpoint and context capsule for the current work session. agentId is optional if connection is identity-bound.",
+      description: "Save a checkpoint and context snapshot for the current work session. agentId is optional if connection is identity-bound.",
       inputSchema: {
         agentId: z.string().optional(),
         taskId: z.string(),
@@ -370,7 +370,7 @@ export function registerTools(server: McpServer): void {
     "syncpoint_reviewer_context",
     {
       title: "Reviewer Context",
-      description: "Prepare reviewer context for a task — includes contract, checkpoint, capsule, and review checklist",
+      description: "Prepare reviewer context for a task — includes contract, checkpoint, snapshot, and review checklist",
       inputSchema: {
         taskId: z.string(),
         agentId: z.string(),
@@ -1234,7 +1234,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  // SyncTransaction Tools
+  // CheckpointReview Tools
   // ═══════════════════════════════════════════════════════
 
   server.registerTool(

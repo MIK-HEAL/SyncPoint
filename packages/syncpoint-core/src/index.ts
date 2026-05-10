@@ -524,14 +524,18 @@ export {
   DEFAULT_CONTEXT_MODE,
   ProtocolRuleSchema,
   ProtocolGateSummarySchema,
+  SnapshotValidationSchema,
   CapsuleValidationSchema,
+  SnapshotExtendedFieldsSchema,
   CapsuleExtendedFieldsSchema,
 } from "./context-modes.js";
 
 export type {
   ProtocolRule,
   ProtocolGateSummary,
+  SnapshotValidation,
   CapsuleValidation,
+  SnapshotExtendedFields,
   CapsuleExtendedFields,
 } from "./context-modes.js";
 

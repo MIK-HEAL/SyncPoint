@@ -1,9 +1,7 @@
 /**
- * ContextSnapshot repository (replaces ContextCapsule repository).
+ * ContextSnapshot repository.
  *
  * Uses the normalized context_snapshot + context_snapshot_resource tables.
- * Exported function names kept as createCapsule/listCapsules/getLatestCapsule
- * for Phase 4 service-layer compat.
  */
 
 import { eq, and, desc } from "drizzle-orm";
@@ -13,10 +11,6 @@ import type { ContextSnapshot, ContextSnapshotCreate } from "syncpoint-core";
 import { _getDb, now, createId, logEvent } from "./_shared.js";
 import { getTask } from "./task-repository.js";
 import { getAgent } from "./agent-repository.js";
-
-// Re-export old names for service-layer compat
-export type ContextCapsule = ContextSnapshot;
-export type ContextCapsuleCreate = ContextSnapshotCreate;
 
 // ── Internal helpers ────────────────────────────────
 
@@ -37,7 +31,7 @@ function rowToSnapshot(row: any): ContextSnapshot {
 
 // ── CRUD ────────────────────────────────────────────
 
-export function createCapsule(data: ContextSnapshotCreate): ContextSnapshot {
+export function createContextSnapshot(data: ContextSnapshotCreate): ContextSnapshot {
   getTask(data.taskId);
   getAgent(data.agentId);
   const db = _getDb();
@@ -58,7 +52,7 @@ export function createCapsule(data: ContextSnapshotCreate): ContextSnapshot {
   return rowToSnapshot(row);
 }
 
-export function listCapsules(taskId: string): ContextSnapshot[] {
+export function listContextSnapshots(taskId: string): ContextSnapshot[] {
   getTask(taskId);
   return _getDb().select().from(s.contextSnapshots)
     .where(eq(s.contextSnapshots.taskId, taskId))
@@ -66,7 +60,7 @@ export function listCapsules(taskId: string): ContextSnapshot[] {
     .map(rowToSnapshot);
 }
 
-export function getLatestCapsule(taskId: string, agentId: string): ContextSnapshot | undefined {
+export function getLatestContextSnapshot(taskId: string, agentId: string): ContextSnapshot | undefined {
   const row = _getDb().select().from(s.contextSnapshots)
     .where(and(eq(s.contextSnapshots.taskId, taskId), eq(s.contextSnapshots.agentId, agentId)))
     .orderBy(desc(s.contextSnapshots.createdAt))

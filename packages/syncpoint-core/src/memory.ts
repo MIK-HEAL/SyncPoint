@@ -79,7 +79,7 @@ export const ResumeContextSchema = z.object({
     status: z.string(),
   }).nullable(),
   /** Latest context snapshot (null if none) */
-  latestCapsule: z.object({
+  latestSnapshot: z.object({
     id: z.string(),
     kind: z.string().default("resume"),
     summary: z.string().default(""),
@@ -114,7 +114,7 @@ export const ResumeContextSchema = z.object({
   /** Warnings or required actions before resume */
   warnings: z.array(z.string()),
   /** P12: Context mode used for this resume */
-  contextMode: z.string().default("capsule-first"),
+  contextMode: z.string().default("snapshot-first"),
   generatedAt: z.string(),
 });
 

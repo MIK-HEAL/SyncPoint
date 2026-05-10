@@ -27,7 +27,7 @@ describe("Memory Switch Engine", () => {
     contractId = c.id;
     await ctx.rpc("contract.updateStatus", { id: contractId, status: "REVIEWING" });
     await ctx.rpc("contract.updateStatus", { id: contractId, status: "APPROVED" });
-    await ctx.rpc("capsule.create", {
+    await ctx.rpc("contextSnapshot.create", {
       taskId, agentId, checkpointId,
       summary: "Implement auth API",
       payloadJson: JSON.stringify({
@@ -61,8 +61,8 @@ describe("Memory Switch Engine", () => {
     expect(rc.approvedContract.fileBoundaries).toBe("src/auth/*");
 
     // Capsule
-    expect(rc.latestCapsule).not.toBeNull();
-    const capsulePayload = JSON.parse(rc.latestCapsule.payloadJson);
+    expect(rc.latestSnapshot).not.toBeNull();
+    const capsulePayload = JSON.parse(rc.latestSnapshot.payloadJson);
     expect(capsulePayload.goal).toBe("Implement auth API");
     expect(capsulePayload.resumePrompt).toContain("POST /login");
 
@@ -84,7 +84,7 @@ describe("Memory Switch Engine", () => {
     const a2 = (await ctx.rpc("agent.create", { name: "claude", provider: "claude-code", role: "frontend" })) as any;
     const rc = (await ctx.rpc("resumeContext.get", { taskId, agentId: a2.id }, "GET")) as any;
     // Should NOT have a capsule (no capsule for a2)
-    expect(rc.latestCapsule).toBeNull();
+    expect(rc.latestSnapshot).toBeNull();
     expect(rc.ready).toBe(false);
     expect(rc.warnings.length).toBeGreaterThan(0);
     expect(rc.warnings[0]).toContain("No context capsule");
@@ -95,7 +95,7 @@ describe("Memory Switch Engine", () => {
     await ctx.rpc("task.assign", { taskId: t2.id, agentId });
     const c2 = (await ctx.rpc("contract.create", { taskId: t2.id, title: "UI contract" })) as any;
     const cp2 = (await ctx.rpc("checkpoint.create", { taskId: t2.id, agentId, summary: "UI start" })) as any;
-    await ctx.rpc("capsule.create", {
+    await ctx.rpc("contextSnapshot.create", {
       taskId: t2.id,
       agentId,
       checkpointId: cp2.id,

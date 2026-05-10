@@ -3,8 +3,6 @@
  *
  * Domain type CheckpointReview still uses CSV strings (requiredApproverIds,
  * approvedByIds, rejectedByIds). This repo reconstructs those from the join table.
- *
- * Exported function names still use "SyncTransaction" for Phase 4 service compat.
  */
 
 import { eq, and, inArray } from "drizzle-orm";
@@ -12,11 +10,6 @@ import * as s from "../schema.js";
 import { CheckpointReviewStatus } from "syncpoint-core";
 import type { CheckpointReview, CheckpointReviewCreate } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
-
-// Re-export old names for service-layer compat until Phase 4
-export type SyncTransaction = CheckpointReview;
-export type SyncTransactionCreate = CheckpointReviewCreate;
-export const SyncTransactionStatus = CheckpointReviewStatus;
 
 // ── Internal helpers ────────────────────────────────
 
@@ -47,7 +40,7 @@ function hydrateReview(db: ReturnType<typeof _getDb>, row: any): CheckpointRevie
 
 // ── CRUD ────────────────────────────────────────────
 
-export function createSyncTransaction(data: CheckpointReviewCreate & { gateId?: string }): CheckpointReview {
+export function createCheckpointReview(data: CheckpointReviewCreate & { gateId?: string }): CheckpointReview {
   const db = _getDb();
   const id = createId();
   const ts = now();
@@ -73,17 +66,17 @@ export function createSyncTransaction(data: CheckpointReviewCreate & { gateId?: 
       decidedAt: "",
     }).run();
   }
-  return getSyncTransaction(id);
+  return getCheckpointReview(id);
 }
 
-export function getSyncTransaction(id: string): CheckpointReview {
+export function getCheckpointReview(id: string): CheckpointReview {
   const db = _getDb();
   const row = db.select().from(s.checkpointReviews).where(eq(s.checkpointReviews.id, id)).get();
   if (!row) throw new Error(`checkpoint_review not found: ${id}`);
   return hydrateReview(db, row);
 }
 
-export function updateSyncTransactionStatus(
+export function updateCheckpointReviewStatus(
   id: string,
   status: CheckpointReviewStatus,
   decisionSummary?: string,
@@ -92,10 +85,10 @@ export function updateSyncTransactionStatus(
   const updates: Record<string, unknown> = { status, updatedAt: now() };
   if (decisionSummary !== undefined) updates.decisionSummary = decisionSummary;
   db.update(s.checkpointReviews).set(updates).where(eq(s.checkpointReviews.id, id)).run();
-  return getSyncTransaction(id);
+  return getCheckpointReview(id);
 }
 
-export function updateSyncTransactionApprovedBy(id: string, approvedByIds: string): CheckpointReview {
+export function updateCheckpointReviewApprovedBy(id: string, approvedByIds: string): CheckpointReview {
   // Update approver roles in the join table based on the CSV
   const db = _getDb();
   const agentIds = approvedByIds.split(",").map(s => s.trim()).filter(Boolean);
@@ -108,10 +101,10 @@ export function updateSyncTransactionApprovedBy(id: string, approvedByIds: strin
     ).run();
   }
   db.update(s.checkpointReviews).set({ updatedAt: now() }).where(eq(s.checkpointReviews.id, id)).run();
-  return getSyncTransaction(id);
+  return getCheckpointReview(id);
 }
 
-export function updateSyncTransactionRejectedBy(id: string, rejectedByIds: string): CheckpointReview {
+export function updateCheckpointReviewRejectedBy(id: string, rejectedByIds: string): CheckpointReview {
   const db = _getDb();
   const agentIds = rejectedByIds.split(",").map(s => s.trim()).filter(Boolean);
   for (const agentId of agentIds) {
@@ -123,19 +116,19 @@ export function updateSyncTransactionRejectedBy(id: string, rejectedByIds: strin
     ).run();
   }
   db.update(s.checkpointReviews).set({ updatedAt: now() }).where(eq(s.checkpointReviews.id, id)).run();
-  return getSyncTransaction(id);
+  return getCheckpointReview(id);
 }
 
-export function updateSyncTransactionGateId(id: string, gateId: string): CheckpointReview {
+export function updateCheckpointReviewGateId(id: string, gateId: string): CheckpointReview {
   const db = _getDb();
   db.update(s.checkpointReviews).set({
     gateId,
     updatedAt: now(),
   }).where(eq(s.checkpointReviews.id, id)).run();
-  return getSyncTransaction(id);
+  return getCheckpointReview(id);
 }
 
-export function listSyncTransactions(opts?: {
+export function listCheckpointReviews(opts?: {
   sessionId?: string;
   taskId?: string;
   status?: string;
@@ -152,7 +145,7 @@ export function listSyncTransactions(opts?: {
   return rows.map(row => hydrateReview(db, row));
 }
 
-export function listActiveSyncTransactions(opts?: {
+export function listActiveCheckpointReviews(opts?: {
   sessionId?: string;
   taskId?: string;
 }): CheckpointReview[] {

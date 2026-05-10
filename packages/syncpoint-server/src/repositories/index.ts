@@ -9,7 +9,7 @@ export { createTask, getTask, listTasks, assignTask, updateTaskStatus } from "./
 export { createCheckpoint, listCheckpoints, createDiaryEntry, listDiaryEntries } from "./checkpoint-repository.js";
 export { createHandoff, acceptHandoff, rejectHandoff, getLatestHandoffForReceiver } from "./handoff-repository.js";
 export { createContract, getContract, getContractForTask, updateContractStatus } from "./contract-repository.js";
-export { createCapsule, listCapsules, getLatestCapsule } from "./context-snapshot-repository.js";
+export { createContextSnapshot, listContextSnapshots, getLatestContextSnapshot } from "./context-snapshot-repository.js";
 export { createPinnedMemory, getPinnedMemory, getPinnedMemoryByKey, listPinnedMemories, updatePinnedMemory, deletePinnedMemory, collectPinnedMemories } from "./memory-repository.js";
 export { listEvents } from "./event-repository.js";
 export { getResumeContext, enforceContextPolicy } from "./resume-context-repository.js";

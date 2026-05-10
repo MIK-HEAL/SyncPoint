@@ -58,7 +58,7 @@ beforeAll(() => {
     currentUnderstanding: "",
     changedFiles: "",
   });
-  repo.createCapsule({
+  repo.createContextSnapshot({
     taskId,
     agentId: agent2Id,
     checkpointId: cp.id,
@@ -97,7 +97,7 @@ describe("P4C: loopResume constraint enforcement", () => {
     expect(() => loopResume({
       agentId: agent2Id,
       taskId,
-      contextMode: "capsule-locked",
+      contextMode: "snapshot-locked",
     })).toThrow(/Constraint violation/);
   });
 
@@ -201,7 +201,7 @@ describe("P4C: wakeStart constraint enforcement", () => {
       currentUnderstanding: "",
       changedFiles: "",
     });
-    repo.createCapsule({
+    repo.createContextSnapshot({
       taskId: wakeTaskId,
       agentId: agent2Id,
       checkpointId: wCp.id,
@@ -260,7 +260,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
       currentUnderstanding: "",
       changedFiles: "",
     });
-    repo.createCapsule({
+    repo.createContextSnapshot({
       taskId: wakeNextTaskId,
       agentId: agent1Id,
       checkpointId: wnCp.id,

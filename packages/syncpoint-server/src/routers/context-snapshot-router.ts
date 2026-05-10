@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { createCapsule, listCapsules, getLatestCapsule } from "../repositories.js";
+import { createContextSnapshot, listContextSnapshots, getLatestContextSnapshot } from "../repositories.js";
 import { t, publicProcedure } from "./_trpc.js";
 
-export const capsuleRouter = t.router({
+export const contextSnapshotRouter = t.router({
   create: publicProcedure
     .input(z.object({
       taskId: z.string(),
@@ -12,13 +12,13 @@ export const capsuleRouter = t.router({
       summary: z.string().default(""),
       payloadJson: z.string().default("{}"),
     }))
-    .mutation(({ input }) => createCapsule(input)),
+    .mutation(({ input }) => createContextSnapshot(input)),
 
   list: publicProcedure
     .input(z.object({ taskId: z.string() }))
-    .query(({ input }) => listCapsules(input.taskId)),
+    .query(({ input }) => listContextSnapshots(input.taskId)),
 
   getLatest: publicProcedure
     .input(z.object({ taskId: z.string(), agentId: z.string() }))
-    .query(({ input }) => getLatestCapsule(input.taskId, input.agentId)),
+    .query(({ input }) => getLatestContextSnapshot(input.taskId, input.agentId)),
 });

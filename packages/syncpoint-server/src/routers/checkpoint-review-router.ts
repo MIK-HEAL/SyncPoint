@@ -14,7 +14,7 @@ import {
   stxList,
 } from "../application/checkpoint-review-service.js";
 
-export const syncTransactionRouter = t.router({
+export const checkpointReviewRouter = t.router({
   create: publicProcedure
     .input(z.object({
       sessionId: z.string(),

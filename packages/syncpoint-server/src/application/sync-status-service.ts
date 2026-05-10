@@ -322,7 +322,7 @@ export function buildSnapshot(input?: SnapshotInput) {
     if (agentAssignments.length > 0) {
       for (const ta of agentAssignments) {
         try {
-          const capsule = repo.getLatestCapsule(ta.taskId, a.id);
+          const capsule = repo.getLatestContextSnapshot(ta.taskId, a.id);
           let wr: string[] = [];
           if (capsule) {
             try { const p = JSON.parse(capsule.payloadJson ?? "{}"); if (Array.isArray(p.workingResources)) wr = p.workingResources; } catch { /* ok */ }
