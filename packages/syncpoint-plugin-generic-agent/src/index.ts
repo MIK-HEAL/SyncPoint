@@ -18,8 +18,8 @@ import {
   getResourceMatcher,
   registerOperationValidator,
   getValidatorsForOperation,
-  registerConstraintRuleEvaluator,
-  getConstraintRuleEvaluator,
+  registerConstraintEvaluator,
+  getConstraintEvaluator,
   registerScopeMatcher,
   getScopeMatcher,
 } from "syncpoint-core";
@@ -57,8 +57,8 @@ export function registerGenericAgentPlugin(): void {
   }
 
   // 3. Constraint rule evaluator: resource_forbidden
-  if (!getConstraintRuleEvaluator("resource_forbidden")) {
-    registerConstraintRuleEvaluator(resourceForbiddenEvaluator);
+  if (!getConstraintEvaluator("resource_forbidden")) {
+    registerConstraintEvaluator(resourceForbiddenEvaluator);
   }
 
   // 4. Scope matchers for projection appliesTo filtering

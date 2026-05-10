@@ -122,7 +122,22 @@ export function closeDb(): void {
 }
 
 export function runMigrations(db: Database.Database): void {
+  // ── Breaking Schema Reset (v0.2) ──
+  // No backward compatibility. No additive migrations. Delete local DB to rebuild.
   db.exec(`
+    CREATE TABLE IF NOT EXISTS runtime (
+      id              TEXT PRIMARY KEY,
+      name            TEXT NOT NULL,
+      kind            TEXT NOT NULL DEFAULT 'local-mcp',
+      provider        TEXT NOT NULL DEFAULT '',
+      host            TEXT NOT NULL DEFAULT '',
+      workspace_root  TEXT NOT NULL DEFAULT '',
+      agent_id        TEXT,
+      status          TEXT NOT NULL DEFAULT 'ACTIVE',
+      last_seen_at    TEXT NOT NULL DEFAULT '',
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS agent (
       id              TEXT PRIMARY KEY,
       name            TEXT NOT NULL,
@@ -147,18 +162,18 @@ export function runMigrations(db: Database.Database): void {
     );
 
     CREATE TABLE IF NOT EXISTS checkpoint (
-      id                   TEXT PRIMARY KEY,
-      task_id              TEXT NOT NULL REFERENCES task(id),
-      agent_id             TEXT NOT NULL REFERENCES agent(id),
-      summary              TEXT NOT NULL,
-      progress             TEXT NOT NULL DEFAULT '',
+      id                    TEXT PRIMARY KEY,
+      task_id               TEXT NOT NULL REFERENCES task(id),
+      agent_id              TEXT NOT NULL REFERENCES agent(id),
+      summary               TEXT NOT NULL,
+      progress              TEXT NOT NULL DEFAULT '',
       current_understanding TEXT NOT NULL DEFAULT '',
-      changed_files        TEXT NOT NULL DEFAULT '',
-      risks                TEXT NOT NULL DEFAULT '',
-      blockers             TEXT NOT NULL DEFAULT '',
-      next_steps           TEXT NOT NULL DEFAULT '',
-      need_sync            INTEGER NOT NULL DEFAULT 0,
-      created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+      changed_files         TEXT NOT NULL DEFAULT '',
+      risks                 TEXT NOT NULL DEFAULT '',
+      blockers              TEXT NOT NULL DEFAULT '',
+      next_steps            TEXT NOT NULL DEFAULT '',
+      need_sync             INTEGER NOT NULL DEFAULT 0,
+      created_at            TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS diary_entry (
@@ -198,33 +213,24 @@ export function runMigrations(db: Database.Database): void {
       updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS context_capsule (
-      id                   TEXT PRIMARY KEY,
-      task_id              TEXT NOT NULL REFERENCES task(id),
-      agent_id             TEXT NOT NULL REFERENCES agent(id),
-      checkpoint_id        TEXT NOT NULL REFERENCES checkpoint(id),
-      goal                 TEXT NOT NULL DEFAULT '',
-      current_phase        TEXT NOT NULL DEFAULT '',
-      confirmed_decisions  TEXT NOT NULL DEFAULT '',
-      interface_contract   TEXT NOT NULL DEFAULT '',
-      working_files        TEXT NOT NULL DEFAULT '',
-      completed_work       TEXT NOT NULL DEFAULT '',
-      remaining_work       TEXT NOT NULL DEFAULT '',
-      risks                TEXT NOT NULL DEFAULT '',
-      blockers             TEXT NOT NULL DEFAULT '',
-      next_steps           TEXT NOT NULL DEFAULT '',
-      resume_prompt        TEXT NOT NULL DEFAULT '',
-      intent_scope         TEXT NOT NULL DEFAULT '',
-      non_goals            TEXT NOT NULL DEFAULT '',
-      verified_facts       TEXT NOT NULL DEFAULT '',
-      unverified_claims    TEXT NOT NULL DEFAULT '',
-      evidence_refs        TEXT NOT NULL DEFAULT '',
-      active_constraints   TEXT NOT NULL DEFAULT '',
-      do_not_touch         TEXT NOT NULL DEFAULT '',
-      handoff_instructions TEXT NOT NULL DEFAULT '',
-      validation_status    TEXT NOT NULL DEFAULT '',
-      stale_reason         TEXT NOT NULL DEFAULT '',
-      created_at           TEXT NOT NULL DEFAULT (datetime('now'))
+    -- Context Snapshot (replaces context_capsule wide table)
+    CREATE TABLE IF NOT EXISTS context_snapshot (
+      id              TEXT PRIMARY KEY,
+      task_id         TEXT NOT NULL REFERENCES task(id),
+      agent_id        TEXT NOT NULL REFERENCES agent(id),
+      checkpoint_id   TEXT NOT NULL REFERENCES checkpoint(id),
+      kind            TEXT NOT NULL DEFAULT 'checkpoint',
+      summary         TEXT NOT NULL DEFAULT '',
+      payload_json    TEXT NOT NULL DEFAULT '{}',
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS context_snapshot_resource (
+      id              TEXT PRIMARY KEY,
+      snapshot_id     TEXT NOT NULL REFERENCES context_snapshot(id),
+      resource_type   TEXT NOT NULL,
+      locator         TEXT NOT NULL,
+      metadata        TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS event (
@@ -399,17 +405,25 @@ export function runMigrations(db: Database.Database): void {
       updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Resource Claim (normalized — no resourcesJson)
     CREATE TABLE IF NOT EXISTS resource_claim (
       id              TEXT PRIMARY KEY,
       actor_id        TEXT NOT NULL,
       task_id         TEXT NOT NULL,
       session_id      TEXT NOT NULL DEFAULT '',
       resource_type   TEXT NOT NULL,
-      resources_json  TEXT NOT NULL,
       mode            TEXT NOT NULL DEFAULT 'exclusive',
       status          TEXT NOT NULL DEFAULT 'ACTIVE',
       created_at      TEXT NOT NULL DEFAULT (datetime('now')),
       released_at     TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS resource_claim_resource (
+      id              TEXT PRIMARY KEY,
+      claim_id        TEXT NOT NULL REFERENCES resource_claim(id),
+      resource_type   TEXT NOT NULL,
+      locator         TEXT NOT NULL,
+      metadata        TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS file_claim (
@@ -424,6 +438,77 @@ export function runMigrations(db: Database.Database): void {
       released_at TEXT NOT NULL DEFAULT ''
     );
 
+    -- SyncGate (normalized — no CSV fields)
+    CREATE TABLE IF NOT EXISTS sync_gate (
+      id                      TEXT PRIMARY KEY,
+      session_id              TEXT NOT NULL DEFAULT '',
+      task_id                 TEXT NOT NULL,
+      requested_by_agent_id   TEXT NOT NULL,
+      reason                  TEXT NOT NULL DEFAULT 'manual_request',
+      description             TEXT NOT NULL DEFAULT '',
+      related_checkpoint_id   TEXT NOT NULL DEFAULT '',
+      status                  TEXT NOT NULL DEFAULT 'NEEDS_SYNC',
+      decision_summary        TEXT NOT NULL DEFAULT '',
+      policy_json             TEXT NOT NULL DEFAULT '',
+      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_gate_required_agent (
+      id          TEXT PRIMARY KEY,
+      gate_id     TEXT NOT NULL REFERENCES sync_gate(id),
+      agent_id    TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_gate_req_agent ON sync_gate_required_agent(gate_id, agent_id);
+
+    CREATE TABLE IF NOT EXISTS sync_gate_resource (
+      id              TEXT PRIMARY KEY,
+      gate_id         TEXT NOT NULL REFERENCES sync_gate(id),
+      resource_type   TEXT NOT NULL,
+      locator         TEXT NOT NULL,
+      metadata        TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_gate_related_claim (
+      id          TEXT PRIMARY KEY,
+      gate_id     TEXT NOT NULL REFERENCES sync_gate(id),
+      claim_id    TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_gate_vote (
+      id          TEXT PRIMARY KEY,
+      gate_id     TEXT NOT NULL REFERENCES sync_gate(id),
+      agent_id    TEXT NOT NULL,
+      vote        TEXT NOT NULL,
+      summary     TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_gate_vote_agent ON sync_gate_vote(gate_id, agent_id);
+
+    -- Checkpoint Review (replaces sync_transaction — no CSV fields)
+    CREATE TABLE IF NOT EXISTS checkpoint_review (
+      id                      TEXT PRIMARY KEY,
+      session_id              TEXT NOT NULL,
+      task_id                 TEXT NOT NULL,
+      checkpoint_id           TEXT NOT NULL,
+      requesting_agent_id     TEXT NOT NULL,
+      gate_id                 TEXT NOT NULL DEFAULT '',
+      status                  TEXT NOT NULL DEFAULT 'OPEN',
+      decision_summary        TEXT NOT NULL DEFAULT '',
+      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS checkpoint_review_approver (
+      id          TEXT PRIMARY KEY,
+      review_id   TEXT NOT NULL REFERENCES checkpoint_review(id),
+      agent_id    TEXT NOT NULL,
+      role        TEXT NOT NULL DEFAULT 'required',
+      decided_at  TEXT NOT NULL DEFAULT ''
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_review_approver ON checkpoint_review_approver(review_id, agent_id);
+
+    -- Operation (normalized — no targetResourcesJson)
     CREATE TABLE IF NOT EXISTS operation (
       id                      TEXT PRIMARY KEY,
       type                    TEXT NOT NULL,
@@ -432,7 +517,6 @@ export function runMigrations(db: Database.Database): void {
       session_id              TEXT NOT NULL DEFAULT '',
       title                   TEXT NOT NULL,
       summary                 TEXT NOT NULL DEFAULT '',
-      target_resources_json   TEXT NOT NULL DEFAULT '[]',
       payload_ref             TEXT NOT NULL DEFAULT '',
       status                  TEXT NOT NULL DEFAULT 'DRAFT',
       check_result            TEXT NOT NULL DEFAULT '',
@@ -441,154 +525,42 @@ export function runMigrations(db: Database.Database): void {
       updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS write_permit (
-      id                      TEXT PRIMARY KEY,
-      actor_id                TEXT NOT NULL,
-      task_id                 TEXT NOT NULL,
-      session_id              TEXT NOT NULL DEFAULT '',
-      resources_json          TEXT NOT NULL DEFAULT '[]',
-      intent                  TEXT NOT NULL,
-      operation_id            TEXT NOT NULL DEFAULT '',
-      guarded_root            TEXT NOT NULL DEFAULT '',
-      base_hashes_json        TEXT NOT NULL DEFAULT '[]',
-      expires_at              TEXT NOT NULL,
-      single_use              INTEGER NOT NULL DEFAULT 1,
-      status                  TEXT NOT NULL,
-      decision_json           TEXT NOT NULL,
-      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at              TEXT NOT NULL DEFAULT (datetime('now')),
-      consumed_at             TEXT NOT NULL DEFAULT ''
-    );
-
-    CREATE TABLE IF NOT EXISTS patch_proposal (
-      id                      TEXT PRIMARY KEY,
-      session_id              TEXT NOT NULL,
-      task_id                 TEXT NOT NULL,
-      agent_id                TEXT NOT NULL,
-      title                   TEXT NOT NULL,
-      summary                 TEXT NOT NULL DEFAULT '',
-      patch_text              TEXT NOT NULL,
-      touched_files           TEXT NOT NULL DEFAULT '',
-      related_claim_ids       TEXT NOT NULL DEFAULT '',
-      status                  TEXT NOT NULL DEFAULT 'DRAFT',
-      check_result            TEXT NOT NULL DEFAULT '',
-      decision_summary        TEXT NOT NULL DEFAULT '',
-      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS sync_transaction (
-      id                      TEXT PRIMARY KEY,
-      session_id              TEXT NOT NULL,
-      task_id                 TEXT NOT NULL,
-      checkpoint_id           TEXT NOT NULL,
-      requesting_agent_id     TEXT NOT NULL,
-      required_approver_ids   TEXT NOT NULL,
-      approved_by_ids         TEXT NOT NULL DEFAULT '',
-      rejected_by_ids         TEXT NOT NULL DEFAULT '',
-      gate_id                 TEXT NOT NULL DEFAULT '',
-      status                  TEXT NOT NULL DEFAULT 'OPEN',
-      decision_summary        TEXT NOT NULL DEFAULT '',
-      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS sync_gate (
-      id                      TEXT PRIMARY KEY,
-      session_id              TEXT NOT NULL DEFAULT '',
-      task_id                 TEXT NOT NULL,
-      requested_by_agent_id   TEXT NOT NULL,
-      required_agent_ids      TEXT NOT NULL,
-      acked_agent_ids         TEXT NOT NULL DEFAULT '',
-      reason                  TEXT NOT NULL DEFAULT 'manual_request',
-      description             TEXT NOT NULL DEFAULT '',
-      related_files           TEXT NOT NULL DEFAULT '',
-      related_resources_json  TEXT NOT NULL DEFAULT '',
-      related_checkpoint_id   TEXT NOT NULL DEFAULT '',
-      related_claim_ids       TEXT NOT NULL DEFAULT '',
-      status                  TEXT NOT NULL DEFAULT 'NEEDS_SYNC',
-      decision_summary        TEXT NOT NULL DEFAULT '',
-      policy_json             TEXT NOT NULL DEFAULT '',
-      created_at              TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at              TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS runtime (
+    CREATE TABLE IF NOT EXISTS operation_resource (
       id              TEXT PRIMARY KEY,
-      name            TEXT NOT NULL,
-      kind            TEXT NOT NULL DEFAULT 'local-mcp',
-      provider        TEXT NOT NULL DEFAULT '',
-      host            TEXT NOT NULL DEFAULT '',
-      workspace_root  TEXT NOT NULL DEFAULT '',
-      agent_id        TEXT,
-      status          TEXT NOT NULL DEFAULT 'ACTIVE',
-      last_seen_at    TEXT NOT NULL DEFAULT '',
-      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+      operation_id    TEXT NOT NULL REFERENCES operation(id),
+      resource_type   TEXT NOT NULL,
+      locator         TEXT NOT NULL,
+      metadata        TEXT NOT NULL DEFAULT ''
     );
-  `);
 
-  // ── Additive migrations (safe to re-run) ──
-  const addColumn = (table: string, col: string, def: string) => {
-    try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); } catch { /* already exists */ }
-  };
-  // P11 runtime identity
-  addColumn("agent", "runtime_id", "TEXT");
-  // Relationship-mode release migration
-  addColumn("orchestration_session", "relationship_mode", "TEXT NOT NULL DEFAULT 'manager-delegate'");
-  // P12 extended capsule fields
-  addColumn("context_capsule", "intent_scope", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "non_goals", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "verified_facts", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "unverified_claims", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "evidence_refs", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "active_constraints", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "do_not_touch", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "handoff_instructions", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "validation_status", "TEXT NOT NULL DEFAULT ''");
-  addColumn("context_capsule", "stale_reason", "TEXT NOT NULL DEFAULT ''");
-  // P1 project memory governance
-  addColumn("project_memory", "fingerprint", "TEXT NOT NULL DEFAULT ''");
-  addColumn("project_memory", "supersedes", "TEXT");
-  addColumn("project_memory", "superseded_by", "TEXT");
-  // P2 project memory V2 schema
-  addColumn("project_memory", "kind", "TEXT NOT NULL DEFAULT 'fact'");
-  addColumn("project_memory", "projection_target", "TEXT");
-  addColumn("project_memory", "applies_to", "TEXT NOT NULL DEFAULT ''");
-  addColumn("project_memory", "severity", "TEXT NOT NULL DEFAULT 'info'");
-  addColumn("project_memory", "validity_status", "TEXT NOT NULL DEFAULT 'fresh'");
-  addColumn("project_memory", "validity_stale_reason", "TEXT NOT NULL DEFAULT ''");
-  // PR4 typed constraint validator
-  addColumn("project_memory", "validator_type", "TEXT NOT NULL DEFAULT ''");
-  addColumn("project_memory", "validator_config", "TEXT NOT NULL DEFAULT ''");
-  // Plugin architecture: generic resource_claim + operation + sync_gate forward compat
-  addColumn("sync_gate", "related_resources_json", "TEXT NOT NULL DEFAULT ''");
-  // SyncGate liveness policy
-  addColumn("sync_gate", "policy_json", "TEXT NOT NULL DEFAULT ''");
-  addColumn("write_permit", "guarded_root", "TEXT NOT NULL DEFAULT ''");
-  // SyncGate vote table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sync_gate_vote (
-      id          TEXT PRIMARY KEY,
-      gate_id     TEXT NOT NULL,
-      agent_id    TEXT NOT NULL,
-      vote        TEXT NOT NULL,
-      summary     TEXT NOT NULL DEFAULT '',
-      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    -- Write Permit (normalized — no resourcesJson/baseHashesJson)
+    CREATE TABLE IF NOT EXISTS write_permit (
+      id              TEXT PRIMARY KEY,
+      actor_id        TEXT NOT NULL,
+      task_id         TEXT NOT NULL,
+      session_id      TEXT NOT NULL DEFAULT '',
+      intent          TEXT NOT NULL,
+      operation_id    TEXT NOT NULL DEFAULT '',
+      guarded_root    TEXT NOT NULL DEFAULT '',
+      expires_at      TEXT NOT NULL,
+      single_use      INTEGER NOT NULL DEFAULT 1,
+      status          TEXT NOT NULL,
+      decision_json   TEXT NOT NULL,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+      consumed_at     TEXT NOT NULL DEFAULT ''
     );
-  `);
-  // Migration: deduplicate legacy votes before creating unique index.
-  // Old schema allowed multiple votes per (gate_id, agent_id). Keep only the
-  // latest row (highest rowid) for each pair so the unique index can be created.
-  db.exec(`
-    DELETE FROM sync_gate_vote
-    WHERE rowid NOT IN (
-      SELECT MAX(rowid) FROM sync_gate_vote GROUP BY gate_id, agent_id
+
+    CREATE TABLE IF NOT EXISTS write_permit_resource (
+      id              TEXT PRIMARY KEY,
+      permit_id       TEXT NOT NULL REFERENCES write_permit(id),
+      resource_type   TEXT NOT NULL,
+      locator         TEXT NOT NULL,
+      base_hash       TEXT NOT NULL DEFAULT '',
+      metadata        TEXT NOT NULL DEFAULT ''
     );
-  `);
-  // Unique constraint: one vote per agent per gate (last vote wins via upsert in repo)
-  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_gate_vote_agent ON sync_gate_vote(gate_id, agent_id);`);
-  // Agent manifest table
-  db.exec(`
+
+    -- Agent Manifest
     CREATE TABLE IF NOT EXISTS agent_manifest (
       agent_id                    TEXT PRIMARY KEY,
       capabilities_json           TEXT NOT NULL DEFAULT '[]',
@@ -599,26 +571,29 @@ export function runMigrations(db: Database.Database): void {
       created_at                  TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at                  TEXT NOT NULL DEFAULT (datetime('now'))
     );
-  `);
-  // Negotiation session table
-  db.exec(`
+
+    -- Negotiation Session (normalized — no participantIds CSV)
     CREATE TABLE IF NOT EXISTS negotiation_session (
-      id                  TEXT PRIMARY KEY,
-      gate_id             TEXT NOT NULL,
-      participant_ids     TEXT NOT NULL,
-      status              TEXT NOT NULL DEFAULT 'OPEN',
-      current_round       INTEGER NOT NULL DEFAULT 0,
-      config_json         TEXT NOT NULL DEFAULT '{}',
-      round_started_at    TEXT,
-      deadline_at         TEXT,
+      id                   TEXT PRIMARY KEY,
+      gate_id              TEXT NOT NULL,
+      status               TEXT NOT NULL DEFAULT 'OPEN',
+      current_round        INTEGER NOT NULL DEFAULT 0,
+      config_json          TEXT NOT NULL DEFAULT '{}',
+      round_started_at     TEXT,
+      deadline_at          TEXT,
       resolved_by_agent_id TEXT,
-      resolution_summary  TEXT,
-      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+      resolution_summary   TEXT,
+      created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
     );
-  `);
-  // Negotiation message table
-  db.exec(`
+
+    CREATE TABLE IF NOT EXISTS negotiation_participant (
+      id          TEXT PRIMARY KEY,
+      session_id  TEXT NOT NULL REFERENCES negotiation_session(id),
+      agent_id    TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_neg_participant ON negotiation_participant(session_id, agent_id);
+
     CREATE TABLE IF NOT EXISTS negotiation_message (
       id          TEXT PRIMARY KEY,
       session_id  TEXT NOT NULL,
@@ -628,13 +603,15 @@ export function runMigrations(db: Database.Database): void {
       content     TEXT NOT NULL,
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
-  `);
-  // Memory version counter — single row table
-  db.exec(`
+
+    -- Memory version counter
     CREATE TABLE IF NOT EXISTS memory_version (
-      id    INTEGER PRIMARY KEY CHECK (id = 1),
+      id      INTEGER PRIMARY KEY CHECK (id = 1),
       version INTEGER NOT NULL DEFAULT 0
     );
     INSERT OR IGNORE INTO memory_version (id, version) VALUES (1, 0);
   `);
+
+  // FTS5 full-text search for project memory
+  db.exec(schema.PROJECT_MEMORY_FTS_SQL);
 }

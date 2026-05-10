@@ -33,8 +33,8 @@ export {
   HandoffCreateSchema,
   PeerContractSchema,
   PeerContractCreateSchema,
-  ContextCapsuleSchema,
-  ContextCapsuleCreateSchema,
+  ContextSnapshotSchema,
+  ContextSnapshotCreateSchema,
   EventSchema,
   StatusResponseSchema,
 } from "./models.js";
@@ -53,8 +53,9 @@ export type {
   HandoffCreate,
   PeerContract,
   PeerContractCreate,
-  ContextCapsule,
-  ContextCapsuleCreate,
+  ContextSnapshot,
+  ContextSnapshotCreate,
+  ContextSnapshotPayload,
   Event,
   StatusResponse,
 } from "./models.js";
@@ -106,9 +107,9 @@ export type {
   Validity,
 } from "./project-memory.js";
 
-// P3A Projection Compiler
+// Reality Projection
 export {
-  compileProjection,
+  buildRealityProjection,
   computeProjectionCacheKey,
   computeProjectionLookupKey,
   computeContentHash,
@@ -116,48 +117,48 @@ export {
   registerScopeMatcher,
   getScopeMatcher,
   clearScopeMatcherRegistry,
-} from "./projection.js";
+} from "./reality-projection.js";
 
 export type {
-  ProjectedReality,
-  ProjectionItem,
+  RealityProjection,
+  ProjectedMemoryItem,
   ProjectionScope,
-  ProjectionConflict,
+  RealityProjectionConflict,
   ProjectionSource,
-  CapsulePatch,
+  ContextPatch,
   ProjectionCreatedFrom,
   ProjectionValidityStatus,
-  ProjectionInput,
+  MemoryProjectionInput,
   ProjectionContext,
   ProjectionRoute,
   ScopeMatcher,
-} from "./projection.js";
+} from "./reality-projection.js";
 
-// P4A Constraint Runtime + PR4 Typed Validators
+// Constraint Evaluation
 export {
   evaluateConstraints,
   buildConstraintManifest,
   parseRuntimeSpec,
   resolveRuntimeSpec,
-  registerConstraintRuleEvaluator,
-  getConstraintRuleEvaluator,
-  clearConstraintRuleEvaluatorRegistry,
+  registerConstraintEvaluator,
+  getConstraintEvaluator,
+  clearConstraintEvaluatorRegistry,
   isConstraintRuleKnown,
-} from "./constraint-runtime.js";
+} from "./constraint-evaluation.js";
 
 export type {
-  RuntimeAction,
+  ConstraintAction,
   ConstraintViolation,
   ConstraintDecision,
   ConstraintManifest,
   ConstraintInput,
   ConstraintRuleType,
-  ConstraintRuntimeSpec,
-  ConstraintRuleEvaluator,
-} from "./constraint-runtime.js";
+  ConstraintRuleSpec,
+  ConstraintEvaluator,
+} from "./constraint-evaluation.js";
 
 // Prompt Template Engine
-export { formatResumePrompt, formatProjectedReality } from "./prompt-templates.js";
+export { formatResumePrompt, formatRealityProjection } from "./prompt-templates.js";
 export type { PromptFormat } from "./prompt-templates.js";
 
 // Agent Adapter Protocol
@@ -476,25 +477,25 @@ export type {
   ModeActionVerdict,
 } from "./relationship-mode.js";
 
-// SyncTransaction
+// CheckpointReview
 export {
-  SyncTransactionStatus,
-  SYNC_TX_TRANSITIONS,
-  validateSyncTxTransition,
-  SyncTransactionSchema,
-  SyncTransactionCreateSchema,
-  parseTxIdList,
+  CheckpointReviewStatus,
+  CHECKPOINT_REVIEW_TRANSITIONS,
+  validateCheckpointReviewTransition,
+  CheckpointReviewSchema,
+  CheckpointReviewCreateSchema,
+  parseIdListCsv,
   allApproved,
   hasRejection,
   pendingApprovers,
-  isTxTerminal,
-  isTxBlocking,
-} from "./sync-transaction.js";
+  isReviewTerminal,
+  isReviewBlocking,
+} from "./checkpoint-review.js";
 
 export type {
-  SyncTransaction,
-  SyncTransactionCreate,
-} from "./sync-transaction.js";
+  CheckpointReview,
+  CheckpointReviewCreate,
+} from "./checkpoint-review.js";
 
 // Runtime Identity
 export {

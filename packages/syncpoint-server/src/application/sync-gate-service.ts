@@ -137,8 +137,13 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
   // Add to acked list
   const acked = parseIdList(gate.ackedAgentIds);
   if (!acked.includes(agentId)) {
-    acked.push(agentId);
-    gate = repo.updateSyncGateAckedAgents(gate.id, acked.join(","));
+    repo.createGateVote({
+      gateId: gate.id,
+      agentId,
+      vote: GateVoteKind.ACK,
+      summary: summary ?? "",
+    });
+    gate = repo.getSyncGate(gate.id);
   }
 
   logEvent(
@@ -175,7 +180,12 @@ export function sgVote(gateId: string, agentId: string, vote: string, summary?: 
   }
 
   // Validate vote kind
-  const validKinds = Object.values(GateVoteKind) as string[];
+  const validKinds = [
+    GateVoteKind.APPROVE,
+    GateVoteKind.REJECT,
+    GateVoteKind.ABSTAIN,
+    GateVoteKind.ESCALATE,
+  ] as string[];
   if (!validKinds.includes(vote)) {
     throw new Error(`Invalid vote kind "${vote}". Must be one of: ${validKinds.join(", ")}`);
   }

@@ -21,7 +21,7 @@ import type {
   PreparedContext,
   ResumeContext,
   ProjectMemory,
-  ContextCapsule,
+  ContextSnapshot,
   Handoff,
 } from "syncpoint-core";
 import * as repo from "../repositories.js";
@@ -107,12 +107,14 @@ function formatReviewPrompt(
   }
 
   if (capsule) {
+    let p: Record<string, unknown> = {};
+    try { p = JSON.parse(capsule.payloadJson ?? "{}"); } catch { /* ok */ }
     lines.push("## Context Capsule");
-    lines.push(`- **Goal**: ${capsule.goal}`);
-    lines.push(`- **Phase**: ${capsule.currentPhase}`);
-    if (capsule.completedWork) lines.push(`- **Completed**: ${capsule.completedWork}`);
-    if (capsule.remainingWork) lines.push(`- **Remaining**: ${capsule.remainingWork}`);
-    if (capsule.nextSteps) lines.push(`- **Next Steps**: ${capsule.nextSteps}`);
+    if (p.goal) lines.push(`- **Goal**: ${p.goal}`);
+    if (p.currentPhase) lines.push(`- **Phase**: ${p.currentPhase}`);
+    if (p.completedWork) lines.push(`- **Completed**: ${p.completedWork}`);
+    if (p.remainingWork) lines.push(`- **Remaining**: ${p.remainingWork}`);
+    if (Array.isArray(p.nextSteps) && p.nextSteps.length) lines.push(`- **Next Steps**: ${p.nextSteps.join(", ")}`);
     lines.push("");
   }
 
@@ -176,7 +178,7 @@ function formatHandoffReceivePrompt(
   task: { id: string; title: string; status: string } | null,
   agent: { id: string; name: string; role: string } | null,
   handoff: Handoff | null,
-  senderCapsule: ContextCapsule | null,
+  senderCapsule: ContextSnapshot | null,
   receiverResume: ResumeContext | null,
   projectMems: Array<{ id: string; category: string; title: string; content: string }>,
 ): string {
@@ -202,17 +204,19 @@ function formatHandoffReceivePrompt(
   }
 
   if (senderCapsule) {
+    let p: Record<string, unknown> = {};
+    try { p = JSON.parse(senderCapsule.payloadJson ?? "{}"); } catch { /* ok */ }
     lines.push("## Sender Context Capsule");
-    lines.push(`- **Goal**: ${senderCapsule.goal}`);
-    lines.push(`- **Phase**: ${senderCapsule.currentPhase}`);
-    if (senderCapsule.completedWork) lines.push(`- **Completed**: ${senderCapsule.completedWork}`);
-    if (senderCapsule.remainingWork) lines.push(`- **Remaining**: ${senderCapsule.remainingWork}`);
-    if (senderCapsule.nextSteps) lines.push(`- **Next Steps**: ${senderCapsule.nextSteps}`);
-    if (senderCapsule.blockers) lines.push(`- **Blockers**: ${senderCapsule.blockers}`);
-    if (senderCapsule.resumePrompt) {
+    if (p.goal) lines.push(`- **Goal**: ${p.goal}`);
+    if (p.currentPhase) lines.push(`- **Phase**: ${p.currentPhase}`);
+    if (p.completedWork) lines.push(`- **Completed**: ${p.completedWork}`);
+    if (p.remainingWork) lines.push(`- **Remaining**: ${p.remainingWork}`);
+    if (Array.isArray(p.nextSteps) && p.nextSteps.length) lines.push(`- **Next Steps**: ${p.nextSteps.join(", ")}`);
+    if (Array.isArray(p.blockers) && p.blockers.length) lines.push(`- **Blockers**: ${p.blockers.join(", ")}`);
+    if (p.resumePrompt) {
       lines.push("");
       lines.push("### Resume Note");
-      lines.push(senderCapsule.resumePrompt);
+      lines.push(String(p.resumePrompt));
     }
     lines.push("");
   }
@@ -357,7 +361,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
   let taskInfo: PreparedContext["task"] = null;
   let agentInfo: PreparedContext["agent"] = null;
   let handoff: Handoff | null = null;
-  let senderCapsule: ContextCapsule | null = null;
+  let senderCapsule: ContextSnapshot | null = null;
 
   // Task-scoped intents need task+agent
   const needsTask = allSections.some(s =>
@@ -495,7 +499,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
         break;
       case "risks":
         present = approvedMems.some(m => m.category === "risk") ||
-          (resumeCtx?.latestCapsule?.risks ? true : false);
+          (resumeCtx?.latestCapsule?.payloadJson ? (() => { try { const p = JSON.parse(resumeCtx.latestCapsule!.payloadJson); return Array.isArray(p.risks) && p.risks.length > 0; } catch { return false; } })() : false);
         break;
       default:
         present = false;

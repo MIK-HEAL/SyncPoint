@@ -29,14 +29,17 @@ describe("Memory Switch Engine", () => {
     await ctx.rpc("contract.updateStatus", { id: contractId, status: "APPROVED" });
     await ctx.rpc("capsule.create", {
       taskId, agentId, checkpointId,
-      goal: "Implement auth API",
-      currentPhase: "implementation",
-      confirmedDecisions: "JWT auth",
-      workingResources: "src/auth/login.ts",
-      completedWork: "Schema defined",
-      remainingWork: "Implement handler",
-      nextSteps: "Write login endpoint",
-      resumePrompt: "Continue implementing POST /login with JWT.",
+      summary: "Implement auth API",
+      payloadJson: JSON.stringify({
+        goal: "Implement auth API",
+        currentPhase: "implementation",
+        confirmedDecisions: ["JWT auth"],
+        workingResources: ["src/auth/login.ts"],
+        completedWork: "Schema defined",
+        remainingWork: "Implement handler",
+        nextSteps: ["Write login endpoint"],
+        resumePrompt: "Continue implementing POST /login with JWT.",
+      }),
     });
   });
 
@@ -59,8 +62,9 @@ describe("Memory Switch Engine", () => {
 
     // Capsule
     expect(rc.latestCapsule).not.toBeNull();
-    expect(rc.latestCapsule.goal).toBe("Implement auth API");
-    expect(rc.latestCapsule.resumePrompt).toContain("POST /login");
+    const capsulePayload = JSON.parse(rc.latestCapsule.payloadJson);
+    expect(capsulePayload.goal).toBe("Implement auth API");
+    expect(capsulePayload.resumePrompt).toContain("POST /login");
 
     // Checkpoint
     expect(rc.latestCheckpoint).not.toBeNull();
@@ -68,7 +72,7 @@ describe("Memory Switch Engine", () => {
 
     // P3B: resumePrompt is stripped at transport (contains baked-in raw PM)
     // Verify structured fields carry the content instead
-    expect(rc.latestCapsule.goal).toContain("Implement auth API");
+    expect(capsulePayload.goal).toContain("Implement auth API");
     expect(rc.approvedContract.interfaceSpec).toContain("POST /login");
 
     // Quality checks all pass
@@ -91,7 +95,13 @@ describe("Memory Switch Engine", () => {
     await ctx.rpc("task.assign", { taskId: t2.id, agentId });
     const c2 = (await ctx.rpc("contract.create", { taskId: t2.id, title: "UI contract" })) as any;
     const cp2 = (await ctx.rpc("checkpoint.create", { taskId: t2.id, agentId, summary: "UI start" })) as any;
-    await ctx.rpc("capsule.create", { taskId: t2.id, agentId, checkpointId: cp2.id, goal: "Build UI" });
+    await ctx.rpc("capsule.create", {
+      taskId: t2.id,
+      agentId,
+      checkpointId: cp2.id,
+      summary: "Build UI",
+      payloadJson: JSON.stringify({ goal: "Build UI" }),
+    });
 
     const rc = (await ctx.rpc("resumeContext.get", { taskId: t2.id, agentId }, "GET")) as any;
     expect(rc.ready).toBe(false);

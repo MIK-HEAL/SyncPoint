@@ -3,21 +3,37 @@ import type { WriteDecision, WritePermit, WritePermitCreate, WriteResourceHash, 
 import * as s from "../schema.js";
 import { _getDb, createId, now } from "./_shared.js";
 
+// ── Internal helpers ────────────────────────────────
+
 function parseJson<T>(value: string, fallback: T): T {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 }
 
-function rowToWritePermit(row: any): WritePermit {
+function loadPermitResources(db: ReturnType<typeof _getDb>, permitId: string): { resources: ResourceRef[]; baseHashes: WriteResourceHash[] } {
+  const rows = db.select().from(s.writePermitResources)
+    .where(eq(s.writePermitResources.permitId, permitId))
+    .all();
+  const resources: ResourceRef[] = [];
+  const baseHashes: WriteResourceHash[] = [];
+  for (const r of rows) {
+    const ref: ResourceRef = { type: r.resourceType, locator: r.locator, metadata: r.metadata };
+    resources.push(ref);
+    baseHashes.push({ resource: ref, sha256: r.baseHash || undefined, exists: !!r.baseHash });
+  }
+  return { resources, baseHashes };
+}
+
+function rowToWritePermit(row: any, resources: ResourceRef[], baseHashes: WriteResourceHash[]): WritePermit {
   return {
     id: row.id,
     actorId: row.actorId,
     taskId: row.taskId,
     sessionId: row.sessionId ?? "",
-    resources: parseJson<ResourceRef[]>(row.resourcesJson, []),
+    resources,
     intent: row.intent,
     operationId: row.operationId ?? "",
     guardedRoot: row.guardedRoot ?? "",
-    baseHashes: parseJson<WriteResourceHash[]>(row.baseHashesJson, []),
+    baseHashes,
     expiresAt: row.expiresAt,
     singleUse: Boolean(row.singleUse),
     status: row.status,
@@ -28,6 +44,13 @@ function rowToWritePermit(row: any): WritePermit {
   };
 }
 
+function hydratePermit(db: ReturnType<typeof _getDb>, row: any): WritePermit {
+  const { resources, baseHashes } = loadPermitResources(db, row.id);
+  return rowToWritePermit(row, resources, baseHashes);
+}
+
+// ── CRUD ────────────────────────────────────────────
+
 export function createWritePermit(data: WritePermitCreate): WritePermit {
   const db = _getDb();
   const id = createId();
@@ -37,11 +60,9 @@ export function createWritePermit(data: WritePermitCreate): WritePermit {
     actorId: data.actorId,
     taskId: data.taskId,
     sessionId: data.sessionId ?? "",
-    resourcesJson: JSON.stringify(data.resources),
     intent: data.intent,
     operationId: data.operationId ?? "",
     guardedRoot: data.guardedRoot,
-    baseHashesJson: JSON.stringify(data.baseHashes ?? []),
     expiresAt: data.expiresAt,
     singleUse: data.singleUse,
     status: data.status,
@@ -50,6 +71,23 @@ export function createWritePermit(data: WritePermitCreate): WritePermit {
     updatedAt: ts,
     consumedAt: "",
   }).run();
+  // Build a baseHash lookup from data.baseHashes keyed by locator
+  const hashMap = new Map<string, WriteResourceHash>();
+  for (const bh of (data.baseHashes ?? [])) {
+    hashMap.set(bh.resource.locator, bh);
+  }
+  // Insert resources into join table
+  for (const ref of data.resources) {
+    const bh = hashMap.get(ref.locator);
+    db.insert(s.writePermitResources).values({
+      id: createId(),
+      permitId: id,
+      resourceType: ref.type,
+      locator: ref.locator,
+      baseHash: bh?.sha256 ?? "",
+      metadata: ref.metadata ?? "",
+    }).run();
+  }
   return getWritePermit(id);
 }
 
@@ -57,7 +95,7 @@ export function getWritePermit(id: string): WritePermit {
   const db = _getDb();
   const row = db.select().from(s.writePermits).where(eq(s.writePermits.id, id)).get();
   if (!row) throw new Error(`write_permit not found: ${id}`);
-  return rowToWritePermit(row);
+  return hydratePermit(db, row);
 }
 
 export function updateWritePermit(id: string, updates: Partial<Pick<WritePermit, "status" | "decision" | "consumedAt" | "expiresAt">>): WritePermit {
@@ -82,5 +120,5 @@ export function listWritePermits(opts?: { actorId?: string; taskId?: string; ses
   const rows = predicates.length === 0
     ? db.select().from(s.writePermits).all()
     : db.select().from(s.writePermits).where(and(...predicates)).all();
-  return rows.map(rowToWritePermit);
+  return rows.map(row => hydratePermit(db, row));
 }

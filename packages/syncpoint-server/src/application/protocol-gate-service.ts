@@ -15,12 +15,12 @@ import type {
   ProtocolRule,
   ProtocolGateSummary,
   CapsuleValidation,
-  ContextCapsule,
+  ContextSnapshot,
   Checkpoint,
   PeerContract,
-  ProjectedReality,
+  RealityProjection,
 } from "syncpoint-core";
-import { ContractStatus, SyncTransactionStatus } from "syncpoint-core";
+import { ContractStatus, CheckpointReviewStatus } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
 import { rcDetectConflicts } from "./resource-claim-service.js";
@@ -103,24 +103,24 @@ export function assembleProtocolGate(
     });
   }
 
-  // 6. Active sync transactions
-  const TX_BLOCKING: Set<string> = new Set([
-    SyncTransactionStatus.OPEN,
-    SyncTransactionStatus.WAITING_APPROVAL,
-    SyncTransactionStatus.REJECTED,
+  // 6. Active checkpoint reviews
+  const CR_BLOCKING: Set<string> = new Set([
+    CheckpointReviewStatus.OPEN,
+    CheckpointReviewStatus.WAITING_APPROVAL,
+    CheckpointReviewStatus.REJECTED,
   ]);
   try {
     const txns = repo.listActiveSyncTransactions({ taskId, sessionId });
     for (const tx of txns) {
-      const isBlocking = TX_BLOCKING.has(tx.status as string);
+      const isBlocking = CR_BLOCKING.has(tx.status as string);
       rules.push({
-        source: "sync-transaction",
+        source: "checkpoint-review",
         severity: isBlocking ? "hard" : "soft",
-        summary: `SyncTransaction ${tx.id}: ${tx.status}`,
+        summary: `CheckpointReview ${tx.id}: ${tx.status}`,
         entityId: tx.id,
       });
     }
-  } catch { /* no sync transactions module — ok */ }
+  } catch { /* no checkpoint reviews module — ok */ }
 
   // 7. Pending reviews
   try {
@@ -154,7 +154,7 @@ export function assembleProtocolGate(
   const hardBlockers = rules.filter(r => r.severity === "hard").map(r => r.summary);
   const hasBlockingGates = gateCheck.blocked;
   const hasHardConflicts = agentConflicts.some((c: any) => c.isHardConflict);
-  const hasActiveSubmittedTx = rules.some(r => r.source === "sync-transaction" && r.severity === "hard");
+  const hasActiveSubmittedTx = rules.some(r => r.source === "checkpoint-review" && r.severity === "hard");
   const blocked = hasBlockingGates || hasHardConflicts || hasActiveSubmittedTx;
 
   return {
@@ -166,7 +166,7 @@ export function assembleProtocolGate(
       contractConstraints: rules.filter(r => r.source === "peer-contract").length,
       resourceClaims: agentClaims.length,
       activeGates: gateCheck.blockingGates.length,
-      activeTransactions: rules.filter(r => r.source === "sync-transaction").length,
+      activeTransactions: rules.filter(r => r.source === "checkpoint-review").length,
       pendingReviews: rules.filter(r => r.source === "review").length,
       pendingWakes: rules.filter(r => r.source === "wake").length,
       projectionRules: 0,
@@ -185,7 +185,7 @@ export function assembleProtocolGate(
  */
 export function injectProjectionIntoGate(
   gate: ProtocolGateSummary,
-  projection: ProjectedReality,
+  projection: RealityProjection,
 ): ProtocolGateSummary {
   const rules: ProtocolRule[] = [...gate.rules];
   const hardBlockers = [...gate.hardBlockers];
@@ -247,7 +247,7 @@ export function injectProjectionIntoGate(
  * Returns a validation result with notes.
  */
 export function validateCapsule(
-  capsule: ContextCapsule | null | undefined,
+  capsule: ContextSnapshot | null | undefined,
   checkpoint: Checkpoint | null | undefined,
   taskId: string,
   agentId: string,
@@ -293,10 +293,13 @@ export function validateCapsule(
   }
 
   // Blocker check
-  if (capsule.blockers && capsule.blockers.trim().length > 0) {
+  let payload: Record<string, unknown> = {};
+  try { payload = JSON.parse(capsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  const blockerText = Array.isArray(payload.blockers) ? (payload.blockers as string[]).join(", ") : "";
+  if (blockerText.length > 0) {
     hasBlockers = true;
     valid = false;
-    notes.push(`Unresolved blockers: ${capsule.blockers.slice(0, 100)}`);
+    notes.push(`Unresolved blockers: ${blockerText.slice(0, 100)}`);
   }
 
   // NeedSync check
@@ -389,40 +392,48 @@ export function formatValidationNotes(validation: CapsuleValidation): string {
 /**
  * Format the capsule as the main working context prompt section.
  */
-export function formatCapsuleReality(capsule: ContextCapsule | null): string {
+export function formatCapsuleReality(capsule: ContextSnapshot | null): string {
   if (!capsule) return "";
+
+  let p: Record<string, unknown> = {};
+  try { p = JSON.parse(capsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  const s = (k: string) => {
+    const v = p[k];
+    if (Array.isArray(v)) return v.join(", ");
+    return typeof v === "string" ? v : "";
+  };
 
   const lines: string[] = [];
   lines.push("# Capsule Reality");
   lines.push("This is your current task working memory. Act on this.");
   lines.push("");
 
-  if (capsule.intentScope) lines.push(`**Intent scope**: ${capsule.intentScope}`);
-  if (capsule.goal) lines.push(`**Goal**: ${capsule.goal}`);
-  if (capsule.currentPhase) lines.push(`**Phase**: ${capsule.currentPhase}`);
-  if (capsule.nonGoals) lines.push(`**Non-goals**: ${capsule.nonGoals}`);
-  if (capsule.verifiedFacts) lines.push(`**Verified facts**: ${capsule.verifiedFacts}`);
-  if (capsule.unverifiedClaims) lines.push(`**Unverified claims**: ${capsule.unverifiedClaims}`);
-  if (capsule.confirmedDecisions) lines.push(`**Decisions**: ${capsule.confirmedDecisions}`);
-  if (capsule.activeConstraints) lines.push(`**Active constraints**: ${capsule.activeConstraints}`);
-  if (capsule.workingResources) lines.push(`**Working resources**: ${capsule.workingResources}`);
-  if (capsule.completedWork) lines.push(`**Done**: ${capsule.completedWork}`);
-  if (capsule.remainingWork) lines.push(`**Remaining**: ${capsule.remainingWork}`);
-  if (capsule.nextSteps) lines.push(`**Next steps**: ${capsule.nextSteps}`);
-  if (capsule.risks) lines.push(`**Risks**: ${capsule.risks}`);
-  if (capsule.blockers) lines.push(`**Blockers**: ${capsule.blockers}`);
-  if (capsule.doNotTouch) lines.push(`**Do not touch**: ${capsule.doNotTouch}`);
+  if (s("intentScope")) lines.push(`**Intent scope**: ${s("intentScope")}`);
+  if (s("goal")) lines.push(`**Goal**: ${s("goal")}`);
+  if (s("currentPhase")) lines.push(`**Phase**: ${s("currentPhase")}`);
+  if (s("nonGoals")) lines.push(`**Non-goals**: ${s("nonGoals")}`);
+  if (s("verifiedFacts")) lines.push(`**Verified facts**: ${s("verifiedFacts")}`);
+  if (s("unverifiedClaims")) lines.push(`**Unverified claims**: ${s("unverifiedClaims")}`);
+  if (s("confirmedDecisions")) lines.push(`**Decisions**: ${s("confirmedDecisions")}`);
+  if (s("activeConstraints")) lines.push(`**Active constraints**: ${s("activeConstraints")}`);
+  if (s("workingResources")) lines.push(`**Working resources**: ${s("workingResources")}`);
+  if (s("completedWork")) lines.push(`**Done**: ${s("completedWork")}`);
+  if (s("remainingWork")) lines.push(`**Remaining**: ${s("remainingWork")}`);
+  if (s("nextSteps")) lines.push(`**Next steps**: ${s("nextSteps")}`);
+  if (s("risks")) lines.push(`**Risks**: ${s("risks")}`);
+  if (s("blockers")) lines.push(`**Blockers**: ${s("blockers")}`);
+  if (s("doNotTouch")) lines.push(`**Do not touch**: ${s("doNotTouch")}`);
   lines.push("");
 
-  if (capsule.resumePrompt) {
+  if (s("resumePrompt")) {
     lines.push("## Resume Instructions");
-    lines.push(capsule.resumePrompt);
+    lines.push(s("resumePrompt"));
     lines.push("");
   }
 
-  if (capsule.handoffInstructions) {
+  if (s("handoffInstructions")) {
     lines.push("## Handoff Instructions");
-    lines.push(capsule.handoffInstructions);
+    lines.push(s("handoffInstructions"));
     lines.push("");
   }
 

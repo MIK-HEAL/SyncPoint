@@ -80,13 +80,16 @@ describe("loop lifecycle — single agent", () => {
       taskId,
       agentId: agentA.id,
       checkpointId: cp.id,
-      goal: "Build dashboard UI",
-      currentPhase: "implementation",
-      workingResources: "src/Dashboard.tsx",
-      completedWork: "Header component",
-      remainingWork: "Navigation, widgets",
-      nextSteps: "Add navigation menu",
-      resumePrompt: "Continue building dashboard. Header is done. Add nav next.",
+      summary: "Build dashboard UI",
+      payloadJson: JSON.stringify({
+        goal: "Build dashboard UI",
+        currentPhase: "implementation",
+        workingResources: ["src/Dashboard.tsx"],
+        completedWork: "Header component",
+        remainingWork: "Navigation, widgets",
+        nextSteps: ["Add navigation menu"],
+        resumePrompt: "Continue building dashboard. Header is done. Add nav next.",
+      }),
     }, "POST") as any;
     expect(capsule.id).toBeDefined();
 
@@ -112,10 +115,11 @@ describe("loop lifecycle — single agent", () => {
 
     expect(ctx.ready).toBe(true);
     expect(ctx.latestCapsule).toBeDefined();
-    expect(ctx.latestCapsule.goal).toBe("Build dashboard UI");
+    const capsulePayload = JSON.parse(ctx.latestCapsule.payloadJson);
+    expect(capsulePayload.goal).toBe("Build dashboard UI");
     // P3B: ctx.resumePrompt is stripped at transport (contains baked-in raw PM)
     // Resume instructions live in latestCapsule.resumePrompt
-    expect(ctx.latestCapsule.resumePrompt).toContain("Continue building dashboard");
+    expect(capsulePayload.resumePrompt).toContain("Continue building dashboard");
 
     // Enforce policy
     const policy = await e2e.rpc("resumeContext.enforce", {
@@ -135,7 +139,7 @@ describe("loop lifecycle — single agent", () => {
     expect(agent.id).toBe(agentA.id);
     expect(checkpoints.length).toBeGreaterThan(0);
     expect(capsule).toBeDefined();
-    expect(capsule.goal).toBe("Build dashboard UI");
+    expect(JSON.parse(capsule.payloadJson).goal).toBe("Build dashboard UI");
   });
 });
 
@@ -153,12 +157,15 @@ describe("loop lifecycle — handoff between agents", () => {
       taskId,
       agentId: agentA.id,
       checkpointId: cp.id,
-      goal: "Build dashboard UI",
-      currentPhase: "handoff",
-      completedWork: "Header + nav done",
-      remainingWork: "API integration",
-      nextSteps: "Handoff to codex for backend work",
-      resumePrompt: "Need API endpoints for dashboard widgets",
+      summary: "Build dashboard UI",
+      payloadJson: JSON.stringify({
+        goal: "Build dashboard UI",
+        currentPhase: "handoff",
+        completedWork: "Header + nav done",
+        remainingWork: "API integration",
+        nextSteps: ["Handoff to codex for backend work"],
+        resumePrompt: "Need API endpoints for dashboard widgets",
+      }),
     }, "POST");
 
     // Create handoff
@@ -201,11 +208,14 @@ describe("loop lifecycle — handoff between agents", () => {
       taskId,
       agentId: agentB.id,
       checkpointId: cp.id,
-      goal: "Build dashboard API",
-      currentPhase: "implementation",
-      workingResources: "src/api/widgets.ts",
-      nextSteps: "Implement GET /widgets",
-      resumePrompt: "Implement GET /widgets endpoint returning dashboard data",
+      summary: "Build dashboard API",
+      payloadJson: JSON.stringify({
+        goal: "Build dashboard API",
+        currentPhase: "implementation",
+        workingResources: ["src/api/widgets.ts"],
+        nextSteps: ["Implement GET /widgets"],
+        resumePrompt: "Implement GET /widgets endpoint returning dashboard data",
+      }),
     }, "POST") as any;
     expect(capsule.id).toBeDefined();
 
@@ -215,7 +225,7 @@ describe("loop lifecycle — handoff between agents", () => {
       agentId: agentB.id,
     }, "GET") as any;
     expect(ctx.ready).toBe(true);
-    expect(ctx.latestCapsule.goal).toBe("Build dashboard API");
+    expect(JSON.parse(ctx.latestCapsule.payloadJson).goal).toBe("Build dashboard API");
   });
 });
 

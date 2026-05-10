@@ -143,6 +143,7 @@ export const DEFAULT_GATE_POLICY: GatePolicy = {
 // ── Gate Vote ────────────────────────────────────────
 
 export enum GateVoteKind {
+  ACK = "ack",
   APPROVE = "approve",
   REJECT = "reject",
   ABSTAIN = "abstain",
@@ -290,6 +291,7 @@ export function parseGatePolicy(gate: SyncGate): GatePolicy {
  */
 export function countVotes(votes: GateVote[]): Record<GateVoteKind, number> {
   const counts: Record<GateVoteKind, number> = {
+    [GateVoteKind.ACK]: 0,
     [GateVoteKind.APPROVE]: 0,
     [GateVoteKind.REJECT]: 0,
     [GateVoteKind.ABSTAIN]: 0,

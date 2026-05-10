@@ -323,9 +323,10 @@ export function buildSnapshot(input?: SnapshotInput) {
       for (const ta of agentAssignments) {
         try {
           const capsule = repo.getLatestCapsule(ta.taskId, a.id);
-          const wr = capsule?.workingResources
-            ? capsule.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
-            : [];
+          let wr: string[] = [];
+          if (capsule) {
+            try { const p = JSON.parse(capsule.payloadJson ?? "{}"); if (Array.isArray(p.workingResources)) wr = p.workingResources; } catch { /* ok */ }
+          }
           const proj = buildProjection({ taskId: ta.taskId, workingResources: wr });
           const decision = evaluateConstraints({
             action: "resume",

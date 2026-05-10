@@ -1,5 +1,5 @@
 /**
- * ResourceClaim repository — CRUD for the generic resource_claim table.
+ * ResourceClaim repository — CRUD for the normalized resource_claim + resource_claim_resource tables.
  */
 
 import { eq, and } from "drizzle-orm";
@@ -10,21 +10,20 @@ import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
 
-function refsToJson(refs: ResourceRef[]): string {
-  return JSON.stringify(refs);
+function loadResources(db: ReturnType<typeof _getDb>, claimId: string): ResourceRef[] {
+  return db.select().from(s.resourceClaimResources)
+    .where(eq(s.resourceClaimResources.claimId, claimId))
+    .all()
+    .map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata }));
 }
 
-function jsonToRefs(json: string): ResourceRef[] {
-  try { return JSON.parse(json); } catch { return []; }
-}
-
-function rowToResourceClaim(row: any): ResourceClaim {
+function rowToResourceClaim(row: any, resources: ResourceRef[]): ResourceClaim {
   return {
     id: row.id,
     actorId: row.actorId,
     taskId: row.taskId,
     sessionId: row.sessionId ?? "",
-    resources: jsonToRefs(row.resourcesJson),
+    resources,
     mode: row.mode as any,
     status: row.status as any,
     createdAt: row.createdAt,
@@ -51,12 +50,21 @@ export function createResourceClaim(data: ResourceClaimCreate): ResourceClaim {
     taskId: data.taskId,
     sessionId: data.sessionId ?? "",
     resourceType,
-    resourcesJson: refsToJson(data.resources),
     mode: data.mode ?? "exclusive",
     status: ResourceClaimStatus.ACTIVE,
     createdAt: ts,
     releasedAt: "",
   }).run();
+  // Insert resources into join table
+  for (const ref of data.resources) {
+    db.insert(s.resourceClaimResources).values({
+      id: createId(),
+      claimId: id,
+      resourceType: ref.type,
+      locator: ref.locator,
+      metadata: ref.metadata ?? "",
+    }).run();
+  }
   return getResourceClaim(id);
 }
 
@@ -64,7 +72,7 @@ export function getResourceClaim(id: string): ResourceClaim {
   const db = _getDb();
   const row = db.select().from(s.resourceClaims).where(eq(s.resourceClaims.id, id)).get();
   if (!row) throw new Error(`resource_claim not found: ${id}`);
-  return rowToResourceClaim(row);
+  return rowToResourceClaim(row, loadResources(db, id));
 }
 
 export function releaseResourceClaim(id: string): ResourceClaim {
@@ -95,7 +103,7 @@ export function listResourceClaims(opts?: {
     ? db.select().from(s.resourceClaims).all()
     : db.select().from(s.resourceClaims).where(and(...predicates)).all();
 
-  return rows.map(rowToResourceClaim);
+  return rows.map(row => rowToResourceClaim(row, loadResources(db, row.id)));
 }
 
 export function listActiveResourceClaims(opts?: {
@@ -109,5 +117,5 @@ export function listActiveResourceClaims(opts?: {
   return db.select().from(s.resourceClaims)
     .where(and(...predicates))
     .all()
-    .map(rowToResourceClaim);
+    .map(row => rowToResourceClaim(row, loadResources(db, row.id)));
 }

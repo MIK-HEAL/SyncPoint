@@ -1,10 +1,10 @@
 /**
- * SyncTransaction — checkpoint-driven synchronization transaction.
+ * CheckpointReview — checkpoint-driven approval flow.
  *
- * A SyncTransaction wraps a checkpoint into a formal approval flow:
+ * A CheckpointReview wraps a checkpoint into a formal approval flow:
  *
  *   checkpoint --need-sync
- *     → create SyncTransaction (OPEN)
+ *     → create CheckpointReview (OPEN)
  *     → create/bind SyncGate (checkpoint_required)
  *     → approvers ack & approve (WAITING_APPROVAL → APPROVED)
  *     → resolve gate (→ READY_TO_CONTINUE)
@@ -22,7 +22,7 @@ import { z } from "zod";
 
 // ── Status ──────────────────────────────────────────
 
-export enum SyncTransactionStatus {
+export enum CheckpointReviewStatus {
   /** Transaction created, not yet submitted for approval */
   OPEN = "OPEN",
   /** Waiting for required approvers to decide */
@@ -39,35 +39,35 @@ export enum SyncTransactionStatus {
 
 // ── Transitions ─────────────────────────────────────
 
-export const SYNC_TX_TRANSITIONS: Record<SyncTransactionStatus, SyncTransactionStatus[]> = {
-  [SyncTransactionStatus.OPEN]: [
-    SyncTransactionStatus.WAITING_APPROVAL,
-    SyncTransactionStatus.CANCELLED,
+export const CHECKPOINT_REVIEW_TRANSITIONS: Record<CheckpointReviewStatus, CheckpointReviewStatus[]> = {
+  [CheckpointReviewStatus.OPEN]: [
+    CheckpointReviewStatus.WAITING_APPROVAL,
+    CheckpointReviewStatus.CANCELLED,
   ],
-  [SyncTransactionStatus.WAITING_APPROVAL]: [
-    SyncTransactionStatus.APPROVED,
-    SyncTransactionStatus.REJECTED,
-    SyncTransactionStatus.CANCELLED,
+  [CheckpointReviewStatus.WAITING_APPROVAL]: [
+    CheckpointReviewStatus.APPROVED,
+    CheckpointReviewStatus.REJECTED,
+    CheckpointReviewStatus.CANCELLED,
   ],
-  [SyncTransactionStatus.APPROVED]: [
-    SyncTransactionStatus.RESOLVED,
-    SyncTransactionStatus.CANCELLED,
+  [CheckpointReviewStatus.APPROVED]: [
+    CheckpointReviewStatus.RESOLVED,
+    CheckpointReviewStatus.CANCELLED,
   ],
-  [SyncTransactionStatus.REJECTED]: [
-    SyncTransactionStatus.RESOLVED,
-    SyncTransactionStatus.CANCELLED,
+  [CheckpointReviewStatus.REJECTED]: [
+    CheckpointReviewStatus.RESOLVED,
+    CheckpointReviewStatus.CANCELLED,
   ],
-  [SyncTransactionStatus.RESOLVED]: [],
-  [SyncTransactionStatus.CANCELLED]: [],
+  [CheckpointReviewStatus.RESOLVED]: [],
+  [CheckpointReviewStatus.CANCELLED]: [],
 };
 
-export function validateSyncTxTransition(from: SyncTransactionStatus, to: SyncTransactionStatus): boolean {
-  return SYNC_TX_TRANSITIONS[from]?.includes(to) ?? false;
+export function validateCheckpointReviewTransition(from: CheckpointReviewStatus, to: CheckpointReviewStatus): boolean {
+  return CHECKPOINT_REVIEW_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
 // ── Schema ──────────────────────────────────────────
 
-export const SyncTransactionSchema = z.object({
+export const CheckpointReviewSchema = z.object({
   id: z.string(),
   sessionId: z.string(),
   taskId: z.string(),
@@ -81,15 +81,15 @@ export const SyncTransactionSchema = z.object({
   rejectedByIds: z.string(),
   /** Bound SyncGate ID (created automatically) */
   gateId: z.string(),
-  status: z.nativeEnum(SyncTransactionStatus),
+  status: z.nativeEnum(CheckpointReviewStatus),
   decisionSummary: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 
-export type SyncTransaction = z.infer<typeof SyncTransactionSchema>;
+export type CheckpointReview = z.infer<typeof CheckpointReviewSchema>;
 
-export const SyncTransactionCreateSchema = z.object({
+export const CheckpointReviewCreateSchema = z.object({
   sessionId: z.string(),
   taskId: z.string(),
   checkpointId: z.string(),
@@ -97,58 +97,59 @@ export const SyncTransactionCreateSchema = z.object({
   requiredApproverIds: z.array(z.string()).min(1),
 });
 
-export type SyncTransactionCreate = z.infer<typeof SyncTransactionCreateSchema>;
+export type CheckpointReviewCreate = z.infer<typeof CheckpointReviewCreateSchema>;
 
 // ── Pure helpers ────────────────────────────────────
 
 /**
  * Parse a comma-separated ID list into an array.
+ * @deprecated Will be removed when CSV fields are replaced by join tables.
  */
-export function parseTxIdList(ids: string): string[] {
+export function parseIdListCsv(ids: string): string[] {
   return ids.split(",").map(s => s.trim()).filter(s => s.length > 0);
 }
 
 /**
  * Check if all required approvers have approved.
  */
-export function allApproved(tx: SyncTransaction): boolean {
-  const required = parseTxIdList(tx.requiredApproverIds);
-  const approved = parseTxIdList(tx.approvedByIds);
+export function allApproved(review: CheckpointReview): boolean {
+  const required = parseIdListCsv(review.requiredApproverIds);
+  const approved = parseIdListCsv(review.approvedByIds);
   return required.length > 0 && required.every(id => approved.includes(id));
 }
 
 /**
  * Check if any approver has rejected.
  */
-export function hasRejection(tx: SyncTransaction): boolean {
-  return parseTxIdList(tx.rejectedByIds).length > 0;
+export function hasRejection(review: CheckpointReview): boolean {
+  return parseIdListCsv(review.rejectedByIds).length > 0;
 }
 
 /**
  * List approvers who have not yet decided.
  */
-export function pendingApprovers(tx: SyncTransaction): string[] {
-  const required = parseTxIdList(tx.requiredApproverIds);
-  const approved = parseTxIdList(tx.approvedByIds);
-  const rejected = parseTxIdList(tx.rejectedByIds);
+export function pendingApprovers(review: CheckpointReview): string[] {
+  const required = parseIdListCsv(review.requiredApproverIds);
+  const approved = parseIdListCsv(review.approvedByIds);
+  const rejected = parseIdListCsv(review.rejectedByIds);
   const decided = new Set([...approved, ...rejected]);
   return required.filter(id => !decided.has(id));
 }
 
 /**
- * Whether the transaction is in a terminal state.
+ * Whether the review is in a terminal state.
  */
-export function isTxTerminal(status: SyncTransactionStatus): boolean {
-  return SYNC_TX_TRANSITIONS[status].length === 0;
+export function isReviewTerminal(status: CheckpointReviewStatus): boolean {
+  return CHECKPOINT_REVIEW_TRANSITIONS[status].length === 0;
 }
 
 /**
- * Whether the transaction is blocking (agent cannot resume).
+ * Whether the review is blocking (agent cannot resume).
  */
-export function isTxBlocking(status: SyncTransactionStatus): boolean {
+export function isReviewBlocking(status: CheckpointReviewStatus): boolean {
   return (
-    status === SyncTransactionStatus.OPEN ||
-    status === SyncTransactionStatus.WAITING_APPROVAL ||
-    status === SyncTransactionStatus.REJECTED
+    status === CheckpointReviewStatus.OPEN ||
+    status === CheckpointReviewStatus.WAITING_APPROVAL ||
+    status === CheckpointReviewStatus.REJECTED
   );
 }

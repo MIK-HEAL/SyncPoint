@@ -16,6 +16,22 @@ Coordinate coding agents, design agents, data agents — any AI that shares reso
 
 ---
 
+> **⚠️ Breaking Schema Reset (v0.2)**
+>
+> This version introduces a breaking database reset. The local `.syncpoint/` database is **not compatible** with previous versions. To upgrade:
+> 1. Delete `.syncpoint/` (or the directory pointed to by `SYNCPOINT_DB_DIR`)
+> 2. Re-run `syncpoint init`
+>
+> There is no automatic migration from the old schema. This is intentional — the schema has been normalized and simplified.
+>
+> Key terminology changes:
+> - ~~Projection Compiler~~ → **Reality Projection** (task-scoped memory view builder)
+> - ~~Constraint Runtime~~ → **Constraint Evaluation** (pure constraint checker)
+> - ~~Context Capsule~~ → **Context Snapshot** (typed resume payload)
+> - ~~SyncTransaction~~ → **Checkpoint Review** (approval join table)
+
+---
+
 ## The Problem
 
 AI coding agents don't fail only because they write bad code.  
@@ -69,7 +85,7 @@ SyncPoint enforces boundaries through five protocol primitives:
 |---|---|
 | **ResourceClaim** | Agent declares "I will touch these resources" — overlapping claims create blockers automatically |
 | **SyncGate** | A hard stop — the agent cannot continue until the gate is resolved, not just acknowledged |
-| **SyncTransaction** | A checkpoint that requires approval before another agent can resume from it |
+| **CheckpointReview** | A checkpoint that requires approval before another agent can resume from it |
 | **Operation** | A tracked unit of change checked for ownership, conflicts, and constraints before apply |
 | **Wake** | A sync obligation — "this agent needs to review / approve / acknowledge before continuing" |
 
@@ -77,9 +93,9 @@ These are enforced at every execution boundary. An agent cannot silently skip a 
 
 ### What happens under the hood
 
-Each agent carries a **context capsule** — a scoped snapshot of its current task, working resources, active constraints, and blockers. The capsule is what the agent sees. But what the agent sees is not what decides whether it can continue.
+Each agent carries a **context snapshot** — a typed payload of its current task, working resources, active constraints, and blockers. The snapshot is what the agent sees. But what the agent sees is not what decides whether it can continue.
 
-SyncPoint maintains **project memory** — typed, versioned, deduplicated knowledge entries (facts, conventions, risks, hard constraints, do-not-touch rules). These are compiled and scoped per task, so each agent gets only the constraints relevant to its work. Hard constraints and protocol rules are enforced at every execution boundary — they cannot be ignored even if the agent's prompt doesn't mention them.
+SyncPoint maintains **project memory** — typed, versioned, deduplicated knowledge entries (facts, conventions, risks, hard constraints, do-not-touch rules). These are projected and scoped per task via **Reality Projection**, so each agent gets only the constraints relevant to its work. Hard constraints and protocol rules are enforced at every execution boundary via **Constraint Evaluation** — they cannot be ignored even if the agent's prompt doesn't mention them.
 
 When an agent tries to continue, SyncPoint checks:
 
@@ -91,7 +107,7 @@ When an agent tries to continue, SyncPoint checks:
 
 If everything is clean, the agent continues. If not, the specific blocker is surfaced with the reason, the source, and what needs to happen to unblock.
 
-Architecture details: [`docs/reality-runtime.md`](docs/reality-runtime.md) · [`docs/constraint-runtime.md`](docs/constraint-runtime.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+Architecture details: [`docs/reality-runtime.md`](docs/reality-runtime.md) · [`docs/constraint-evaluation.md`](docs/constraint-evaluation.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ## What SyncPoint Is Not
 
@@ -207,7 +223,7 @@ SyncPoint is built around five protocol primitives.
 |---|---|---|
 | **ResourceClaim** | "I intend to touch these resources." | Makes ownership explicit before work starts |
 | **SyncGate** | "Stop here until this is resolved." | Blocks unsafe start, resume, and wake paths |
-| **SyncTransaction** | "This checkpoint needs approval." | Turns progress into an approved continuation point |
+| **CheckpointReview** | "This checkpoint needs approval." | Turns progress into an approved continuation point |
 | **Operation** | "Check this unit of change before treating it as safe." | Validates target resources, ownership, conflicts, and constraints |
 | **Wake** | "This agent has a sync obligation." | Notifies the right agent to review, approve, handoff, or resume |
 
@@ -231,7 +247,7 @@ create sync session
   -> overlapping claims create blockers
   -> checkpoint creates a sync transaction when approval is needed
   -> operation checks touched resources against claims and constraints
-  -> constraint runtime blocks if do_not_touch or hard_constraint is violated
+  -> constraint evaluation blocks if do_not_touch or hard_constraint is violated
   -> review records evidence and approval state
   -> wake queue tells the next agent what sync action is required
   -> Sync View shows the whole map
@@ -323,7 +339,7 @@ This is the operator view for answering: **"Who is blocked, why, and what unbloc
 
 ```text
 packages/
-├── syncpoint-core         # protocol types, state machines, projection compiler, constraint evaluator
+├── syncpoint-core         # protocol types, state machines, reality projection, constraint evaluation
 ├── syncpoint-server       # application services, SQLite, tRPC, SSE
 ├── syncpoint-cli          # operator CLI for sessions, gates, transactions, operations, constraints
 ├── syncpoint-mcp          # MCP adapter for editor AI agents
@@ -368,8 +384,8 @@ Architecture and runtime:
 
 | Document | Best for |
 |---|---|
-| [`docs/reality-runtime.md`](docs/reality-runtime.md) | Layered reality architecture — Project Memory, Projection, Capsule, Constraint Runtime |
-| [`docs/constraint-runtime.md`](docs/constraint-runtime.md) | Constraint evaluation rules, enforcement entry points, visibility layer |
+| [`docs/reality-runtime.md`](docs/reality-runtime.md) | Layered reality architecture — Project Memory, Reality Projection, Context Snapshot, Constraint Evaluation |
+| [`docs/constraint-evaluation.md`](docs/constraint-evaluation.md) | Constraint evaluation rules, enforcement entry points, visibility layer |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layer boundary principles and code placement guide |
 | [`docs/plugin-api.md`](docs/plugin-api.md) | Plugin extension points — ResourceMatcher, OperationValidator, writing new plugins |
 | [`docs/beyond-code.md`](docs/beyond-code.md) | SyncPoint as a resource-first protocol — beyond code files |
@@ -432,7 +448,7 @@ node packages/syncpoint-cli/dist/main.js --help
 
 ## Beyond Code
 
-SyncPoint is a **resource-first synchronization protocol**, not a multimodal semantic engine. The same `ResourceClaim → Operation → Constraint Runtime` loop that protects source files also protects binary assets, design artifacts, documents, and any other addressable resource.
+SyncPoint is a **resource-first synchronization protocol**, not a multimodal semantic engine. The same `ResourceClaim → Operation → Constraint Evaluation` loop that protects source files also protects binary assets, design artifacts, documents, and any other addressable resource.
 
 What SyncPoint does not do: parse images, analyze video, run embeddings, or invoke model-specific reasoning. Those are the domain of specialized tools. SyncPoint ensures their outputs go through a coordinated, constraint-checked protocol.
 

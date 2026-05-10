@@ -1,22 +1,22 @@
 /**
- * Unit tests for SyncTransaction — status transitions, approval logic.
+ * Unit tests for CheckpointReview — status transitions, approval logic.
  */
 
 import { describe, it, expect } from "vitest";
 import {
-  SyncTransactionStatus,
-  SYNC_TX_TRANSITIONS,
-  validateSyncTxTransition,
-  parseTxIdList,
+  CheckpointReviewStatus,
+  CHECKPOINT_REVIEW_TRANSITIONS,
+  validateCheckpointReviewTransition,
+  parseIdListCsv,
   allApproved,
   hasRejection,
   pendingApprovers,
-  isTxTerminal,
-  isTxBlocking,
-} from "./sync-transaction.js";
-import type { SyncTransaction } from "./sync-transaction.js";
+  isReviewTerminal,
+  isReviewBlocking,
+} from "./checkpoint-review.js";
+import type { CheckpointReview } from "./checkpoint-review.js";
 
-function makeTx(overrides: Partial<SyncTransaction> = {}): SyncTransaction {
+function makeReview(overrides: Partial<CheckpointReview> = {}): CheckpointReview {
   return {
     id: "tx1",
     sessionId: "s1",
@@ -27,7 +27,7 @@ function makeTx(overrides: Partial<SyncTransaction> = {}): SyncTransaction {
     approvedByIds: "",
     rejectedByIds: "",
     gateId: "g1",
-    status: SyncTransactionStatus.WAITING_APPROVAL,
+    status: CheckpointReviewStatus.WAITING_APPROVAL,
     decisionSummary: "",
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",
@@ -37,57 +37,57 @@ function makeTx(overrides: Partial<SyncTransaction> = {}): SyncTransaction {
 
 // ── transitions ─────────────────────────────────────
 
-describe("SyncTransaction transitions", () => {
+describe("CheckpointReview transitions", () => {
   it("OPEN → WAITING_APPROVAL is valid", () => {
-    expect(validateSyncTxTransition(SyncTransactionStatus.OPEN, SyncTransactionStatus.WAITING_APPROVAL)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.OPEN, CheckpointReviewStatus.WAITING_APPROVAL)).toBe(true);
   });
 
   it("WAITING_APPROVAL → APPROVED is valid", () => {
-    expect(validateSyncTxTransition(SyncTransactionStatus.WAITING_APPROVAL, SyncTransactionStatus.APPROVED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.WAITING_APPROVAL, CheckpointReviewStatus.APPROVED)).toBe(true);
   });
 
   it("WAITING_APPROVAL → REJECTED is valid", () => {
-    expect(validateSyncTxTransition(SyncTransactionStatus.WAITING_APPROVAL, SyncTransactionStatus.REJECTED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.WAITING_APPROVAL, CheckpointReviewStatus.REJECTED)).toBe(true);
   });
 
   it("APPROVED → RESOLVED is valid", () => {
-    expect(validateSyncTxTransition(SyncTransactionStatus.APPROVED, SyncTransactionStatus.RESOLVED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.APPROVED, CheckpointReviewStatus.RESOLVED)).toBe(true);
   });
 
   it("REJECTED → RESOLVED is valid", () => {
-    expect(validateSyncTxTransition(SyncTransactionStatus.REJECTED, SyncTransactionStatus.RESOLVED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.REJECTED, CheckpointReviewStatus.RESOLVED)).toBe(true);
   });
 
   it("RESOLVED is terminal", () => {
-    expect(SYNC_TX_TRANSITIONS[SyncTransactionStatus.RESOLVED]).toHaveLength(0);
+    expect(CHECKPOINT_REVIEW_TRANSITIONS[CheckpointReviewStatus.RESOLVED]).toHaveLength(0);
   });
 
   it("CANCELLED is terminal", () => {
-    expect(SYNC_TX_TRANSITIONS[SyncTransactionStatus.CANCELLED]).toHaveLength(0);
+    expect(CHECKPOINT_REVIEW_TRANSITIONS[CheckpointReviewStatus.CANCELLED]).toHaveLength(0);
   });
 
   it("any non-terminal → CANCELLED is valid", () => {
-    expect(validateSyncTxTransition(SyncTransactionStatus.OPEN, SyncTransactionStatus.CANCELLED)).toBe(true);
-    expect(validateSyncTxTransition(SyncTransactionStatus.WAITING_APPROVAL, SyncTransactionStatus.CANCELLED)).toBe(true);
-    expect(validateSyncTxTransition(SyncTransactionStatus.APPROVED, SyncTransactionStatus.CANCELLED)).toBe(true);
-    expect(validateSyncTxTransition(SyncTransactionStatus.REJECTED, SyncTransactionStatus.CANCELLED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.OPEN, CheckpointReviewStatus.CANCELLED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.WAITING_APPROVAL, CheckpointReviewStatus.CANCELLED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.APPROVED, CheckpointReviewStatus.CANCELLED)).toBe(true);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.REJECTED, CheckpointReviewStatus.CANCELLED)).toBe(true);
   });
 
   it("backward transitions are invalid", () => {
-    expect(validateSyncTxTransition(SyncTransactionStatus.APPROVED, SyncTransactionStatus.OPEN)).toBe(false);
-    expect(validateSyncTxTransition(SyncTransactionStatus.RESOLVED, SyncTransactionStatus.WAITING_APPROVAL)).toBe(false);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.APPROVED, CheckpointReviewStatus.OPEN)).toBe(false);
+    expect(validateCheckpointReviewTransition(CheckpointReviewStatus.RESOLVED, CheckpointReviewStatus.WAITING_APPROVAL)).toBe(false);
   });
 });
 
-// ── parseTxIdList ───────────────────────────────────
+// ── parseIdListCsv ───────────────────────────────────
 
-describe("parseTxIdList", () => {
+describe("parseIdListCsv", () => {
   it("splits comma-separated IDs", () => {
-    expect(parseTxIdList("a1,a2,a3")).toEqual(["a1", "a2", "a3"]);
+    expect(parseIdListCsv("a1,a2,a3")).toEqual(["a1", "a2", "a3"]);
   });
 
   it("returns empty array for empty string", () => {
-    expect(parseTxIdList("")).toEqual([]);
+    expect(parseIdListCsv("")).toEqual([]);
   });
 });
 
@@ -95,15 +95,15 @@ describe("parseTxIdList", () => {
 
 describe("allApproved", () => {
   it("false when no approvals", () => {
-    expect(allApproved(makeTx())).toBe(false);
+    expect(allApproved(makeReview())).toBe(false);
   });
 
   it("false when partial approval", () => {
-    expect(allApproved(makeTx({ approvedByIds: "a2" }))).toBe(false);
+    expect(allApproved(makeReview({ approvedByIds: "a2" }))).toBe(false);
   });
 
   it("true when all required approved", () => {
-    expect(allApproved(makeTx({ approvedByIds: "a2,a3" }))).toBe(true);
+    expect(allApproved(makeReview({ approvedByIds: "a2,a3" }))).toBe(true);
   });
 });
 
@@ -111,11 +111,11 @@ describe("allApproved", () => {
 
 describe("hasRejection", () => {
   it("false when no rejections", () => {
-    expect(hasRejection(makeTx())).toBe(false);
+    expect(hasRejection(makeReview())).toBe(false);
   });
 
   it("true when any rejection", () => {
-    expect(hasRejection(makeTx({ rejectedByIds: "a2" }))).toBe(true);
+    expect(hasRejection(makeReview({ rejectedByIds: "a2" }))).toBe(true);
   });
 });
 
@@ -123,56 +123,56 @@ describe("hasRejection", () => {
 
 describe("pendingApprovers", () => {
   it("returns all when none decided", () => {
-    expect(pendingApprovers(makeTx())).toEqual(["a2", "a3"]);
+    expect(pendingApprovers(makeReview())).toEqual(["a2", "a3"]);
   });
 
   it("returns remaining after partial decision", () => {
-    expect(pendingApprovers(makeTx({ approvedByIds: "a2" }))).toEqual(["a3"]);
+    expect(pendingApprovers(makeReview({ approvedByIds: "a2" }))).toEqual(["a3"]);
   });
 
   it("accounts for both approvals and rejections", () => {
-    expect(pendingApprovers(makeTx({ approvedByIds: "a2", rejectedByIds: "a3" }))).toEqual([]);
+    expect(pendingApprovers(makeReview({ approvedByIds: "a2", rejectedByIds: "a3" }))).toEqual([]);
   });
 });
 
-// ── isTxTerminal / isTxBlocking ─────────────────────
+// ── isReviewTerminal / isReviewBlocking ─────────────────────
 
-describe("isTxTerminal", () => {
+describe("isReviewTerminal", () => {
   it("RESOLVED is terminal", () => {
-    expect(isTxTerminal(SyncTransactionStatus.RESOLVED)).toBe(true);
+    expect(isReviewTerminal(CheckpointReviewStatus.RESOLVED)).toBe(true);
   });
 
   it("CANCELLED is terminal", () => {
-    expect(isTxTerminal(SyncTransactionStatus.CANCELLED)).toBe(true);
+    expect(isReviewTerminal(CheckpointReviewStatus.CANCELLED)).toBe(true);
   });
 
   it("WAITING_APPROVAL is not terminal", () => {
-    expect(isTxTerminal(SyncTransactionStatus.WAITING_APPROVAL)).toBe(false);
+    expect(isReviewTerminal(CheckpointReviewStatus.WAITING_APPROVAL)).toBe(false);
   });
 });
 
-describe("isTxBlocking", () => {
+describe("isReviewBlocking", () => {
   it("OPEN blocks", () => {
-    expect(isTxBlocking(SyncTransactionStatus.OPEN)).toBe(true);
+    expect(isReviewBlocking(CheckpointReviewStatus.OPEN)).toBe(true);
   });
 
   it("WAITING_APPROVAL blocks", () => {
-    expect(isTxBlocking(SyncTransactionStatus.WAITING_APPROVAL)).toBe(true);
+    expect(isReviewBlocking(CheckpointReviewStatus.WAITING_APPROVAL)).toBe(true);
   });
 
   it("REJECTED blocks", () => {
-    expect(isTxBlocking(SyncTransactionStatus.REJECTED)).toBe(true);
+    expect(isReviewBlocking(CheckpointReviewStatus.REJECTED)).toBe(true);
   });
 
   it("APPROVED does not block", () => {
-    expect(isTxBlocking(SyncTransactionStatus.APPROVED)).toBe(false);
+    expect(isReviewBlocking(CheckpointReviewStatus.APPROVED)).toBe(false);
   });
 
   it("RESOLVED does not block", () => {
-    expect(isTxBlocking(SyncTransactionStatus.RESOLVED)).toBe(false);
+    expect(isReviewBlocking(CheckpointReviewStatus.RESOLVED)).toBe(false);
   });
 
   it("CANCELLED does not block", () => {
-    expect(isTxBlocking(SyncTransactionStatus.CANCELLED)).toBe(false);
+    expect(isReviewBlocking(CheckpointReviewStatus.CANCELLED)).toBe(false);
   });
 });

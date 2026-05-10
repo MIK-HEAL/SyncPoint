@@ -5,18 +5,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   evaluateConstraints,
-  registerConstraintRuleEvaluator,
-  clearConstraintRuleEvaluatorRegistry,
+  registerConstraintEvaluator,
+  clearConstraintEvaluatorRegistry,
   registerScopeMatcher,
   clearScopeMatcherRegistry,
-  compileProjection,
+  buildRealityProjection,
 } from "syncpoint-core";
 import type {
   ConstraintInput,
-  ProjectedReality,
-  ProjectionItem,
+  RealityProjection,
+  ProjectedMemoryItem,
   ProjectionSource,
-  ProjectionInput,
+  MemoryProjectionInput,
   ProjectionContext,
 } from "syncpoint-core";
 import type { ResourceRef } from "syncpoint-core";
@@ -38,7 +38,7 @@ function makeItem(
   title: string,
   content: string,
   scope?: Record<string, string[]>,
-): ProjectionItem {
+): ProjectedMemoryItem {
   return {
     source: makeSource(id),
     title,
@@ -48,12 +48,12 @@ function makeItem(
   };
 }
 
-function emptyProjection(overrides?: Partial<ProjectedReality>): ProjectedReality {
+function emptyProjection(overrides?: Partial<RealityProjection>): RealityProjection {
   return {
     projectionId: "proj_test",
     createdFrom: { taskId: "t1", memoryVersion: 1, generatedAt: "2024-01-01" },
     cacheKey: "ck_test",
-    capsulePatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
+    contextPatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
     protocolRules: [],
     constraintRules: [],
     conflicts: [],
@@ -66,9 +66,9 @@ function emptyProjection(overrides?: Partial<ProjectedReality>): ProjectedRealit
 // ── Setup ────────────────────────────────────────────
 
 beforeEach(() => {
-  clearConstraintRuleEvaluatorRegistry();
+  clearConstraintEvaluatorRegistry();
   clearScopeMatcherRegistry();
-  registerConstraintRuleEvaluator(resourceForbiddenEvaluator);
+  registerConstraintEvaluator(resourceForbiddenEvaluator);
   registerScopeMatcher({ field: "resources", findOverlaps: resourcesScopeMatcher });
 });
 
@@ -201,7 +201,7 @@ describe("resource_forbidden evaluator", () => {
 
 describe("E2E: projection + resource_forbidden", () => {
   it("do_not_touch with resources scope blocks via scope overlap", () => {
-    const mem: ProjectionInput = {
+    const mem: MemoryProjectionInput = {
       id: "pm_dnt",
       category: "architecture",
       title: "Protected Brand Logo",
@@ -220,7 +220,7 @@ describe("E2E: projection + resource_forbidden", () => {
       workingResources: ["binary://brand-logo.png"],
     };
 
-    const projection = compileProjection([mem], ctx);
+    const projection = buildRealityProjection([mem], ctx);
 
     const decision = evaluateConstraints({
       action: "operation_submit",

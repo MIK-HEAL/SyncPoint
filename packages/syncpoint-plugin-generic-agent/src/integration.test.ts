@@ -6,14 +6,14 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   clearValidatorRegistry,
   clearResourceMatcherRegistry,
-  clearConstraintRuleEvaluatorRegistry,
+  clearConstraintEvaluatorRegistry,
   clearScopeMatcherRegistry,
   runOperationValidation,
   resourceLocatorsOverlap,
   evaluateConstraints,
   getResourceMatcher,
   getValidatorsForOperation,
-  getConstraintRuleEvaluator,
+  getConstraintEvaluator,
   getScopeMatcher,
   OperationStatus,
   ResourceClaimStatus,
@@ -24,8 +24,7 @@ import type {
   ResourceRef,
   ResourceClaim,
   Operation,
-  ProjectedReality,
-  ProjectionItem,
+  RealityProjection,
   ProjectionSource,
 } from "syncpoint-core";
 import {
@@ -84,12 +83,12 @@ function makeSource(id: string): ProjectionSource {
   return { sourceMemoryId: id, projectionReason: "test", confidence: "high" };
 }
 
-function emptyProjection(overrides?: Partial<ProjectedReality>): ProjectedReality {
+function emptyProjection(overrides?: Partial<RealityProjection>): RealityProjection {
   return {
     projectionId: "proj_test",
     createdFrom: { taskId: "t1", memoryVersion: 1, generatedAt: "2024-01-01" },
     cacheKey: "ck_test",
-    capsulePatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
+    contextPatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
     protocolRules: [],
     constraintRules: [],
     conflicts: [],
@@ -104,7 +103,7 @@ function emptyProjection(overrides?: Partial<ProjectedReality>): ProjectedRealit
 beforeEach(() => {
   clearValidatorRegistry();
   clearResourceMatcherRegistry();
-  clearConstraintRuleEvaluatorRegistry();
+  clearConstraintEvaluatorRegistry();
   clearScopeMatcherRegistry();
   _resetGenericAgentPlugin();
 });
@@ -141,7 +140,7 @@ describe("registerGenericAgentPlugin", () => {
 
   it("registers resource_forbidden evaluator", () => {
     registerGenericAgentPlugin();
-    expect(getConstraintRuleEvaluator("resource_forbidden")).toBeDefined();
+    expect(getConstraintEvaluator("resource_forbidden")).toBeDefined();
   });
 
   it("registers scope matchers", () => {

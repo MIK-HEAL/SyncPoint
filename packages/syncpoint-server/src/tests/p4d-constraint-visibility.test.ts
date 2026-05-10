@@ -78,10 +78,13 @@ beforeAll(() => {
     taskId,
     agentId: agent2Id,
     checkpointId: cp.id,
-    goal: "test p4d",
-    currentPhase: "development",
-    workingResources: "src/core/index.ts,src/core/utils.ts",
-  } as any);
+    summary: "test p4d",
+    payloadJson: JSON.stringify({
+      goal: "test p4d",
+      currentPhase: "development",
+      workingResources: ["src/core/index.ts", "src/core/utils.ts"],
+    }),
+  });
 
   // Seed: do_not_touch memory protecting src/core
   const m1 = pmAdd({
@@ -116,10 +119,13 @@ beforeAll(() => {
     taskId: safeTask.id,
     agentId: safeAgentId,
     checkpointId: safeCp.id,
-    goal: "frontend work",
-    currentPhase: "development",
-    workingResources: "src/ui/app.tsx",
-  } as any);
+    summary: "frontend work",
+    payloadJson: JSON.stringify({
+      goal: "frontend work",
+      currentPhase: "development",
+      workingResources: ["src/ui/app.tsx"],
+    }),
+  });
 });
 
 afterAll(() => {
@@ -363,10 +369,13 @@ describe("P4D: snapshot constraint visibility", () => {
       taskId: snapTask.id,
       agentId: agent2Id,
       checkpointId: snapCp.id,
-      goal: "test snap",
-      currentPhase: "development",
-      workingResources: "src/core/router.ts",
-    } as any);
+      summary: "test snap",
+      payloadJson: JSON.stringify({
+        goal: "test snap",
+        currentPhase: "development",
+        workingResources: ["src/core/router.ts"],
+      }),
+    });
   });
 
   it("blocked agent has constraintBlocked=true", () => {

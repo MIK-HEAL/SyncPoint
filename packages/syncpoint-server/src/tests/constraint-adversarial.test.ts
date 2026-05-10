@@ -74,10 +74,13 @@ beforeAll(() => {
     taskId,
     agentId: executorId,
     checkpointId: cp.id,
-    goal: "test",
-    currentPhase: "development",
-    workingResources: "src/protected/core.ts,src/protected/db.ts",
-  } as any);
+    summary: "test",
+    payloadJson: JSON.stringify({
+      goal: "test",
+      currentPhase: "development",
+      workingResources: ["src/protected/core.ts", "src/protected/db.ts"],
+    }),
+  });
 
   // Seed: do_not_touch memory protecting src/protected
   const m = pmAdd({

@@ -106,36 +106,26 @@ export const peerContracts = sqliteTable("peer_contract", {
   updatedAt: text("updated_at").notNull(),
 });
 
-// ── ContextCapsule ─────────────────────────────────────
+// ── ContextSnapshot (replaces context_capsule wide table) ──
 
-export const contextCapsules = sqliteTable("context_capsule", {
+export const contextSnapshots = sqliteTable("context_snapshot", {
   id: text("id").primaryKey(),
   taskId: text("task_id").notNull().references(() => tasks.id),
   agentId: text("agent_id").notNull().references(() => agents.id),
   checkpointId: text("checkpoint_id").notNull().references(() => checkpoints.id),
-  goal: text("goal").notNull().default(""),
-  currentPhase: text("current_phase").notNull().default(""),
-  confirmedDecisions: text("confirmed_decisions").notNull().default(""),
-  interfaceContract: text("interface_contract").notNull().default(""),
-  workingResources: text("working_files").notNull().default(""),
-  completedWork: text("completed_work").notNull().default(""),
-  remainingWork: text("remaining_work").notNull().default(""),
-  risks: text("risks").notNull().default(""),
-  blockers: text("blockers").notNull().default(""),
-  nextSteps: text("next_steps").notNull().default(""),
-  resumePrompt: text("resume_prompt").notNull().default(""),
-  // P12 extended capsule fields
-  intentScope: text("intent_scope").notNull().default(""),
-  nonGoals: text("non_goals").notNull().default(""),
-  verifiedFacts: text("verified_facts").notNull().default(""),
-  unverifiedClaims: text("unverified_claims").notNull().default(""),
-  evidenceRefs: text("evidence_refs").notNull().default(""),
-  activeConstraints: text("active_constraints").notNull().default(""),
-  doNotTouch: text("do_not_touch").notNull().default(""),
-  handoffInstructions: text("handoff_instructions").notNull().default(""),
-  validationStatus: text("validation_status").notNull().default(""),
-  staleReason: text("stale_reason").notNull().default(""),
+  kind: text("kind").notNull().default("checkpoint"),
+  summary: text("summary").notNull().default(""),
+  /** Typed JSON payload — structure depends on `kind` */
+  payloadJson: text("payload_json").notNull().default("{}"),
   createdAt: text("created_at").notNull(),
+});
+
+export const contextSnapshotResources = sqliteTable("context_snapshot_resource", {
+  id: text("id").primaryKey(),
+  snapshotId: text("snapshot_id").notNull().references(() => contextSnapshots.id),
+  resourceType: text("resource_type").notNull(),
+  locator: text("locator").notNull(),
+  metadata: text("metadata").notNull().default(""),
 });
 
 // ── Event ──────────────────────────────────────────────
@@ -334,11 +324,19 @@ export const resourceClaims = sqliteTable("resource_claim", {
   taskId: text("task_id").notNull(),
   sessionId: text("session_id").notNull().default(""),
   resourceType: text("resource_type").notNull(),
-  resourcesJson: text("resources_json").notNull(),
   mode: text("mode").notNull().default("exclusive"),
   status: text("status").notNull().default("ACTIVE"),
   createdAt: text("created_at").notNull(),
   releasedAt: text("released_at").notNull().default(""),
+});
+
+/** Join table: individual resources for a claim (replaces resourcesJson) */
+export const resourceClaimResources = sqliteTable("resource_claim_resource", {
+  id: text("id").primaryKey(),
+  claimId: text("claim_id").notNull().references(() => resourceClaims.id),
+  resourceType: text("resource_type").notNull(),
+  locator: text("locator").notNull(),
+  metadata: text("metadata").notNull().default(""),
 });
 
 // ── FileClaim ─────────────────────────────────────────
@@ -355,21 +353,16 @@ export const fileClaims = sqliteTable("file_claim", {
   releasedAt: text("released_at").notNull().default(""),
 });
 
-// ── SyncGate ──────────────────────────────────────────
+// ── SyncGate (normalized — CSV fields removed) ────────
 
 export const syncGates = sqliteTable("sync_gate", {
   id: text("id").primaryKey(),
   sessionId: text("session_id").notNull().default(""),
   taskId: text("task_id").notNull(),
   requestedByAgentId: text("requested_by_agent_id").notNull(),
-  requiredAgentIds: text("required_agent_ids").notNull(),
-  ackedAgentIds: text("acked_agent_ids").notNull().default(""),
   reason: text("reason").notNull().default("manual_request"),
   description: text("description").notNull().default(""),
-  relatedFiles: text("related_files").notNull().default(""),
-  relatedResourcesJson: text("related_resources_json").notNull().default(""),
   relatedCheckpointId: text("related_checkpoint_id").notNull().default(""),
-  relatedClaimIds: text("related_claim_ids").notNull().default(""),
   status: text("status").notNull().default("NEEDS_SYNC"),
   decisionSummary: text("decision_summary").notNull().default(""),
   policyJson: text("policy_json").notNull().default(""),
@@ -377,11 +370,36 @@ export const syncGates = sqliteTable("sync_gate", {
   updatedAt: text("updated_at").notNull(),
 });
 
-// ── SyncGate Vote ────────────────────────────────────
+/** Join table: which agents are required to ack this gate */
+export const syncGateRequiredAgents = sqliteTable("sync_gate_required_agent", {
+  id: text("id").primaryKey(),
+  gateId: text("gate_id").notNull().references(() => syncGates.id),
+  agentId: text("agent_id").notNull(),
+}, (table) => ({
+  gateAgentUnique: uniqueIndex("uq_gate_req_agent").on(table.gateId, table.agentId),
+}));
+
+/** Join table: related resources for a gate */
+export const syncGateResources = sqliteTable("sync_gate_resource", {
+  id: text("id").primaryKey(),
+  gateId: text("gate_id").notNull().references(() => syncGates.id),
+  resourceType: text("resource_type").notNull(),
+  locator: text("locator").notNull(),
+  metadata: text("metadata").notNull().default(""),
+});
+
+/** Join table: related claim IDs for a gate */
+export const syncGateRelatedClaims = sqliteTable("sync_gate_related_claim", {
+  id: text("id").primaryKey(),
+  gateId: text("gate_id").notNull().references(() => syncGates.id),
+  claimId: text("claim_id").notNull(),
+});
+
+// ── SyncGate Vote (ack/nack — replaces ackedAgentIds CSV) ──
 
 export const syncGateVotes = sqliteTable("sync_gate_vote", {
   id: text("id").primaryKey(),
-  gateId: text("gate_id").notNull(),
+  gateId: text("gate_id").notNull().references(() => syncGates.id),
   agentId: text("agent_id").notNull(),
   vote: text("vote").notNull(),
   summary: text("summary").notNull().default(""),
@@ -390,23 +408,32 @@ export const syncGateVotes = sqliteTable("sync_gate_vote", {
   gateAgentUnique: uniqueIndex("uq_gate_vote_agent").on(table.gateId, table.agentId),
 }));
 
-// ── SyncTransaction ──────────────────────────────────
+// ── CheckpointReview (replaces sync_transaction) ─────
 
-export const syncTransactions = sqliteTable("sync_transaction", {
+export const checkpointReviews = sqliteTable("checkpoint_review", {
   id: text("id").primaryKey(),
   sessionId: text("session_id").notNull(),
   taskId: text("task_id").notNull(),
   checkpointId: text("checkpoint_id").notNull(),
   requestingAgentId: text("requesting_agent_id").notNull(),
-  requiredApproverIds: text("required_approver_ids").notNull(),
-  approvedByIds: text("approved_by_ids").notNull().default(""),
-  rejectedByIds: text("rejected_by_ids").notNull().default(""),
   gateId: text("gate_id").notNull().default(""),
   status: text("status").notNull().default("OPEN"),
   decisionSummary: text("decision_summary").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/** Join table: approvers for a checkpoint review (replaces CSV fields) */
+export const checkpointReviewApprovers = sqliteTable("checkpoint_review_approver", {
+  id: text("id").primaryKey(),
+  reviewId: text("review_id").notNull().references(() => checkpointReviews.id),
+  agentId: text("agent_id").notNull(),
+  /** required | approved | rejected */
+  role: text("role").notNull().default("required"),
+  decidedAt: text("decided_at").notNull().default(""),
+}, (table) => ({
+  reviewAgentUnique: uniqueIndex("uq_review_approver").on(table.reviewId, table.agentId),
+}));
 
 // ── Operation (generic) ──────────────────────────────
 
@@ -418,7 +445,6 @@ export const operations = sqliteTable("operation", {
   sessionId: text("session_id").notNull().default(""),
   title: text("title").notNull(),
   summary: text("summary").notNull().default(""),
-  targetResourcesJson: text("target_resources_json").notNull().default("[]"),
   payloadRef: text("payload_ref").notNull().default(""),
   status: text("status").notNull().default("DRAFT"),
   checkResult: text("check_result").notNull().default(""),
@@ -427,16 +453,23 @@ export const operations = sqliteTable("operation", {
   updatedAt: text("updated_at").notNull(),
 });
 
+/** Join table: target resources for an operation (replaces targetResourcesJson) */
+export const operationResources = sqliteTable("operation_resource", {
+  id: text("id").primaryKey(),
+  operationId: text("operation_id").notNull().references(() => operations.id),
+  resourceType: text("resource_type").notNull(),
+  locator: text("locator").notNull(),
+  metadata: text("metadata").notNull().default(""),
+});
+
 export const writePermits = sqliteTable("write_permit", {
   id: text("id").primaryKey(),
   actorId: text("actor_id").notNull(),
   taskId: text("task_id").notNull(),
   sessionId: text("session_id").notNull().default(""),
-  resourcesJson: text("resources_json").notNull().default("[]"),
   intent: text("intent").notNull(),
   operationId: text("operation_id").notNull().default(""),
   guardedRoot: text("guarded_root").notNull().default(""),
-  baseHashesJson: text("base_hashes_json").notNull().default("[]"),
   expiresAt: text("expires_at").notNull(),
   singleUse: integer("single_use", { mode: "boolean" }).notNull().default(true),
   status: text("status").notNull(),
@@ -446,23 +479,14 @@ export const writePermits = sqliteTable("write_permit", {
   consumedAt: text("consumed_at").notNull().default(""),
 });
 
-// ── PatchProposal ────────────────────────────────────
-
-export const patchProposals = sqliteTable("patch_proposal", {
+/** Join table: resources + base hashes for a write permit */
+export const writePermitResources = sqliteTable("write_permit_resource", {
   id: text("id").primaryKey(),
-  sessionId: text("session_id").notNull(),
-  taskId: text("task_id").notNull(),
-  agentId: text("agent_id").notNull(),
-  title: text("title").notNull(),
-  summary: text("summary").notNull().default(""),
-  patchText: text("patch_text").notNull(),
-  touchedFiles: text("touched_files").notNull().default(""),
-  relatedClaimIds: text("related_claim_ids").notNull().default(""),
-  status: text("status").notNull().default("DRAFT"),
-  checkResult: text("check_result").notNull().default(""),
-  decisionSummary: text("decision_summary").notNull().default(""),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
+  permitId: text("permit_id").notNull().references(() => writePermits.id),
+  resourceType: text("resource_type").notNull(),
+  locator: text("locator").notNull(),
+  baseHash: text("base_hash").notNull().default(""),
+  metadata: text("metadata").notNull().default(""),
 });
 
 // ── Agent Manifest ──────────────────────────────────
@@ -483,7 +507,6 @@ export const agentManifests = sqliteTable("agent_manifest", {
 export const negotiationSessions = sqliteTable("negotiation_session", {
   id: text("id").primaryKey(),
   gateId: text("gate_id").notNull(),
-  participantIds: text("participant_ids").notNull(),
   status: text("status").notNull().default("OPEN"),
   currentRound: integer("current_round").notNull().default(0),
   configJson: text("config_json").notNull().default("{}"),
@@ -494,6 +517,15 @@ export const negotiationSessions = sqliteTable("negotiation_session", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/** Join table: participants in a negotiation session (replaces participantIds CSV) */
+export const negotiationParticipants = sqliteTable("negotiation_participant", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => negotiationSessions.id),
+  agentId: text("agent_id").notNull(),
+}, (table) => ({
+  sessionAgentUnique: uniqueIndex("uq_neg_participant").on(table.sessionId, table.agentId),
+}));
 
 // ── Negotiation Message ─────────────────────────────
 
@@ -518,3 +550,19 @@ export const pinnedMemories = sqliteTable("pinned_memory", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// ── FTS5 (full-text search for project memory) ──────
+// Drizzle ORM does not manage FTS5 virtual tables.
+// This SQL must be executed manually in db.ts during table creation.
+
+export const PROJECT_MEMORY_FTS_SQL = `
+  CREATE VIRTUAL TABLE IF NOT EXISTS project_memory_fts
+  USING fts5(
+    title,
+    content,
+    tags,
+    category,
+    content_rowid='rowid',
+    tokenize='porter unicode61'
+  );
+`;

@@ -69,7 +69,13 @@ describe("Project Memory Layer", () => {
     const t = (await ctx.rpc("task.create", { title: "Test PM" })) as any;
     await ctx.rpc("task.assign", { taskId: t.id, agentId: a.id });
     const cp = (await ctx.rpc("checkpoint.create", { taskId: t.id, agentId: a.id, summary: "Init" })) as any;
-    await ctx.rpc("capsule.create", { taskId: t.id, agentId: a.id, checkpointId: cp.id, goal: "Test" });
+    await ctx.rpc("capsule.create", {
+      taskId: t.id,
+      agentId: a.id,
+      checkpointId: cp.id,
+      summary: "Test",
+      payloadJson: JSON.stringify({ goal: "Test" }),
+    });
 
     const rc = (await ctx.rpc("resumeContext.get", { taskId: t.id, agentId: a.id }, "GET")) as any;
     // P3B: projectMemories stripped at transport — agent sees projected reality only

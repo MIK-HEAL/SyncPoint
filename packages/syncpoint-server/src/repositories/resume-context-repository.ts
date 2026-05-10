@@ -13,7 +13,8 @@ import type {
   Task,
   Checkpoint,
   PeerContract,
-  ContextCapsule,
+  ContextSnapshot,
+  ContextSnapshotPayload,
   ResumeContext,
   QualityCheckResult,
 } from "syncpoint-core";
@@ -27,10 +28,15 @@ import { collectProjectMemories } from "./project-memory-repository.js";
 /**
  * Run quality checks on the data assembled for resume context.
  */
+function parsePayload(capsule: ContextSnapshot | null | undefined): ContextSnapshotPayload {
+  if (!capsule) return {};
+  try { return JSON.parse(capsule.payloadJson); } catch { return {}; }
+}
+
 function runQualityChecks(
   task: Task,
   agent: Agent,
-  capsule: ContextCapsule | null | undefined,
+  capsule: ContextSnapshot | null | undefined,
   checkpoint: Checkpoint | null | undefined,
   contract: PeerContract | null | undefined,
 ): { checks: QualityCheckResult[]; warnings: string[]; ready: boolean } {
@@ -70,9 +76,11 @@ function runQualityChecks(
   }
 
   // Conflict Check: blockers
-  if (capsule?.blockers && capsule.blockers.trim().length > 0) {
-    checks.push({ name: "Conflict", status: QualityCheckStatus.WARN, message: `Blockers present: ${capsule.blockers.slice(0, 100)}` });
-    warnings.push(`Unresolved blockers: ${capsule.blockers}`);
+  const payload = parsePayload(capsule);
+  const blockerText = (payload.blockers ?? []).join(", ");
+  if (blockerText.length > 0) {
+    checks.push({ name: "Conflict", status: QualityCheckStatus.WARN, message: `Blockers present: ${blockerText.slice(0, 100)}` });
+    warnings.push(`Unresolved blockers: ${blockerText}`);
   } else {
     checks.push({ name: "Conflict", status: QualityCheckStatus.PASS, message: "No blockers." });
   }
@@ -103,7 +111,7 @@ function buildResumePrompt(
   task: Task,
   agent: Agent,
   contract: PeerContract | null,
-  capsule: ContextCapsule | null,
+  capsule: ContextSnapshot | null,
   checkpoint: Checkpoint | null,
   pinnedMemories: Array<{ key: string; content: string }>,
   projectMemories: Array<{ id: string; category: string; title: string; content: string }> = [],
@@ -145,20 +153,22 @@ function buildResumePrompt(
   }
 
   if (capsule) {
+    const p = parsePayload(capsule);
     lines.push("## Current Task Context");
-    if (capsule.goal) lines.push(`**Goal**: ${capsule.goal}`);
-    if (capsule.currentPhase) lines.push(`**Phase**: ${capsule.currentPhase}`);
-    if (capsule.confirmedDecisions) lines.push(`**Decisions**: ${capsule.confirmedDecisions}`);
-    if (capsule.workingResources) lines.push(`**Resources**: ${capsule.workingResources}`);
-    if (capsule.completedWork) lines.push(`**Done**: ${capsule.completedWork}`);
-    if (capsule.remainingWork) lines.push(`**Remaining**: ${capsule.remainingWork}`);
-    if (capsule.risks) lines.push(`**Risks**: ${capsule.risks}`);
-    if (capsule.blockers) lines.push(`**Blockers**: ${capsule.blockers}`);
-    if (capsule.nextSteps) lines.push(`**Next Steps**: ${capsule.nextSteps}`);
+    if (capsule.summary) lines.push(`**Summary**: ${capsule.summary}`);
+    if (p.goal) lines.push(`**Goal**: ${p.goal}`);
+    if (p.currentPhase) lines.push(`**Phase**: ${p.currentPhase}`);
+    if (p.confirmedDecisions?.length) lines.push(`**Decisions**: ${p.confirmedDecisions.join("; ")}`);
+    if (p.workingResources?.length) lines.push(`**Resources**: ${p.workingResources.join(", ")}`);
+    if (p.completedWork) lines.push(`**Done**: ${p.completedWork}`);
+    if (p.remainingWork) lines.push(`**Remaining**: ${p.remainingWork}`);
+    if (p.risks?.length) lines.push(`**Risks**: ${p.risks.join(", ")}`);
+    if (p.blockers?.length) lines.push(`**Blockers**: ${p.blockers.join(", ")}`);
+    if (p.nextSteps?.length) lines.push(`**Next Steps**: ${p.nextSteps.join(", ")}`);
     lines.push("");
-    if (capsule.resumePrompt) {
+    if (p.resumePrompt) {
       lines.push("## Resume Instructions");
-      lines.push(capsule.resumePrompt);
+      lines.push(p.resumePrompt);
       lines.push("");
     }
   }
@@ -246,25 +256,9 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
     } : null,
     latestCapsule: capsule ? {
       id: capsule.id,
-      goal: capsule.goal,
-      currentPhase: capsule.currentPhase,
-      confirmedDecisions: capsule.confirmedDecisions,
-      workingResources: capsule.workingResources,
-      completedWork: capsule.completedWork,
-      remainingWork: capsule.remainingWork,
-      risks: capsule.risks,
-      blockers: capsule.blockers,
-      nextSteps: capsule.nextSteps,
-      resumePrompt: capsule.resumePrompt,
-      // P12 extended fields
-      intentScope: (capsule as any).intentScope ?? "",
-      nonGoals: (capsule as any).nonGoals ?? "",
-      verifiedFacts: (capsule as any).verifiedFacts ?? "",
-      unverifiedClaims: (capsule as any).unverifiedClaims ?? "",
-      evidenceRefs: (capsule as any).evidenceRefs ?? "",
-      activeConstraints: (capsule as any).activeConstraints ?? "",
-      doNotTouch: (capsule as any).doNotTouch ?? "",
-      handoffInstructions: (capsule as any).handoffInstructions ?? "",
+      kind: capsule.kind,
+      summary: capsule.summary,
+      payloadJson: capsule.payloadJson,
       createdAt: capsule.createdAt,
     } : null,
     latestCheckpoint: checkpoint ? {

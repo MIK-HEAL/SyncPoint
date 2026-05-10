@@ -80,10 +80,13 @@ describe("API flow", () => {
   it("creates a context capsule", async () => {
     const capsule = (await ctx.rpc("capsule.create", {
       taskId, agentId, checkpointId,
-      goal: "Build REST API",
-      currentPhase: "implementation",
+      summary: "Build REST API",
+      payloadJson: JSON.stringify({
+        goal: "Build REST API",
+        currentPhase: "implementation",
+      }),
     })) as any;
-    expect(capsule.goal).toBe("Build REST API");
+    expect(JSON.parse(capsule.payloadJson).goal).toBe("Build REST API");
   });
 
   it("lists events", async () => {

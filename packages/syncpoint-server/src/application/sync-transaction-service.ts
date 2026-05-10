@@ -13,19 +13,25 @@
  */
 
 import {
-  SyncTransactionStatus,
+  CheckpointReviewStatus,
   SyncGateReason,
   EventType,
-  validateSyncTxTransition,
-  parseTxIdList,
+  validateCheckpointReviewTransition,
+  parseIdListCsv,
   allApproved,
   hasRejection,
   pendingApprovers,
 } from "syncpoint-core";
-import type { SyncTransaction } from "syncpoint-core";
+import type { CheckpointReview } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import { sgRequest, sgAck, sgResolve, sgCancel } from "./sync-gate-service.js";
+
+// Compat aliases
+const SyncTransactionStatus = CheckpointReviewStatus;
+type SyncTransaction = CheckpointReview;
+const validateSyncTxTransition = validateCheckpointReviewTransition;
+const parseTxIdList = parseIdListCsv;
 
 // ── Types ──────────────────────────────────────────────
 
@@ -192,7 +198,7 @@ export function stxReject(txId: string, agentId: string, reason?: string): SyncT
 export function stxResolve(txId: string, decisionSummary?: string): SyncTxStatusResult {
   let tx = repo.getSyncTransaction(txId);
 
-  if (!validateSyncTxTransition(tx.status as SyncTransactionStatus, SyncTransactionStatus.RESOLVED)) {
+  if (!validateSyncTxTransition(tx.status as CheckpointReviewStatus, SyncTransactionStatus.RESOLVED)) {
     throw new Error(`Cannot resolve transaction ${txId} from ${tx.status}`);
   }
 
@@ -223,7 +229,7 @@ export function stxResolve(txId: string, decisionSummary?: string): SyncTxStatus
 export function stxCancel(txId: string, reason?: string): SyncTransaction {
   let tx = repo.getSyncTransaction(txId);
 
-  if (!validateSyncTxTransition(tx.status as SyncTransactionStatus, SyncTransactionStatus.CANCELLED)) {
+  if (!validateSyncTxTransition(tx.status as CheckpointReviewStatus, SyncTransactionStatus.CANCELLED)) {
     throw new Error(`Cannot cancel transaction ${txId} from ${tx.status}`);
   }
 
@@ -280,7 +286,7 @@ export function stxListActive(opts?: {
 // ── Internal ───────────────────────────────────────────
 
 function buildStatusResult(tx: SyncTransaction): SyncTxStatusResult {
-  const status = tx.status as SyncTransactionStatus;
+  const status = tx.status as CheckpointReviewStatus;
   return {
     tx,
     pending: pendingApprovers(tx),

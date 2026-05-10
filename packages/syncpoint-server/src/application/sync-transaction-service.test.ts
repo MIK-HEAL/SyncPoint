@@ -14,7 +14,7 @@ import {
 } from "./sync-transaction-service.js";
 import { sgStatus, sgCheckAgent } from "./sync-gate-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "./orchestration-service.js";
-import { SyncTransactionStatus, SyncGateStatus } from "syncpoint-core";
+import { CheckpointReviewStatus, SyncGateStatus } from "syncpoint-core";
 
 function makeCheckpoint(taskId: string, agentId: string, summary: string) {
   return repo.createCheckpoint({
@@ -84,9 +84,10 @@ describe("SyncTransaction full lifecycle — approval flow", () => {
       requiredApproverIds: [agent2Id, agent3Id],
     });
 
-    expect(result.tx.status).toBe(SyncTransactionStatus.WAITING_APPROVAL);
+    expect(result.tx.status).toBe(CheckpointReviewStatus.WAITING_APPROVAL);
     expect(result.tx.gateId).toBeTruthy();
-    expect(result.pending).toEqual([agent2Id, agent3Id]);
+    expect(result.pending).toEqual(expect.arrayContaining([agent2Id, agent3Id]));
+    expect(result.pending).toHaveLength(2);
     expect(result.isBlocking).toBe(true);
 
     txId = result.tx.id;
@@ -104,21 +105,21 @@ describe("SyncTransaction full lifecycle — approval flow", () => {
 
   it("first approver approves — tx stays WAITING_APPROVAL", () => {
     const result = stxApprove(txId, agent2Id, "Looks good");
-    expect(result.tx.status).toBe(SyncTransactionStatus.WAITING_APPROVAL);
+    expect(result.tx.status).toBe(CheckpointReviewStatus.WAITING_APPROVAL);
     expect(result.pending).toEqual([agent3Id]);
     expect(result.allApproved).toBe(false);
   });
 
   it("second approver approves — tx advances to APPROVED", () => {
     const result = stxApprove(txId, agent3Id, "LGTM");
-    expect(result.tx.status).toBe(SyncTransactionStatus.APPROVED);
+    expect(result.tx.status).toBe(CheckpointReviewStatus.APPROVED);
     expect(result.pending).toEqual([]);
     expect(result.allApproved).toBe(true);
   });
 
   it("resolve tx → RESOLVED, gate → READY_TO_CONTINUE", () => {
     const result = stxResolve(txId, "Both reviewers approved");
-    expect(result.tx.status).toBe(SyncTransactionStatus.RESOLVED);
+    expect(result.tx.status).toBe(CheckpointReviewStatus.RESOLVED);
 
     const gateResult = sgStatus(gateId);
     expect(gateResult.gate.status).toBe(SyncGateStatus.READY_TO_CONTINUE);
@@ -150,7 +151,7 @@ describe("SyncTransaction rejection flow", () => {
 
   it("rejection moves tx to REJECTED", () => {
     const result = stxReject(txId, agent2Id, "Needs rework");
-    expect(result.tx.status).toBe(SyncTransactionStatus.REJECTED);
+    expect(result.tx.status).toBe(CheckpointReviewStatus.REJECTED);
     expect(result.hasRejection).toBe(true);
   });
 
@@ -164,7 +165,7 @@ describe("SyncTransaction rejection flow", () => {
 
   it("resolve after rejection releases gate", () => {
     const result = stxResolve(txId, "Rework complete, force resolve");
-    expect(result.tx.status).toBe(SyncTransactionStatus.RESOLVED);
+    expect(result.tx.status).toBe(CheckpointReviewStatus.RESOLVED);
 
     const gateResult = sgStatus(gateId);
     expect(gateResult.gate.status).toBe(SyncGateStatus.READY_TO_CONTINUE);
@@ -188,7 +189,7 @@ describe("SyncTransaction cancellation", () => {
     gateId = result.tx.gateId;
 
     const cancelled = stxCancel(txId, "No longer needed");
-    expect(cancelled.status).toBe(SyncTransactionStatus.CANCELLED);
+    expect(cancelled.status).toBe(CheckpointReviewStatus.CANCELLED);
   });
 
   it("gate is also cancelled", () => {

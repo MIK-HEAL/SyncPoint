@@ -1,7 +1,7 @@
 /**
- * P4A — Constraint Runtime (pure evaluation layer).
+ * Constraint Evaluation — pure constraint checker.
  *
- * Evaluates a ProjectedReality against an action context to produce
+ * Evaluates a RealityProjection against an action context to produce
  * a ConstraintDecision: { permitted, blockers, warnings }.
  *
  * Design principles:
@@ -10,14 +10,18 @@
  *   - do_not_touch with scope overlap DOES block
  *   - projection invalid / blocking conflict DOES block
  *   - Every violation carries sourceMemoryId + projectionId + evidence
+ *
+ * This is NOT a rules engine or runtime VM. It is a pure function
+ * constraint checker. Untyped hard_constraint defaults to advisory.
+ * Only typed evaluators or built-in rules can block.
  */
 
 import type {
-  ProjectedReality,
-  ProjectionItem,
+  RealityProjection,
+  ProjectedMemoryItem,
   ProjectionScope,
-} from "./projection.js";
-import { getScopeMatcher, computeContentHash } from "./projection.js";
+} from "./reality-projection.js";
+import { getScopeMatcher, computeContentHash } from "./reality-projection.js";
 import type { ResourceRef } from "./resource.js";
 
 // ── Runtime Spec ─────────────────────────────
@@ -30,11 +34,11 @@ import type { ResourceRef } from "./resource.js";
 export type ConstraintRuleType = string;
 
 /**
- * Structured runtime specification for a hard_constraint.
- * When present on a ProjectionItem, enables typed evaluation (blocking)
+ * Structured rule specification for a hard_constraint.
+ * When present on a ProjectedMemoryItem, enables typed evaluation (blocking)
  * instead of generic advisory behavior.
  */
-export interface ConstraintRuntimeSpec {
+export interface ConstraintRuleSpec {
   rule: ConstraintRuleType;
   /** Optional message override */
   message?: string;
@@ -45,11 +49,11 @@ export interface ConstraintRuntimeSpec {
 // ── Pluggable Constraint Rule Evaluator ───────────────
 
 /**
- * A ConstraintRuleEvaluator handles evaluation for a specific rule type.
+ * A ConstraintEvaluator handles evaluation for a specific rule type.
  * Plugins register evaluators so core never needs domain-specific logic
  * (e.g. file glob matching, resource URI overlap).
  */
-export interface ConstraintRuleEvaluator {
+export interface ConstraintEvaluator {
   /** The rule type this evaluator handles (e.g. "resource_forbidden"). */
   ruleType: string;
   /**
@@ -58,22 +62,22 @@ export interface ConstraintRuleEvaluator {
    */
   evaluate(
     input: ConstraintInput,
-    item: ProjectionItem,
-    spec: ConstraintRuntimeSpec,
+    item: ProjectedMemoryItem,
+    spec: ConstraintRuleSpec,
   ): ConstraintViolation | null;
 }
 
-const _ruleEvaluators = new Map<string, ConstraintRuleEvaluator>();
+const _ruleEvaluators = new Map<string, ConstraintEvaluator>();
 
-export function registerConstraintRuleEvaluator(e: ConstraintRuleEvaluator): void {
+export function registerConstraintEvaluator(e: ConstraintEvaluator): void {
   _ruleEvaluators.set(e.ruleType, e);
 }
 
-export function getConstraintRuleEvaluator(ruleType: string): ConstraintRuleEvaluator | undefined {
+export function getConstraintEvaluator(ruleType: string): ConstraintEvaluator | undefined {
   return _ruleEvaluators.get(ruleType);
 }
 
-export function clearConstraintRuleEvaluatorRegistry(): void {
+export function clearConstraintEvaluatorRegistry(): void {
   _ruleEvaluators.clear();
 }
 
@@ -82,7 +86,7 @@ export function clearConstraintRuleEvaluatorRegistry(): void {
  * Supports embedded JSON: `<!-- runtime-spec: {"rule":"resource_forbidden"} -->`
  * Returns null if no spec found.
  */
-export function parseRuntimeSpec(content: string): ConstraintRuntimeSpec | null {
+export function parseRuntimeSpec(content: string): ConstraintRuleSpec | null {
   const match = content.match(/<!--\s*runtime-spec:\s*(\{[^}]+\})\s*-->/);
   if (!match) return null;
   try {
@@ -110,14 +114,14 @@ function parseValidatorConfig(config: string | undefined): { message?: string; a
 }
 
 /**
- * Build a runtime spec from a ProjectionItem's structural fields.
+ * Build a runtime spec from a ProjectedMemoryItem's structural fields.
  *
  * Resolution order:
  *   1. Explicit `validatorType` field (from Project Memory schema) — the designed path
  *   2. Embedded `<!-- runtime-spec: {...} -->` in content — compatibility/convenience
  *   3. No inference from scope alone — hard_constraint without validator stays advisory
  */
-export function resolveRuntimeSpec(item: ProjectionItem): ConstraintRuntimeSpec | null {
+export function resolveRuntimeSpec(item: ProjectedMemoryItem): ConstraintRuleSpec | null {
   // 1. Explicit validatorType from schema
   if (item.validatorType && isKnownRule(item.validatorType)) {
     const config = parseValidatorConfig(item.validatorConfig);
@@ -163,7 +167,7 @@ export function isConstraintRuleKnown(type: string): boolean {
 // ── Types ────────────────────────────────────────────────
 
 /** Actions that the runtime can evaluate. */
-export type RuntimeAction =
+export type ConstraintAction =
   | "resume"
   | "start_assignment"
   | "wake_start"
@@ -199,7 +203,7 @@ export interface ConstraintManifest {
   /** Memory version the projection was built from */
   memoryVersion: number;
   /** Action being evaluated */
-  action: RuntimeAction;
+  action: ConstraintAction;
   /** Constraint rules that were evaluated (sourceMemoryId + rule pairs) */
   evaluatedRules: Array<{ sourceMemoryId: string; rule: string }>;
   /** Resources that were checked against scopes */
@@ -256,8 +260,8 @@ export function buildConstraintManifest(
 
 /** Input context for constraint evaluation. */
 export interface ConstraintInput {
-  action: RuntimeAction;
-  projection: ProjectedReality;
+  action: ConstraintAction;
+  projection: RealityProjection;
   /** Resources touched by current action (patch, assignment, etc.) */
   touchedResources?: ResourceRef[];
   /** Whether capsule validation passed (for locked-mode gate). */
@@ -449,7 +453,7 @@ function evaluateHardConstraintTyped(
 }
 
 /** Check if item is a do_not_touch (handled by its own evaluator). */
-function isDoNotTouch(cr: ProjectionItem): boolean {
+function isDoNotTouch(cr: ProjectedMemoryItem): boolean {
   return cr.kind === "do_not_touch"
     || cr.source.projectionReason.includes("dual-write")
     || cr.source.projectionReason.includes("P4 enforcement");

@@ -1,78 +1,137 @@
 /**
- * SyncTransaction repository — CRUD for sync_transaction table.
+ * CheckpointReview repository — CRUD for normalized checkpoint_review + checkpoint_review_approver tables.
+ *
+ * Domain type CheckpointReview still uses CSV strings (requiredApproverIds,
+ * approvedByIds, rejectedByIds). This repo reconstructs those from the join table.
+ *
+ * Exported function names still use "SyncTransaction" for Phase 4 service compat.
  */
 
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
-import { SyncTransactionStatus } from "syncpoint-core";
-import type { SyncTransaction, SyncTransactionCreate } from "syncpoint-core";
+import { CheckpointReviewStatus } from "syncpoint-core";
+import type { CheckpointReview, CheckpointReviewCreate } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
 
-export function createSyncTransaction(data: SyncTransactionCreate & { gateId?: string }): SyncTransaction {
+// Re-export old names for service-layer compat until Phase 4
+export type SyncTransaction = CheckpointReview;
+export type SyncTransactionCreate = CheckpointReviewCreate;
+export const SyncTransactionStatus = CheckpointReviewStatus;
+
+// ── Internal helpers ────────────────────────────────
+
+function hydrateReview(db: ReturnType<typeof _getDb>, row: any): CheckpointReview {
+  const approvers = db.select().from(s.checkpointReviewApprovers)
+    .where(eq(s.checkpointReviewApprovers.reviewId, row.id)).all();
+
+  const requiredApproverIds = approvers.map(a => a.agentId).join(",");
+  const approvedByIds = approvers.filter(a => a.role === "approved").map(a => a.agentId).join(",");
+  const rejectedByIds = approvers.filter(a => a.role === "rejected").map(a => a.agentId).join(",");
+
+  return {
+    id: row.id,
+    sessionId: row.sessionId ?? "",
+    taskId: row.taskId,
+    checkpointId: row.checkpointId,
+    requestingAgentId: row.requestingAgentId,
+    requiredApproverIds,
+    approvedByIds,
+    rejectedByIds,
+    gateId: row.gateId ?? "",
+    status: row.status as CheckpointReviewStatus,
+    decisionSummary: row.decisionSummary ?? "",
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  } as CheckpointReview;
+}
+
+// ── CRUD ────────────────────────────────────────────
+
+export function createSyncTransaction(data: CheckpointReviewCreate & { gateId?: string }): CheckpointReview {
   const db = _getDb();
   const id = createId();
   const ts = now();
-  db.insert(s.syncTransactions).values({
+  db.insert(s.checkpointReviews).values({
     id,
     sessionId: data.sessionId,
     taskId: data.taskId,
     checkpointId: data.checkpointId,
     requestingAgentId: data.requestingAgentId,
-    requiredApproverIds: data.requiredApproverIds.join(","),
-    approvedByIds: "",
-    rejectedByIds: "",
     gateId: data.gateId ?? "",
-    status: SyncTransactionStatus.OPEN,
+    status: CheckpointReviewStatus.OPEN,
     decisionSummary: "",
     createdAt: ts,
     updatedAt: ts,
   }).run();
+  // Insert required approvers into join table
+  for (const agentId of data.requiredApproverIds) {
+    db.insert(s.checkpointReviewApprovers).values({
+      id: createId(),
+      reviewId: id,
+      agentId,
+      role: "required",
+      decidedAt: "",
+    }).run();
+  }
   return getSyncTransaction(id);
 }
 
-export function getSyncTransaction(id: string): SyncTransaction {
+export function getSyncTransaction(id: string): CheckpointReview {
   const db = _getDb();
-  const row = db.select().from(s.syncTransactions).where(eq(s.syncTransactions.id, id)).get();
-  if (!row) throw new Error(`sync_transaction not found: ${id}`);
-  return row as unknown as SyncTransaction;
+  const row = db.select().from(s.checkpointReviews).where(eq(s.checkpointReviews.id, id)).get();
+  if (!row) throw new Error(`checkpoint_review not found: ${id}`);
+  return hydrateReview(db, row);
 }
 
 export function updateSyncTransactionStatus(
   id: string,
-  status: SyncTransactionStatus,
+  status: CheckpointReviewStatus,
   decisionSummary?: string,
-): SyncTransaction {
+): CheckpointReview {
   const db = _getDb();
   const updates: Record<string, unknown> = { status, updatedAt: now() };
   if (decisionSummary !== undefined) updates.decisionSummary = decisionSummary;
-  db.update(s.syncTransactions).set(updates).where(eq(s.syncTransactions.id, id)).run();
+  db.update(s.checkpointReviews).set(updates).where(eq(s.checkpointReviews.id, id)).run();
   return getSyncTransaction(id);
 }
 
-export function updateSyncTransactionApprovedBy(id: string, approvedByIds: string): SyncTransaction {
+export function updateSyncTransactionApprovedBy(id: string, approvedByIds: string): CheckpointReview {
+  // Update approver roles in the join table based on the CSV
   const db = _getDb();
-  db.update(s.syncTransactions).set({
-    approvedByIds,
-    updatedAt: now(),
-  }).where(eq(s.syncTransactions.id, id)).run();
+  const agentIds = approvedByIds.split(",").map(s => s.trim()).filter(Boolean);
+  for (const agentId of agentIds) {
+    db.update(s.checkpointReviewApprovers).set({
+      role: "approved",
+      decidedAt: now(),
+    }).where(
+      and(eq(s.checkpointReviewApprovers.reviewId, id), eq(s.checkpointReviewApprovers.agentId, agentId))
+    ).run();
+  }
+  db.update(s.checkpointReviews).set({ updatedAt: now() }).where(eq(s.checkpointReviews.id, id)).run();
   return getSyncTransaction(id);
 }
 
-export function updateSyncTransactionRejectedBy(id: string, rejectedByIds: string): SyncTransaction {
+export function updateSyncTransactionRejectedBy(id: string, rejectedByIds: string): CheckpointReview {
   const db = _getDb();
-  db.update(s.syncTransactions).set({
-    rejectedByIds,
-    updatedAt: now(),
-  }).where(eq(s.syncTransactions.id, id)).run();
+  const agentIds = rejectedByIds.split(",").map(s => s.trim()).filter(Boolean);
+  for (const agentId of agentIds) {
+    db.update(s.checkpointReviewApprovers).set({
+      role: "rejected",
+      decidedAt: now(),
+    }).where(
+      and(eq(s.checkpointReviewApprovers.reviewId, id), eq(s.checkpointReviewApprovers.agentId, agentId))
+    ).run();
+  }
+  db.update(s.checkpointReviews).set({ updatedAt: now() }).where(eq(s.checkpointReviews.id, id)).run();
   return getSyncTransaction(id);
 }
 
-export function updateSyncTransactionGateId(id: string, gateId: string): SyncTransaction {
+export function updateSyncTransactionGateId(id: string, gateId: string): CheckpointReview {
   const db = _getDb();
-  db.update(s.syncTransactions).set({
+  db.update(s.checkpointReviews).set({
     gateId,
     updatedAt: now(),
-  }).where(eq(s.syncTransactions.id, id)).run();
+  }).where(eq(s.checkpointReviews.id, id)).run();
   return getSyncTransaction(id);
 }
 
@@ -80,36 +139,35 @@ export function listSyncTransactions(opts?: {
   sessionId?: string;
   taskId?: string;
   status?: string;
-}): SyncTransaction[] {
+}): CheckpointReview[] {
   const db = _getDb();
   const conditions = [];
-  if (opts?.sessionId) conditions.push(eq(s.syncTransactions.sessionId, opts.sessionId));
-  if (opts?.taskId) conditions.push(eq(s.syncTransactions.taskId, opts.taskId));
-  if (opts?.status) conditions.push(eq(s.syncTransactions.status, opts.status));
+  if (opts?.sessionId) conditions.push(eq(s.checkpointReviews.sessionId, opts.sessionId));
+  if (opts?.taskId) conditions.push(eq(s.checkpointReviews.taskId, opts.taskId));
+  if (opts?.status) conditions.push(eq(s.checkpointReviews.status, opts.status));
 
-  if (conditions.length === 0) {
-    return db.select().from(s.syncTransactions).all() as unknown as SyncTransaction[];
-  }
-  return db.select().from(s.syncTransactions)
-    .where(and(...conditions))
-    .all() as unknown as SyncTransaction[];
+  const rows = conditions.length === 0
+    ? db.select().from(s.checkpointReviews).all()
+    : db.select().from(s.checkpointReviews).where(and(...conditions)).all();
+  return rows.map(row => hydrateReview(db, row));
 }
 
 export function listActiveSyncTransactions(opts?: {
   sessionId?: string;
   taskId?: string;
-}): SyncTransaction[] {
+}): CheckpointReview[] {
   const db = _getDb();
   const activeStatuses = [
-    SyncTransactionStatus.OPEN,
-    SyncTransactionStatus.WAITING_APPROVAL,
-    SyncTransactionStatus.REJECTED,
+    CheckpointReviewStatus.OPEN,
+    CheckpointReviewStatus.WAITING_APPROVAL,
+    CheckpointReviewStatus.REJECTED,
   ];
-  const conditions = [inArray(s.syncTransactions.status, activeStatuses)];
-  if (opts?.sessionId) conditions.push(eq(s.syncTransactions.sessionId, opts.sessionId));
-  if (opts?.taskId) conditions.push(eq(s.syncTransactions.taskId, opts.taskId));
+  const conditions = [inArray(s.checkpointReviews.status, activeStatuses)];
+  if (opts?.sessionId) conditions.push(eq(s.checkpointReviews.sessionId, opts.sessionId));
+  if (opts?.taskId) conditions.push(eq(s.checkpointReviews.taskId, opts.taskId));
 
-  return db.select().from(s.syncTransactions)
+  const rows = db.select().from(s.checkpointReviews)
     .where(and(...conditions))
-    .all() as unknown as SyncTransaction[];
+    .all();
+  return rows.map(row => hydrateReview(db, row));
 }

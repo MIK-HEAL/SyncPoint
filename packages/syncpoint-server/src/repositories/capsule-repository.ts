@@ -1,61 +1,76 @@
 /**
- * ContextCapsule repository.
+ * ContextSnapshot repository (replaces ContextCapsule repository).
+ *
+ * Uses the normalized context_snapshot + context_snapshot_resource tables.
+ * Exported function names kept as createCapsule/listCapsules/getLatestCapsule
+ * for Phase 4 service-layer compat.
  */
 
 import { eq, and, desc } from "drizzle-orm";
 import * as s from "../schema.js";
 import { EventType } from "syncpoint-core";
-import type { ContextCapsule, ContextCapsuleCreate } from "syncpoint-core";
+import type { ContextSnapshot, ContextSnapshotCreate } from "syncpoint-core";
 import { _getDb, now, createId, logEvent } from "./_shared.js";
 import { getTask } from "./task-repository.js";
 import { getAgent } from "./agent-repository.js";
 
-export function createCapsule(data: ContextCapsuleCreate): ContextCapsule {
+// Re-export old names for service-layer compat
+export type ContextCapsule = ContextSnapshot;
+export type ContextCapsuleCreate = ContextSnapshotCreate;
+
+// ── Internal helpers ────────────────────────────────
+
+function rowToSnapshot(row: any): ContextSnapshot {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    agentId: row.agentId,
+    checkpointId: row.checkpointId,
+    kind: row.kind ?? "resume",
+    summary: row.summary ?? "",
+    payloadJson: row.payloadJson ?? "{}",
+    validationStatus: "",
+    staleReason: "",
+    createdAt: row.createdAt,
+  } as ContextSnapshot;
+}
+
+// ── CRUD ────────────────────────────────────────────
+
+export function createCapsule(data: ContextSnapshotCreate): ContextSnapshot {
   getTask(data.taskId);
   getAgent(data.agentId);
   const db = _getDb();
   const id = createId();
   const ts = now();
-  db.insert(s.contextCapsules).values({
+  db.insert(s.contextSnapshots).values({
     id,
     taskId: data.taskId,
     agentId: data.agentId,
-    checkpointId: data.checkpointId,
-    goal: data.goal,
-    currentPhase: data.currentPhase,
-    confirmedDecisions: data.confirmedDecisions,
-    interfaceContract: data.interfaceContract,
-    workingResources: data.workingResources,
-    completedWork: data.completedWork,
-    remainingWork: data.remainingWork,
-    risks: data.risks,
-    blockers: data.blockers,
-    nextSteps: data.nextSteps,
-    resumePrompt: data.resumePrompt,
-    // P12 extended fields
-    intentScope: data.intentScope ?? "",
-    nonGoals: data.nonGoals ?? "",
-    verifiedFacts: data.verifiedFacts ?? "",
-    unverifiedClaims: data.unverifiedClaims ?? "",
-    evidenceRefs: data.evidenceRefs ?? "",
-    activeConstraints: data.activeConstraints ?? "",
-    doNotTouch: data.doNotTouch ?? "",
-    handoffInstructions: data.handoffInstructions ?? "",
+    checkpointId: data.checkpointId ?? "",
+    kind: data.kind ?? "resume",
+    summary: data.summary ?? "",
+    payloadJson: data.payloadJson ?? "{}",
     createdAt: ts,
   }).run();
-  logEvent(EventType.CAPSULE_CREATED, "capsule", id);
-  return db.select().from(s.contextCapsules).where(eq(s.contextCapsules.id, id)).get() as unknown as ContextCapsule;
+  logEvent(EventType.CAPSULE_CREATED, "context_snapshot", id);
+  const row = db.select().from(s.contextSnapshots).where(eq(s.contextSnapshots.id, id)).get();
+  return rowToSnapshot(row);
 }
 
-export function listCapsules(taskId: string): ContextCapsule[] {
+export function listCapsules(taskId: string): ContextSnapshot[] {
   getTask(taskId);
-  return _getDb().select().from(s.contextCapsules).where(eq(s.contextCapsules.taskId, taskId)).all() as unknown as ContextCapsule[];
+  return _getDb().select().from(s.contextSnapshots)
+    .where(eq(s.contextSnapshots.taskId, taskId))
+    .all()
+    .map(rowToSnapshot);
 }
 
-export function getLatestCapsule(taskId: string, agentId: string): ContextCapsule | undefined {
-  return _getDb().select().from(s.contextCapsules)
-    .where(and(eq(s.contextCapsules.taskId, taskId), eq(s.contextCapsules.agentId, agentId)))
-    .orderBy(desc(s.contextCapsules.createdAt))
+export function getLatestCapsule(taskId: string, agentId: string): ContextSnapshot | undefined {
+  const row = _getDb().select().from(s.contextSnapshots)
+    .where(and(eq(s.contextSnapshots.taskId, taskId), eq(s.contextSnapshots.agentId, agentId)))
+    .orderBy(desc(s.contextSnapshots.createdAt))
     .limit(1)
-    .get() as unknown as ContextCapsule | undefined;
+    .get();
+  return row ? rowToSnapshot(row) : undefined;
 }

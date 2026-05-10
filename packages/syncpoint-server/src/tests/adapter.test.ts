@@ -52,12 +52,15 @@ beforeAll(async () => {
     taskId,
     agentId,
     checkpointId,
-    goal: "Build React components",
-    currentPhase: "implementation",
-    workingResources: "src/components/Button.tsx",
-    remainingWork: "Finish Button styling",
-    nextSteps: "Add hover states",
-    resumePrompt: "Continue building Button component with hover states",
+    summary: "Build React components",
+    payloadJson: JSON.stringify({
+      goal: "Build React components",
+      currentPhase: "implementation",
+      workingResources: ["src/components/Button.tsx"],
+      remainingWork: "Finish Button styling",
+      nextSteps: ["Add hover states"],
+      resumePrompt: "Continue building Button component with hover states",
+    }),
   }, "POST");
 
   await e2e.rpc("pinnedMemory.create", {

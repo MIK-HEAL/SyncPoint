@@ -14,8 +14,8 @@ import {
   registerOperationValidator,
   registerResourceMatcher,
   getResourceMatcher,
-  registerConstraintRuleEvaluator,
-  getConstraintRuleEvaluator,
+  registerConstraintEvaluator,
+  getConstraintEvaluator,
   registerScopeMatcher,
   getScopeMatcher,
 } from "syncpoint-core";
@@ -53,8 +53,8 @@ export function registerCodePlugin(): void {
 
   // Register ConstraintRuleEvaluators (file_forbidden, module_forbidden)
   for (const e of CODE_PLUGIN_CONSTRAINT_EVALUATORS) {
-    if (!getConstraintRuleEvaluator(e.ruleType)) {
-      registerConstraintRuleEvaluator(e);
+    if (!getConstraintEvaluator(e.ruleType)) {
+      registerConstraintEvaluator(e);
     }
   }
 

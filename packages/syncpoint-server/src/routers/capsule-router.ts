@@ -7,18 +7,10 @@ export const capsuleRouter = t.router({
     .input(z.object({
       taskId: z.string(),
       agentId: z.string(),
-      checkpointId: z.string(),
-      goal: z.string().default(""),
-      currentPhase: z.string().default(""),
-      confirmedDecisions: z.string().default(""),
-      interfaceContract: z.string().default(""),
-      workingResources: z.string().default(""),
-      completedWork: z.string().default(""),
-      remainingWork: z.string().default(""),
-      risks: z.string().default(""),
-      blockers: z.string().default(""),
-      nextSteps: z.string().default(""),
-      resumePrompt: z.string().default(""),
+      checkpointId: z.string().optional(),
+      kind: z.enum(["resume", "handoff", "review", "system"]).default("resume"),
+      summary: z.string().default(""),
+      payloadJson: z.string().default("{}"),
     }))
     .mutation(({ input }) => createCapsule(input)),
 

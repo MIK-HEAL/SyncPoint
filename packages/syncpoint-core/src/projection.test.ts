@@ -1,17 +1,17 @@
 /**
- * P3A — Pure unit tests for Projection Compiler.
+ * Reality Projection — Pure unit tests.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  compileProjection,
+  buildRealityProjection,
   computeProjectionCacheKey,
   computeContentHash,
   resolveProjectionRoute,
   registerScopeMatcher,
   clearScopeMatcherRegistry,
-  type ProjectionInput,
+  type MemoryProjectionInput,
   type ProjectionContext,
-} from "./projection.ts";
+} from "./reality-projection.ts";
 
 // Register prefix/glob scope matchers so appliesTo filtering works like a real plugin
 beforeEach(() => {
@@ -37,7 +37,7 @@ function makeCtx(overrides?: Partial<ProjectionContext>): ProjectionContext {
   };
 }
 
-function makeMem(overrides?: Partial<ProjectionInput>): ProjectionInput {
+function makeMem(overrides?: Partial<MemoryProjectionInput>): MemoryProjectionInput {
   return {
     id: `mem-${Math.random().toString(36).slice(2, 8)}`,
     category: "decision",
@@ -53,122 +53,122 @@ function makeMem(overrides?: Partial<ProjectionInput>): ProjectionInput {
   };
 }
 
-describe("compileProjection — kind→bucket mapping", () => {
-  it("fact → capsulePatch.verifiedFacts", () => {
-    const r = compileProjection([makeMem({ kind: "fact" })], makeCtx());
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+describe("buildRealityProjection — kind→bucket mapping", () => {
+  it("fact → contextPatch.verifiedFacts", () => {
+    const r = buildRealityProjection([makeMem({ kind: "fact" })], makeCtx());
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
-  it("soft_convention → capsulePatch.activeConstraints", () => {
-    const r = compileProjection([makeMem({ kind: "soft_convention" })], makeCtx());
-    expect(r.capsulePatch.activeConstraints).toHaveLength(1);
+  it("soft_convention → contextPatch.activeConstraints", () => {
+    const r = buildRealityProjection([makeMem({ kind: "soft_convention" })], makeCtx());
+    expect(r.contextPatch.activeConstraints).toHaveLength(1);
   });
 
-  it("risk → capsulePatch.risks", () => {
-    const r = compileProjection([makeMem({ kind: "risk" })], makeCtx());
-    expect(r.capsulePatch.risks).toHaveLength(1);
+  it("risk → contextPatch.risks", () => {
+    const r = buildRealityProjection([makeMem({ kind: "risk" })], makeCtx());
+    expect(r.contextPatch.risks).toHaveLength(1);
   });
 
-  it("do_not_touch → capsulePatch.doNotTouch", () => {
-    const r = compileProjection([makeMem({ kind: "do_not_touch" })], makeCtx());
-    expect(r.capsulePatch.doNotTouch).toHaveLength(1);
+  it("do_not_touch → contextPatch.doNotTouch", () => {
+    const r = buildRealityProjection([makeMem({ kind: "do_not_touch" })], makeCtx());
+    expect(r.contextPatch.doNotTouch).toHaveLength(1);
   });
 
   it("hard_constraint → constraintRules", () => {
-    const r = compileProjection([makeMem({ kind: "hard_constraint" })], makeCtx());
+    const r = buildRealityProjection([makeMem({ kind: "hard_constraint" })], makeCtx());
     expect(r.constraintRules).toHaveLength(1);
   });
 
   it("protocol_rule → protocolRules", () => {
-    const r = compileProjection([makeMem({ kind: "protocol_rule" })], makeCtx());
+    const r = buildRealityProjection([makeMem({ kind: "protocol_rule" })], makeCtx());
     expect(r.protocolRules).toHaveLength(1);
   });
 });
 
-describe("compileProjection — traceability", () => {
+describe("buildRealityProjection — traceability", () => {
   it("every item has sourceMemoryId and projectionReason", () => {
     const mem = makeMem({ kind: "fact", id: "mem-trace" });
-    const r = compileProjection([mem], makeCtx());
-    const item = r.capsulePatch.verifiedFacts[0];
+    const r = buildRealityProjection([mem], makeCtx());
+    const item = r.contextPatch.verifiedFacts[0];
     expect(item.source.sourceMemoryId).toBe("mem-trace");
     expect(item.source.projectionReason).toContain("fact");
   });
 
   it("createdFrom contains taskId and memoryVersion", () => {
-    const r = compileProjection([], makeCtx({ taskId: "t-42", memoryVersion: 7 }));
+    const r = buildRealityProjection([], makeCtx({ taskId: "t-42", memoryVersion: 7 }));
     expect(r.createdFrom.taskId).toBe("t-42");
     expect(r.createdFrom.memoryVersion).toBe(7);
   });
 
   it("projectionId is non-empty", () => {
-    const r = compileProjection([], makeCtx());
+    const r = buildRealityProjection([], makeCtx());
     expect(r.projectionId).toBeTruthy();
     expect(r.projectionId.length).toBeGreaterThan(0);
   });
 });
 
-describe("compileProjection — validity gating", () => {
+describe("buildRealityProjection — validity gating", () => {
   it("skips invalid memories", () => {
     const mem = makeMem({ validityStatus: "invalid", kind: "fact" });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.verifiedFacts).toHaveLength(0);
     expect(r.skippedStale).toHaveLength(1);
     expect(r.skippedStale[0].sourceMemoryId).toBe(mem.id);
   });
 
   it("skips stale memories", () => {
     const mem = makeMem({ validityStatus: "stale", kind: "risk" });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.risks).toHaveLength(0);
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.risks).toHaveLength(0);
     expect(r.skippedStale).toHaveLength(1);
   });
 
   it("includes needs_revalidation but degrades projectionValidity", () => {
     const mem = makeMem({ validityStatus: "needs_revalidation", kind: "fact" });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
     expect(r.projectionValidity).toBe("needs_revalidation");
   });
 
   it("fresh-only projection yields fresh validity", () => {
-    const r = compileProjection([makeMem({ validityStatus: "fresh" })], makeCtx());
+    const r = buildRealityProjection([makeMem({ validityStatus: "fresh" })], makeCtx());
     expect(r.projectionValidity).toBe("fresh");
   });
 });
 
-describe("compileProjection — appliesTo filtering", () => {
+describe("buildRealityProjection — appliesTo filtering", () => {
   it("includes memory with no appliesTo (project-wide)", () => {
     const mem = makeMem({ appliesTo: "" });
-    const r = compileProjection([mem], makeCtx({ workingResources: ["src/foo.ts"] }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/foo.ts"] }));
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("includes memory whose file scope matches working files", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/**"] }) });
-    const r = compileProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("excludes memory whose file scope does NOT match working files", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["test/**"] }) });
-    const r = compileProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
+    expect(r.contextPatch.verifiedFacts).toHaveLength(0);
   });
 
   it("includes memory whose module scope matches", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ modules: ["core"] }) });
-    const r = compileProjection([mem], makeCtx({ currentModules: ["core"] }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    const r = buildRealityProjection([mem], makeCtx({ currentModules: ["core"] }));
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("excludes memory whose module scope does NOT match", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ modules: ["ui"] }) });
-    const r = compileProjection([mem], makeCtx({ currentModules: ["core"] }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+    const r = buildRealityProjection([mem], makeCtx({ currentModules: ["core"] }));
+    expect(r.contextPatch.verifiedFacts).toHaveLength(0);
   });
 });
 
-describe("compileProjection — resource-type-aware appliesTo filtering", () => {
+describe("buildRealityProjection — resource-type-aware appliesTo filtering", () => {
   beforeEach(() => {
     clearScopeMatcherRegistry();
     const prefixFindOverlaps = (patterns: string[], targets: string[]): string[] =>
@@ -185,56 +185,56 @@ describe("compileProjection — resource-type-aware appliesTo filtering", () => 
 
   it("excludes file-scoped memory when only non-file resources are working", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
-    const r = compileProjection([mem], makeCtx({
+    const r = buildRealityProjection([mem], makeCtx({
       workingResources: ["src/auth/logo.png"],
       workingResourceRefs: [{ type: "binary_asset", locator: "src/auth/logo.png", metadata: "" }],
     }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(0);
+    expect(r.contextPatch.verifiedFacts).toHaveLength(0);
   });
 
   it("includes file-scoped memory when file resources are working", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
-    const r = compileProjection([mem], makeCtx({
+    const r = buildRealityProjection([mem], makeCtx({
       workingResources: ["src/auth/session.ts"],
       workingResourceRefs: [{ type: "file", locator: "src/auth/session.ts", metadata: "" }],
     }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("mixed resources: file-scoped memory included only due to file resource", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
-    const r = compileProjection([mem], makeCtx({
+    const r = buildRealityProjection([mem], makeCtx({
       workingResources: ["src/auth/session.ts", "src/auth/logo.png"],
       workingResourceRefs: [
         { type: "file", locator: "src/auth/session.ts", metadata: "" },
         { type: "binary_asset", locator: "src/auth/logo.png", metadata: "" },
       ],
     }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("module-scoped memory still uses currentModules when typed resources are provided", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ modules: ["core"] }) });
-    const r = compileProjection([mem], makeCtx({
+    const r = buildRealityProjection([mem], makeCtx({
       currentModules: ["core"],
       workingResources: ["src/unrelated.ts"],
       workingResourceRefs: [{ type: "file", locator: "src/unrelated.ts", metadata: "" }],
     }));
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("falls back to string-only matching when workingResourceRefs not provided", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
     // No workingResourceRefs — should fall back to scopeContext (all locators)
-    const r = compileProjection([mem], makeCtx({
+    const r = buildRealityProjection([mem], makeCtx({
       workingResources: ["src/auth/logo.png"],
     }));
     // Without resourceRefs, the locator text matches — backward compat
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 });
 
-describe("compileProjection — conflict detection", () => {
+describe("buildRealityProjection — conflict detection", () => {
   it("detects scope_collision between two constraint rules", () => {
     const a = makeMem({
       kind: "hard_constraint",
@@ -246,7 +246,7 @@ describe("compileProjection — conflict detection", () => {
       id: "c2",
       appliesTo: JSON.stringify({ files: ["src/db.ts"] }),
     });
-    const r = compileProjection([a, b], makeCtx({ workingResources: ["src/db.ts"] }));
+    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/db.ts"] }));
     expect(r.constraintRules).toHaveLength(2);
     expect(r.conflicts).toHaveLength(1);
     expect(r.conflicts[0].kind).toBe("scope_collision");
@@ -263,7 +263,7 @@ describe("compileProjection — conflict detection", () => {
       id: "c4",
       appliesTo: JSON.stringify({ files: ["src/b.ts"] }),
     });
-    const r = compileProjection([a, b], makeCtx({ workingResources: ["src/a.ts", "src/b.ts"] }));
+    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/a.ts", "src/b.ts"] }));
     expect(r.conflicts).toHaveLength(0);
   });
 
@@ -278,7 +278,7 @@ describe("compileProjection — conflict detection", () => {
       id: "p2",
       appliesTo: JSON.stringify({ files: ["src/**"] }),
     });
-    const r = compileProjection([a, b], makeCtx({ workingResources: ["src/x.ts"] }));
+    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/x.ts"] }));
     expect(r.conflicts.length).toBeGreaterThan(0);
     expect(r.projectionValidity).toBe("needs_revalidation");
   });
@@ -345,7 +345,7 @@ describe("computeProjectionCacheKey", () => {
 
   it("createdFrom still tracks IDs even though key ignores them", () => {
     const ctx = makeCtx({ capsuleId: "cap-42", checkpointId: "cp-7", contractId: "con-1" });
-    const r = compileProjection([], ctx);
+    const r = buildRealityProjection([], ctx);
     expect(r.createdFrom.capsuleId).toBe("cap-42");
     expect(r.createdFrom.checkpointId).toBe("cp-7");
     expect(r.createdFrom.contractId).toBe("con-1");
@@ -367,9 +367,9 @@ describe("computeContentHash", () => {
   });
 });
 
-describe("compileProjection — mixed scenario", () => {
+describe("buildRealityProjection — mixed scenario", () => {
   it("compiles a realistic mixed memory set", () => {
-    const memories: ProjectionInput[] = [
+    const memories: MemoryProjectionInput[] = [
       makeMem({ id: "m1", kind: "fact", title: "TypeScript", content: "We use TS", validityStatus: "fresh" }),
       makeMem({ id: "m2", kind: "risk", title: "Memory leak", content: "Watch for leaks", validityStatus: "fresh", severity: "warning" }),
       makeMem({ id: "m3", kind: "hard_constraint", title: "No eval", content: "eval() is banned", validityStatus: "fresh", severity: "blocking" }),
@@ -379,23 +379,23 @@ describe("compileProjection — mixed scenario", () => {
       makeMem({ id: "m7", kind: "soft_convention", title: "UI only", content: "UI convention", validityStatus: "fresh", appliesTo: JSON.stringify({ modules: ["ui"] }) }),
     ];
     const ctx = makeCtx({ workingResources: ["src/main.ts"], currentModules: ["core"] });
-    const r = compileProjection(memories, ctx);
+    const r = buildRealityProjection(memories, ctx);
 
     // m1 → verifiedFacts
-    expect(r.capsulePatch.verifiedFacts).toHaveLength(1);
-    expect(r.capsulePatch.verifiedFacts[0].source.sourceMemoryId).toBe("m1");
+    expect(r.contextPatch.verifiedFacts).toHaveLength(1);
+    expect(r.contextPatch.verifiedFacts[0].source.sourceMemoryId).toBe("m1");
     // m2 → risks
-    expect(r.capsulePatch.risks).toHaveLength(1);
+    expect(r.contextPatch.risks).toHaveLength(1);
     // m3 → constraintRules
     expect(r.constraintRules).toHaveLength(1);
     // m4 → protocolRules
     expect(r.protocolRules).toHaveLength(1);
     // m5 → doNotTouch EXCLUDED (file scope src/db.ts doesn't match src/main.ts)
-    expect(r.capsulePatch.doNotTouch).toHaveLength(0);
+    expect(r.contextPatch.doNotTouch).toHaveLength(0);
     // m6 → skipped (stale)
     expect(r.skippedStale.some(s => s.sourceMemoryId === "m6")).toBe(true);
     // m7 → excluded (module ui not in current modules core)
-    expect(r.capsulePatch.activeConstraints).toHaveLength(0);
+    expect(r.contextPatch.activeConstraints).toHaveLength(0);
     // Overall validity fresh (no needs_revalidation sources included)
     expect(r.projectionValidity).toBe("fresh");
   });
@@ -460,52 +460,52 @@ describe("resolveProjectionRoute", () => {
   });
 });
 
-describe("compileProjection — target routing integration", () => {
+describe("buildRealityProjection — target routing integration", () => {
   it("risk with projectionTarget=constraint_runtime goes to constraintRules not risks", () => {
     const mem = makeMem({ kind: "risk", projectionTarget: "constraint_runtime" });
-    const r = compileProjection([mem], makeCtx());
+    const r = buildRealityProjection([mem], makeCtx());
     expect(r.constraintRules).toHaveLength(1);
-    expect(r.capsulePatch.risks).toHaveLength(0);
+    expect(r.contextPatch.risks).toHaveLength(0);
   });
 
   it("risk with projectionTarget=capsule goes to risks (same as default)", () => {
     const mem = makeMem({ kind: "risk", projectionTarget: "capsule" });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.risks).toHaveLength(1);
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.risks).toHaveLength(1);
     expect(r.constraintRules).toHaveLength(0);
   });
 
   it("do_not_touch with projectionTarget=capsule → doNotTouch only (no constraintRules)", () => {
     const mem = makeMem({ kind: "do_not_touch", projectionTarget: "capsule" });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.doNotTouch).toHaveLength(1);
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.doNotTouch).toHaveLength(1);
     expect(r.constraintRules).toHaveLength(0);
   });
 
   it("do_not_touch with projectionTarget=constraint_runtime → constraintRules only", () => {
     const mem = makeMem({ kind: "do_not_touch", projectionTarget: "constraint_runtime" });
-    const r = compileProjection([mem], makeCtx());
+    const r = buildRealityProjection([mem], makeCtx());
     expect(r.constraintRules).toHaveLength(1);
-    expect(r.capsulePatch.doNotTouch).toHaveLength(0);
+    expect(r.contextPatch.doNotTouch).toHaveLength(0);
   });
 
   it("do_not_touch without target → dual-write (backward compat)", () => {
     const mem = makeMem({ kind: "do_not_touch" });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.doNotTouch).toHaveLength(1);
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.doNotTouch).toHaveLength(1);
     expect(r.constraintRules).toHaveLength(1);
   });
 
   it("projectionReason includes target info when target is explicit", () => {
     const mem = makeMem({ kind: "risk", projectionTarget: "constraint_runtime" });
-    const r = compileProjection([mem], makeCtx());
+    const r = buildRealityProjection([mem], makeCtx());
     expect(r.constraintRules[0].source.projectionReason).toContain("explicit target");
   });
 
   it("null projectionTarget uses default kind→bucket reason", () => {
     const mem = makeMem({ kind: "fact", projectionTarget: null });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.verifiedFacts[0].source.projectionReason).toContain("fact →");
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.verifiedFacts[0].source.projectionReason).toContain("fact →");
   });
 });
 
@@ -558,8 +558,8 @@ describe("P1: Cache key hash contract hardening", () => {
     const mem = makeMem({ kind: "fact" });
     const ctx1 = makeCtx({ capsuleId: "cap-1", capsuleHash: "hash-same" });
     const ctx2 = makeCtx({ capsuleId: "cap-2", capsuleHash: "hash-same" });
-    const r1 = compileProjection([mem], ctx1);
-    const r2 = compileProjection([mem], ctx2);
+    const r1 = buildRealityProjection([mem], ctx1);
+    const r2 = buildRealityProjection([mem], ctx2);
     expect(r1.cacheKey).toBe(r2.cacheKey);
   });
 
@@ -567,14 +567,14 @@ describe("P1: Cache key hash contract hardening", () => {
     const mem = makeMem({ kind: "fact" });
     const ctx1 = makeCtx({ capsuleHash: "old-hash" });
     const ctx2 = makeCtx({ capsuleHash: "new-hash" });
-    const r1 = compileProjection([mem], ctx1);
-    const r2 = compileProjection([mem], ctx2);
+    const r1 = buildRealityProjection([mem], ctx1);
+    const r2 = buildRealityProjection([mem], ctx2);
     expect(r1.cacheKey).not.toBe(r2.cacheKey);
   });
 
   it("createdFrom still tracks IDs for audit trail", () => {
     const ctx = makeCtx({ capsuleId: "cap-A", checkpointId: "cp-B", contractId: "con-C" });
-    const r = compileProjection([], ctx);
+    const r = buildRealityProjection([], ctx);
     expect(r.createdFrom.capsuleId).toBe("cap-A");
     expect(r.createdFrom.checkpointId).toBe("cp-B");
     expect(r.createdFrom.contractId).toBe("con-C");
@@ -625,23 +625,23 @@ describe("P3: projectionTarget authoritative routing", () => {
   });
 
   it("explicit target actually controls compiled projection bucket", () => {
-    // fact with explicit protocol_gate → should appear in protocolRules, NOT capsulePatch
+    // fact with explicit protocol_gate → should appear in protocolRules, NOT contextPatch
     const mem = makeMem({ kind: "fact", projectionTarget: "protocol_gate" });
-    const r = compileProjection([mem], makeCtx());
+    const r = buildRealityProjection([mem], makeCtx());
     expect(r.protocolRules.length).toBe(1);
-    expect(r.capsulePatch.verifiedFacts.length).toBe(0);
+    expect(r.contextPatch.verifiedFacts.length).toBe(0);
   });
 
   it("protocol_rule with explicit constraint_runtime → constraintRules", () => {
     const mem = makeMem({ kind: "protocol_rule", projectionTarget: "constraint_runtime" });
-    const r = compileProjection([mem], makeCtx());
+    const r = buildRealityProjection([mem], makeCtx());
     expect(r.constraintRules.length).toBe(1);
     expect(r.protocolRules.length).toBe(0);
   });
 
   it("null target falls back to kind-based routing", () => {
     const mem = makeMem({ kind: "risk", projectionTarget: null });
-    const r = compileProjection([mem], makeCtx());
-    expect(r.capsulePatch.risks.length).toBe(1);
+    const r = buildRealityProjection([mem], makeCtx());
+    expect(r.contextPatch.risks.length).toBe(1);
   });
 });

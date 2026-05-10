@@ -8,11 +8,11 @@
  */
 
 import type {
-  ConstraintRuleEvaluator,
+  ConstraintEvaluator,
   ConstraintViolation,
   ConstraintInput,
-  ProjectionItem,
-  ConstraintRuntimeSpec,
+  ProjectedMemoryItem,
+  ConstraintRuleSpec,
 } from "syncpoint-core";
 import { pathsOverlap } from "./file-resource.js";
 
@@ -35,12 +35,12 @@ export function prefixFindOverlaps(patterns: string[], targets: string[]): strin
  * Blocks operations when touched resources overlap with forbidden file paths
  * declared in the constraint's scope.files field.
  */
-export const fileForbiddenEvaluator: ConstraintRuleEvaluator = {
+export const fileForbiddenEvaluator: ConstraintEvaluator = {
   ruleType: "file_forbidden",
   evaluate(
     input: ConstraintInput,
-    item: ProjectionItem,
-    spec: ConstraintRuntimeSpec,
+    item: ProjectedMemoryItem,
+    spec: ConstraintRuleSpec,
   ): ConstraintViolation | null {
     const locators = (input.touchedResources ?? [])
       .filter(r => r.type === "file")
@@ -65,12 +65,12 @@ export const fileForbiddenEvaluator: ConstraintRuleEvaluator = {
  * Blocks operations when touched resources fall under a forbidden module
  * declared in the constraint's scope.modules field.
  */
-export const moduleForbiddenEvaluator: ConstraintRuleEvaluator = {
+export const moduleForbiddenEvaluator: ConstraintEvaluator = {
   ruleType: "module_forbidden",
   evaluate(
     input: ConstraintInput,
-    item: ProjectionItem,
-    spec: ConstraintRuntimeSpec,
+    item: ProjectedMemoryItem,
+    spec: ConstraintRuleSpec,
   ): ConstraintViolation | null {
     const locators = (input.touchedResources ?? [])
       .filter(r => r.type === "file")
@@ -79,7 +79,7 @@ export const moduleForbiddenEvaluator: ConstraintRuleEvaluator = {
     const modulePatterns = item.scope?.modules ?? [];
     if (modulePatterns.length === 0) return null;
     const matches = locators.filter(loc =>
-      modulePatterns.some(mod => loc.startsWith(mod + "/") || loc === mod),
+      modulePatterns.some((mod: string) => loc.startsWith(mod + "/") || loc === mod),
     );
     if (matches.length === 0) return null;
     return {
@@ -95,7 +95,7 @@ export const moduleForbiddenEvaluator: ConstraintRuleEvaluator = {
 /**
  * All code plugin constraint evaluators.
  */
-export const CODE_PLUGIN_CONSTRAINT_EVALUATORS: ConstraintRuleEvaluator[] = [
+export const CODE_PLUGIN_CONSTRAINT_EVALUATORS: ConstraintEvaluator[] = [
   fileForbiddenEvaluator,
   moduleForbiddenEvaluator,
 ];

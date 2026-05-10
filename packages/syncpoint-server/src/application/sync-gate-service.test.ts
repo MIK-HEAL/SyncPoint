@@ -61,7 +61,8 @@ describe("SyncGate full lifecycle", () => {
     });
 
     expect(result.gate.status).toBe(SyncGateStatus.SYNC_REQUESTED);
-    expect(result.pending).toEqual([agent2Id, agent3Id]);
+    expect(result.pending).toEqual(expect.arrayContaining([agent2Id, agent3Id]));
+    expect(result.pending).toHaveLength(2);
     expect(result.isBlocking).toBe(true);
     expect(result.allAcknowledged).toBe(false);
     gateId = result.gate.id;

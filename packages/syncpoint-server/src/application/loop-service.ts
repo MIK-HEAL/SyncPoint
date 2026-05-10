@@ -19,7 +19,7 @@ import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
 import { assembleProtocolGate, injectProjectionIntoGate, validateCapsule, formatProtocolGatePrompt, formatCapsuleReality, formatValidationNotes } from "./protocol-gate-service.js";
 import { buildProjection } from "./projection-service.js";
-import type { ProjectedReality } from "syncpoint-core";
+import type { RealityProjection } from "syncpoint-core";
 import "./_scope-matchers.js";
 import "./_plugin-init.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
@@ -221,12 +221,16 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   // 0b. P3B — Build projection and inject into gate
   //     workingResources come from latest capsule if available
   const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
-  const capsuleWorkingResources = latestCapsule?.workingResources
-    ? latestCapsule.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
-    : [];
+  let capsuleWorkingResources: string[] = [];
+  if (latestCapsule) {
+    try {
+      const cp = JSON.parse(latestCapsule.payloadJson ?? "{}");
+      if (Array.isArray(cp.workingResources)) capsuleWorkingResources = cp.workingResources;
+    } catch { /* ok */ }
+  }
   const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
   const contract = repo.getContractForTask(task.id);
-  const projection: ProjectedReality = buildProjection({
+  const projection: RealityProjection = buildProjection({
     taskId: task.id,
     workingResources: capsuleWorkingResources,
     currentModules: [],
@@ -234,7 +238,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     checkpointId: latestCheckpoint?.id,
     contractId: contract?.id,
     capsuleHash: latestCapsule
-      ? computeContentHash(latestCapsule.goal, latestCapsule.workingResources, latestCapsule.completedWork, latestCapsule.remainingWork)
+      ? computeContentHash(latestCapsule.summary, latestCapsule.payloadJson)
       : undefined,
     checkpointHash: latestCheckpoint
       ? computeContentHash(latestCheckpoint.summary, latestCheckpoint.progress)
@@ -332,7 +336,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     // P3B — Inject projected reality (capsulePatch) instead of raw project memories.
     // Agent sees compiled reality, not raw Project Memory.
     // Key boundary: hard_constraint → gate only, NOT capsule.
-    const patch = projection.capsulePatch;
+    const patch = projection.contextPatch;
     const hasPatchContent =
       patch.verifiedFacts.length > 0 ||
       patch.activeConstraints.length > 0 ||
@@ -456,21 +460,27 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
 
   // 2. Create capsule (inherit from latest if not specified)
   const latestCapsule = repo.getLatestCapsule(task.id, agent.id);
+  let prevPayload: Record<string, unknown> = {};
+  if (latestCapsule) {
+    try { prevPayload = JSON.parse(latestCapsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  }
   const capsule = repo.createCapsule({
     taskId: task.id,
     agentId: agent.id,
     checkpointId: cp.id,
-    goal: input.goal || (latestCapsule?.goal ?? ""),
-    currentPhase: input.phase || (latestCapsule?.currentPhase ?? ""),
-    confirmedDecisions: latestCapsule?.confirmedDecisions ?? "",
-    interfaceContract: latestCapsule?.interfaceContract ?? "",
-    workingResources: input.workingResources || (latestCapsule?.workingResources ?? ""),
-    completedWork: input.completed || "",
-    remainingWork: input.remaining || "",
-    risks: input.risks ?? "",
-    blockers: input.blockers ?? "",
-    nextSteps: input.nextSteps ?? "",
-    resumePrompt: input.resumePrompt || input.summary,
+    summary: input.summary,
+    payloadJson: JSON.stringify({
+      goal: input.goal || (prevPayload.goal ?? ""),
+      currentPhase: input.phase || (prevPayload.currentPhase ?? ""),
+      confirmedDecisions: prevPayload.confirmedDecisions ?? [],
+      workingResources: input.workingResources ? input.workingResources.split(",").map((s: string) => s.trim()).filter(Boolean) : (prevPayload.workingResources ?? []),
+      completedWork: input.completed || "",
+      remainingWork: input.remaining || "",
+      risks: input.risks ? [input.risks] : [],
+      blockers: input.blockers ? [input.blockers] : [],
+      nextSteps: input.nextSteps ? [input.nextSteps] : [],
+      resumePrompt: input.resumePrompt || input.summary,
+    }),
   });
 
   // 3. Handle needSync flag
@@ -517,21 +527,22 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   });
 
   const latestCapsule = repo.getLatestCapsule(task.id, fromAgent.id);
+  let prevP: Record<string, unknown> = {};
+  if (latestCapsule) {
+    try { prevP = JSON.parse(latestCapsule.payloadJson ?? "{}"); } catch { /* ok */ }
+  }
   repo.createCapsule({
     taskId: task.id,
     agentId: fromAgent.id,
     checkpointId: cp.id,
-    goal: latestCapsule?.goal ?? "",
-    currentPhase: "handoff",
-    confirmedDecisions: latestCapsule?.confirmedDecisions ?? "",
-    interfaceContract: latestCapsule?.interfaceContract ?? "",
-    workingResources: latestCapsule?.workingResources ?? "",
-    completedWork: latestCapsule?.completedWork ?? "",
-    remainingWork: latestCapsule?.remainingWork ?? "",
-    risks: latestCapsule?.risks ?? "",
-    blockers: latestCapsule?.blockers ?? "",
-    nextSteps: `Handoff to ${toAgent.name}: ${input.context}`,
-    resumePrompt: input.context,
+    kind: "handoff",
+    summary: `Handoff to ${toAgent.name}: ${input.context}`,
+    payloadJson: JSON.stringify({
+      ...prevP,
+      currentPhase: "handoff",
+      nextSteps: [`Handoff to ${toAgent.name}: ${input.context}`],
+      resumePrompt: input.context,
+    }),
   });
 
   // 2. Create handoff
@@ -557,7 +568,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   // P2: build projected reality for handoff receiver
   const receiverProjection = buildProjection({
     taskId: task.id,
-    workingResources: ctx.latestCapsule?.workingResources?.split(",").map(f => f.trim()).filter(Boolean) ?? [],
+    workingResources: (() => { if (!ctx.latestCapsule) return []; try { const p = JSON.parse(ctx.latestCapsule.payloadJson); return Array.isArray(p.workingResources) ? p.workingResources : []; } catch { return []; } })(),
   });
 
   // P2: inject projected reality into handoff context prompt

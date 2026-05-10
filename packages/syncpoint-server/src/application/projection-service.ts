@@ -10,11 +10,11 @@
  */
 
 import {
-  compileProjection,
+  buildRealityProjection,
   computeProjectionLookupKey,
-  type ProjectedReality,
+  type RealityProjection,
   type ProjectionContext,
-  type ProjectionInput,
+  type MemoryProjectionInput,
 } from "syncpoint-core";
 import {
   collectProjectMemories,
@@ -26,7 +26,7 @@ import "./_plugin-init.js";
 // ── Projection Cache ──────────────────────────────────────
 
 interface CacheEntry {
-  projection: ProjectedReality;
+  projection: RealityProjection;
   memoryVersion: number;
   lastAccessedAt: number;
 }
@@ -100,12 +100,12 @@ export function setProjectionCacheMaxSize(max: number): void {
  *   3. If lookupKey exists but memoryVersion differs → lazy invalidation
  *   4. Otherwise compile, store under lookupKey, and return
  */
-export function buildProjection(ctx: Omit<ProjectionContext, "memoryVersion">): ProjectedReality {
+export function buildProjection(ctx: Omit<ProjectionContext, "memoryVersion">): RealityProjection {
   const memoryVersion = getMemoryVersion();
   const collected = collectProjectMemories(ctx.taskId);
 
   // CollectedMemory extends ProjectionInput — direct assignment, no mapping needed
-  const inputs: ProjectionInput[] = collected;
+  const inputs: MemoryProjectionInput[] = collected;
 
   // Pre-filter: skip stale/invalid inputs before computing lookup key
   // This matches the compiler's filtering, ensuring lookup key consistency
@@ -136,7 +136,7 @@ export function buildProjection(ctx: Omit<ProjectionContext, "memoryVersion">): 
 
   // Cache miss — compile
   _stats.misses++;
-  const projection = compileProjection(inputs, fullCtx);
+  const projection = buildRealityProjection(inputs, fullCtx);
 
   // Store in cache under lookupKey
   _cache.set(lookupKey, {

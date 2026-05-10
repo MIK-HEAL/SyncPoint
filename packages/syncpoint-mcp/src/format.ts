@@ -2,7 +2,7 @@
  * Markdown formatting helpers for MCP resource/tool output.
  */
 
-import type { ProjectMemory } from "syncpoint-core";
+import type { ContextSnapshotPayload, ProjectMemory } from "syncpoint-core";
 
 export function formatAgentSummary(agent: { id: string; name: string; role: string; status: string }): string {
   return `- **${agent.name}** (${agent.role}) — ${agent.status} [${agent.id}]`;
@@ -18,31 +18,44 @@ export function formatCheckpointSummary(cp: { id: string; summary: string; creat
   return `- [${cp.createdAt}] ${cp.summary}${sync} [${cp.id}]`;
 }
 
+function parseSnapshotPayload(payloadJson: string): ContextSnapshotPayload {
+  try {
+    return JSON.parse(payloadJson) as ContextSnapshotPayload;
+  } catch {
+    return {};
+  }
+}
+
+function listText(value: string[] | string | undefined): string {
+  if (Array.isArray(value)) return value.join(", ");
+  return value ?? "";
+}
+
 export function formatCapsuleSummary(capsule: {
   id: string;
   agentId: string;
-  goal: string;
-  currentPhase: string;
-  workingResources?: string;
-  completedWork?: string;
-  remainingWork?: string;
-  nextSteps?: string;
-  blockers?: string;
+  summary?: string;
+  payloadJson: string;
   createdAt: string;
 }): string {
+  const payload = parseSnapshotPayload(capsule.payloadJson);
+  const workingResources = listText(payload.workingResources);
+  const nextSteps = listText(payload.nextSteps);
+  const blockers = listText(payload.blockers);
+  const goal = payload.goal || capsule.summary || "";
   const lines = [
     `## Capsule ${capsule.id}`,
     "",
     `- **Agent**: ${capsule.agentId}`,
     `- **Created**: ${capsule.createdAt}`,
-    `- **Goal**: ${capsule.goal || "(empty)"}`,
-    `- **Phase**: ${capsule.currentPhase || "(empty)"}`,
+    `- **Goal**: ${goal || "(empty)"}`,
+    `- **Phase**: ${payload.currentPhase || "(empty)"}`,
   ];
-  if (capsule.workingResources) lines.push(`- **Resources**: ${capsule.workingResources}`);
-  if (capsule.completedWork) lines.push(`- **Completed**: ${capsule.completedWork}`);
-  if (capsule.remainingWork) lines.push(`- **Remaining**: ${capsule.remainingWork}`);
-  if (capsule.nextSteps) lines.push(`- **Next**: ${capsule.nextSteps}`);
-  if (capsule.blockers) lines.push(`- **Blockers**: ${capsule.blockers}`);
+  if (workingResources) lines.push(`- **Resources**: ${workingResources}`);
+  if (payload.completedWork) lines.push(`- **Completed**: ${payload.completedWork}`);
+  if (payload.remainingWork) lines.push(`- **Remaining**: ${payload.remainingWork}`);
+  if (nextSteps) lines.push(`- **Next**: ${nextSteps}`);
+  if (blockers) lines.push(`- **Blockers**: ${blockers}`);
   return lines.join("\n");
 }
 

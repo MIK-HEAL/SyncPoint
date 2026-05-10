@@ -321,9 +321,13 @@ export function wakeStart(id: string): WakeRequest {
   if (wr.taskId) {
     try {
       const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
-      const wr2 = latestCap?.workingResources
-        ? latestCap.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
-        : [];
+      let wr2: string[] = [];
+      if (latestCap) {
+        try {
+          const p = JSON.parse(latestCap.payloadJson ?? "{}");
+          if (Array.isArray(p.workingResources)) wr2 = p.workingResources;
+        } catch { /* ok */ }
+      }
       const projection = buildProjection({ taskId: wr.taskId, workingResources: wr2 });
       const decision = evaluateConstraints({
         action: "wake_start",
@@ -383,9 +387,13 @@ export function wakeNext(agentId: string): WakeRequest | null {
   if (wr.taskId) {
     try {
       const latestCap = repo.getLatestCapsule(wr.taskId, wr.targetAgentId);
-      const wr3 = latestCap?.workingResources
-        ? latestCap.workingResources.split(",").map((f: string) => f.trim()).filter(Boolean)
-        : [];
+      let wr3: string[] = [];
+      if (latestCap) {
+        try {
+          const p = JSON.parse(latestCap.payloadJson ?? "{}");
+          if (Array.isArray(p.workingResources)) wr3 = p.workingResources;
+        } catch { /* ok */ }
+      }
       const projection = buildProjection({ taskId: wr.taskId, workingResources: wr3 });
       const decision = evaluateConstraints({
         action: "wake_start",

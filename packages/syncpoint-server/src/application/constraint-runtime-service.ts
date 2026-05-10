@@ -106,6 +106,14 @@ function parseCsvFiles(csv: string | undefined | null): string[] {
   return csv.split(",").map(f => f.trim()).filter(Boolean);
 }
 
+function parsePayloadWorkingResources(capsule: { payloadJson?: string } | null | undefined): string[] {
+  if (!capsule?.payloadJson) return [];
+  try {
+    const p = JSON.parse(capsule.payloadJson);
+    return Array.isArray(p.workingResources) ? p.workingResources : [];
+  } catch { return []; }
+}
+
 // ── Input Resolution ─────────────────────────────────────
 
 interface ResolvedInput {
@@ -133,7 +141,7 @@ function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
   }
 
   const latestCapsule = repo.getLatestCapsule(input.taskId, input.agentId);
-  const workingResources = parseCsvFiles(latestCapsule?.workingResources);
+  const workingResources = parsePayloadWorkingResources(latestCapsule);
   return {
     taskId: input.taskId,
     agentId: input.agentId,
@@ -202,7 +210,7 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
   }
 
   const latestCapsule = repo.getLatestCapsule(taskId, agentId);
-  const workingResources = parseCsvFiles(latestCapsule?.workingResources);
+  const workingResources = parsePayloadWorkingResources(latestCapsule);
   return {
     taskId,
     agentId,

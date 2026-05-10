@@ -181,67 +181,56 @@ export const PeerContractCreateSchema = z.object({
 
 export type PeerContractCreate = z.infer<typeof PeerContractCreateSchema>;
 
-// ── ContextCapsule ─────────────────────────────────────
+// ── ContextSnapshot ────────────────────────────────
 
-export const ContextCapsuleSchema = z.object({
+export const ContextSnapshotSchema = z.object({
   id: nanoid12,
   taskId: nanoid12,
   agentId: nanoid12,
-  checkpointId: nanoid12,
-  goal: z.string().default(""),
-  currentPhase: z.string().default(""),
-  confirmedDecisions: jsonField,    // JSON array
-  interfaceContract: jsonField,     // JSON ref to peer contract
-  workingResources: jsonField,         // JSON array
-  completedWork: z.string().default(""),
-  remainingWork: z.string().default(""),
-  risks: z.string().default(""),
-  blockers: z.string().default(""),
-  nextSteps: z.string().default(""),
-  resumePrompt: z.string().default(""),
-  // P12 extended capsule fields
-  intentScope: z.string().default(""),
-  nonGoals: z.string().default(""),
-  verifiedFacts: z.string().default(""),
-  unverifiedClaims: z.string().default(""),
-  evidenceRefs: z.string().default(""),
-  activeConstraints: z.string().default(""),
-  doNotTouch: z.string().default(""),
-  handoffInstructions: z.string().default(""),
+  checkpointId: nanoid12.optional(),
+  kind: z.enum(["resume", "handoff", "review", "system"]).default("resume"),
+  summary: z.string().default(""),
+  payloadJson: z.string().default("{}"),
   validationStatus: z.string().default(""),
   staleReason: z.string().default(""),
   createdAt: isoDate,
 });
 
-export type ContextCapsule = z.infer<typeof ContextCapsuleSchema>;
+export type ContextSnapshot = z.infer<typeof ContextSnapshotSchema>;
 
-export const ContextCapsuleCreateSchema = z.object({
+export const ContextSnapshotCreateSchema = z.object({
   taskId: nanoid12,
   agentId: nanoid12,
-  checkpointId: nanoid12,
-  goal: z.string().default(""),
-  currentPhase: z.string().default(""),
-  confirmedDecisions: jsonField,
-  interfaceContract: jsonField,
-  workingResources: jsonField,
-  completedWork: z.string().default(""),
-  remainingWork: z.string().default(""),
-  risks: z.string().default(""),
-  blockers: z.string().default(""),
-  nextSteps: z.string().default(""),
-  resumePrompt: z.string().default(""),
-  // P12 extended capsule fields (all optional for backward compat)
-  intentScope: z.string().optional().default(""),
-  nonGoals: z.string().optional().default(""),
-  verifiedFacts: z.string().optional().default(""),
-  unverifiedClaims: z.string().optional().default(""),
-  evidenceRefs: z.string().optional().default(""),
-  activeConstraints: z.string().optional().default(""),
-  doNotTouch: z.string().optional().default(""),
-  handoffInstructions: z.string().optional().default(""),
+  checkpointId: nanoid12.optional(),
+  kind: z.enum(["resume", "handoff", "review", "system"]).default("resume"),
+  summary: z.string().default(""),
+  payloadJson: z.string().default("{}"),
 });
 
-export type ContextCapsuleCreate = z.input<typeof ContextCapsuleCreateSchema>;
+export type ContextSnapshotCreate = z.input<typeof ContextSnapshotCreateSchema>;
+
+/** Typed payload stored in context_snapshot.payload_json */
+export interface ContextSnapshotPayload {
+  goal?: string;
+  currentPhase?: string;
+  confirmedDecisions?: string[];
+  interfaceContract?: unknown;
+  completedWork?: string;
+  remainingWork?: string;
+  risks?: string[];
+  blockers?: string[];
+  nextSteps?: string[];
+  resumePrompt?: string;
+  intentScope?: string;
+  nonGoals?: string[];
+  verifiedFacts?: string[];
+  unverifiedClaims?: string[];
+  evidenceRefs?: string[];
+  activeConstraints?: string[];
+  doNotTouch?: string[];
+  handoffInstructions?: string;
+  workingResources?: string[];
+}
 
 // ── Event ──────────────────────────────────────────────
 

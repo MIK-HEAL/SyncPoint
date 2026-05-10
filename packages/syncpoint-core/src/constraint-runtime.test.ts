@@ -1,5 +1,5 @@
 /**
- * P4A — Constraint Runtime tests.
+ * Constraint Evaluation tests.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -8,12 +8,12 @@ import {
   buildConstraintManifest,
   parseRuntimeSpec,
   resolveRuntimeSpec,
-  registerConstraintRuleEvaluator,
-  clearConstraintRuleEvaluatorRegistry,
-} from "./constraint-runtime.js";
-import type { ConstraintInput, ConstraintViolation } from "./constraint-runtime.js";
-import { compileProjection, registerScopeMatcher, clearScopeMatcherRegistry } from "./projection.js";
-import type { ProjectedReality, ProjectionInput, ProjectionContext, ProjectionItem, ProjectionSource } from "./projection.js";
+  registerConstraintEvaluator,
+  clearConstraintEvaluatorRegistry,
+} from "./constraint-evaluation.js";
+import type { ConstraintInput, ConstraintViolation } from "./constraint-evaluation.js";
+import { buildRealityProjection, registerScopeMatcher, clearScopeMatcherRegistry } from "./reality-projection.js";
+import type { RealityProjection, MemoryProjectionInput, ProjectionContext, ProjectedMemoryItem, ProjectionSource } from "./reality-projection.js";
 import type { ResourceRef } from "./resource.js";
 
 /** Convert locator strings to ResourceRef[] for testing. */
@@ -39,14 +39,14 @@ function prefixFindOverlaps(patterns: string[], targets: string[]): string[] {
 
 beforeEach(() => {
   clearScopeMatcherRegistry();
-  clearConstraintRuleEvaluatorRegistry();
+  clearConstraintEvaluatorRegistry();
 
   // Register scope matchers for testing (in production, code plugin does this)
   registerScopeMatcher({ field: "files", findOverlaps: prefixFindOverlaps });
   registerScopeMatcher({ field: "modules", findOverlaps: prefixFindOverlaps });
 
   // Register generic test_forbidden evaluator — proves dispatch works
-  registerConstraintRuleEvaluator({
+  registerConstraintEvaluator({
     ruleType: "test_forbidden",
     evaluate(input, item, spec): ConstraintViolation | null {
       const locators = (input.touchedResources ?? []).map(r => r.locator);
@@ -75,24 +75,24 @@ function makeSource(id: string): ProjectionSource {
   return { sourceMemoryId: id, projectionReason: "test", confidence: "high" };
 }
 
-function makeItem(id: string, title: string, content: string, scope?: { files?: string[]; modules?: string[] }): ProjectionItem {
+function makeItem(id: string, title: string, content: string, scope?: { files?: string[]; modules?: string[] }): ProjectedMemoryItem {
   return { source: makeSource(id), title, content, scope };
 }
 
 /** Create a do_not_touch constraint rule (dual-written with P4 enforcement reason). */
-function makeDntRule(id: string, title: string, content: string, scope?: { files?: string[]; modules?: string[] }): ProjectionItem {
+function makeDntRule(id: string, title: string, content: string, scope?: { files?: string[]; modules?: string[] }): ProjectedMemoryItem {
   return {
     source: { sourceMemoryId: id, projectionReason: "do_not_touch → constraintRules (P4 enforcement)", confidence: "high" },
     title, content, scope,
   };
 }
 
-function emptyProjection(overrides?: Partial<ProjectedReality>): ProjectedReality {
+function emptyProjection(overrides?: Partial<RealityProjection>): RealityProjection {
   return {
     projectionId: "prj_test",
     createdFrom: { taskId: "t1", memoryVersion: 1, generatedAt: new Date().toISOString() },
     cacheKey: "key",
-    capsulePatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
+    contextPatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
     protocolRules: [],
     constraintRules: [],
     conflicts: [],
@@ -424,7 +424,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
 
 describe("Projection dual-write — do_not_touch enters constraintRules", () => {
 
-  function makeMemory(overrides: Partial<ProjectionInput>): ProjectionInput {
+  function makeMemory(overrides: Partial<MemoryProjectionInput>): MemoryProjectionInput {
     return {
       id: "mem_1",
       category: "architecture",
@@ -446,7 +446,7 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
   };
 
   it("do_not_touch memory appears in both doNotTouch and constraintRules", () => {
-    const projection = compileProjection([
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_dnt",
         kind: "do_not_touch",
@@ -456,9 +456,9 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
       }),
     ], { ...ctx, workingResources: ["src/auth/session.ts"] });
 
-    expect(projection.capsulePatch.doNotTouch).toHaveLength(1);
-    expect(projection.capsulePatch.doNotTouch[0].title).toBe("Auth Core");
-    expect(projection.capsulePatch.doNotTouch[0].scope?.files).toEqual(["src/auth/"]);
+    expect(projection.contextPatch.doNotTouch).toHaveLength(1);
+    expect(projection.contextPatch.doNotTouch[0].title).toBe("Auth Core");
+    expect(projection.contextPatch.doNotTouch[0].scope?.files).toEqual(["src/auth/"]);
 
     // Dual-write: also in constraintRules
     expect(projection.constraintRules.some(
@@ -467,7 +467,7 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
   });
 
   it("hard_constraint enters constraintRules only (not doNotTouch)", () => {
-    const projection = compileProjection([
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_hc",
         kind: "hard_constraint",
@@ -478,11 +478,11 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
 
     expect(projection.constraintRules).toHaveLength(1);
     expect(projection.constraintRules[0].title).toBe("Use strict TS");
-    expect(projection.capsulePatch.doNotTouch).toHaveLength(0);
+    expect(projection.contextPatch.doNotTouch).toHaveLength(0);
   });
 
   it("do_not_touch dual-write carries scope to constraintRules entry", () => {
-    const projection = compileProjection([
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_scoped",
         kind: "do_not_touch",
@@ -500,8 +500,8 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
     expect(crEntry!.scope?.modules).toEqual(["database"]);
   });
 
-  it("ProjectionItem carries scope from appliesTo", () => {
-    const projection = compileProjection([
+  it("ProjectedMemoryItem carries scope from appliesTo", () => {
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_fact",
         kind: "fact",
@@ -511,13 +511,13 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
       }),
     ], { ...ctx, workingResources: ["src/utils/helpers.ts"] });
 
-    expect(projection.capsulePatch.verifiedFacts).toHaveLength(1);
-    expect(projection.capsulePatch.verifiedFacts[0].scope?.files).toEqual(["src/utils/"]);
-    expect(projection.capsulePatch.verifiedFacts[0].scope?.modules).toEqual(["utils"]);
+    expect(projection.contextPatch.verifiedFacts).toHaveLength(1);
+    expect(projection.contextPatch.verifiedFacts[0].scope?.files).toEqual(["src/utils/"]);
+    expect(projection.contextPatch.verifiedFacts[0].scope?.modules).toEqual(["utils"]);
   });
 
-  it("ProjectionItem without appliesTo has no scope", () => {
-    const projection = compileProjection([
+  it("ProjectedMemoryItem without appliesTo has no scope", () => {
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_unscoped",
         kind: "fact",
@@ -526,15 +526,15 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
       }),
     ], ctx);
 
-    expect(projection.capsulePatch.verifiedFacts[0].scope).toBeUndefined();
+    expect(projection.contextPatch.verifiedFacts[0].scope).toBeUndefined();
   });
 });
 
 // ── End-to-end: projection + runtime ─────────────────────
 
-describe("E2E: compileProjection → evaluateConstraints", () => {
+describe("E2E: buildRealityProjection → evaluateConstraints", () => {
 
-  function makeMemory(overrides: Partial<ProjectionInput>): ProjectionInput {
+  function makeMemory(overrides: Partial<MemoryProjectionInput>): MemoryProjectionInput {
     return {
       id: "mem_1",
       category: "architecture",
@@ -556,7 +556,7 @@ describe("E2E: compileProjection → evaluateConstraints", () => {
   };
 
   it("do_not_touch file overlap blocks patch via full pipeline", () => {
-    const projection = compileProjection([
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_protect",
         kind: "do_not_touch",
@@ -580,7 +580,7 @@ describe("E2E: compileProjection → evaluateConstraints", () => {
   });
 
   it("hard_constraint alone permits with advisory warning", () => {
-    const projection = compileProjection([
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_strict",
         kind: "hard_constraint",
@@ -601,7 +601,7 @@ describe("E2E: compileProjection → evaluateConstraints", () => {
 
   it("do_not_touch + explicit projectionTarget=constraint_runtime blocks on overlap", () => {
     // Regression: explicit target should still be identified as do_not_touch by kind
-    const projection = compileProjection([
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_explicit_rt",
         kind: "do_not_touch",
@@ -614,7 +614,7 @@ describe("E2E: compileProjection → evaluateConstraints", () => {
     ], { ...ctx, workingResources: ["src/config/app.ts"] });
 
     // Should route to constraintRules only (not doNotTouch)
-    expect(projection.capsulePatch.doNotTouch).toHaveLength(0);
+    expect(projection.contextPatch.doNotTouch).toHaveLength(0);
     expect(projection.constraintRules).toHaveLength(1);
     expect(projection.constraintRules[0].kind).toBe("do_not_touch");
 
@@ -632,7 +632,7 @@ describe("E2E: compileProjection → evaluateConstraints", () => {
   });
 
   it("non-overlapping do_not_touch permits patch", () => {
-    const projection = compileProjection([
+    const projection = buildRealityProjection([
       makeMemory({
         id: "pm_db",
         kind: "do_not_touch",
@@ -687,7 +687,7 @@ describe("PR4: parseRuntimeSpec", () => {
 
 describe("PR4: resolveRuntimeSpec", () => {
   it("returns spec from validatorType field (primary path)", () => {
-    const item: ProjectionItem = {
+    const item: ProjectedMemoryItem = {
       ...makeItem("pm_x", "Auth Guard", "No auth changes", { files: ["src/auth/"] }),
       kind: "hard_constraint",
       validatorType: "test_forbidden",
@@ -699,7 +699,7 @@ describe("PR4: resolveRuntimeSpec", () => {
   });
 
   it("falls back to embedded spec when validatorType is empty", () => {
-    const item: ProjectionItem = {
+    const item: ProjectedMemoryItem = {
       ...makeItem("pm_x", "Auth Guard", 'No auth changes\n<!-- runtime-spec: {"rule":"require_review"} -->', { files: ["src/auth/"] }),
       kind: "hard_constraint",
     };
@@ -708,7 +708,7 @@ describe("PR4: resolveRuntimeSpec", () => {
   });
 
   it("does NOT infer from scope alone — hard_constraint with file scope but no validator stays null", () => {
-    const item: ProjectionItem = {
+    const item: ProjectedMemoryItem = {
       ...makeItem("pm_x", "Guard", "Protect files", { files: ["src/core/"] }),
       kind: "hard_constraint",
     };
@@ -717,7 +717,7 @@ describe("PR4: resolveRuntimeSpec", () => {
   });
 
   it("returns null for hard_constraint without validator or embedded spec", () => {
-    const item: ProjectionItem = {
+    const item: ProjectedMemoryItem = {
       ...makeItem("pm_x", "Rule", "General rule"),
       kind: "hard_constraint",
     };
@@ -726,7 +726,7 @@ describe("PR4: resolveRuntimeSpec", () => {
   });
 
   it("parses actions from validatorConfig", () => {
-    const item: ProjectionItem = {
+    const item: ProjectedMemoryItem = {
       ...makeItem("pm_x", "Lock", "Locked"),
       kind: "hard_constraint",
       validatorType: "test_forbidden",

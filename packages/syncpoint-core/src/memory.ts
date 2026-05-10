@@ -78,28 +78,12 @@ export const ResumeContextSchema = z.object({
     fileBoundaries: z.string(),
     status: z.string(),
   }).nullable(),
-  /** Latest context capsule (null if none) */
+  /** Latest context snapshot (null if none) */
   latestCapsule: z.object({
     id: z.string(),
-    goal: z.string(),
-    currentPhase: z.string(),
-    confirmedDecisions: z.string(),
-    workingResources: z.string(),
-    completedWork: z.string(),
-    remainingWork: z.string(),
-    risks: z.string(),
-    blockers: z.string(),
-    nextSteps: z.string(),
-    resumePrompt: z.string(),
-    // P12 extended fields
-    intentScope: z.string().default(""),
-    nonGoals: z.string().default(""),
-    verifiedFacts: z.string().default(""),
-    unverifiedClaims: z.string().default(""),
-    evidenceRefs: z.string().default(""),
-    activeConstraints: z.string().default(""),
-    doNotTouch: z.string().default(""),
-    handoffInstructions: z.string().default(""),
+    kind: z.string().default("resume"),
+    summary: z.string().default(""),
+    payloadJson: z.string().default("{}"),
     createdAt: z.string(),
   }).nullable(),
   /** Latest checkpoint (null if none) */

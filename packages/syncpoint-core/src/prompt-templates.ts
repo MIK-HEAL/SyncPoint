@@ -10,7 +10,14 @@
  */
 
 import type { ResumeContext } from "./memory.js";
-import type { ProjectedReality } from "./projection.js";
+import type { RealityProjection } from "./reality-projection.js";
+import type { ContextSnapshotPayload } from "./models.js";
+
+/** Parse the JSON payload from a latestCapsule snapshot. */
+function capsulePayload(ctx: ResumeContext): ContextSnapshotPayload | null {
+  if (!ctx.latestCapsule) return null;
+  try { return JSON.parse(ctx.latestCapsule.payloadJson); } catch { return {}; }
+}
 
 export type PromptFormat =
   | "system-prompt"
@@ -21,12 +28,12 @@ export type PromptFormat =
 
 /**
  * Format a ResumeContext into a specific prompt template.
- * P2: Accepts optional ProjectedReality to inject compiled projection into all formats.
+ * P2: Accepts optional RealityProjection to inject compiled projection into all formats.
  */
 export function formatResumePrompt(
   ctx: ResumeContext,
   format: PromptFormat = "system-prompt",
-  projection?: ProjectedReality | null,
+  projection?: RealityProjection | null,
 ): string {
   switch (format) {
     case "system-prompt":
@@ -50,9 +57,9 @@ export function formatResumePrompt(
  * Format projected reality into a normalized section.
  * Used by all prompt formats to inject compiled projection.
  */
-export function formatProjectedReality(projection: ProjectedReality): string {
+export function formatRealityProjection(projection: RealityProjection): string {
   const lines: string[] = [];
-  const patch = projection.capsulePatch;
+  const patch = projection.contextPatch;
   const hasPatchContent =
     patch.verifiedFacts.length > 0 ||
     patch.activeConstraints.length > 0 ||
@@ -125,7 +132,7 @@ function isCapsuleRestricted(ctx: ResumeContext): boolean {
   return ctx.contextMode === "capsule-only" || ctx.contextMode === "capsule-locked";
 }
 
-function formatSystemPrompt(ctx: ResumeContext, projection?: ProjectedReality | null): string {
+function formatSystemPrompt(ctx: ResumeContext, projection?: RealityProjection | null): string {
   const lines: string[] = [];
   const restricted = isCapsuleRestricted(ctx);
 
@@ -143,7 +150,7 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: ProjectedReality | 
 
   // P2: inject projected reality instead of raw project memories
   if (projection) {
-    const projSection = formatProjectedReality(projection);
+    const projSection = formatRealityProjection(projection);
     if (projSection) {
       lines.push(projSection);
     }
@@ -172,20 +179,21 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: ProjectedReality | 
   }
 
   if (ctx.latestCapsule) {
+    const p = capsulePayload(ctx)!;
     lines.push("## Current Context");
-    lines.push(`- Goal: ${ctx.latestCapsule.goal}`);
-    lines.push(`- Phase: ${ctx.latestCapsule.currentPhase}`);
-    if (ctx.latestCapsule.confirmedDecisions) lines.push(`- Decisions: ${ctx.latestCapsule.confirmedDecisions}`);
-    if (ctx.latestCapsule.workingResources) lines.push(`- Files: ${ctx.latestCapsule.workingResources}`);
-    if (ctx.latestCapsule.completedWork) lines.push(`- Done: ${ctx.latestCapsule.completedWork}`);
-    if (ctx.latestCapsule.remainingWork) lines.push(`- Remaining: ${ctx.latestCapsule.remainingWork}`);
-    if (ctx.latestCapsule.nextSteps) lines.push(`- Next: ${ctx.latestCapsule.nextSteps}`);
-    if (ctx.latestCapsule.risks) lines.push(`- Risks: ${ctx.latestCapsule.risks}`);
-    if (ctx.latestCapsule.blockers) lines.push(`- Blockers: ${ctx.latestCapsule.blockers}`);
+    if (p.goal) lines.push(`- Goal: ${p.goal}`);
+    if (p.currentPhase) lines.push(`- Phase: ${p.currentPhase}`);
+    if (p.confirmedDecisions?.length) lines.push(`- Decisions: ${p.confirmedDecisions.join("; ")}`);
+    if (p.workingResources?.length) lines.push(`- Files: ${p.workingResources.join(", ")}`);
+    if (p.completedWork) lines.push(`- Done: ${p.completedWork}`);
+    if (p.remainingWork) lines.push(`- Remaining: ${p.remainingWork}`);
+    if (p.nextSteps?.length) lines.push(`- Next: ${p.nextSteps.join(", ")}`);
+    if (p.risks?.length) lines.push(`- Risks: ${p.risks.join(", ")}`);
+    if (p.blockers?.length) lines.push(`- Blockers: ${p.blockers.join(", ")}`);
     lines.push("");
-    if (ctx.latestCapsule.resumePrompt) {
+    if (p.resumePrompt) {
       lines.push("## Resume Instructions");
-      lines.push(ctx.latestCapsule.resumePrompt);
+      lines.push(p.resumePrompt);
       lines.push("");
     }
   }
@@ -217,7 +225,7 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: ProjectedReality | 
 
 // ── cursorrules ───────────────────────────────────────
 
-function formatCursorRules(ctx: ResumeContext, projection?: ProjectedReality | null): string {
+function formatCursorRules(ctx: ResumeContext, projection?: RealityProjection | null): string {
   const lines: string[] = [];
   const restricted = isCapsuleRestricted(ctx);
 
@@ -239,7 +247,7 @@ function formatCursorRules(ctx: ResumeContext, projection?: ProjectedReality | n
 
   // P2: inject projected reality instead of raw project memories
   if (projection) {
-    const projSection = formatProjectedReality(projection);
+    const projSection = formatRealityProjection(projection);
     if (projSection) {
       lines.push(projSection);
     }
@@ -266,17 +274,18 @@ function formatCursorRules(ctx: ResumeContext, projection?: ProjectedReality | n
   }
 
   if (ctx.latestCapsule) {
+    const p = capsulePayload(ctx)!;
     lines.push("## Context Capsule");
-    lines.push(`Goal: ${ctx.latestCapsule.goal}`);
-    lines.push(`Phase: ${ctx.latestCapsule.currentPhase}`);
-    if (ctx.latestCapsule.workingResources) lines.push(`Working files: ${ctx.latestCapsule.workingResources}`);
-    if (ctx.latestCapsule.remainingWork) lines.push(`Remaining: ${ctx.latestCapsule.remainingWork}`);
-    if (ctx.latestCapsule.nextSteps) lines.push(`Next steps: ${ctx.latestCapsule.nextSteps}`);
-    if (ctx.latestCapsule.blockers) lines.push(`Blockers: ${ctx.latestCapsule.blockers}`);
+    if (p.goal) lines.push(`Goal: ${p.goal}`);
+    if (p.currentPhase) lines.push(`Phase: ${p.currentPhase}`);
+    if (p.workingResources?.length) lines.push(`Working files: ${p.workingResources.join(", ")}`);
+    if (p.remainingWork) lines.push(`Remaining: ${p.remainingWork}`);
+    if (p.nextSteps?.length) lines.push(`Next steps: ${p.nextSteps.join(", ")}`);
+    if (p.blockers?.length) lines.push(`Blockers: ${p.blockers.join(", ")}`);
     lines.push("");
-    if (ctx.latestCapsule.resumePrompt) {
+    if (p.resumePrompt) {
       lines.push("## Instructions");
-      lines.push(ctx.latestCapsule.resumePrompt);
+      lines.push(p.resumePrompt);
       lines.push("");
     }
   }
@@ -293,7 +302,7 @@ function formatCursorRules(ctx: ResumeContext, projection?: ProjectedReality | n
 
 // ── agents-md ─────────────────────────────────────────
 
-function formatAgentsMd(ctx: ResumeContext, projection?: ProjectedReality | null): string {
+function formatAgentsMd(ctx: ResumeContext, projection?: RealityProjection | null): string {
   const lines: string[] = [];
   const restricted = isCapsuleRestricted(ctx);
 
@@ -314,7 +323,7 @@ function formatAgentsMd(ctx: ResumeContext, projection?: ProjectedReality | null
 
   // P2: inject projected reality instead of raw project memories
   if (projection) {
-    const projSection = formatProjectedReality(projection);
+    const projSection = formatRealityProjection(projection);
     if (projSection) {
       lines.push(projSection);
       lines.push("");
@@ -343,36 +352,35 @@ function formatAgentsMd(ctx: ResumeContext, projection?: ProjectedReality | null
   lines.push("");
 
   if (ctx.latestCapsule) {
+    const p = capsulePayload(ctx)!;
     lines.push("## Current Work Context");
     lines.push("");
-    lines.push(`**Goal**: ${ctx.latestCapsule.goal}`);
-    lines.push("");
-    lines.push(`**Phase**: ${ctx.latestCapsule.currentPhase}`);
-    lines.push("");
-    if (ctx.latestCapsule.confirmedDecisions) {
-      lines.push(`**Confirmed Decisions**: ${ctx.latestCapsule.confirmedDecisions}`);
+    if (p.goal) { lines.push(`**Goal**: ${p.goal}`); lines.push(""); }
+    if (p.currentPhase) { lines.push(`**Phase**: ${p.currentPhase}`); lines.push(""); }
+    if (p.confirmedDecisions?.length) {
+      lines.push(`**Confirmed Decisions**: ${p.confirmedDecisions.join("; ")}`);
       lines.push("");
     }
-    if (ctx.latestCapsule.workingResources) {
-      lines.push(`**Working Files**: ${ctx.latestCapsule.workingResources}`);
+    if (p.workingResources?.length) {
+      lines.push(`**Working Files**: ${p.workingResources.join(", ")}`);
       lines.push("");
     }
-    if (ctx.latestCapsule.completedWork) {
-      lines.push(`**Completed**: ${ctx.latestCapsule.completedWork}`);
+    if (p.completedWork) {
+      lines.push(`**Completed**: ${p.completedWork}`);
       lines.push("");
     }
-    if (ctx.latestCapsule.remainingWork) {
-      lines.push(`**Remaining**: ${ctx.latestCapsule.remainingWork}`);
+    if (p.remainingWork) {
+      lines.push(`**Remaining**: ${p.remainingWork}`);
       lines.push("");
     }
-    if (ctx.latestCapsule.nextSteps) {
-      lines.push(`**Next Steps**: ${ctx.latestCapsule.nextSteps}`);
+    if (p.nextSteps?.length) {
+      lines.push(`**Next Steps**: ${p.nextSteps.join(", ")}`);
       lines.push("");
     }
-    if (ctx.latestCapsule.resumePrompt) {
+    if (p.resumePrompt) {
       lines.push("## Resume Instructions");
       lines.push("");
-      lines.push(ctx.latestCapsule.resumePrompt);
+      lines.push(p.resumePrompt);
       lines.push("");
     }
   }
@@ -395,7 +403,7 @@ function formatAgentsMd(ctx: ResumeContext, projection?: ProjectedReality | null
 
 // ── checkpoint-md ─────────────────────────────────────
 
-function formatCheckpointMd(ctx: ResumeContext, projection?: ProjectedReality | null): string {
+function formatCheckpointMd(ctx: ResumeContext, projection?: RealityProjection | null): string {
   // P3B: always build from structured fields — never use ctx.resumePrompt
   // which contains baked-in raw Project Knowledge.
   const lines: string[] = [];
@@ -406,25 +414,26 @@ function formatCheckpointMd(ctx: ResumeContext, projection?: ProjectedReality | 
 
   // P2: inject projected reality
   if (projection) {
-    const projSection = formatProjectedReality(projection);
+    const projSection = formatRealityProjection(projection);
     if (projSection) {
       lines.push(projSection);
     }
   }
 
   if (ctx.latestCapsule) {
-    lines.push(`**Goal**: ${ctx.latestCapsule.goal}`);
-    lines.push(`**Phase**: ${ctx.latestCapsule.currentPhase}`);
-    if (ctx.latestCapsule.confirmedDecisions) lines.push(`**Decisions**: ${ctx.latestCapsule.confirmedDecisions}`);
-    if (ctx.latestCapsule.workingResources) lines.push(`**Files**: ${ctx.latestCapsule.workingResources}`);
-    if (ctx.latestCapsule.completedWork) lines.push(`**Done**: ${ctx.latestCapsule.completedWork}`);
-    if (ctx.latestCapsule.remainingWork) lines.push(`**Remaining**: ${ctx.latestCapsule.remainingWork}`);
-    if (ctx.latestCapsule.nextSteps) lines.push(`**Next**: ${ctx.latestCapsule.nextSteps}`);
-    if (ctx.latestCapsule.blockers) lines.push(`**Blockers**: ${ctx.latestCapsule.blockers}`);
+    const p = capsulePayload(ctx)!;
+    if (p.goal) lines.push(`**Goal**: ${p.goal}`);
+    if (p.currentPhase) lines.push(`**Phase**: ${p.currentPhase}`);
+    if (p.confirmedDecisions?.length) lines.push(`**Decisions**: ${p.confirmedDecisions.join("; ")}`);
+    if (p.workingResources?.length) lines.push(`**Files**: ${p.workingResources.join(", ")}`);
+    if (p.completedWork) lines.push(`**Done**: ${p.completedWork}`);
+    if (p.remainingWork) lines.push(`**Remaining**: ${p.remainingWork}`);
+    if (p.nextSteps?.length) lines.push(`**Next**: ${p.nextSteps.join(", ")}`);
+    if (p.blockers?.length) lines.push(`**Blockers**: ${p.blockers.join(", ")}`);
     lines.push("");
-    if (ctx.latestCapsule.resumePrompt) {
+    if (p.resumePrompt) {
       lines.push("## Resume Instructions");
-      lines.push(ctx.latestCapsule.resumePrompt);
+      lines.push(p.resumePrompt);
       lines.push("");
     }
   } else {
@@ -445,7 +454,7 @@ function formatCheckpointMd(ctx: ResumeContext, projection?: ProjectedReality | 
 
 // ── clipboard ─────────────────────────────────────────
 
-function formatClipboard(ctx: ResumeContext, projection?: ProjectedReality | null): string {
+function formatClipboard(ctx: ResumeContext, projection?: RealityProjection | null): string {
   const lines: string[] = [];
 
   lines.push(`[SyncPoint Resume] ${ctx.task.title} — ${ctx.agent.name} (${ctx.agent.role})`);
@@ -458,7 +467,7 @@ function formatClipboard(ctx: ResumeContext, projection?: ProjectedReality | nul
 
   // P2: inject projected reality (compact form for clipboard)
   if (projection) {
-    const patch = projection.capsulePatch;
+    const patch = projection.contextPatch;
     const items = [
       ...patch.verifiedFacts.map(f => `[fact] ${f.title}`),
       ...patch.activeConstraints.map(c => `[constraint] ${c.title}`),
@@ -472,13 +481,14 @@ function formatClipboard(ctx: ResumeContext, projection?: ProjectedReality | nul
   }
 
   if (ctx.latestCapsule) {
-    lines.push(`Goal: ${ctx.latestCapsule.goal}`);
-    lines.push(`Phase: ${ctx.latestCapsule.currentPhase}`);
-    if (ctx.latestCapsule.remainingWork) lines.push(`Remaining: ${ctx.latestCapsule.remainingWork}`);
-    if (ctx.latestCapsule.nextSteps) lines.push(`Next: ${ctx.latestCapsule.nextSteps}`);
-    if (ctx.latestCapsule.resumePrompt) {
+    const p = capsulePayload(ctx)!;
+    if (p.goal) lines.push(`Goal: ${p.goal}`);
+    if (p.currentPhase) lines.push(`Phase: ${p.currentPhase}`);
+    if (p.remainingWork) lines.push(`Remaining: ${p.remainingWork}`);
+    if (p.nextSteps?.length) lines.push(`Next: ${p.nextSteps.join(", ")}`);
+    if (p.resumePrompt) {
       lines.push("");
-      lines.push(ctx.latestCapsule.resumePrompt);
+      lines.push(p.resumePrompt);
     }
   } else if (ctx.latestCheckpoint) {
     lines.push(ctx.latestCheckpoint.summary);

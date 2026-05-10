@@ -166,7 +166,7 @@ export const ADAPTER_CONFIGS: Record<string, AdapterConfig> = {
 // ── Build adapter instruction ────────────────────────
 
 import { formatResumePrompt } from "./prompt-templates.js";
-import type { ProjectedReality } from "./projection.js";
+import type { RealityProjection } from "./reality-projection.js";
 
 /**
  * Build an AdapterInstruction for a given provider and lifecycle event.
@@ -177,7 +177,7 @@ export function buildAdapterInstruction(
   ctx: ResumeContext,
   provider: AgentProvider,
   event: AdapterLifecycleEvent = "resume",
-  projection?: ProjectedReality | null,
+  projection?: RealityProjection | null,
 ): AdapterInstruction {
   const config = ADAPTER_CONFIGS[provider] ?? ADAPTER_CONFIGS["cursor"];
 

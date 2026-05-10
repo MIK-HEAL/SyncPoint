@@ -31,10 +31,10 @@ describe("P3A: Projection — kind→bucket mapping", () => {
 
     const r = (await ctx.rpc("projectMemory.projection", { taskId: "task-1" }, "GET")) as any;
 
-    expect(r.capsulePatch.verifiedFacts.length).toBeGreaterThanOrEqual(1);
-    expect(r.capsulePatch.activeConstraints.length).toBeGreaterThanOrEqual(1);
-    expect(r.capsulePatch.risks.length).toBeGreaterThanOrEqual(1);
-    expect(r.capsulePatch.doNotTouch.length).toBeGreaterThanOrEqual(1);
+    expect(r.contextPatch.verifiedFacts.length).toBeGreaterThanOrEqual(1);
+    expect(r.contextPatch.activeConstraints.length).toBeGreaterThanOrEqual(1);
+    expect(r.contextPatch.risks.length).toBeGreaterThanOrEqual(1);
+    expect(r.contextPatch.doNotTouch.length).toBeGreaterThanOrEqual(1);
     expect(r.constraintRules.length).toBeGreaterThanOrEqual(1);
     expect(r.protocolRules.length).toBeGreaterThanOrEqual(1);
   });
@@ -44,7 +44,7 @@ describe("P3A: Projection — traceability", () => {
   it("every projected item has sourceMemoryId and projectionReason", async () => {
     const r = (await ctx.rpc("projectMemory.projection", { taskId: "task-1" }, "GET")) as any;
 
-    for (const item of r.capsulePatch.verifiedFacts) {
+    for (const item of r.contextPatch.verifiedFacts) {
       expect(item.source.sourceMemoryId).toBeTruthy();
       expect(item.source.projectionReason).toBeTruthy();
     }
@@ -82,7 +82,7 @@ describe("P3A: Projection — appliesTo filtering", () => {
       workingResources: ["src/main.ts"],
     }, "GET")) as any;
 
-    const titles = r.capsulePatch.verifiedFacts.map((i: any) => i.title);
+    const titles = r.contextPatch.verifiedFacts.map((i: any) => i.title);
     expect(titles).not.toContain("P3A file-scoped");
   });
 
@@ -100,7 +100,7 @@ describe("P3A: Projection — appliesTo filtering", () => {
       workingResources: ["src/main.ts"],
     }, "GET")) as any;
 
-    const titles = r.capsulePatch.verifiedFacts.map((i: any) => i.title);
+    const titles = r.contextPatch.verifiedFacts.map((i: any) => i.title);
     expect(titles).toContain("P3A src-scoped");
   });
 });
@@ -123,7 +123,7 @@ describe("P3A: Projection — validity gating", () => {
 
     const r = (await ctx.rpc("projectMemory.projection", { taskId: "task-1" }, "GET")) as any;
 
-    const factTitles = r.capsulePatch.verifiedFacts.map((i: any) => i.title);
+    const factTitles = r.contextPatch.verifiedFacts.map((i: any) => i.title);
     expect(factTitles).not.toContain("P3A stale mem");
     expect(r.skippedStale.some((s: any) => s.sourceMemoryId === m.id)).toBe(true);
   });

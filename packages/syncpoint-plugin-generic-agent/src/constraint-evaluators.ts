@@ -5,8 +5,8 @@
  * that match a hard_constraint scope.
  */
 
-import type { ConstraintRuleEvaluator, ConstraintViolation, ConstraintInput } from "syncpoint-core";
-import type { ProjectionItem, ConstraintRuntimeSpec } from "syncpoint-core";
+import type { ConstraintEvaluator, ConstraintViolation, ConstraintInput } from "syncpoint-core";
+import type { ProjectedMemoryItem, ConstraintRuleSpec } from "syncpoint-core";
 import { locatorPathsOverlap } from "./locator.js";
 
 /**
@@ -17,12 +17,12 @@ import { locatorPathsOverlap } from "./locator.js";
  * Scope format expected:
  *   { "resources": ["artifact://landing-page", "binary://brand-logo.png"] }
  */
-export const resourceForbiddenEvaluator: ConstraintRuleEvaluator = {
+export const resourceForbiddenEvaluator: ConstraintEvaluator = {
   ruleType: "resource_forbidden",
   evaluate(
     input: ConstraintInput,
-    item: ProjectionItem,
-    spec: ConstraintRuntimeSpec,
+    item: ProjectedMemoryItem,
+    spec: ConstraintRuleSpec,
   ): ConstraintViolation | null {
     const locators = (input.touchedResources ?? []).map(r => r.locator);
     if (!locators.length) return null;

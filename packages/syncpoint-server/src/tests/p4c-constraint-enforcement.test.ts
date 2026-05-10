@@ -62,10 +62,13 @@ beforeAll(() => {
     taskId,
     agentId: agent2Id,
     checkpointId: cp.id,
-    goal: "test",
-    currentPhase: "development",
-    workingResources: "src/core/index.ts,src/core/utils.ts",
-  } as any);
+    summary: "test",
+    payloadJson: JSON.stringify({
+      goal: "test",
+      currentPhase: "development",
+      workingResources: ["src/core/index.ts", "src/core/utils.ts"],
+    }),
+  });
 
   // Seed: do_not_touch memory protecting src/core (project-wide, no appliesTo filter)
   // This will be picked up by projection and trigger do_not_touch_scope_overlap
@@ -202,10 +205,13 @@ describe("P4C: wakeStart constraint enforcement", () => {
       taskId: wakeTaskId,
       agentId: agent2Id,
       checkpointId: wCp.id,
-      goal: "test",
-      currentPhase: "development",
-      workingResources: "src/core/index.ts",
-    } as any);
+      summary: "test",
+      payloadJson: JSON.stringify({
+        goal: "test",
+        currentPhase: "development",
+        workingResources: ["src/core/index.ts"],
+      }),
+    });
 
     // Create a wake request for the constrained task
     const wr = repo.createWakeRequest({
@@ -258,10 +264,13 @@ describe("P4C: wakeNext constraint enforcement", () => {
       taskId: wakeNextTaskId,
       agentId: agent1Id,
       checkpointId: wnCp.id,
-      goal: "test",
-      currentPhase: "development",
-      workingResources: "src/core/main.ts",
-    } as any);
+      summary: "test",
+      payloadJson: JSON.stringify({
+        goal: "test",
+        currentPhase: "development",
+        workingResources: ["src/core/main.ts"],
+      }),
+    });
 
     // Create a QUEUED wake request for agent1 on this constrained task
     repo.createWakeRequest({

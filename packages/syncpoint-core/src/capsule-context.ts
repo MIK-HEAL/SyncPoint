@@ -26,7 +26,7 @@ export const DEFAULT_CONTEXT_MODE: ContextMode = "capsule-first";
 // ── Protocol Gate Summary ────────────────────────────
 
 export const ProtocolRuleSchema = z.object({
-  source: z.enum(["pinned-memory", "peer-contract", "resource-claim", "sync-gate", "sync-transaction", "review", "wake", "assignment", "projection"]),
+  source: z.enum(["pinned-memory", "peer-contract", "resource-claim", "sync-gate", "checkpoint-review", "review", "wake", "assignment", "projection"]),
   severity: z.enum(["hard", "soft", "info"]),
   summary: z.string(),
   entityId: z.string().optional(),

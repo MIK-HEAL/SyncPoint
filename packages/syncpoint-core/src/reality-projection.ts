@@ -1,7 +1,7 @@
 /**
- * P3A — Read-only Projection Compiler (Reality Compiler).
+ * Reality Projection — task-scoped memory view builder.
  *
- * Pure functions that compile CollectedMemory[] into a ProjectedReality.
+ * Pure functions that build a RealityProjection from collected project memories.
  * No I/O, no DB, no side effects.
  *
  * Five principles:
@@ -83,13 +83,13 @@ function defaultFindOverlaps(patterns: string[], targets: string[]): string[] {
 }
 
 /** A single projected item in one of the reality buckets. */
-export interface ProjectionItem {
+export interface ProjectedMemoryItem {
   source: ProjectionSource;
   content: string;
   title: string;
-  /** Original memory kind — used by P4 Constraint Runtime for structural identification. */
+  /** Original memory kind — used by Constraint Evaluation for structural identification. */
   kind?: string;
-  /** Structured scope parsed from appliesTo — used by P4 Constraint Runtime. */
+  /** Structured scope parsed from appliesTo — used by Constraint Evaluation. */
   scope?: ProjectionScope;
   /** PR4: Typed validator type (e.g. "resource_forbidden", "require_review"). */
   validatorType?: string;
@@ -98,19 +98,19 @@ export interface ProjectionItem {
 }
 
 /** A detected conflict between projected items. */
-export interface ProjectionConflict {
+export interface RealityProjectionConflict {
   kind: "contradicting_facts" | "overlapping_constraints" | "scope_collision";
   itemA: ProjectionSource;
   itemB: ProjectionSource;
   description: string;
 }
 
-/** Capsule-shaped patch produced by projection. */
-export interface CapsulePatch {
-  verifiedFacts: ProjectionItem[];
-  activeConstraints: ProjectionItem[];
-  risks: ProjectionItem[];
-  doNotTouch: ProjectionItem[];
+/** Context patch produced by projection. */
+export interface ContextPatch {
+  verifiedFacts: ProjectedMemoryItem[];
+  activeConstraints: ProjectedMemoryItem[];
+  risks: ProjectedMemoryItem[];
+  doNotTouch: ProjectedMemoryItem[];
 }
 
 /** Audit trail: what produced this projection. */
@@ -126,14 +126,14 @@ export interface ProjectionCreatedFrom {
 export type ProjectionValidityStatus = "fresh" | "needs_revalidation" | "stale" | "invalid";
 
 /** The compiled reality snapshot. Read-only, never mutates state. */
-export interface ProjectedReality {
+export interface RealityProjection {
   projectionId: string;
   createdFrom: ProjectionCreatedFrom;
   cacheKey: string;
-  capsulePatch: CapsulePatch;
-  protocolRules: ProjectionItem[];
-  constraintRules: ProjectionItem[];
-  conflicts: ProjectionConflict[];
+  contextPatch: ContextPatch;
+  protocolRules: ProjectedMemoryItem[];
+  constraintRules: ProjectedMemoryItem[];
+  conflicts: RealityProjectionConflict[];
   projectionValidity: ProjectionValidityStatus;
   /** Memories that were skipped due to invalid/stale validity */
   skippedStale: ProjectionSource[];
@@ -141,7 +141,7 @@ export interface ProjectedReality {
 
 // ── Input shape (matches server CollectedMemory) ─────────
 
-export interface ProjectionInput {
+export interface MemoryProjectionInput {
   id: string;
   category: string;
   title: string;
@@ -315,8 +315,8 @@ function isRelevantToContext(
  * Detect conflicts between projected items.
  * Heuristic: two items in the same bucket with overlapping scope on any field.
  */
-function detectConflicts(items: ProjectionItem[], parsedScopes: Map<string, ParsedAppliesTo | null>): ProjectionConflict[] {
-  const conflicts: ProjectionConflict[] = [];
+function detectConflicts(items: ProjectedMemoryItem[], parsedScopes: Map<string, ParsedAppliesTo | null>): RealityProjectionConflict[] {
+  const conflicts: RealityProjectionConflict[] = [];
 
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
@@ -426,7 +426,7 @@ export function resolveProjectionRoute(kind: string, projectionTarget: string | 
   // Default routing by kind
   const defaultBucket = kindToBucket(kind);
 
-  // do_not_touch dual-writes: capsulePatch.doNotTouch + constraintRules
+  // do_not_touch dual-writes: contextPatch.doNotTouch + constraintRules
   if (kind === "do_not_touch") {
     return {
       buckets: ["doNotTouch", "constraintRules"],
@@ -442,10 +442,10 @@ export function resolveProjectionRoute(kind: string, projectionTarget: string | 
 
 function projectionReasonForKind(kind: string): string {
   switch (kind) {
-    case "fact":             return "fact → capsulePatch.verifiedFacts";
-    case "soft_convention":  return "soft_convention → capsulePatch.activeConstraints";
-    case "risk":             return "risk → capsulePatch.risks";
-    case "do_not_touch":     return "do_not_touch → capsulePatch.doNotTouch";
+    case "fact":             return "fact → contextPatch.verifiedFacts";
+    case "soft_convention":  return "soft_convention → contextPatch.activeConstraints";
+    case "risk":             return "risk → contextPatch.risks";
+    case "do_not_touch":     return "do_not_touch → contextPatch.doNotTouch";
     case "hard_constraint":  return "hard_constraint → constraintRules";
     case "protocol_rule":    return "protocol_rule → protocolRules";
     default:                 return `${kind} → verifiedFacts (fallback)`;
@@ -455,13 +455,13 @@ function projectionReasonForKind(kind: string): string {
 // ── Compiler ─────────────────────────────────────────────
 
 /**
- * Compile a set of collected memories into a ProjectedReality.
+ * Build a task-scoped view of relevant project memory.
  * Pure function — no I/O, no side effects, deterministic.
  */
-export function compileProjection(
-  memories: ProjectionInput[],
+export function buildRealityProjection(
+  memories: MemoryProjectionInput[],
   ctx: ProjectionContext,
-): ProjectedReality {
+): RealityProjection {
   const now = new Date().toISOString();
   const workingResources = ctx.workingResources ?? [];
   const currentModules = ctx.currentModules ?? [];
@@ -477,14 +477,14 @@ export function compileProjection(
   };
 
   // Buckets
-  const verifiedFacts: ProjectionItem[] = [];
-  const activeConstraints: ProjectionItem[] = [];
-  const risks: ProjectionItem[] = [];
-  const doNotTouch: ProjectionItem[] = [];
-  const protocolRules: ProjectionItem[] = [];
-  const constraintRules: ProjectionItem[] = [];
+  const verifiedFacts: ProjectedMemoryItem[] = [];
+  const activeConstraints: ProjectedMemoryItem[] = [];
+  const risks: ProjectedMemoryItem[] = [];
+  const doNotTouch: ProjectedMemoryItem[] = [];
+  const protocolRules: ProjectedMemoryItem[] = [];
+  const constraintRules: ProjectedMemoryItem[] = [];
   const skippedStale: ProjectionSource[] = [];
-  const allConflicts: ProjectionConflict[] = [];
+  const allConflicts: RealityProjectionConflict[] = [];
 
   // Track parsed scopes for conflict detection
   const parsedScopes = new Map<string, ParsedAppliesTo | null>();
@@ -526,7 +526,7 @@ export function compileProjection(
     // Resolve routing: projectionTarget overrides default kind→bucket
     const route = resolveProjectionRoute(mem.kind, mem.projectionTarget);
 
-    const item: ProjectionItem = {
+    const item: ProjectedMemoryItem = {
       source: { ...source, projectionReason: route.reason },
       content: mem.content,
       title: mem.title,
@@ -536,7 +536,7 @@ export function compileProjection(
       validatorConfig: mem.validatorConfig || undefined,
     };
 
-    const bucketMap: Record<BucketName, ProjectionItem[]> = {
+    const bucketMap: Record<BucketName, ProjectedMemoryItem[]> = {
       verifiedFacts, activeConstraints, risks, doNotTouch, protocolRules, constraintRules,
     };
 
@@ -584,7 +584,7 @@ export function compileProjection(
       generatedAt: now,
     },
     cacheKey,
-    capsulePatch: {
+    contextPatch: {
       verifiedFacts,
       activeConstraints,
       risks,

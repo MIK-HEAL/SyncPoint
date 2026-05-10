@@ -9,19 +9,19 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   evaluateConstraints,
-  registerConstraintRuleEvaluator,
-  getConstraintRuleEvaluator,
-  clearConstraintRuleEvaluatorRegistry,
+  registerConstraintEvaluator,
+  getConstraintEvaluator,
+  clearConstraintEvaluatorRegistry,
   registerScopeMatcher,
   clearScopeMatcherRegistry,
-  compileProjection,
+  buildRealityProjection,
   isConstraintRuleKnown,
 } from "syncpoint-core";
 import type {
-  ProjectedReality,
-  ProjectionItem,
+  RealityProjection,
+  ProjectedMemoryItem,
   ProjectionSource,
-  ProjectionInput,
+  MemoryProjectionInput,
   ProjectionContext,
   ResourceRef,
 } from "syncpoint-core";
@@ -51,16 +51,16 @@ function makeItem(
   title: string,
   content: string,
   scope?: { files?: string[]; modules?: string[] },
-): ProjectionItem {
+): ProjectedMemoryItem {
   return { source: makeSource(id), title, content, scope };
 }
 
-function emptyProjection(overrides?: Partial<ProjectedReality>): ProjectedReality {
+function emptyProjection(overrides?: Partial<RealityProjection>): RealityProjection {
   return {
     projectionId: "prj_test",
     createdFrom: { taskId: "t1", memoryVersion: 1, generatedAt: new Date().toISOString() },
     cacheKey: "key",
-    capsulePatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
+    contextPatch: { verifiedFacts: [], activeConstraints: [], risks: [], doNotTouch: [] },
     protocolRules: [],
     constraintRules: [],
     conflicts: [],
@@ -73,7 +73,7 @@ function emptyProjection(overrides?: Partial<ProjectedReality>): ProjectedRealit
 // ── Setup ────────────────────────────────────────────────
 
 beforeEach(() => {
-  clearConstraintRuleEvaluatorRegistry();
+  clearConstraintEvaluatorRegistry();
   clearScopeMatcherRegistry();
   _resetCodePlugin();
   registerCodePlugin();
@@ -83,7 +83,7 @@ beforeEach(() => {
 
 describe("file_forbidden evaluator", () => {
   it("is registered by registerCodePlugin", () => {
-    expect(getConstraintRuleEvaluator("file_forbidden")).toBeDefined();
+    expect(getConstraintEvaluator("file_forbidden")).toBeDefined();
   });
 
   it("blocks when touched resources overlap with forbidden files", () => {
@@ -205,7 +205,7 @@ describe("file_forbidden evaluator", () => {
 
 describe("module_forbidden evaluator", () => {
   it("is registered by registerCodePlugin", () => {
-    expect(getConstraintRuleEvaluator("module_forbidden")).toBeDefined();
+    expect(getConstraintEvaluator("module_forbidden")).toBeDefined();
   });
 
   it("blocks when touched resource is under forbidden module", () => {
@@ -305,7 +305,7 @@ describe("module_forbidden evaluator", () => {
 
 describe("E2E: projection + file_forbidden", () => {
   it("do_not_touch with files scope blocks via scope overlap", () => {
-    const mem: ProjectionInput = {
+    const mem: MemoryProjectionInput = {
       id: "pm_e2e",
       category: "architecture",
       title: "Protected Config",
@@ -324,7 +324,7 @@ describe("E2E: projection + file_forbidden", () => {
       workingResources: ["config/app.json"],
     };
 
-    const projection = compileProjection([mem], ctx);
+    const projection = buildRealityProjection([mem], ctx);
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection,

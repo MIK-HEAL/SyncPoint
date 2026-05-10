@@ -9,12 +9,19 @@ import os from "node:os";
 
 let tmpDir: string;
 let spDir: string;
-const CLI = path.resolve("dist/main.js");
+const TSX = process.platform === "win32"
+  ? path.resolve("node_modules/.bin/tsx.cmd")
+  : path.resolve("node_modules/.bin/tsx");
+const CLI = path.resolve("../syncpoint-cli/src/main.ts");
 
 function cli(args: string): string {
-  return execSync(`node ${path.resolve("../syncpoint-cli/dist/main.js")} ${args}`, {
+  return execSync(`"${TSX}" "${CLI}" ${args}`, {
     cwd: tmpDir,
-    env: { ...process.env, SYNCPOINT_DB_DIR: spDir },
+    env: {
+      ...process.env,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --conditions=source`.trim(),
+      SYNCPOINT_DB_DIR: spDir,
+    },
     encoding: "utf8",
     timeout: 10_000,
   }).trim();

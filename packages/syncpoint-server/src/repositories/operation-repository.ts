@@ -1,5 +1,5 @@
 /**
- * Operation repository — CRUD for the generic operation table.
+ * Operation repository — CRUD for the normalized operation + operation_resource tables.
  */
 
 import { eq, and } from "drizzle-orm";
@@ -10,15 +10,14 @@ import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
 
-function refsToJson(refs: ResourceRef[]): string {
-  return JSON.stringify(refs);
+function loadTargetResources(db: ReturnType<typeof _getDb>, operationId: string): ResourceRef[] {
+  return db.select().from(s.operationResources)
+    .where(eq(s.operationResources.operationId, operationId))
+    .all()
+    .map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata }));
 }
 
-function jsonToRefs(json: string): ResourceRef[] {
-  try { return JSON.parse(json); } catch { return []; }
-}
-
-function rowToOperation(row: any): Operation {
+function rowToOperation(row: any, targetResources: ResourceRef[]): Operation {
   return {
     id: row.id,
     type: row.type,
@@ -27,7 +26,7 @@ function rowToOperation(row: any): Operation {
     sessionId: row.sessionId ?? "",
     title: row.title,
     summary: row.summary ?? "",
-    targetResources: jsonToRefs(row.targetResourcesJson),
+    targetResources,
     payloadRef: row.payloadRef ?? "",
     status: row.status as OperationStatus,
     checkResult: row.checkResult ?? "",
@@ -51,7 +50,6 @@ export function createOperation(data: OperationCreate): Operation {
     sessionId: data.sessionId ?? "",
     title: data.title,
     summary: data.summary ?? "",
-    targetResourcesJson: refsToJson(data.targetResources ?? []),
     payloadRef: data.payloadRef ?? "",
     status: OperationStatus.DRAFT,
     checkResult: "",
@@ -59,6 +57,16 @@ export function createOperation(data: OperationCreate): Operation {
     createdAt: ts,
     updatedAt: ts,
   }).run();
+  // Insert target resources into join table
+  for (const ref of (data.targetResources ?? [])) {
+    db.insert(s.operationResources).values({
+      id: createId(),
+      operationId: id,
+      resourceType: ref.type,
+      locator: ref.locator,
+      metadata: ref.metadata ?? "",
+    }).run();
+  }
   return getOperation(id);
 }
 
@@ -66,14 +74,13 @@ export function getOperation(id: string): Operation {
   const db = _getDb();
   const row = db.select().from(s.operations).where(eq(s.operations.id, id)).get();
   if (!row) throw new Error(`operation not found: ${id}`);
-  return rowToOperation(row);
+  return rowToOperation(row, loadTargetResources(db, id));
 }
 
 export function updateOperation(
   id: string,
   updates: Partial<{
     status: string;
-    targetResourcesJson: string;
     payloadRef: string;
     checkResult: string;
     decisionSummary: string;
@@ -106,5 +113,5 @@ export function listOperations(opts?: {
     ? db.select().from(s.operations).all()
     : db.select().from(s.operations).where(and(...conditions)).all();
 
-  return rows.map(rowToOperation);
+  return rows.map(row => rowToOperation(row, loadTargetResources(db, row.id)));
 }

@@ -17,7 +17,7 @@ import type {
   ProjectMemory,
   ProjectMemoryCreate,
   MemoryDedupResult,
-  ProjectionInput,
+  MemoryProjectionInput,
 } from "syncpoint-core";
 import { _getDb, createId, now, logEvent } from "./_shared.js";
 
@@ -262,7 +262,7 @@ export function searchProjectMemories(query: string): ProjectMemory[] {
  * Collected memory shape for projection input.
  * Extends ProjectionInput with required validator fields (always populated with defaults).
  */
-export type CollectedMemory = ProjectionInput & {
+export type CollectedMemory = MemoryProjectionInput & {
   validatorType: string;
   validatorConfig: string;
 };
