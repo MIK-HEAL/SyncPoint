@@ -18,7 +18,7 @@ import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext,
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
 import { assembleProtocolGate, injectProjectionIntoGate, validateCapsule, formatProtocolGatePrompt, formatCapsuleReality, formatValidationNotes } from "./protocol-gate-service.js";
-import { buildProjection } from "./projection-service.js";
+import { buildProjection } from "./reality-projection-service.js";
 import type { RealityProjection } from "syncpoint-core";
 import "./_scope-matchers.js";
 import "./_plugin-init.js";

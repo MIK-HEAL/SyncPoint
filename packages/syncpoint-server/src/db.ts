@@ -475,6 +475,19 @@ export function runMigrations(db: Database.Database): void {
       claim_id    TEXT NOT NULL
     );
 
+    -- Sync Gate Ack: one row per (gate, agent) — "I see it"
+    -- Separate from votes so ack and vote can coexist for same agent.
+    CREATE TABLE IF NOT EXISTS sync_gate_ack (
+      id          TEXT PRIMARY KEY,
+      gate_id     TEXT NOT NULL REFERENCES sync_gate(id),
+      agent_id    TEXT NOT NULL,
+      summary     TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_gate_ack_agent ON sync_gate_ack(gate_id, agent_id);
+
+    -- Sync Gate Vote: governance votes (approve/reject/abstain/escalate)
+    -- ACK is NOT a valid vote kind — use sync_gate_ack instead.
     CREATE TABLE IF NOT EXISTS sync_gate_vote (
       id          TEXT PRIMARY KEY,
       gate_id     TEXT NOT NULL REFERENCES sync_gate(id),

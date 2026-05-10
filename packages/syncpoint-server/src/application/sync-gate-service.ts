@@ -134,13 +134,12 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
     throw new Error(`Gate ${gateId} is not in SYNC_REQUESTED or PARTIALLY_ACKED state (currently ${gate.status})`);
   }
 
-  // Add to acked list
+  // Add to acked list (separate ack table, never overwrites governance votes)
   const acked = parseIdList(gate.ackedAgentIds);
   if (!acked.includes(agentId)) {
-    repo.createGateVote({
+    repo.createGateAck({
       gateId: gate.id,
       agentId,
-      vote: GateVoteKind.ACK,
       summary: summary ?? "",
     });
     gate = repo.getSyncGate(gate.id);

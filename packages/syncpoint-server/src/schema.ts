@@ -395,7 +395,23 @@ export const syncGateRelatedClaims = sqliteTable("sync_gate_related_claim", {
   claimId: text("claim_id").notNull(),
 });
 
-// ── SyncGate Vote (ack/nack — replaces ackedAgentIds CSV) ──
+// ── SyncGate Ack (replaces ackedAgentIds CSV) ──
+// One row per (gate, agent) — represents "I see it / I'm aware".
+// Separate from governance votes: an agent can both ack AND vote.
+
+export const syncGateAcks = sqliteTable("sync_gate_ack", {
+  id: text("id").primaryKey(),
+  gateId: text("gate_id").notNull().references(() => syncGates.id),
+  agentId: text("agent_id").notNull(),
+  summary: text("summary").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  gateAgentUnique: uniqueIndex("uq_gate_ack_agent").on(table.gateId, table.agentId),
+}));
+
+// ── SyncGate Vote (governance only: approve/reject/abstain/escalate) ──
+// One row per (gate, agent) — last vote wins (overwrite).
+// ACK is NOT a valid vote kind — use sync_gate_ack instead.
 
 export const syncGateVotes = sqliteTable("sync_gate_vote", {
   id: text("id").primaryKey(),

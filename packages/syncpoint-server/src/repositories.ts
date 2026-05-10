@@ -54,7 +54,7 @@ export {
   createCapsule,
   listCapsules,
   getLatestCapsule,
-} from "./repositories/capsule-repository.js";
+} from "./repositories/context-snapshot-repository.js";
 
 export {
   createPinnedMemory,
@@ -156,6 +156,9 @@ export {
   listSyncGates,
   listActiveSyncGates,
   listGatesByRelatedClaimIds,
+  createGateAck,
+  getGateAck,
+  listGateAcks,
   createGateVote,
   getGateVote,
   listGateVotes,
@@ -185,7 +188,7 @@ export {
   updateSyncTransactionGateId,
   listSyncTransactions,
   listActiveSyncTransactions,
-} from "./repositories/sync-transaction-repository.js";
+} from "./repositories/checkpoint-review-repository.js";
 
 export {
   createRuntime,

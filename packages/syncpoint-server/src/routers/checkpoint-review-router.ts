@@ -12,7 +12,7 @@ import {
   stxCancel,
   stxStatus,
   stxList,
-} from "../application/sync-transaction-service.js";
+} from "../application/checkpoint-review-service.js";
 
 export const syncTransactionRouter = t.router({
   create: publicProcedure

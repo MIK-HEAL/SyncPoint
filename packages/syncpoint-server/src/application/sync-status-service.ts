@@ -10,9 +10,9 @@ import * as repo from "../repositories.js";
 import { sgListActive, sgList, sgStatusDetailed } from "./sync-gate-service.js";
 import { isAgentBlocked, evaluateConstraints, parseGatePolicy, SyncGateStatus } from "syncpoint-core";
 import { rcList, rcDetectConflicts } from "./resource-claim-service.js";
-import { stxListActive } from "./sync-transaction-service.js";
+import { stxListActive } from "./checkpoint-review-service.js";
 import { opList } from "./operation-service.js";
-import { buildProjection } from "./projection-service.js";
+import { buildProjection } from "./reality-projection-service.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
 
 // ── Shared helpers ──────────────────────────────────────

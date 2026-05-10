@@ -2,10 +2,10 @@
  * P4D — Constraint Runtime Router (tRPC transport adapter).
  *
  * Read-only queries for constraint runtime decisions.
- * Delegates to constraint-runtime-service.ts.
+ * Delegates to constraint-evaluation-service.ts.
  */
 import { z } from "zod";
-import { constraintCheck } from "../application/constraint-runtime-service.js";
+import { constraintCheck } from "../application/constraint-evaluation-service.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 const ConstraintCheckActionSchema = z.enum([

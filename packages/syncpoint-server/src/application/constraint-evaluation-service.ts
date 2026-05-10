@@ -24,7 +24,7 @@ import type {
   ContextMode,
 } from "syncpoint-core";
 import * as repo from "../repositories.js";
-import { buildProjection } from "./projection-service.js";
+import { buildProjection } from "./reality-projection-service.js";
 import "./_scope-matchers.js";
 import "./_plugin-init.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";

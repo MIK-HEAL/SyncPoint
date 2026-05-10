@@ -16,7 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
 import * as repo from "../../src/repositories.js";
-import { constraintCheck } from "../application/constraint-runtime-service.js";
+import { constraintCheck } from "../application/constraint-evaluation-service.js";
 import { loopResume } from "../application/loop-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment } from "../application/orchestration-service.js";
 import { rcClaim } from "../application/resource-claim-service.js";

@@ -28,7 +28,7 @@ import "./_plugin-init.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
 import { EventType, evaluateConstraints } from "syncpoint-core";
 import { sgCheckAgent } from "./sync-gate-service.js";
-import { buildProjection } from "./projection-service.js";
+import { buildProjection } from "./reality-projection-service.js";
 
 // ── Types ──────────────────────────────────────────────
 

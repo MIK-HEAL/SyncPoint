@@ -140,10 +140,33 @@ export const DEFAULT_GATE_POLICY: GatePolicy = {
   timeoutAction: GateTimeoutAction.ESCALATE,
 };
 
-// ── Gate Vote ────────────────────────────────────────
+// ── Gate Ack ──────────────────────────────────────────
+// Ack = "I see it / I'm aware". Stored separately from votes.
+// One row per (gate, agent). Ack is monotonic: once acked, the row stays.
+
+export const GateAckSchema = z.object({
+  id: z.string(),
+  gateId: z.string(),
+  agentId: z.string(),
+  summary: z.string().default(""),
+  createdAt: z.string(),
+});
+
+export type GateAck = z.infer<typeof GateAckSchema>;
+
+export const GateAckCreateSchema = z.object({
+  gateId: z.string(),
+  agentId: z.string(),
+  summary: z.string().optional().default(""),
+});
+
+export type GateAckCreate = z.infer<typeof GateAckCreateSchema>;
+
+// ── Gate Vote (governance only) ──────────────────────
+// Vote = "I think we should approve/reject/escalate". Separate from ack.
+// One row per (gate, agent). Last vote wins (overwrite via upsert).
 
 export enum GateVoteKind {
-  ACK = "ack",
   APPROVE = "approve",
   REJECT = "reject",
   ABSTAIN = "abstain",
@@ -291,7 +314,6 @@ export function parseGatePolicy(gate: SyncGate): GatePolicy {
  */
 export function countVotes(votes: GateVote[]): Record<GateVoteKind, number> {
   const counts: Record<GateVoteKind, number> = {
-    [GateVoteKind.ACK]: 0,
     [GateVoteKind.APPROVE]: 0,
     [GateVoteKind.REJECT]: 0,
     [GateVoteKind.ABSTAIN]: 0,

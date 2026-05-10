@@ -29,7 +29,7 @@ import { logEvent } from "../repositories/_shared.js";
 import { processOrchestrationEvent } from "./wake-engine-service.js";
 import { prepareContext } from "./context-policy-service.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
-import { buildProjection } from "./projection-service.js";
+import { buildProjection } from "./reality-projection-service.js";
 import { RelationshipMode, evaluateConstraints } from "syncpoint-core";
 import type { PreparedContext } from "syncpoint-core";
 

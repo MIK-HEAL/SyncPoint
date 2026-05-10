@@ -23,7 +23,7 @@ import {
 import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef, ConstraintViolation } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
-import { buildProjection } from "./projection-service.js";
+import { buildProjection } from "./reality-projection-service.js";
 import "./_plugin-init.js";
 
 // ── Types ──────────────────────────────────────────────

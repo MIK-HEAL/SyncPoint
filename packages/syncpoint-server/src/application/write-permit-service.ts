@@ -16,7 +16,7 @@ import {
 import * as repo from "../repositories.js";
 import { getSyncpointDir } from "../db.js";
 import { logEvent, now } from "../repositories/_shared.js";
-import { buildProjection } from "./projection-service.js";
+import { buildProjection } from "./reality-projection-service.js";
 import { sgReconcileActive } from "./sync-gate-service.js";
 import { recordAuthorizedWrite } from "./backing-store-reconciliation-service.js";
 import { temporarilyUnlockForWrite } from "./file-permission-guard.js";

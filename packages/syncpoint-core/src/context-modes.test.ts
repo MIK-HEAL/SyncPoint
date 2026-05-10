@@ -11,7 +11,7 @@ import {
   ProtocolGateSummarySchema,
   CapsuleValidationSchema,
   CapsuleExtendedFieldsSchema,
-} from "./capsule-context.js";
+} from "./context-modes.js";
 
 describe("ContextMode", () => {
   it("parses valid modes", () => {

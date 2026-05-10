@@ -21,7 +21,7 @@ import type {
 import { _getDb, now } from "./_shared.js";
 import { getAgent } from "./agent-repository.js";
 import { getTask } from "./task-repository.js";
-import { getLatestCapsule } from "./capsule-repository.js";
+import { getLatestCapsule } from "./context-snapshot-repository.js";
 import { collectPinnedMemories } from "./memory-repository.js";
 import { collectProjectMemories } from "./project-memory-repository.js";
 

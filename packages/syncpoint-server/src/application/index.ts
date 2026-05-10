@@ -44,11 +44,11 @@ export {
   getProjectionCacheStats,
   clearProjectionCache,
   setProjectionCacheMaxSize,
-} from "./projection-service.js";
+} from "./reality-projection-service.js";
 
 export type {
   ProjectionCacheStats,
-} from "./projection-service.js";
+} from "./reality-projection-service.js";
 
 export type {
   LoopBootInput,
@@ -277,12 +277,12 @@ export {
   stxStatus,
   stxList,
   stxListActive,
-} from "./sync-transaction-service.js";
+} from "./checkpoint-review-service.js";
 
 export type {
   SyncTxCreateInput,
   SyncTxStatusResult,
-} from "./sync-transaction-service.js";
+} from "./checkpoint-review-service.js";
 
 // Operation (generic)
 export {
@@ -318,14 +318,14 @@ export type {
 } from "./sync-status-service.js";
 
 // P4D Constraint Runtime (read-only visibility)
-export { constraintCheck } from "./constraint-runtime-service.js";
+export { constraintCheck } from "./constraint-evaluation-service.js";
 
 export type {
   ConstraintCheckAction,
   ConstraintRuntimeCheckInput,
   ConstraintRuntimeView,
   ConstraintViolationView,
-} from "./constraint-runtime-service.js";
+} from "./constraint-evaluation-service.js";
 
 // Protocol Gate & Capsule Validation (P12)
 export {

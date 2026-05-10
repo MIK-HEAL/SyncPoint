@@ -9,7 +9,7 @@
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
 import { SyncGateStatus } from "syncpoint-core";
-import type { SyncGate, SyncGateCreate, GateVote, GateVoteCreate } from "syncpoint-core";
+import type { SyncGate, SyncGateCreate, GateAck, GateAckCreate, GateVote, GateVoteCreate } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
@@ -20,10 +20,10 @@ function hydrateGate(db: ReturnType<typeof _getDb>, row: any): SyncGate {
     .where(eq(s.syncGateRequiredAgents.gateId, row.id)).all();
   const requiredAgentIds = reqRows.map(r => r.agentId).join(",");
 
-  // Acked agents = votes with vote === "ack"
-  const votes = db.select().from(s.syncGateVotes)
-    .where(eq(s.syncGateVotes.gateId, row.id)).all();
-  const ackedAgentIds = votes.filter(v => v.vote === "ack").map(v => v.agentId).join(",");
+  // Acked agents = rows in sync_gate_ack (separate from governance votes)
+  const ackRows = db.select().from(s.syncGateAcks)
+    .where(eq(s.syncGateAcks.gateId, row.id)).all();
+  const ackedAgentIds = ackRows.map(r => r.agentId).join(",");
 
   // Related resources → JSON string
   const resRows = db.select().from(s.syncGateResources)
@@ -150,9 +150,10 @@ export function updateSyncGateStatus(id: string, status: SyncGateStatus, decisio
   return getSyncGate(id);
 }
 
-export function updateSyncGateAckedAgents(id: string, ackedAgentIds: string): SyncGate {
-  // ackedAgentIds is now derived from votes, so this is a no-op on the gate row.
-  // The caller should use createGateVote instead. We still return the gate.
+export function updateSyncGateAckedAgents(id: string, _ackedAgentIds: string): SyncGate {
+  // ackedAgentIds is now derived from sync_gate_ack rows.
+  // Callers should use createGateAck instead. Kept as a no-op for compat
+  // with internal call sites that only need to bump updatedAt.
   const db = _getDb();
   db.update(s.syncGates).set({ updatedAt: now() }).where(eq(s.syncGates.id, id)).run();
   return getSyncGate(id);
@@ -226,6 +227,48 @@ export function listGatesByRelatedClaimIds(claimIds: string[]): SyncGate[] {
     const gateClaimIds = g.relatedClaimIds.split(",").map(c => c.trim()).filter(Boolean);
     return claimIds.some(cid => gateClaimIds.includes(cid));
   });
+}
+
+// ── Gate Ack CRUD ─────────────────────────────
+
+export function createGateAck(data: GateAckCreate): GateAck {
+  const db = _getDb();
+  const id = createId();
+  const ts = now();
+
+  // Idempotent upsert: one ack per (gateId, agentId). Re-ack updates summary/timestamp.
+  db.insert(s.syncGateAcks).values({
+    id,
+    gateId: data.gateId,
+    agentId: data.agentId,
+    summary: data.summary ?? "",
+    createdAt: ts,
+  }).onConflictDoUpdate({
+    target: [s.syncGateAcks.gateId, s.syncGateAcks.agentId],
+    set: {
+      summary: data.summary ?? "",
+      createdAt: ts,
+    },
+  }).run();
+
+  const row = db.select().from(s.syncGateAcks)
+    .where(and(eq(s.syncGateAcks.gateId, data.gateId), eq(s.syncGateAcks.agentId, data.agentId)))
+    .get();
+  return row as unknown as GateAck;
+}
+
+export function getGateAck(id: string): GateAck {
+  const db = _getDb();
+  const row = db.select().from(s.syncGateAcks).where(eq(s.syncGateAcks.id, id)).get();
+  if (!row) throw new Error(`sync_gate_ack not found: ${id}`);
+  return row as unknown as GateAck;
+}
+
+export function listGateAcks(gateId: string): GateAck[] {
+  const db = _getDb();
+  return db.select().from(s.syncGateAcks)
+    .where(eq(s.syncGateAcks.gateId, gateId))
+    .all() as unknown as GateAck[];
 }
 
 // ── Gate Vote CRUD ──────────────────────────────────

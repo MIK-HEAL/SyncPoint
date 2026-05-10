@@ -426,6 +426,8 @@ export {
   GateTimeoutAction,
   GatePolicySchema,
   DEFAULT_GATE_POLICY,
+  GateAckSchema,
+  GateAckCreateSchema,
   GateVoteKind,
   GateVoteSchema,
   GateVoteCreateSchema,
@@ -445,6 +447,8 @@ export type {
   SyncGateCreate,
   SyncGateAck,
   GatePolicy,
+  GateAck,
+  GateAckCreate,
   GateVote,
   GateVoteCreate,
   LivenessDecision,
@@ -522,14 +526,14 @@ export {
   ProtocolGateSummarySchema,
   CapsuleValidationSchema,
   CapsuleExtendedFieldsSchema,
-} from "./capsule-context.js";
+} from "./context-modes.js";
 
 export type {
   ProtocolRule,
   ProtocolGateSummary,
   CapsuleValidation,
   CapsuleExtendedFields,
-} from "./capsule-context.js";
+} from "./context-modes.js";
 
 // Negotiation Protocol
 export {

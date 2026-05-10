@@ -11,7 +11,7 @@ import * as repo from "../../src/repositories.js";
 import {
   stxCreate, stxApprove, stxReject, stxResolve,
   stxCancel, stxStatus, stxList, stxListActive,
-} from "./sync-transaction-service.js";
+} from "./checkpoint-review-service.js";
 import { sgStatus, sgCheckAgent } from "./sync-gate-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "./orchestration-service.js";
 import { CheckpointReviewStatus, SyncGateStatus } from "syncpoint-core";
