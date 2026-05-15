@@ -81,40 +81,40 @@ describe("defaultKindFromCategory", () => {
 });
 
 describe("validProjectionTargets", () => {
-  it("hard_constraint excludes capsule", () => {
+  it("hard_constraint excludes context_snapshot", () => {
     const targets = validProjectionTargets(MemoryKind.HARD_CONSTRAINT);
-    expect(targets).not.toContain(ProjectionTarget.CAPSULE);
+    expect(targets).not.toContain(ProjectionTarget.CONTEXT_SNAPSHOT);
     expect(targets).toContain(ProjectionTarget.PROTOCOL_GATE);
     expect(targets).toContain(ProjectionTarget.CONSTRAINT_RUNTIME);
   });
-  it("protocol_rule excludes capsule", () => {
+  it("protocol_rule excludes context_snapshot", () => {
     const targets = validProjectionTargets(MemoryKind.PROTOCOL_RULE);
-    expect(targets).not.toContain(ProjectionTarget.CAPSULE);
+    expect(targets).not.toContain(ProjectionTarget.CONTEXT_SNAPSHOT);
   });
   it("fact allows all targets", () => {
     const targets = validProjectionTargets(MemoryKind.FACT);
-    expect(targets).toContain(ProjectionTarget.CAPSULE);
+    expect(targets).toContain(ProjectionTarget.CONTEXT_SNAPSHOT);
     expect(targets).toContain(ProjectionTarget.PROTOCOL_GATE);
     expect(targets).toContain(ProjectionTarget.CONSTRAINT_RUNTIME);
   });
   it("do_not_touch allows all targets", () => {
     const targets = validProjectionTargets(MemoryKind.DO_NOT_TOUCH);
-    expect(targets).toContain(ProjectionTarget.CAPSULE);
+    expect(targets).toContain(ProjectionTarget.CONTEXT_SNAPSHOT);
   });
 });
 
 describe("isValidProjection", () => {
-  it("hard_constraint + capsule = false", () => {
-    expect(isValidProjection(MemoryKind.HARD_CONSTRAINT, ProjectionTarget.CAPSULE)).toBe(false);
+  it("hard_constraint + context_snapshot = false", () => {
+    expect(isValidProjection(MemoryKind.HARD_CONSTRAINT, ProjectionTarget.CONTEXT_SNAPSHOT)).toBe(false);
   });
   it("hard_constraint + protocol_gate = true", () => {
     expect(isValidProjection(MemoryKind.HARD_CONSTRAINT, ProjectionTarget.PROTOCOL_GATE)).toBe(true);
   });
-  it("protocol_rule + capsule = false", () => {
-    expect(isValidProjection(MemoryKind.PROTOCOL_RULE, ProjectionTarget.CAPSULE)).toBe(false);
+  it("protocol_rule + context_snapshot = false", () => {
+    expect(isValidProjection(MemoryKind.PROTOCOL_RULE, ProjectionTarget.CONTEXT_SNAPSHOT)).toBe(false);
   });
-  it("fact + capsule = true", () => {
-    expect(isValidProjection(MemoryKind.FACT, ProjectionTarget.CAPSULE)).toBe(true);
+  it("fact + context_snapshot = true", () => {
+    expect(isValidProjection(MemoryKind.FACT, ProjectionTarget.CONTEXT_SNAPSHOT)).toBe(true);
   });
   it("soft_convention + protocol_gate = true", () => {
     expect(isValidProjection(MemoryKind.SOFT_CONVENTION, ProjectionTarget.PROTOCOL_GATE)).toBe(true);

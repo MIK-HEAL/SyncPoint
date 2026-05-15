@@ -52,7 +52,7 @@ evaluateConstraints(input: ConstraintInput): ConstraintDecision
 | `projection_conflict` | Yes | Unresolved `blocking` conflicts in projection |
 | `do_not_touch_scope_overlap` | Yes | `touchedResources` overlap with `do_not_touch` scope from `constraintRules` |
 | `protocol_gate_blocked` | Yes | Active protocol gate blocks the action |
-| `capsule_locked_invalid` | Yes | `capsule-locked` mode with failed capsule validation |
+| `snapshot_locked_invalid` | Yes | `snapshot-locked` mode with failed snapshot validation |
 | `hard_constraint_require_review` | Yes | `require_review` typed hard constraint fires on operation submit/apply |
 | `hard_constraint_advisory` | No | Untyped or non-claimed `hard_constraint` exists in projection |
 

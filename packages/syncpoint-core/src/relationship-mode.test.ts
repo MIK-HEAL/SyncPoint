@@ -44,9 +44,9 @@ describe("MODE_PHASE_FLOW", () => {
     expect(flow).toContain("merge");
   });
 
-  it("handoff-resume starts with capsule", () => {
+  it("handoff-resume starts with snapshot", () => {
     const flow = MODE_PHASE_FLOW[RelationshipMode.HANDOFF_RESUME];
-    expect(flow[0]).toBe("capsule");
+    expect(flow[0]).toBe("snapshot");
     expect(flow).toContain("handoff");
     expect(flow).toContain("resume");
   });
@@ -134,18 +134,18 @@ describe("getModeDescription", () => {
 });
 
 describe("FORBIDDEN_ACTIONS", () => {
-  it("manager-delegate forbids claim-resources, sync-checkpoint, handoff, capsule", () => {
+  it("manager-delegate forbids claim-resources, sync-checkpoint, handoff, snapshot", () => {
     const f = FORBIDDEN_ACTIONS[RelationshipMode.MANAGER_DELEGATE];
     expect(f).toContain("claim-resources");
     expect(f).toContain("sync-checkpoint");
     expect(f).toContain("handoff");
-    expect(f).toContain("capsule");
+    expect(f).toContain("snapshot");
   });
 
-  it("peer-contract forbids handoff, capsule", () => {
+  it("peer-contract forbids handoff, snapshot", () => {
     const f = FORBIDDEN_ACTIONS[RelationshipMode.PEER_CONTRACT];
     expect(f).toContain("handoff");
-    expect(f).toContain("capsule");
+    expect(f).toContain("snapshot");
     expect(f).not.toContain("claim-resources");
   });
 

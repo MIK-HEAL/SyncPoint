@@ -1,5 +1,5 @@
 /**
- * CLI: context-related primitive commands (capsule, status, resume-context, resume-prompt, prompt-file, memory).
+ * CLI: context-related primitive commands (snapshot, status, resume-context, resume-prompt, prompt-file, memory).
  */
 
 import { Command } from "commander";
@@ -68,14 +68,14 @@ export function registerContextCommands(program: Command): void {
         })
     );
 
-  // ── Context Capsule ───────────────────────────────────
+  // ── Context Snapshot ──────────────────────────────────
 
   program
-    .command("capsule")
-    .description("Manage task context capsules")
+    .command("snapshot")
+    .description("Manage task context snapshots")
     .addCommand(
       new Command("create")
-        .description("Create a task context capsule")
+        .description("Create a task context snapshot")
         .requiredOption("--task <taskId>", "Task ID")
         .requiredOption("--agent <agentId>", "Agent ID")
         .requiredOption("--checkpoint <checkpointId>", "Checkpoint ID")
@@ -110,37 +110,37 @@ export function registerContextCommands(program: Command): void {
             nextSteps: splitCsv(opts.nextSteps),
             resumePrompt: opts.resumePrompt || undefined,
           };
-          const capsule = repo.createContextSnapshot({
+          const snapshot = repo.createContextSnapshot({
             taskId: opts.task,
             agentId: opts.agent,
             checkpointId: opts.checkpoint,
             summary: opts.goal ?? "",
             payloadJson: JSON.stringify(payload),
           });
-          console.log(JSON.stringify(capsule, null, 2));
+          console.log(JSON.stringify(snapshot, null, 2));
         })
     )
     .addCommand(
       new Command("latest")
-        .description("Show latest context capsule for a task and agent")
+        .description("Show latest context snapshot for a task and agent")
         .requiredOption("--task <taskId>", "Task ID")
         .requiredOption("--agent <agentId>", "Agent ID")
         .action(async (opts) => {
-          const capsule = repo.getLatestContextSnapshot(opts.task, opts.agent);
-          if (!capsule) {
-            console.log("No context capsule found");
+          const snapshot = repo.getLatestContextSnapshot(opts.task, opts.agent);
+          if (!snapshot) {
+            console.log("No context snapshot found");
             return;
           }
-          console.log(JSON.stringify(capsule, null, 2));
+          console.log(JSON.stringify(snapshot, null, 2));
         })
     )
     .addCommand(
       new Command("list")
-        .description("List context capsules for a task")
+        .description("List context snapshots for a task")
         .requiredOption("--task <taskId>", "Task ID")
         .action(async (opts) => {
-          const capsules = repo.listContextSnapshots(opts.task);
-          console.table(capsules);
+          const snapshots = repo.listContextSnapshots(opts.task);
+          console.table(snapshots);
         })
     );
 

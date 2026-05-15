@@ -45,7 +45,7 @@ beforeAll(() => {
   orchAssignRole({ sessionId, agentId: agent1Id, role: "architect" as any });
   orchAssignRole({ sessionId, agentId: agent2Id, role: "executor" as any });
 
-  // Create checkpoint + capsule so loopResume can proceed past context policy check
+  // Create checkpoint + snapshot so loopResume can proceed past context policy check
   const cp = repo.createCheckpoint({
     taskId,
     agentId: agent2Id,
@@ -72,7 +72,7 @@ beforeAll(() => {
 
   // Seed: do_not_touch memory protecting src/core (project-wide, no appliesTo filter)
   // This will be picked up by projection and trigger do_not_touch_scope_overlap
-  // when touchedResources (from capsule workingResources) overlap with the scope.
+  // when touchedResources (from snapshot workingResources) overlap with the scope.
   const m1 = pmAdd({
     category: "gotcha" as any,
     title: "Core is frozen",
@@ -93,7 +93,7 @@ afterAll(() => {
 });
 
 describe("P4C: loopResume constraint enforcement", () => {
-  it("loopResume in capsule-locked mode throws on constraint violation", () => {
+  it("loopResume in snapshot-locked mode throws on constraint violation", () => {
     expect(() => loopResume({
       agentId: agent2Id,
       taskId,
@@ -183,7 +183,7 @@ describe("P4C: wakeStart constraint enforcement", () => {
   let wakeTaskId: string;
 
   beforeAll(() => {
-    // Create a separate task with capsule whose workingResources overlap with protected scope
+    // Create a separate task with snapshot whose workingResources overlap with protected scope
     const wTask = repo.createTask({ title: "Wake constraint task", description: "" });
     wakeTaskId = wTask.id;
     repo.assignTask(wakeTaskId, agent2Id);
@@ -242,7 +242,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
   let wakeNextTaskId: string;
 
   beforeAll(() => {
-    // Create a task with capsule whose workingResources overlap do_not_touch scope
+    // Create a task with snapshot whose workingResources overlap do_not_touch scope
     const wnTask = repo.createTask({ title: "Wake next constraint task", description: "" });
     wakeNextTaskId = wnTask.id;
     repo.assignTask(wakeNextTaskId, agent1Id);
@@ -290,7 +290,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
     });
   });
 
-  it("wakeNext returns null when agent's capsule workingResources overlap do_not_touch", () => {
+  it("wakeNext returns null when agent's snapshot workingResources overlap do_not_touch", () => {
     const result = wakeNext(agent1Id);
     expect(result).toBeNull();
   });

@@ -67,12 +67,12 @@ describe("CONTEXT_POLICIES", () => {
     }
   });
 
-  it("execute should be hard gate with task+agent+capsule+checkpoint required", () => {
+  it("execute should be hard gate with task+agent+snapshot+checkpoint required", () => {
     const p = CONTEXT_POLICIES["execute"];
     expect(p.gateMode).toBe("hard");
     expect(p.requiredSections).toContain("task");
     expect(p.requiredSections).toContain("agent");
-    expect(p.requiredSections).toContain("latest-capsule");
+    expect(p.requiredSections).toContain("latest-snapshot");
     expect(p.requiredSections).toContain("latest-checkpoint");
   });
 
@@ -161,9 +161,9 @@ describe("getContextPolicyForMode", () => {
     expect(getContextPolicy("review").gateMode).toBe("soft");
   });
 
-  it("handoff-resume resume requires latest-capsule and includes handoff-context", () => {
+  it("handoff-resume resume requires latest-snapshot and includes handoff-context", () => {
     const p = getContextPolicyForMode("resume", "handoff-resume");
-    expect(p.requiredSections).toContain("latest-capsule");
+    expect(p.requiredSections).toContain("latest-snapshot");
     expect(p.includeSections).toContain("handoff-context");
   });
 

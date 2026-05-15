@@ -38,7 +38,7 @@ export type ContextGateMode = z.infer<typeof ContextGateMode>;
 export const ContextSection = z.enum([
   "task",
   "agent",
-  "latest-capsule",
+  "latest-snapshot",
   "latest-checkpoint",
   "approved-contract",
   "handoff-context",
@@ -170,30 +170,30 @@ export const CONTEXT_POLICIES: Record<ContextIntent, ContextPolicy> = {
   execute: {
     intent: "execute",
     gateMode: "hard",
-    requiredSections: ["task", "agent", "latest-capsule", "latest-checkpoint"],
+    requiredSections: ["task", "agent", "latest-snapshot", "latest-checkpoint"],
     includeSections: ["approved-contract", "approved-project-memory", "pinned-memory"],
-    description: "Execute a task — requires full task context, hard gate on missing capsule/checkpoint.",
+    description: "Execute a task — requires full task context, hard gate on missing snapshot/checkpoint.",
   },
   resume: {
     intent: "resume",
     gateMode: "hard",
-    requiredSections: ["task", "agent", "latest-capsule", "latest-checkpoint"],
+    requiredSections: ["task", "agent", "latest-snapshot", "latest-checkpoint"],
     includeSections: ["approved-contract", "approved-project-memory", "pinned-memory"],
     description: "Resume a task — same as execute, hard gate.",
   },
   "handoff-receive": {
     intent: "handoff-receive",
     gateMode: "hard",
-    requiredSections: ["task", "agent", "latest-capsule"],
+    requiredSections: ["task", "agent", "latest-snapshot"],
     includeSections: ["approved-contract", "handoff-context", "approved-project-memory", "pinned-memory"],
-    description: "Receive a handoff — requires capsule and handoff context, hard gate.",
+    description: "Receive a handoff — requires snapshot and handoff context, hard gate.",
   },
   review: {
     intent: "review",
     gateMode: "soft",
-    requiredSections: ["task", "latest-checkpoint", "latest-capsule"],
+    requiredSections: ["task", "latest-checkpoint", "latest-snapshot"],
     includeSections: ["approved-contract", "approved-project-memory", "risks"],
-    description: "Review a task — requires checkpoint/capsule, soft gate on missing info.",
+    description: "Review a task — requires checkpoint/snapshot, soft gate on missing info.",
   },
   "architect-plan": {
     intent: "architect-plan",
@@ -256,7 +256,7 @@ export const MODE_CONTEXT_OVERRIDES: Record<RelationshipModeStr, Partial<Record<
       addInclude: ["handoff-context"],
     },
     resume: {
-      addRequired: ["latest-capsule"],
+      addRequired: ["latest-snapshot"],
       addInclude: ["handoff-context"],
     },
     review: {

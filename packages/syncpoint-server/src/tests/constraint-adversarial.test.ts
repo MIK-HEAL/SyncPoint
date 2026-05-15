@@ -2,7 +2,7 @@
  * Track 2: Adversarial constraint bypass tests.
  *
  * Verifies that constraints cannot be circumvented through:
- *   1. Mode switching (capsule-locked → default should still block)
+ *   1. Mode switching (snapshot-locked → default should still block)
  *   2. Projection unavailable (fail-closed, not fail-open)
  *   3. Multiple entry points all enforce consistently
  *   4. SyncGate + constraint interaction (gate resolve doesn't skip constraints)
@@ -57,7 +57,7 @@ beforeAll(() => {
   orchAssignRole({ sessionId, agentId: architectId, role: "architect" as any });
   orchAssignRole({ sessionId, agentId: executorId, role: "executor" as any });
 
-  // Create checkpoint + capsule with protected working resources
+  // Create checkpoint + snapshot with protected working resources
   const cp = repo.createCheckpoint({
     taskId,
     agentId: executorId,
@@ -105,11 +105,11 @@ afterAll(() => {
 // ── Bypass vector 1: mode switching ──────────────────────
 
 describe("Adversarial: mode switching does not bypass constraints", () => {
-  it("default mode blocks on constraint violation (not just capsule-locked)", () => {
+  it("default mode blocks on constraint violation (not just snapshot-locked)", () => {
     expect(() => loopResume({ agentId: executorId, taskId })).toThrow(/Constraint violation/);
   });
 
-  it("capsule-locked mode also blocks on same violation", () => {
+  it("snapshot-locked mode also blocks on same violation", () => {
     expect(() => loopResume({
       agentId: executorId,
       taskId,
@@ -117,7 +117,7 @@ describe("Adversarial: mode switching does not bypass constraints", () => {
     })).toThrow(/Constraint violation/);
   });
 
-  it("capsule-first mode also blocks on same violation", () => {
+  it("snapshot-first mode also blocks on same violation", () => {
     expect(() => loopResume({
       agentId: executorId,
       taskId,

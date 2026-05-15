@@ -140,17 +140,17 @@ describe("formatResumePrompt", () => {
     expect(text).toContain("Implement auth API");
   });
 
-  it("system-prompt warns when no capsule/checkpoint", () => {
+  it("system-prompt warns when no snapshot/checkpoint", () => {
     const ctx = makeContext({
       latestSnapshot: null,
       latestCheckpoint: null,
       ready: false,
-      warnings: ["No capsule found"],
+      warnings: ["No snapshot available"],
     });
     const text = formatResumePrompt(ctx, "system-prompt");
-    expect(text).toContain("No capsule or checkpoint");
+    expect(text).toContain("No snapshot or checkpoint");
     expect(text).toContain("Warnings");
-    expect(text).toContain("No capsule found");
+    expect(text).toContain("No snapshot available");
   });
 
   it("clipboard warns when not ready", () => {
@@ -158,11 +158,11 @@ describe("formatResumePrompt", () => {
       latestSnapshot: null,
       latestCheckpoint: null,
       ready: false,
-      warnings: ["Missing capsule"],
+      warnings: ["Missing snapshot"],
     });
     const text = formatResumePrompt(ctx, "clipboard");
     expect(text).toContain("⚠");
-    expect(text).toContain("Missing capsule");
+    expect(text).toContain("Missing snapshot");
   });
 
   it("system-prompt omits contract section when no contract", () => {

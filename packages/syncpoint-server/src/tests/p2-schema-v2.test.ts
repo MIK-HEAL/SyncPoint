@@ -66,7 +66,7 @@ describe("P2: V2 fields on create", () => {
 });
 
 describe("P2: Projection guard", () => {
-  it("rejects hard_constraint targeting capsule", async () => {
+  it("rejects hard_constraint targeting context_snapshot", async () => {
     try {
       await ctx.rpc("projectMemory.create", {
         category: "decision",
@@ -74,7 +74,7 @@ describe("P2: Projection guard", () => {
         content: "This should fail.",
         createdBy: "test-user",
         kind: "hard_constraint",
-        projectionTarget: "capsule",
+        projectionTarget: "context_snapshot",
       });
       expect.fail("Should have thrown InvalidProjectionError");
     } catch (e: any) {
@@ -82,7 +82,7 @@ describe("P2: Projection guard", () => {
     }
   });
 
-  it("rejects protocol_rule targeting capsule", async () => {
+  it("rejects protocol_rule targeting context_snapshot", async () => {
     try {
       await ctx.rpc("projectMemory.create", {
         category: "decision",
@@ -90,7 +90,7 @@ describe("P2: Projection guard", () => {
         content: "This should also fail.",
         createdBy: "test-user",
         kind: "protocol_rule",
-        projectionTarget: "capsule",
+        projectionTarget: "context_snapshot",
       });
       expect.fail("Should have thrown InvalidProjectionError");
     } catch (e: any) {
@@ -110,16 +110,16 @@ describe("P2: Projection guard", () => {
     expect(m.projectionTarget).toBe("protocol_gate");
   });
 
-  it("allows fact targeting capsule", async () => {
+  it("allows fact targeting context_snapshot", async () => {
     const m = (await ctx.rpc("projectMemory.create", {
       category: "overview",
-      title: "Fact Capsule P2",
-      content: "Facts can go to capsule.",
+      title: "Fact Context Snapshot P2",
+      content: "Facts can go to context_snapshot.",
       createdBy: "test-user",
       kind: "fact",
-      projectionTarget: "capsule",
+      projectionTarget: "context_snapshot",
     })) as any;
-    expect(m.projectionTarget).toBe("capsule");
+    expect(m.projectionTarget).toBe("context_snapshot");
   });
 });
 
@@ -151,17 +151,17 @@ describe("P2: V2 fields on update", () => {
 });
 
 describe("P2: Projection guard on update (merged validation)", () => {
-  it("rejects update that changes kind to hard_constraint when existing target is capsule", async () => {
-    // Create with kind=fact, target=capsule (valid)
+  it("rejects update that changes kind to hard_constraint when existing target is context_snapshot", async () => {
+    // Create with kind=fact, target=context_snapshot (valid)
     const m = (await ctx.rpc("projectMemory.create", {
       category: "overview",
       title: "P2 Guard Bypass Kind",
-      content: "This is a fact targeting capsule.",
+      content: "This is a fact targeting context_snapshot.",
       createdBy: "test-user",
       kind: "fact",
-      projectionTarget: "capsule",
+      projectionTarget: "context_snapshot",
     })) as any;
-    // Now update kind to hard_constraint — should fail because final state is hard_constraint+capsule
+    // Now update kind to hard_constraint — should fail because final state is hard_constraint+context_snapshot
     try {
       await ctx.rpc("projectMemory.update", {
         id: m.id,
@@ -174,7 +174,7 @@ describe("P2: Projection guard on update (merged validation)", () => {
     }
   });
 
-  it("rejects update that changes target to capsule when existing kind is hard_constraint", async () => {
+  it("rejects update that changes target to context_snapshot when existing kind is hard_constraint", async () => {
     // Create with kind=hard_constraint, target=protocol_gate (valid)
     const m = (await ctx.rpc("projectMemory.create", {
       category: "decision",
@@ -184,12 +184,12 @@ describe("P2: Projection guard on update (merged validation)", () => {
       kind: "hard_constraint",
       projectionTarget: "protocol_gate",
     })) as any;
-    // Now update target to capsule — should fail because final state is hard_constraint+capsule
+    // Now update target to context_snapshot — should fail because final state is hard_constraint+context_snapshot
     try {
       await ctx.rpc("projectMemory.update", {
         id: m.id,
         updatedBy: "test-user",
-        projectionTarget: "capsule",
+        projectionTarget: "context_snapshot",
       });
       expect.fail("Should have thrown InvalidProjectionError");
     } catch (e: any) {

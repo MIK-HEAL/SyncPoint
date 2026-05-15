@@ -47,7 +47,7 @@ export function createContextSnapshot(data: ContextSnapshotCreate): ContextSnaps
     payloadJson: data.payloadJson ?? "{}",
     createdAt: ts,
   }).run();
-  logEvent(EventType.CAPSULE_CREATED, "context_snapshot", id);
+  logEvent(EventType.CONTEXT_SNAPSHOT_CREATED, "context_snapshot", id);
   const row = db.select().from(s.contextSnapshots).where(eq(s.contextSnapshots.id, id)).get();
   return rowToSnapshot(row);
 }

@@ -28,36 +28,36 @@ import { collectProjectMemories } from "./project-memory-repository.js";
 /**
  * Run quality checks on the data assembled for resume context.
  */
-function parsePayload(capsule: ContextSnapshot | null | undefined): ContextSnapshotPayload {
-  if (!capsule) return {};
-  try { return JSON.parse(capsule.payloadJson); } catch { return {}; }
+function parsePayload(snapshot: ContextSnapshot | null | undefined): ContextSnapshotPayload {
+  if (!snapshot) return {};
+  try { return JSON.parse(snapshot.payloadJson); } catch { return {}; }
 }
 
 function runQualityChecks(
   task: Task,
   agent: Agent,
-  capsule: ContextSnapshot | null | undefined,
+  snapshot: ContextSnapshot | null | undefined,
   checkpoint: Checkpoint | null | undefined,
   contract: PeerContract | null | undefined,
 ): { checks: QualityCheckResult[]; warnings: string[]; ready: boolean } {
   const checks: QualityCheckResult[] = [];
   const warnings: string[] = [];
 
-  // Completeness Check: capsule must exist
-  if (capsule) {
-    checks.push({ name: "Completeness", status: QualityCheckStatus.PASS, message: "Latest capsule exists." });
+  // Completeness Check: snapshot must exist
+  if (snapshot) {
+    checks.push({ name: "Completeness", status: QualityCheckStatus.PASS, message: "Latest snapshot exists." });
   } else {
-    checks.push({ name: "Completeness", status: QualityCheckStatus.FAIL, message: "No context capsule found. Create one before resuming." });
-    warnings.push("No context capsule found for this task+agent. Run `syncpoint capsule create` before resuming.");
+    checks.push({ name: "Completeness", status: QualityCheckStatus.FAIL, message: "No context snapshot found. Create one before resuming." });
+    warnings.push("No context snapshot found for this task+agent. Run `syncpoint snapshot create` before resuming.");
   }
 
-  // Freshness Check: capsule should be newer than checkpoint
-  if (capsule && checkpoint) {
-    if (capsule.createdAt >= checkpoint.createdAt) {
-      checks.push({ name: "Freshness", status: QualityCheckStatus.PASS, message: "Capsule is up-to-date with latest checkpoint." });
+  // Freshness Check: snapshot should be newer than checkpoint
+  if (snapshot && checkpoint) {
+    if (snapshot.createdAt >= checkpoint.createdAt) {
+      checks.push({ name: "Freshness", status: QualityCheckStatus.PASS, message: "Snapshot is up-to-date with latest checkpoint." });
     } else {
-      checks.push({ name: "Freshness", status: QualityCheckStatus.WARN, message: "Capsule is older than latest checkpoint. Consider updating." });
-      warnings.push("Context capsule is older than latest checkpoint. Consider creating a new capsule.");
+      checks.push({ name: "Freshness", status: QualityCheckStatus.WARN, message: "Snapshot is older than latest checkpoint. Consider updating." });
+      warnings.push("Context snapshot is older than latest checkpoint. Consider creating a new snapshot.");
     }
   } else if (!checkpoint) {
     checks.push({ name: "Freshness", status: QualityCheckStatus.WARN, message: "No checkpoint found." });
@@ -76,7 +76,7 @@ function runQualityChecks(
   }
 
   // Conflict Check: blockers
-  const payload = parsePayload(capsule);
+  const payload = parsePayload(snapshot);
   const blockerText = (payload.blockers ?? []).join(", ");
   if (blockerText.length > 0) {
     checks.push({ name: "Conflict", status: QualityCheckStatus.WARN, message: `Blockers present: ${blockerText.slice(0, 100)}` });
@@ -85,12 +85,12 @@ function runQualityChecks(
     checks.push({ name: "Conflict", status: QualityCheckStatus.PASS, message: "No blockers." });
   }
 
-  // Scope Check: capsule belongs to this task+agent
-  if (capsule && (capsule.taskId !== task.id || capsule.agentId !== agent.id)) {
-    checks.push({ name: "Scope", status: QualityCheckStatus.FAIL, message: "Capsule does not belong to this task+agent pair." });
-    warnings.push("Scope violation: capsule taskId/agentId mismatch.");
-  } else if (capsule) {
-    checks.push({ name: "Scope", status: QualityCheckStatus.PASS, message: "Capsule is scoped to correct task+agent." });
+  // Scope Check: snapshot belongs to this task+agent
+  if (snapshot && (snapshot.taskId !== task.id || snapshot.agentId !== agent.id)) {
+    checks.push({ name: "Scope", status: QualityCheckStatus.FAIL, message: "Snapshot does not belong to this task+agent pair." });
+    warnings.push("Scope violation: snapshot taskId/agentId mismatch.");
+  } else if (snapshot) {
+    checks.push({ name: "Scope", status: QualityCheckStatus.PASS, message: "Snapshot is scoped to correct task+agent." });
   }
 
   // NeedSync Check
@@ -111,7 +111,7 @@ function buildResumePrompt(
   task: Task,
   agent: Agent,
   contract: PeerContract | null,
-  capsule: ContextSnapshot | null,
+  snapshot: ContextSnapshot | null,
   checkpoint: Checkpoint | null,
   pinnedMemories: Array<{ key: string; content: string }>,
   projectMemories: Array<{ id: string; category: string; title: string; content: string }> = [],
@@ -152,10 +152,10 @@ function buildResumePrompt(
     lines.push("");
   }
 
-  if (capsule) {
-    const p = parsePayload(capsule);
+  if (snapshot) {
+    const p = parsePayload(snapshot);
     lines.push("## Current Task Context");
-    if (capsule.summary) lines.push(`**Summary**: ${capsule.summary}`);
+    if (snapshot.summary) lines.push(`**Summary**: ${snapshot.summary}`);
     if (p.goal) lines.push(`**Goal**: ${p.goal}`);
     if (p.currentPhase) lines.push(`**Phase**: ${p.currentPhase}`);
     if (p.confirmedDecisions?.length) lines.push(`**Decisions**: ${p.confirmedDecisions.join("; ")}`);
@@ -184,8 +184,8 @@ function buildResumePrompt(
     lines.push("");
   }
 
-  if (!capsule && !checkpoint) {
-    lines.push("⚠ No capsule or checkpoint found. Create a context capsule before starting work.");
+  if (!snapshot && !checkpoint) {
+    lines.push("⚠ No snapshot or checkpoint found. Create a context snapshot before starting work.");
     lines.push("");
   }
 
@@ -206,8 +206,8 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
   const approvedContract = allContracts.find(c => c.status === ContractStatus.APPROVED) ?? null;
   const latestContract = allContracts.length ? allContracts[allContracts.length - 1] : null;
 
-  // Latest capsule for this agent+task
-  const capsule = getLatestContextSnapshot(taskId, agentId) ?? null;
+  // Latest snapshot for this agent+task
+  const snapshot = getLatestContextSnapshot(taskId, agentId) ?? null;
 
   // Latest checkpoint for this agent+task
   const checkpoint = _getDb().select().from(s.checkpoints)
@@ -224,10 +224,10 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
 
   // Quality checks
   const contractForChecks = approvedContract ?? latestContract;
-  const { checks, warnings, ready } = runQualityChecks(task, agent, capsule, checkpoint, contractForChecks);
+  const { checks, warnings, ready } = runQualityChecks(task, agent, snapshot, checkpoint, contractForChecks);
 
   // Build resume prompt
-  const resumePrompt = buildResumePrompt(task, agent, approvedContract, capsule, checkpoint, pinnedMemories, projectMems);
+  const resumePrompt = buildResumePrompt(task, agent, approvedContract, snapshot, checkpoint, pinnedMemories, projectMems);
 
   return {
     taskId,
@@ -254,12 +254,12 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
       fileBoundaries: approvedContract.fileBoundaries,
       status: approvedContract.status,
     } : null,
-    latestSnapshot: capsule ? {
-      id: capsule.id,
-      kind: capsule.kind,
-      summary: capsule.summary,
-      payloadJson: capsule.payloadJson,
-      createdAt: capsule.createdAt,
+    latestSnapshot: snapshot ? {
+      id: snapshot.id,
+      kind: snapshot.kind,
+      summary: snapshot.summary,
+      payloadJson: snapshot.payloadJson,
+      createdAt: snapshot.createdAt,
     } : null,
     latestCheckpoint: checkpoint ? {
       id: checkpoint.id,

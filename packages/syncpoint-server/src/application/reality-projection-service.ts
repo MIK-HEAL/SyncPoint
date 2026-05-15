@@ -2,7 +2,7 @@
  * P3A — Projection Service (server-side orchestrator).
  *
  * Bridges collectProjectMemories → compileProjection.
- * Read-only: never mutates capsule, checkpoint, or contract.
+ * Read-only: never mutates snapshot, checkpoint, or contract.
  *
  * PR3: In-memory read-through projection cache.
  * Lookup key excludes memoryVersion → lazy invalidation on version bump.

@@ -13,8 +13,8 @@ import type { ResumeContext } from "./memory.js";
 import type { RealityProjection } from "./reality-projection.js";
 import type { ContextSnapshotPayload } from "./models.js";
 
-/** Parse the JSON payload from a latestSnapshot snapshot. */
-function capsulePayload(ctx: ResumeContext): ContextSnapshotPayload | null {
+/** Parse the JSON payload from a context snapshot. */
+function snapshotPayload(ctx: ResumeContext): ContextSnapshotPayload | null {
   if (!ctx.latestSnapshot) return null;
   try { return JSON.parse(ctx.latestSnapshot.payloadJson); } catch { return {}; }
 }
@@ -127,14 +127,14 @@ export function formatRealityProjection(projection: RealityProjection): string {
 
 // ── system-prompt ─────────────────────────────────────
 
-/** Check if mode restricts to capsule-only content (no raw checkpoint/project memory) */
-function isCapsuleRestricted(ctx: ResumeContext): boolean {
+/** Check if mode restricts to snapshot-only content (no raw checkpoint/project memory) */
+function isSnapshotRestricted(ctx: ResumeContext): boolean {
   return ctx.contextMode === "snapshot-only" || ctx.contextMode === "snapshot-locked";
 }
 
 function formatSystemPrompt(ctx: ResumeContext, projection?: RealityProjection | null): string {
   const lines: string[] = [];
-  const restricted = isCapsuleRestricted(ctx);
+  const restricted = isSnapshotRestricted(ctx);
 
   lines.push("You are resuming work on a task managed by SyncPoint.");
   lines.push("Below is the ONLY context you should use. Do NOT rely on prior conversation history.");
@@ -179,7 +179,7 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: RealityProjection |
   }
 
   if (ctx.latestSnapshot) {
-    const p = capsulePayload(ctx)!;
+    const p = snapshotPayload(ctx)!;
     lines.push("## Current Context");
     if (p.goal) lines.push(`- Goal: ${p.goal}`);
     if (p.currentPhase) lines.push(`- Phase: ${p.currentPhase}`);
@@ -208,7 +208,7 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: RealityProjection |
   }
 
   if (!ctx.latestSnapshot && !ctx.latestCheckpoint) {
-    lines.push("⚠ No capsule or checkpoint. Create a capsule before starting work.");
+    lines.push("⚠ No snapshot or checkpoint. Create a context snapshot before starting work.");
     lines.push("");
   }
 
@@ -227,7 +227,7 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: RealityProjection |
 
 function formatCursorRules(ctx: ResumeContext, projection?: RealityProjection | null): string {
   const lines: string[] = [];
-  const restricted = isCapsuleRestricted(ctx);
+  const restricted = isSnapshotRestricted(ctx);
 
   lines.push("# SyncPoint Resume Context");
   lines.push("# Auto-generated — do not edit manually");
@@ -274,8 +274,8 @@ function formatCursorRules(ctx: ResumeContext, projection?: RealityProjection | 
   }
 
   if (ctx.latestSnapshot) {
-    const p = capsulePayload(ctx)!;
-    lines.push("## Context Capsule");
+    const p = snapshotPayload(ctx)!;
+    lines.push("## Context Snapshot");
     if (p.goal) lines.push(`Goal: ${p.goal}`);
     if (p.currentPhase) lines.push(`Phase: ${p.currentPhase}`);
     if (p.workingResources?.length) lines.push(`Working files: ${p.workingResources.join(", ")}`);
@@ -304,7 +304,7 @@ function formatCursorRules(ctx: ResumeContext, projection?: RealityProjection | 
 
 function formatAgentsMd(ctx: ResumeContext, projection?: RealityProjection | null): string {
   const lines: string[] = [];
-  const restricted = isCapsuleRestricted(ctx);
+  const restricted = isSnapshotRestricted(ctx);
 
   lines.push("# AGENTS.md — SyncPoint Project Knowledge");
   lines.push("");
@@ -352,7 +352,7 @@ function formatAgentsMd(ctx: ResumeContext, projection?: RealityProjection | nul
   lines.push("");
 
   if (ctx.latestSnapshot) {
-    const p = capsulePayload(ctx)!;
+    const p = snapshotPayload(ctx)!;
     lines.push("## Current Work Context");
     lines.push("");
     if (p.goal) { lines.push(`**Goal**: ${p.goal}`); lines.push(""); }
@@ -421,7 +421,7 @@ function formatCheckpointMd(ctx: ResumeContext, projection?: RealityProjection |
   }
 
   if (ctx.latestSnapshot) {
-    const p = capsulePayload(ctx)!;
+    const p = snapshotPayload(ctx)!;
     if (p.goal) lines.push(`**Goal**: ${p.goal}`);
     if (p.currentPhase) lines.push(`**Phase**: ${p.currentPhase}`);
     if (p.confirmedDecisions?.length) lines.push(`**Decisions**: ${p.confirmedDecisions.join("; ")}`);
@@ -437,10 +437,10 @@ function formatCheckpointMd(ctx: ResumeContext, projection?: RealityProjection |
       lines.push("");
     }
   } else {
-    lines.push("⚠ No capsule available.");
+    lines.push("⚠ No snapshot available.");
   }
 
-  if (!isCapsuleRestricted(ctx) && ctx.latestCheckpoint) {
+  if (!isSnapshotRestricted(ctx) && ctx.latestCheckpoint) {
     lines.push("## Latest Checkpoint");
     lines.push(`**Summary**: ${ctx.latestCheckpoint.summary}`);
     if (ctx.latestCheckpoint.progress) lines.push(`**Progress**: ${ctx.latestCheckpoint.progress}`);
@@ -481,7 +481,7 @@ function formatClipboard(ctx: ResumeContext, projection?: RealityProjection | nu
   }
 
   if (ctx.latestSnapshot) {
-    const p = capsulePayload(ctx)!;
+    const p = snapshotPayload(ctx)!;
     if (p.goal) lines.push(`Goal: ${p.goal}`);
     if (p.currentPhase) lines.push(`Phase: ${p.currentPhase}`);
     if (p.remainingWork) lines.push(`Remaining: ${p.remainingWork}`);
@@ -493,7 +493,7 @@ function formatClipboard(ctx: ResumeContext, projection?: RealityProjection | nu
   } else if (ctx.latestCheckpoint) {
     lines.push(ctx.latestCheckpoint.summary);
   } else {
-    lines.push("⚠ No capsule/checkpoint — create one first.");
+    lines.push("⚠ No snapshot/checkpoint — create one first.");
   }
 
   if (!ctx.ready) {

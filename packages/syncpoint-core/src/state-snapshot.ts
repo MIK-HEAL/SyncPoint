@@ -3,7 +3,7 @@
  *
  * A point-in-time snapshot of an actor's work state, referencing
  * the resources they are working with. Generalizes checkpoint +
- * capsule concepts for any resource type.
+ * context snapshot concepts for any resource type.
  */
 
 import { z } from "zod";

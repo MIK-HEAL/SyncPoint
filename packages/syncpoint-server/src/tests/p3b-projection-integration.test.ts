@@ -1,7 +1,7 @@
 /**
  * P3B — Projection Integration tests.
  * Tests that loopResume uses ProjectedReality, injects into prompt/gate,
- * and enforces capsule-locked blocking on projection issues.
+ * and enforces snapshot-locked blocking on projection issues.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { startE2E, type E2EContext } from "./e2e-helper.ts";
@@ -13,7 +13,7 @@ let taskId: string;
 beforeAll(async () => {
   ctx = await startE2E();
 
-  // Setup: agent + task + assign + checkpoint + capsule (minimum for resume)
+  // Setup: agent + task + assign + checkpoint + snapshot (minimum for resume)
   const agent = (await ctx.rpc("agent.create", { name: "codex", provider: "codex", role: "backend" })) as any;
   agentId = agent.id;
   const task = (await ctx.rpc("task.create", { title: "P3B test task", description: "test" })) as any;
@@ -108,7 +108,7 @@ describe("P3B: Kind→bucket in prompt", () => {
 });
 
 describe("P3B: Protocol gate injection", () => {
-  it("hard_constraint (default routing) enters gate as soft awareness, NOT capsule", async () => {
+  it("hard_constraint (default routing) enters gate as soft awareness, NOT snapshot", async () => {
     // P4: blocking hard_constraint requires validatorType
     await createAndApprove({
       category: "decision",
@@ -126,7 +126,7 @@ describe("P3B: Protocol gate injection", () => {
     expect(result.prompt).toContain("[constraint:");
     expect(result.prompt).toContain("P3B no eval");
 
-    // hard_constraint should NOT appear inside capsulePatch buckets
+    // hard_constraint should NOT appear inside snapshotPatch buckets
     const verifiedFacts = result.prompt.split("### Verified Facts")[1]?.split("###")[0] || "";
     const activeConstraints = result.prompt.split("### Active Constraints")[1]?.split("###")[0] || "";
     const knownRisks = result.prompt.split("### Known Risks")[1]?.split("###")[0] || "";
@@ -154,8 +154,8 @@ describe("P3B: Protocol gate injection", () => {
   });
 });
 
-describe("P3B: capsule-locked semantics", () => {
-  it("capsule-locked does NOT block when only default-routed hard_constraints exist (P4 enforces)", async () => {
+describe("P3B: snapshot-locked semantics", () => {
+  it("snapshot-locked does NOT block when only default-routed hard_constraints exist (P4 enforces)", async () => {
     // hard_constraint with default routing → constraintRules → soft awareness → no block
     // (only hard_constraints with explicit projectionTarget=protocol_gate would block)
     const result = (await ctx.rpc("loop.resume", { agentId, taskId, contextMode: "snapshot-locked" })) as any;

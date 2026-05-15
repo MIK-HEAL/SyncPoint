@@ -66,7 +66,7 @@ beforeAll(() => {
   taskId = task.id;
   const ta = orchPlanTask({ sessionId, taskId, assigneeAgentId: executorId, assignedBy: architectId });
 
-  // Create checkpoint+capsule for context
+  // Create checkpoint+snapshot for context
   repo.createCheckpoint({
     taskId,
     agentId: executorId,

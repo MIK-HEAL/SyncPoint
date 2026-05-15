@@ -83,7 +83,7 @@ describe("P12 Snapshot Validation", () => {
       risks: "", blockers: "", nextSteps: "Continue", needSync: false,
     });
 
-    const capsule = repo.createContextSnapshot({
+    const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build feature",
       payloadJson: payloadJson({
@@ -101,7 +101,7 @@ describe("P12 Snapshot Validation", () => {
       }),
     });
 
-    const val = validateSnapshot(capsule, cp, task.id, agent.id);
+    const val = validateSnapshot(snapshot, cp, task.id, agent.id);
     expect(val.valid).toBe(true);
     expect(val.stale).toBe(false);
     expect(val.hasEvidence).toBe(true);
@@ -120,7 +120,7 @@ describe("P12 Snapshot Validation", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createContextSnapshot({
+    const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -139,7 +139,7 @@ describe("P12 Snapshot Validation", () => {
     });
 
     // Validate against wrong task
-    const val = validateSnapshot(capsule, cp, "other-task", agent.id);
+    const val = validateSnapshot(snapshot, cp, "other-task", agent.id);
     expect(val.valid).toBe(false);
     expect(val.scopeMatch).toBe(false);
   });
@@ -156,7 +156,7 @@ describe("P12 Snapshot Validation", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createContextSnapshot({
+    const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -174,7 +174,7 @@ describe("P12 Snapshot Validation", () => {
       }),
     });
 
-    const val = validateSnapshot(capsule, cp, task.id, agent.id);
+    const val = validateSnapshot(snapshot, cp, task.id, agent.id);
     expect(val.valid).toBe(false);
     expect(val.hasBlockers).toBe(true);
     expect(val.notes.some(n => n.includes("Unresolved blockers"))).toBe(true);
@@ -192,7 +192,7 @@ describe("P12 Snapshot Validation", () => {
       risks: "", blockers: "", nextSteps: "", needSync: true,
     });
 
-    const capsule = repo.createContextSnapshot({
+    const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -210,7 +210,7 @@ describe("P12 Snapshot Validation", () => {
       }),
     });
 
-    const val = validateSnapshot(capsule, cp, task.id, agent.id);
+    const val = validateSnapshot(snapshot, cp, task.id, agent.id);
     expect(val.valid).toBe(false);
     expect(val.needsSync).toBe(true);
     expect(val.notes.some(n => n.includes("needSync"))).toBe(true);
@@ -233,7 +233,7 @@ describe("P12 Extended Snapshot Fields", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createContextSnapshot({
+    const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Refactor auth",
       payloadJson: payloadJson({
@@ -257,7 +257,7 @@ describe("P12 Extended Snapshot Fields", () => {
       }),
     });
 
-    const payload = readPayload(capsule);
+    const payload = readPayload(snapshot);
     expect(payload.intentScope).toBe("Auth module only");
     expect(payload.nonGoals).toEqual(["Do not touch billing"]);
     expect(payload.verifiedFacts).toEqual(["JWT validated end-to-end"]);
@@ -283,7 +283,7 @@ describe("P12 Extended Snapshot Fields", () => {
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
-    const capsule = repo.createContextSnapshot({
+    const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
       payloadJson: payloadJson({
@@ -301,7 +301,7 @@ describe("P12 Extended Snapshot Fields", () => {
       }),
     });
 
-    const payload = readPayload(capsule);
+    const payload = readPayload(snapshot);
     expect(payload.intentScope ?? "").toBe("");
     expect(payload.nonGoals ?? "").toBe("");
     expect(payload.doNotTouch ?? "").toBe("");

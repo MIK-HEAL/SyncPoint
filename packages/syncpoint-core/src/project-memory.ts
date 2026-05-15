@@ -2,7 +2,7 @@
  * Project Memory Layer — types for long-lived project knowledge.
  *
  * Three-tier memory model:
- *   1. Shared State   — task / checkpoint / handoff / contract / capsule
+ *   1. Shared State   — task / checkpoint / handoff / contract / context_snapshot
  *   2. Project Memory — architecture, decisions, conventions, gotchas, file map
  *   3. Pinned Memory  — few mandatory rules injected into every context
  */
@@ -63,7 +63,7 @@ export enum MemoryKind {
 }
 
 export enum ProjectionTarget {
-  CAPSULE = "capsule",
+  CONTEXT_SNAPSHOT = "context_snapshot",
   PROTOCOL_GATE = "protocol_gate",
   CONSTRAINT_RUNTIME = "constraint_runtime",
 }
@@ -117,7 +117,7 @@ export function defaultKindFromCategory(category: string): MemoryKind {
 
 /**
  * Valid projection targets for a given memory kind.
- * hard_constraint and protocol_rule MUST NOT project to capsule only.
+ * hard_constraint and protocol_rule MUST NOT project to context_snapshot only.
  */
 export function validProjectionTargets(kind: MemoryKind): ProjectionTarget[] {
   switch (kind) {
@@ -125,9 +125,9 @@ export function validProjectionTargets(kind: MemoryKind): ProjectionTarget[] {
     case MemoryKind.PROTOCOL_RULE:
       return [ProjectionTarget.PROTOCOL_GATE, ProjectionTarget.CONSTRAINT_RUNTIME];
     case MemoryKind.DO_NOT_TOUCH:
-      return [ProjectionTarget.CAPSULE, ProjectionTarget.PROTOCOL_GATE, ProjectionTarget.CONSTRAINT_RUNTIME];
+      return [ProjectionTarget.CONTEXT_SNAPSHOT, ProjectionTarget.PROTOCOL_GATE, ProjectionTarget.CONSTRAINT_RUNTIME];
     default:
-      return [ProjectionTarget.CAPSULE, ProjectionTarget.PROTOCOL_GATE, ProjectionTarget.CONSTRAINT_RUNTIME];
+      return [ProjectionTarget.CONTEXT_SNAPSHOT, ProjectionTarget.PROTOCOL_GATE, ProjectionTarget.CONSTRAINT_RUNTIME];
   }
 }
 

@@ -264,8 +264,8 @@ export interface ConstraintInput {
   projection: RealityProjection;
   /** Resources touched by current action (patch, assignment, etc.) */
   touchedResources?: ResourceRef[];
-  /** Whether capsule validation passed (for locked-mode gate). */
-  capsuleValid?: boolean;
+  /** Whether snapshot validation passed (for locked-mode gate). */
+  snapshotValid?: boolean;
   /** Protocol gate blockers already computed upstream. */
   protocolGateBlockers?: string[];
 }
@@ -373,16 +373,16 @@ function evaluateProtocolGateBlocked(
   }
 }
 
-function evaluateCapsuleLockedInvalid(
+function evaluateSnapshotLockedInvalid(
   input: ConstraintInput,
   blockers: ConstraintViolation[],
 ): void {
-  if (input.capsuleValid === false) {
+  if (input.snapshotValid === false) {
     blockers.push({
-      rule: "capsule_locked_invalid",
+      rule: "snapshot_locked_invalid",
       sourceMemoryId: "",
       projectionId: input.projection.projectionId,
-      message: "Capsule validation failed in locked context mode.",
+      message: "Snapshot validation failed in locked context mode.",
     });
   }
 }
@@ -502,8 +502,8 @@ export function evaluateConstraints(input: ConstraintInput): ConstraintDecision 
   // 3. Protocol gate passthrough
   evaluateProtocolGateBlocked(input, blockers);
 
-  // 4. Capsule locked-mode validation
-  evaluateCapsuleLockedInvalid(input, blockers);
+  // 4. Snapshot locked-mode validation
+  evaluateSnapshotLockedInvalid(input, blockers);
 
   // 5. Typed hard constraint evaluation (runtimeSpec → blocking)
   const typedIds = new Set<string>();

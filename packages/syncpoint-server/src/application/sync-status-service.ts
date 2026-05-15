@@ -322,10 +322,10 @@ export function buildSnapshot(input?: SnapshotInput) {
     if (agentAssignments.length > 0) {
       for (const ta of agentAssignments) {
         try {
-          const capsule = repo.getLatestContextSnapshot(ta.taskId, a.id);
+          const snapshot = repo.getLatestContextSnapshot(ta.taskId, a.id);
           let wr: string[] = [];
-          if (capsule) {
-            try { const p = JSON.parse(capsule.payloadJson ?? "{}"); if (Array.isArray(p.workingResources)) wr = p.workingResources; } catch { /* ok */ }
+          if (snapshot) {
+            try { const p = JSON.parse(snapshot.payloadJson ?? "{}"); if (Array.isArray(p.workingResources)) wr = p.workingResources; } catch { /* ok */ }
           }
           const proj = buildProjection({ taskId: ta.taskId, workingResources: wr });
           const decision = evaluateConstraints({

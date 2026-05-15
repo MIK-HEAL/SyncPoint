@@ -372,22 +372,22 @@ function kindToBucket(kind: string): BucketName {
 /** Map projectionTarget value → bucket name. */
 function targetToBucket(target: string): BucketName | null {
   switch (target) {
-    case "capsule":             return null; // capsule routes by kind
+    case "context_snapshot":    return null; // context_snapshot routes by kind
     case "protocol_gate":       return "protocolRules";
     case "constraint_runtime":  return "constraintRules";
     default:                    return null;
   }
 }
 
-/** Map capsule-targeted item to the appropriate sub-bucket by kind. */
-function kindToCapsuleBucket(kind: string): BucketName {
+/** Map context-snapshot-targeted item to the appropriate sub-bucket by kind. */
+function kindToSnapshotBucket(kind: string): BucketName {
   switch (kind) {
     case "fact":             return "verifiedFacts";
     case "soft_convention":  return "activeConstraints";
     case "risk":             return "risks";
     case "do_not_touch":     return "doNotTouch";
-    case "hard_constraint":  return "verifiedFacts"; // fallback when explicitly capsule-targeted
-    case "protocol_rule":    return "verifiedFacts"; // fallback when explicitly capsule-targeted
+    case "hard_constraint":  return "verifiedFacts"; // fallback when explicitly context_snapshot-targeted
+    case "protocol_rule":    return "verifiedFacts"; // fallback when explicitly context_snapshot-targeted
     default:                 return "verifiedFacts";
   }
 }
@@ -412,12 +412,12 @@ export function resolveProjectionRoute(kind: string, projectionTarget: string | 
         reason: `${kind} → ${bucket} (explicit target: ${projectionTarget})`,
       };
     }
-    // target === "capsule" — route by kind to capsule sub-bucket
-    if (projectionTarget === "capsule") {
-      const capBucket = kindToCapsuleBucket(kind);
+    // target === "context_snapshot" — route by kind to context snapshot sub-bucket
+    if (projectionTarget === "context_snapshot") {
+      const capBucket = kindToSnapshotBucket(kind);
       return {
         buckets: [capBucket],
-        reason: `${kind} → ${capBucket} (explicit target: capsule)`,
+        reason: `${kind} → ${capBucket} (explicit target: context_snapshot)`,
       };
     }
     // Unknown target — fall through to default

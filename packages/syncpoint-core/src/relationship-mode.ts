@@ -5,7 +5,7 @@
  *
  *   manager-delegate:  delegate → wait → report → review
  *   peer-contract:     contract → parallel work → checkpoint sync → merge
- *   handoff-resume:    capsule → handoff → accept → resume
+ *   handoff-resume:    snapshot → handoff → accept → resume
  */
 
 import { z } from "zod";
@@ -46,10 +46,10 @@ export const MODE_PHASE_FLOW: Record<RelationshipMode, string[]> = {
     "review",        // mutual or third-party review
   ],
   [RelationshipMode.HANDOFF_RESUME]: [
-    "capsule",       // current agent creates context capsule
+    "snapshot",      // current agent creates context snapshot
     "handoff",       // handoff to next agent
     "accept",        // next agent accepts handoff
-    "resume",        // next agent resumes with capsule context
+    "resume",        // next agent resumes with snapshot context
     "work",          // next agent works
     "checkpoint",    // checkpoint progress
   ],
@@ -113,7 +113,7 @@ export const MODE_WAKE_VERBS: Record<RelationshipMode, string[]> = {
     "approve", "advance-session", "resume", "address-changes",
   ],
   [RelationshipMode.HANDOFF_RESUME]: [
-    "capsule", "handoff", "accept", "accept-assignment",
+    "snapshot", "handoff", "accept", "accept-assignment",
     "resume", "checkpoint", "plan", "plan-tasks",
     "advance-session",
   ],
@@ -150,7 +150,7 @@ export const RECOMMENDED_ACTIONS: Record<RelationshipMode, string[]> = {
     "checkpoint", "sync-checkpoint", "review",
   ],
   [RelationshipMode.HANDOFF_RESUME]: [
-    "checkpoint", "capsule", "handoff",
+    "checkpoint", "snapshot", "handoff",
   ],
 };
 
@@ -159,10 +159,10 @@ export const RECOMMENDED_ACTIONS: Record<RelationshipMode, string[]> = {
  */
 export const FORBIDDEN_ACTIONS: Record<RelationshipMode, string[]> = {
   [RelationshipMode.MANAGER_DELEGATE]: [
-    "claim-resources", "sync-checkpoint", "handoff", "capsule",
+    "claim-resources", "sync-checkpoint", "handoff", "snapshot",
   ],
   [RelationshipMode.PEER_CONTRACT]: [
-    "handoff", "capsule",
+    "handoff", "snapshot",
   ],
   [RelationshipMode.HANDOFF_RESUME]: [
     "claim-resources", "sync-checkpoint", "start-review", "request-review",
@@ -202,7 +202,7 @@ export function getModeDescription(mode: RelationshipMode): string {
     case RelationshipMode.PEER_CONTRACT:
       return "Peers agree on scope boundaries via contracts. Resource claims prevent conflicts. Sync gates enforce coordination at overlap points. Parallel work with structured merge.";
     case RelationshipMode.HANDOFF_RESUME:
-      return "One agent packages context into a capsule and hands off to the next. Sequential relay — each agent picks up where the previous left off.";
+      return "One agent packages context into a snapshot and hands off to the next. Sequential relay — each agent picks up where the previous left off.";
   }
 }
 

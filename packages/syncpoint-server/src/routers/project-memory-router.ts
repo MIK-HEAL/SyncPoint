@@ -31,7 +31,7 @@ export const projectMemoryRouter = t.router({
       global: z.boolean().optional(),
       // V2 optional
       kind: z.enum(["fact", "soft_convention", "risk", "do_not_touch", "hard_constraint", "protocol_rule"]).optional(),
-      projectionTarget: z.enum(["capsule", "protocol_gate", "constraint_runtime"]).nullable().optional(),
+      projectionTarget: z.enum(["context_snapshot", "protocol_gate", "constraint_runtime"]).nullable().optional(),
       appliesTo: z.object({
         files: z.array(z.string()).optional(),
         modules: z.array(z.string()).optional(),
@@ -66,7 +66,7 @@ export const projectMemoryRouter = t.router({
       updatedBy: z.string().optional(),
       // V2 optional
       kind: z.enum(["fact", "soft_convention", "risk", "do_not_touch", "hard_constraint", "protocol_rule"]).optional(),
-      projectionTarget: z.enum(["capsule", "protocol_gate", "constraint_runtime"]).nullable().optional(),
+      projectionTarget: z.enum(["context_snapshot", "protocol_gate", "constraint_runtime"]).nullable().optional(),
       appliesTo: z.string().optional(),
       severity: z.enum(["info", "warning", "blocking"]).optional(),
       validityStatus: z.enum(["fresh", "needs_revalidation", "stale", "invalid"]).optional(),

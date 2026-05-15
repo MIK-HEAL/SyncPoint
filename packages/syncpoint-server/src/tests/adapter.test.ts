@@ -13,7 +13,7 @@ let checkpointId: string;
 beforeAll(async () => {
   e2e = await startE2E();
 
-  // Setup: agent + task + assign + checkpoint + contract + capsule
+  // Setup: agent + task + assign + checkpoint + contract + snapshot
   const agent = await e2e.rpc("agent.create", {
     name: "cursor",
     provider: "cursor",

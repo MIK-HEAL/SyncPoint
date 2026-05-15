@@ -426,6 +426,6 @@ describe("Context policy mode-awareness (e2e)", () => {
   it("handoff-resume resume includes handoff-context", () => {
     const policy = getContextPolicyForMode("resume", "handoff-resume");
     expect(policy.includeSections).toContain("handoff-context");
-    expect(policy.requiredSections).toContain("latest-capsule");
+    expect(policy.requiredSections).toContain("latest-snapshot");
   });
 });

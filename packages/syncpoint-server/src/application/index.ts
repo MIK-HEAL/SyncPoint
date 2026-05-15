@@ -332,11 +332,9 @@ export {
   assembleProtocolGate,
   injectProjectionIntoGate,
   validateSnapshot,
-  validateCapsule,
   formatProtocolGatePrompt,
   formatValidationNotes,
   formatSnapshotReality,
-  formatCapsuleReality,
 } from "./protocol-gate-service.js";
 
 // Negotiation Protocol

@@ -373,7 +373,7 @@ protocol_rule         → protocolRules
 
 **P4A — Core Evaluator** (`syncpoint-core/src/constraint-runtime.ts`):
 - `evaluateConstraints(input): ConstraintDecision` — pure function, no I/O
-- Core evaluators: `projection_invalid`, `projection_conflict`, `do_not_touch_scope_overlap`, `protocol_gate_blocked`, `capsule_locked_invalid`, typed hard constraints, and advisory hard constraints
+- Core evaluators: `projection_invalid`, `projection_conflict`, `do_not_touch_scope_overlap`, `protocol_gate_blocked`, `snapshot_locked_invalid`, typed hard constraints, and advisory hard constraints
 - Scope prefix matching for file overlap detection
 - Returns `{ permitted, blockers[], warnings[], projectionId }`
 

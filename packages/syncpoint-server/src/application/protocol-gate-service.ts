@@ -440,7 +440,3 @@ export function formatSnapshotReality(snapshot: ContextSnapshot | null): string 
   return lines.join("\n");
 }
 
-/** @deprecated Use validateSnapshot */
-export const validateCapsule = validateSnapshot;
-/** @deprecated Use formatSnapshotReality */
-export const formatCapsuleReality = formatSnapshotReality;

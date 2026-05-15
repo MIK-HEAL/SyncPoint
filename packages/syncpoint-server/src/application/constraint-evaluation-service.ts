@@ -81,7 +81,7 @@ export interface ConstraintRuntimeView {
     sessionId?: string;
     workingResources: string[];
     touchedResources: string[];
-    source: "capsule" | "resource_claims" | "operation" | "explicit";
+    source: "context_snapshot" | "resource_claims" | "operation" | "explicit";
   };
   manifest?: ConstraintManifest;
   runtimeUnavailable?: {
@@ -106,10 +106,10 @@ function parseCsvFiles(csv: string | undefined | null): string[] {
   return csv.split(",").map(f => f.trim()).filter(Boolean);
 }
 
-function parsePayloadWorkingResources(capsule: { payloadJson?: string } | null | undefined): string[] {
-  if (!capsule?.payloadJson) return [];
+function parsePayloadWorkingResources(snapshot: { payloadJson?: string } | null | undefined): string[] {
+  if (!snapshot?.payloadJson) return [];
   try {
-    const p = JSON.parse(capsule.payloadJson);
+    const p = JSON.parse(snapshot.payloadJson);
     return Array.isArray(p.workingResources) ? p.workingResources : [];
   } catch { return []; }
 }
@@ -122,7 +122,7 @@ interface ResolvedInput {
   sessionId?: string;
   workingResources: string[];
   touchedResources: string[];
-  source: "capsule" | "resource_claims" | "operation" | "explicit";
+  source: "context_snapshot" | "resource_claims" | "operation" | "explicit";
 }
 
 function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
@@ -148,7 +148,7 @@ function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
     sessionId: input.sessionId,
     workingResources,
     touchedResources: workingResources,
-    source: "capsule",
+    source: "context_snapshot",
   };
 }
 
@@ -217,7 +217,7 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
     sessionId,
     workingResources,
     touchedResources: workingResources,
-    source: "capsule",
+    source: "context_snapshot",
   };
 }
 

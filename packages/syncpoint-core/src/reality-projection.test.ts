@@ -431,10 +431,10 @@ describe("resolveProjectionRoute", () => {
     expect(r.reason).toContain("explicit target");
   });
 
-  it("explicit target: risk → capsule routes to risks", () => {
-    const r = resolveProjectionRoute("risk", "capsule");
+  it("explicit target: risk → context_snapshot routes to risks", () => {
+    const r = resolveProjectionRoute("risk", "context_snapshot");
     expect(r.buckets).toEqual(["risks"]);
-    expect(r.reason).toContain("explicit target: capsule");
+    expect(r.reason).toContain("explicit target: context_snapshot");
   });
 
   it("explicit target: fact → protocol_gate routes to protocolRules", () => {
@@ -442,8 +442,8 @@ describe("resolveProjectionRoute", () => {
     expect(r.buckets).toEqual(["protocolRules"]);
   });
 
-  it("explicit target: do_not_touch → capsule does NOT dual-write", () => {
-    const r = resolveProjectionRoute("do_not_touch", "capsule");
+  it("explicit target: do_not_touch → context_snapshot does NOT dual-write", () => {
+    const r = resolveProjectionRoute("do_not_touch", "context_snapshot");
     expect(r.buckets).toEqual(["doNotTouch"]);
     expect(r.buckets).not.toContain("constraintRules");
   });
@@ -468,15 +468,15 @@ describe("buildRealityProjection — target routing integration", () => {
     expect(r.contextPatch.risks).toHaveLength(0);
   });
 
-  it("risk with projectionTarget=capsule goes to risks (same as default)", () => {
-    const mem = makeMem({ kind: "risk", projectionTarget: "capsule" });
+  it("risk with projectionTarget=context_snapshot goes to risks (same as default)", () => {
+    const mem = makeMem({ kind: "risk", projectionTarget: "context_snapshot" });
     const r = buildRealityProjection([mem], makeCtx());
     expect(r.contextPatch.risks).toHaveLength(1);
     expect(r.constraintRules).toHaveLength(0);
   });
 
-  it("do_not_touch with projectionTarget=capsule → doNotTouch only (no constraintRules)", () => {
-    const mem = makeMem({ kind: "do_not_touch", projectionTarget: "capsule" });
+  it("do_not_touch with projectionTarget=context_snapshot → doNotTouch only (no constraintRules)", () => {
+    const mem = makeMem({ kind: "do_not_touch", projectionTarget: "context_snapshot" });
     const r = buildRealityProjection([mem], makeCtx());
     expect(r.contextPatch.doNotTouch).toHaveLength(1);
     expect(r.constraintRules).toHaveLength(0);
@@ -584,9 +584,9 @@ describe("P1: Cache key hash contract hardening", () => {
 // ── P3: projectionTarget as authoritative routing contract ──
 
 describe("P3: projectionTarget authoritative routing", () => {
-  it("explicit capsule target overrides default kind routing for fact", () => {
-    const route = resolveProjectionRoute("fact", "capsule");
-    expect(route.reason).toContain("explicit target: capsule");
+  it("explicit context_snapshot target overrides default kind routing for fact", () => {
+    const route = resolveProjectionRoute("fact", "context_snapshot");
+    expect(route.reason).toContain("explicit target: context_snapshot");
   });
 
   it("explicit protocol_gate target overrides default routing for fact", () => {
@@ -618,10 +618,10 @@ describe("P3: projectionTarget authoritative routing", () => {
     expect(route.buckets.length).toBe(2);
   });
 
-  it("do_not_touch with explicit capsule target routes to capsule bucket only", () => {
-    const route = resolveProjectionRoute("do_not_touch", "capsule");
+  it("do_not_touch with explicit context_snapshot target routes to context_snapshot bucket only", () => {
+    const route = resolveProjectionRoute("do_not_touch", "context_snapshot");
     expect(route.buckets.length).toBe(1);
-    expect(route.reason).toContain("explicit target: capsule");
+    expect(route.reason).toContain("explicit target: context_snapshot");
   });
 
   it("explicit target actually controls compiled projection bucket", () => {

@@ -7,7 +7,7 @@ import type { ResourceRef } from "syncpoint-core";
 import * as repo from "../repositories.js";
 
 /**
- * Convert freeform locator strings (e.g. from capsule workingResources)
+ * Convert freeform locator strings (e.g. from snapshot workingResources)
  * into typed ResourceRef[] by looking up the agent's active claims.
  * If a locator matches a claimed resource, its type is used.
  * Otherwise, defaults to "file".

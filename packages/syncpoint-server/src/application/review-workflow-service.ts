@@ -325,7 +325,7 @@ export function rwPrepareReviewPacket(reviewRequestId: string): ReviewPacket {
       agentId: rr.reviewerAgentId,
     });
   } catch {
-    // Context preparation may fail if no checkpoint/capsule exists yet
+    // Context preparation may fail if no checkpoint/snapshot exists yet
   }
 
   return {

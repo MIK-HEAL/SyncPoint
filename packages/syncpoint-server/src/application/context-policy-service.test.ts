@@ -28,7 +28,7 @@ beforeAll(() => {
   taskId = task.id;
   repo.assignTask(taskId, agentId);
 
-  // Checkpoint + capsule
+  // Checkpoint + snapshot
   const cp = repo.createCheckpoint({
     taskId, agentId,
     summary: "Initial work done",
@@ -111,16 +111,16 @@ describe("prepareContext", () => {
     expect(ctx.prompt).toContain("Build feature X");
   });
 
-  it("execute — fails hard when capsule missing", () => {
-    // Create a task with no capsule
-    const t2 = repo.createTask({ title: "No capsule task", description: "test" });
+  it("execute — fails hard when snapshot missing", () => {
+    // Create a task with no snapshot
+    const t2 = repo.createTask({ title: "No snapshot task", description: "test" });
     const a2 = repo.createAgent({ name: "codex", provider: "codex", role: "backend" });
     repo.assignTask(t2.id, a2.id);
 
     const ctx = prepareContext({ intent: "execute", role: "executor", taskId: t2.id, agentId: a2.id });
     expect(ctx.ready).toBe(false);
     expect(ctx.gateMode).toBe("hard");
-    expect(ctx.missingSections).toContain("latest-capsule");
+    expect(ctx.missingSections).toContain("latest-snapshot");
     expect(ctx.missingSections).toContain("latest-checkpoint");
     expect(ctx.suggestedNextActions.length).toBeGreaterThan(0);
   });
@@ -185,13 +185,13 @@ describe("prepareContext", () => {
     expect(ctx.ready).toBe(true);
   });
 
-  it("handoff-receive — hard gate with capsule required", () => {
+  it("handoff-receive — hard gate with snapshot required", () => {
     const ctx = prepareContext({ intent: "handoff-receive", role: "handoff-receiver", taskId, agentId });
     expect(ctx.gateMode).toBe("hard");
     expect(ctx.ready).toBe(true);
   });
 
-  it("handoff-receive — can use sender capsule and handoff context for a new receiver", () => {
+  it("handoff-receive — can use sender snapshot and handoff context for a new receiver", () => {
     const from = repo.createAgent({ name: "sender", provider: "codex", role: "backend" });
     const to = repo.createAgent({ name: "receiver", provider: "claude-code", role: "frontend" });
     const t = repo.createTask({ title: "Handoff task", description: "test" });
@@ -224,7 +224,7 @@ describe("prepareContext", () => {
         risks: [],
         blockers: [],
         nextSteps: ["Build UI"],
-        resumePrompt: "Use sender capsule to continue.",
+        resumePrompt: "Use sender snapshot to continue.",
       }),
     });
     const h = repo.createHandoff({
@@ -240,10 +240,10 @@ describe("prepareContext", () => {
     expect(ctx.handoffContext?.id).toBe(h.id);
     expect(ctx.prompt).toContain("Handoff Receive Context");
     expect(ctx.prompt).toContain("Frontend should continue");
-    expect(ctx.prompt).toContain("Sender Context Capsule");
+    expect(ctx.prompt).toContain("Sender Context Snapshot");
   });
 
-  it("review — soft gate, includes contract/checkpoint/capsule", () => {
+  it("review — soft gate, includes contract/checkpoint/snapshot", () => {
     const ctx = prepareContext({ intent: "review", role: "reviewer", taskId, agentId });
     expect(ctx.gateMode).toBe("soft");
     expect(ctx.ready).toBe(true);

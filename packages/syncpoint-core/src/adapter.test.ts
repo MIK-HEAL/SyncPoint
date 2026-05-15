@@ -161,11 +161,11 @@ describe("Agent Adapter Protocol", () => {
     it("passes through warnings when context not ready", () => {
       const ctx = makeCtx({
         ready: false,
-        warnings: ["No capsule found"],
+        warnings: ["No snapshot found"],
       });
       const instruction = buildAdapterInstruction(ctx, "cursor", "resume");
       expect(instruction.ready).toBe(false);
-      expect(instruction.warnings).toContain("No capsule found");
+      expect(instruction.warnings).toContain("No snapshot found");
     });
 
     it("summary includes event, provider, and file list", () => {
@@ -187,7 +187,7 @@ describe("Agent Adapter Protocol", () => {
       expect(instruction.files[".cursorrules"]).toContain("TypeScript strict mode");
     });
 
-    it("includes capsule context in generated files", () => {
+    it("includes snapshot context in generated files", () => {
       const instruction = buildAdapterInstruction(makeCtx(), "cursor", "resume");
       expect(instruction.files[".cursorrules"]).toContain("Implement auth API");
       expect(instruction.files[".cursorrules"]).toContain("POST /login");

@@ -15,7 +15,7 @@ describe("Memory Switch Engine", () => {
   let checkpointId: string;
   let contractId: string;
 
-  it("setup: create agent, task, assign, checkpoint, contract, capsule", async () => {
+  it("setup: create agent, task, assign, checkpoint, contract, snapshot", async () => {
     const a = (await ctx.rpc("agent.create", { name: "codex", provider: "codex", role: "backend" })) as any;
     agentId = a.id;
     const t = (await ctx.rpc("task.create", { title: "Build auth" })) as any;
@@ -60,11 +60,11 @@ describe("Memory Switch Engine", () => {
     expect(rc.approvedContract.interfaceSpec).toBe("POST /login");
     expect(rc.approvedContract.fileBoundaries).toBe("src/auth/*");
 
-    // Capsule
+    // Snapshot
     expect(rc.latestSnapshot).not.toBeNull();
-    const capsulePayload = JSON.parse(rc.latestSnapshot.payloadJson);
-    expect(capsulePayload.goal).toBe("Implement auth API");
-    expect(capsulePayload.resumePrompt).toContain("POST /login");
+    const snapshotPayload = JSON.parse(rc.latestSnapshot.payloadJson);
+    expect(snapshotPayload.goal).toBe("Implement auth API");
+    expect(snapshotPayload.resumePrompt).toContain("POST /login");
 
     // Checkpoint
     expect(rc.latestCheckpoint).not.toBeNull();
@@ -72,7 +72,7 @@ describe("Memory Switch Engine", () => {
 
     // P3B: resumePrompt is stripped at transport (contains baked-in raw PM)
     // Verify structured fields carry the content instead
-    expect(capsulePayload.goal).toContain("Implement auth API");
+    expect(snapshotPayload.goal).toContain("Implement auth API");
     expect(rc.approvedContract.interfaceSpec).toContain("POST /login");
 
     // Quality checks all pass
@@ -80,14 +80,14 @@ describe("Memory Switch Engine", () => {
     expect(rc.warnings.length).toBe(0);
   });
 
-  it("resume context does NOT include other agent's capsule", async () => {
+  it("resume context does NOT include other agent's snapshot", async () => {
     const a2 = (await ctx.rpc("agent.create", { name: "claude", provider: "claude-code", role: "frontend" })) as any;
     const rc = (await ctx.rpc("resumeContext.get", { taskId, agentId: a2.id }, "GET")) as any;
-    // Should NOT have a capsule (no capsule for a2)
+    // Should NOT have a snapshot (no snapshot for a2)
     expect(rc.latestSnapshot).toBeNull();
     expect(rc.ready).toBe(false);
     expect(rc.warnings.length).toBeGreaterThan(0);
-    expect(rc.warnings[0]).toContain("No context capsule");
+    expect(rc.warnings[0]).toContain("No context snapshot");
   });
 
   it("resume context warns when contract not approved", async () => {

@@ -356,7 +356,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "resume",
       projection: emptyProjection(),
-      protocolGateBlockers: ["Contract not approved", "Missing capsule"],
+      protocolGateBlockers: ["Contract not approved", "Missing snapshot"],
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(2);
@@ -364,23 +364,23 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     expect(decision.blockers[1].rule).toBe("protocol_gate_blocked");
   });
 
-  // ── capsule locked mode ────────────────────────────────
+  // ── snapshot locked mode ────────────────────────────────
 
-  it("capsuleValid = false => blocked", () => {
+  it("snapshotValid = false => blocked", () => {
     const decision = evaluateConstraints({
       action: "resume",
       projection: emptyProjection(),
-      capsuleValid: false,
+      snapshotValid: false,
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("capsule_locked_invalid");
+    expect(decision.blockers[0].rule).toBe("snapshot_locked_invalid");
   });
 
-  it("capsuleValid = true => permitted", () => {
+  it("snapshotValid = true => permitted", () => {
     const decision = evaluateConstraints({
       action: "resume",
       projection: emptyProjection(),
-      capsuleValid: true,
+      snapshotValid: true,
     });
     expect(decision.permitted).toBe(true);
   });
@@ -404,11 +404,11 @@ describe("Constraint Runtime — evaluateConstraints", () => {
       action: "operation_submit",
       projection: proj,
       touchedResources: toRefs("src/core/engine.ts"),
-      capsuleValid: false,
+      snapshotValid: false,
       protocolGateBlockers: ["Gate block"],
     });
     expect(decision.permitted).toBe(false);
-    // projection_invalid + projection_conflict + do_not_touch + protocol_gate + capsule_locked
+    // projection_invalid + projection_conflict + do_not_touch + protocol_gate + snapshot_locked
     expect(decision.blockers.length).toBeGreaterThanOrEqual(5);
   });
 

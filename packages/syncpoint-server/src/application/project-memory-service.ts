@@ -172,7 +172,7 @@ export function pmAdd(input: ProjectMemoryAddInput): ProjectMemory {
   if (dedup.isDuplicate) {
     throw new DuplicateMemoryError(dedup.existingId!);
   }
-  // V2 projection guard: hard_constraint / protocol_rule cannot target capsule
+  // V2 projection guard: hard_constraint / protocol_rule cannot target context_snapshot
   const kind = input.kind ?? defaultKindFromCategory(input.category);
   if (input.projectionTarget) {
     if (!isValidProjection(kind, input.projectionTarget as ProjectionTarget)) {

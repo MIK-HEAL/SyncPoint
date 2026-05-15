@@ -74,7 +74,7 @@ function formatExecutePrompt(
 
 function formatReviewPrompt(
   task: { id: string; title: string; status: string } | null,
-  capsule: ResumeContext["latestSnapshot"],
+  snapshot: ResumeContext["latestSnapshot"],
   checkpoint: ResumeContext["latestCheckpoint"],
   contract: ResumeContext["approvedContract"],
   projectMems: Array<{ id: string; category: string; title: string; content: string }>,
@@ -106,10 +106,10 @@ function formatReviewPrompt(
     lines.push("");
   }
 
-  if (capsule) {
+  if (snapshot) {
     let p: Record<string, unknown> = {};
-    try { p = JSON.parse(capsule.payloadJson ?? "{}"); } catch { /* ok */ }
-    lines.push("## Context Capsule");
+    try { p = JSON.parse(snapshot.payloadJson ?? "{}"); } catch { /* ok */ }
+    lines.push("## Context Snapshot");
     if (p.goal) lines.push(`- **Goal**: ${p.goal}`);
     if (p.currentPhase) lines.push(`- **Phase**: ${p.currentPhase}`);
     if (p.completedWork) lines.push(`- **Completed**: ${p.completedWork}`);
@@ -178,7 +178,7 @@ function formatHandoffReceivePrompt(
   task: { id: string; title: string; status: string } | null,
   agent: { id: string; name: string; role: string } | null,
   handoff: Handoff | null,
-  senderCapsule: ContextSnapshot | null,
+  senderSnapshot: ContextSnapshot | null,
   receiverResume: ResumeContext | null,
   projectMems: Array<{ id: string; category: string; title: string; content: string }>,
 ): string {
@@ -203,10 +203,10 @@ function formatHandoffReceivePrompt(
     lines.push("");
   }
 
-  if (senderCapsule) {
+  if (senderSnapshot) {
     let p: Record<string, unknown> = {};
-    try { p = JSON.parse(senderCapsule.payloadJson ?? "{}"); } catch { /* ok */ }
-    lines.push("## Sender Context Capsule");
+    try { p = JSON.parse(senderSnapshot.payloadJson ?? "{}"); } catch { /* ok */ }
+    lines.push("## Sender Context Snapshot");
     if (p.goal) lines.push(`- **Goal**: ${p.goal}`);
     if (p.currentPhase) lines.push(`- **Phase**: ${p.currentPhase}`);
     if (p.completedWork) lines.push(`- **Completed**: ${p.completedWork}`);
@@ -240,7 +240,7 @@ function formatHandoffReceivePrompt(
 
   lines.push("## Required Next Actions");
   lines.push("- Confirm you understand the handoff context.");
-  lines.push("- Create your own checkpoint/capsule after making progress.");
+  lines.push("- Create your own checkpoint/snapshot after making progress.");
   lines.push("- Ask for sync if contract boundaries or remaining work are unclear.");
 
   return lines.join("\n");
@@ -361,11 +361,11 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
   let taskInfo: PreparedContext["task"] = null;
   let agentInfo: PreparedContext["agent"] = null;
   let handoff: Handoff | null = null;
-  let senderCapsule: ContextSnapshot | null = null;
+  let senderSnapshot: ContextSnapshot | null = null;
 
   // Task-scoped intents need task+agent
   const needsTask = allSections.some(s =>
-    ["task", "latest-capsule", "latest-checkpoint", "approved-contract", "handoff-context"].includes(s)
+    ["task", "latest-snapshot", "latest-checkpoint", "approved-contract", "handoff-context"].includes(s)
   );
   const needsAgent = allSections.includes("agent") || needsTask;
 
@@ -377,7 +377,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
       if (input.intent === "handoff-receive") {
         handoff = repo.getLatestHandoffForReceiver(input.taskId, input.agentId) ?? null;
         if (handoff) {
-          senderCapsule = repo.getLatestContextSnapshot(input.taskId, handoff.fromAgentId) ?? null;
+          senderSnapshot = repo.getLatestContextSnapshot(input.taskId, handoff.fromAgentId) ?? null;
         }
       }
     } catch {
@@ -421,9 +421,9 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
       case "agent":
         present = agentInfo !== null;
         break;
-      case "latest-capsule":
+      case "latest-snapshot":
         present = input.intent === "handoff-receive"
-          ? !!(resumeCtx?.latestSnapshot || senderCapsule || handoff?.contextSummary)
+          ? !!(resumeCtx?.latestSnapshot || senderSnapshot || handoff?.contextSummary)
           : resumeCtx?.latestSnapshot !== null && resumeCtx?.latestSnapshot !== undefined;
         break;
       case "latest-checkpoint":
@@ -529,7 +529,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
     case "resume":
     case "handoff-receive":
       // P3B: no raw project memories in agent-facing resume prompts
-      prompt = formatHandoffReceivePrompt(taskInfo, agentInfo, handoff, senderCapsule, resumeCtx, []);
+      prompt = formatHandoffReceivePrompt(taskInfo, agentInfo, handoff, senderSnapshot, resumeCtx, []);
       break;
     case "review":
       prompt = formatReviewPrompt(
@@ -550,8 +550,8 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
 
   // ── Suggested actions ──
   const suggestedNextActions: string[] = [];
-  if (missingSections.includes("latest-capsule")) {
-    suggestedNextActions.push("Create a context capsule: syncpoint_loop_checkpoint or `syncpoint loop checkpoint`");
+  if (missingSections.includes("latest-snapshot")) {
+    suggestedNextActions.push("Create a context snapshot: syncpoint_loop_checkpoint or `syncpoint loop checkpoint`");
   }
   if (missingSections.includes("latest-checkpoint")) {
     suggestedNextActions.push("Create a checkpoint first: syncpoint_loop_checkpoint");

@@ -61,7 +61,7 @@ beforeAll(() => {
   orchAssignRole({ sessionId, agentId: agent1Id, role: "architect" as any });
   orchAssignRole({ sessionId, agentId: agent2Id, role: "executor" as any });
 
-  // Checkpoint + capsule with workingResources overlapping protected scope
+  // Checkpoint + context snapshot with workingResources overlapping protected scope
   const cp = repo.createCheckpoint({
     taskId,
     agentId: agent2Id,
@@ -99,7 +99,7 @@ beforeAll(() => {
   pmApprove(m1.id, "architect");
   memoryId = m1.id;
 
-  // Safe agent: task + capsule that does NOT overlap protected scope
+  // Safe agent: task + snapshot that does NOT overlap protected scope
   const safeTask = repo.createTask({ title: "Safe task", description: "" });
   repo.assignTask(safeTask.id, safeAgentId);
   repo.updateTaskStatus(safeTask.id, TaskStatus.IN_PROGRESS);
@@ -138,7 +138,7 @@ afterAll(() => {
 // ── P4D-0/P4D-1: constraintCheck service ─────────────────
 
 describe("P4D: constraintCheck resume", () => {
-  it("returns permitted=false when capsule workingResources overlap do_not_touch", () => {
+  it("returns permitted=false when snapshot workingResources overlap do_not_touch", () => {
     const result = constraintCheck({ action: "resume", taskId, agentId: agent2Id });
     expect(result.permitted).toBe(false);
     expect(result.action).toBe("resume");
@@ -168,7 +168,7 @@ describe("P4D: constraintCheck resume", () => {
     const result = constraintCheck({ action: "resume", taskId, agentId: agent2Id });
     expect(result.inputs.taskId).toBe(taskId);
     expect(result.inputs.agentId).toBe(agent2Id);
-    expect(result.inputs.source).toBe("capsule");
+    expect(result.inputs.source).toBe("context_snapshot");
     expect(result.inputs.workingResources).toContain("src/core/index.ts");
     expect(result.inputs.touchedResources).toContain("src/core/index.ts");
   });
@@ -342,7 +342,7 @@ describe("P4D: tRPC constraint.check", () => {
 
 describe("P4D: snapshot constraint visibility", () => {
   beforeAll(() => {
-    // Create a dedicated task+assignment+capsule visible in the session
+    // Create a dedicated task+assignment+snapshot visible in the session
     // with workingResources overlapping do_not_touch scope
     const snapTask = repo.createTask({ title: "Snapshot constraint task", description: "" });
     const snapAssignment = orchPlanTask({

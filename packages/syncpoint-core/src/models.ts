@@ -237,7 +237,7 @@ export interface ContextSnapshotPayload {
 export const EventSchema = z.object({
   id: nanoid12,
   eventType: z.nativeEnum(EventType),
-  entityType: z.enum(["agent", "task", "checkpoint", "handoff", "contract", "capsule", "diary"]),
+  entityType: z.enum(["agent", "task", "checkpoint", "handoff", "contract", "context_snapshot", "diary"]),
   entityId: nanoid12,
   detail: z.string().default(""),
   createdAt: isoDate,

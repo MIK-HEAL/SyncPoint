@@ -64,7 +64,7 @@ describe("loop lifecycle — single agent", () => {
     expect(task.status).toBe("IN_PROGRESS");
   });
 
-  it("checkpoint: creates checkpoint + capsule", async () => {
+  it("checkpoint: creates checkpoint + snapshot", async () => {
     // Create checkpoint
     const cp = await e2e.rpc("checkpoint.create", {
       taskId,
@@ -75,8 +75,8 @@ describe("loop lifecycle — single agent", () => {
     }, "POST") as any;
     expect(cp.id).toBeDefined();
 
-    // Create capsule
-    const capsule = await e2e.rpc("contextSnapshot.create", {
+    // Create snapshot
+    const snapshot = await e2e.rpc("contextSnapshot.create", {
       taskId,
       agentId: agentA.id,
       checkpointId: cp.id,
@@ -91,9 +91,9 @@ describe("loop lifecycle — single agent", () => {
         resumePrompt: "Continue building dashboard. Header is done. Add nav next.",
       }),
     }, "POST") as any;
-    expect(capsule.id).toBeDefined();
+    expect(snapshot.id).toBeDefined();
 
-    // Verify adapter boot now includes capsule content
+    // Verify adapter boot now includes snapshot content
     const instruction = await e2e.rpc("adapter.boot", {
       taskId,
       agentId: agentA.id,
@@ -115,11 +115,11 @@ describe("loop lifecycle — single agent", () => {
 
     expect(ctx.ready).toBe(true);
     expect(ctx.latestSnapshot).toBeDefined();
-    const capsulePayload = JSON.parse(ctx.latestSnapshot.payloadJson);
-    expect(capsulePayload.goal).toBe("Build dashboard UI");
+    const snapshotPayload = JSON.parse(ctx.latestSnapshot.payloadJson);
+    expect(snapshotPayload.goal).toBe("Build dashboard UI");
     // P3B: ctx.resumePrompt is stripped at transport (contains baked-in raw PM)
     // Resume instructions live in latestSnapshot.resumePrompt
-    expect(capsulePayload.resumePrompt).toContain("Continue building dashboard");
+    expect(snapshotPayload.resumePrompt).toContain("Continue building dashboard");
 
     // Enforce policy
     const policy = await e2e.rpc("resumeContext.enforce", {
@@ -133,19 +133,19 @@ describe("loop lifecycle — single agent", () => {
     const task = await e2e.rpc("task.get", { id: taskId }, "GET") as any;
     const agent = await e2e.rpc("agent.get", { id: agentA.id }, "GET") as any;
     const checkpoints = await e2e.rpc("checkpoint.list", { taskId }, "GET") as any;
-    const capsule = await e2e.rpc("contextSnapshot.getLatest", { taskId, agentId: agentA.id }, "GET") as any;
+    const snapshot = await e2e.rpc("contextSnapshot.getLatest", { taskId, agentId: agentA.id }, "GET") as any;
 
     expect(task.status).toBe("IN_PROGRESS");
     expect(agent.id).toBe(agentA.id);
     expect(checkpoints.length).toBeGreaterThan(0);
-    expect(capsule).toBeDefined();
-    expect(JSON.parse(capsule.payloadJson).goal).toBe("Build dashboard UI");
+    expect(snapshot).toBeDefined();
+    expect(JSON.parse(snapshot.payloadJson).goal).toBe("Build dashboard UI");
   });
 });
 
 describe("loop lifecycle — handoff between agents", () => {
-  it("handoff: sender saves capsule, creates handoff, receiver gets context", async () => {
-    // Sender creates final checkpoint + capsule
+  it("handoff: sender saves snapshot, creates handoff, receiver gets context", async () => {
+    // Sender creates final checkpoint + snapshot
     const cp = await e2e.rpc("checkpoint.create", {
       taskId,
       agentId: agentA.id,
@@ -204,7 +204,7 @@ describe("loop lifecycle — handoff between agents", () => {
     }, "POST") as any;
     expect(cp.id).toBeDefined();
 
-    const capsule = await e2e.rpc("contextSnapshot.create", {
+    const snapshot = await e2e.rpc("contextSnapshot.create", {
       taskId,
       agentId: agentB.id,
       checkpointId: cp.id,
@@ -217,7 +217,7 @@ describe("loop lifecycle — handoff between agents", () => {
         resumePrompt: "Implement GET /widgets endpoint returning dashboard data",
       }),
     }, "POST") as any;
-    expect(capsule.id).toBeDefined();
+    expect(snapshot.id).toBeDefined();
 
     // Verify receiver's resume context
     const ctx = await e2e.rpc("resumeContext.get", {
@@ -230,8 +230,8 @@ describe("loop lifecycle — handoff between agents", () => {
 });
 
 describe("loop lifecycle — context policy enforcement", () => {
-  it("enforce fails when agent has no capsule for a new task", async () => {
-    // Create new task without capsule
+  it("enforce fails when agent has no snapshot for a new task", async () => {
+    // Create new task without snapshot
     const newTask = await e2e.rpc("task.create", {
       title: "Orphan task",
     }, "POST") as any;

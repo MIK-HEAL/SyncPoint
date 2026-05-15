@@ -55,7 +55,7 @@ export const checkpoints = sqliteTable("checkpoint", {
   summary: text("summary").notNull(),
   progress: text("progress").notNull().default(""),
   currentUnderstanding: text("current_understanding").notNull().default(""),
-  changedFiles: text("changed_files").notNull().default(""), // @deprecated — use workingResources on capsule. Rename to changedResources in future migration.
+  changedFiles: text("changed_files").notNull().default(""), // @deprecated — use workingResources on context snapshot. Rename to changedResources in future migration.
   risks: text("risks").notNull().default(""),
   blockers: text("blockers").notNull().default(""),
   nextSteps: text("next_steps").notNull().default(""),

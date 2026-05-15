@@ -75,11 +75,6 @@ export const SnapshotValidationSchema = z.object({
 });
 export type SnapshotValidation = z.infer<typeof SnapshotValidationSchema>;
 
-/** @deprecated Use SnapshotValidationSchema */
-export const CapsuleValidationSchema = SnapshotValidationSchema;
-/** @deprecated Use SnapshotValidation */
-export type CapsuleValidation = SnapshotValidation;
-
 // ── Extended Snapshot Fields (additive) ──────────────
 // These are optional new fields that enrich the snapshot.
 // Existing snapshots without these fields still work (defaults to "").
@@ -97,8 +92,3 @@ export const SnapshotExtendedFieldsSchema = z.object({
   staleReason: z.string().default(""),
 });
 export type SnapshotExtendedFields = z.infer<typeof SnapshotExtendedFieldsSchema>;
-
-/** @deprecated Use SnapshotExtendedFieldsSchema */
-export const CapsuleExtendedFieldsSchema = SnapshotExtendedFieldsSchema;
-/** @deprecated Use SnapshotExtendedFields */
-export type CapsuleExtendedFields = SnapshotExtendedFields;

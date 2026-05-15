@@ -64,7 +64,7 @@ describe("Project Memory Layer", () => {
   });
 
   it("approved memory is NOT leaked via resume context (P3B)", async () => {
-    // Setup: agent + task + checkpoint + capsule
+    // Setup: agent + task + checkpoint + snapshot
     const a = (await ctx.rpc("agent.create", { name: "cursor", provider: "cursor", role: "backend" })) as any;
     const t = (await ctx.rpc("task.create", { title: "Test PM" })) as any;
     await ctx.rpc("task.assign", { taskId: t.id, agentId: a.id });

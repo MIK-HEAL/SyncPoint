@@ -1,5 +1,5 @@
 /**
- * E2E: Full API flow — agent, task, checkpoint, contract, handoff, capsule.
+ * E2E: Full API flow — agent, task, checkpoint, contract, handoff, snapshot.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { startE2E, type E2EContext } from "./e2e-helper.ts";
@@ -77,8 +77,8 @@ describe("API flow", () => {
     expect(task.status).toBe("IN_PROGRESS");
   });
 
-  it("creates a context capsule", async () => {
-    const capsule = (await ctx.rpc("contextSnapshot.create", {
+  it("creates a context snapshot", async () => {
+    const snapshot = (await ctx.rpc("contextSnapshot.create", {
       taskId, agentId, checkpointId,
       summary: "Build REST API",
       payloadJson: JSON.stringify({
@@ -86,7 +86,7 @@ describe("API flow", () => {
         currentPhase: "implementation",
       }),
     })) as any;
-    expect(JSON.parse(capsule.payloadJson).goal).toBe("Build REST API");
+    expect(JSON.parse(snapshot.payloadJson).goal).toBe("Build REST API");
   });
 
   it("lists events", async () => {
