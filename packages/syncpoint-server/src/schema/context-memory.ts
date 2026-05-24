@@ -48,18 +48,63 @@ export const peerContracts = sqliteTable("peer_contract", {
   id: text("id").primaryKey(),
   taskId: text("task_id").notNull().references(() => tasks.id),
   title: text("title").notNull().default(""),
-  participants: text("participants").notNull().default(""),
   scope: text("scope").notNull().default(""),
-  responsibilities: text("responsibilities").notNull().default(""),
-  interfaceSpec: text("interface_spec").notNull().default(""),
-  fileBoundaries: text("file_boundaries").notNull().default(""), // @deprecated — rename to resourceBoundaries in future migration.
-  dependencies: text("dependencies").notNull().default(""),
   testPlan: text("test_plan").notNull().default(""),
   risks: text("risks").notNull().default(""),
   status: text("status").notNull().default("DRAFT"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const peerContractParticipants = sqliteTable("peer_contract_participant", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id").notNull().references(() => peerContracts.id),
+  position: integer("position").notNull(),
+  participant: text("participant").notNull(),
+}, (table) => ({
+  contractIndex: index("idx_peer_contract_participant_contract").on(table.contractId),
+  contractPositionUnique: uniqueIndex("uq_peer_contract_participant_position").on(table.contractId, table.position),
+}));
+
+export const peerContractResponsibilities = sqliteTable("peer_contract_responsibility", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id").notNull().references(() => peerContracts.id),
+  position: integer("position").notNull(),
+  responsibility: text("responsibility").notNull(),
+}, (table) => ({
+  contractIndex: index("idx_peer_contract_responsibility_contract").on(table.contractId),
+  contractPositionUnique: uniqueIndex("uq_peer_contract_responsibility_position").on(table.contractId, table.position),
+}));
+
+export const peerContractInterfaceSpecs = sqliteTable("peer_contract_interface_spec", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id").notNull().references(() => peerContracts.id),
+  position: integer("position").notNull(),
+  spec: text("spec").notNull(),
+}, (table) => ({
+  contractIndex: index("idx_peer_contract_interface_spec_contract").on(table.contractId),
+  contractPositionUnique: uniqueIndex("uq_peer_contract_interface_spec_position").on(table.contractId, table.position),
+}));
+
+export const peerContractFileBoundaries = sqliteTable("peer_contract_file_boundary", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id").notNull().references(() => peerContracts.id),
+  position: integer("position").notNull(),
+  boundary: text("boundary").notNull(), // @deprecated — rename to resourceBoundaries in future migration.
+}, (table) => ({
+  contractIndex: index("idx_peer_contract_file_boundary_contract").on(table.contractId),
+  contractPositionUnique: uniqueIndex("uq_peer_contract_file_boundary_position").on(table.contractId, table.position),
+}));
+
+export const peerContractDependencies = sqliteTable("peer_contract_dependency", {
+  id: text("id").primaryKey(),
+  contractId: text("contract_id").notNull().references(() => peerContracts.id),
+  position: integer("position").notNull(),
+  dependency: text("dependency").notNull(),
+}, (table) => ({
+  contractIndex: index("idx_peer_contract_dependency_contract").on(table.contractId),
+  contractPositionUnique: uniqueIndex("uq_peer_contract_dependency_position").on(table.contractId, table.position),
+}));
 
 // ── ContextSnapshot (replaces context_capsule wide table) ──
 

@@ -51,6 +51,11 @@ type DrizzleMigrationJournal = {
   entries?: DrizzleJournalEntry[];
 };
 
+const PEER_CONTRACT_NORMALIZATION_SQL_PATH = path.join(
+  DRIZZLE_MIGRATIONS_DIR,
+  "0001_peer_contract_normalization.sql",
+);
+
 function ensureDrizzleMigrationAssets(): void {
   if (!fs.existsSync(DRIZZLE_MIGRATIONS_DIR) || !fs.existsSync(DRIZZLE_JOURNAL_PATH)) {
     throw new Error("Drizzle migrations not found. Run `pnpm --filter syncpoint-server db:generate` first.");
@@ -59,6 +64,12 @@ function ensureDrizzleMigrationAssets(): void {
 
 function hasTable(db: Database.Database, tableName: string): boolean {
   return Boolean(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName));
+}
+
+function hasColumn(db: Database.Database, tableName: string, columnName: string): boolean {
+  if (!hasTable(db, tableName)) return false;
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+  return columns.some(column => column.name === columnName);
 }
 
 function hasLegacySchema(db: Database.Database): boolean {
@@ -92,6 +103,29 @@ function bootstrapLegacyDrizzleJournal(db: Database.Database): void {
   `);
 
   db.prepare("INSERT INTO \"__drizzle_migrations\" (\"hash\", \"created_at\") VALUES (?, ?)").run(baseline.tag, baseline.when);
+}
+
+function runPeerContractNormalizationMigration(db: Database.Database): void {
+  if (!hasColumn(db, "peer_contract", "participants")) return;
+
+  const childTables = [
+    "peer_contract_participant",
+    "peer_contract_responsibility",
+    "peer_contract_interface_spec",
+    "peer_contract_file_boundary",
+    "peer_contract_dependency",
+  ];
+  const partiallyExistingChildTables = childTables.filter(tableName => hasTable(db, tableName));
+  if (partiallyExistingChildTables.length > 0) {
+    throw new Error(
+      `peer_contract normalization encountered partial child tables: ${partiallyExistingChildTables.join(", ")}`,
+    );
+  }
+  if (!fs.existsSync(PEER_CONTRACT_NORMALIZATION_SQL_PATH)) {
+    throw new Error("Missing peer_contract normalization migration SQL.");
+  }
+
+  db.exec(fs.readFileSync(PEER_CONTRACT_NORMALIZATION_SQL_PATH, "utf-8"));
 }
 
 function ensureRuntimeOnlyTables(db: Database.Database): void {
@@ -193,5 +227,6 @@ export function runMigrations(db: Database.Database): void {
   ensureDrizzleMigrationAssets();
   bootstrapLegacyDrizzleJournal(db);
   migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });
+  runPeerContractNormalizationMigration(db);
   ensureRuntimeOnlyTables(db);
 }

@@ -24,7 +24,7 @@ import { getTask } from "./task-repository.js";
 import { getLatestContextSnapshot } from "./context-snapshot-repository.js";
 import { collectPinnedMemories } from "./memory-repository.js";
 import { collectProjectMemories } from "./project-memory-repository.js";
-import { hydrateContractRow } from "./contract-repository-internals.js";
+import { hydrateContractRows } from "./contract-repository-internals.js";
 
 function parseChangedFiles(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -218,8 +218,10 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
   const agent = getAgent(agentId);
 
   // Approved contract for task
-  const allContracts: PeerContract[] = _getDb().select().from(s.peerContracts)
-    .where(eq(s.peerContracts.taskId, taskId)).all().map(hydrateContractRow);
+  const allContracts: PeerContract[] = hydrateContractRows(
+    _getDb().select().from(s.peerContracts)
+      .where(eq(s.peerContracts.taskId, taskId)).all(),
+  );
   const approvedContract = allContracts.find(c => c.status === ContractStatus.APPROVED) ?? null;
   const latestContract = allContracts.length ? allContracts[allContracts.length - 1] : null;
 

@@ -7,7 +7,7 @@ import * as s from "../schema.js";
 import { ContractStatus, TaskStatus, EventType, validateTaskTransition, validateContractTransition } from "syncpoint-core";
 import type { PeerContract, PeerContractCreate, Task } from "syncpoint-core";
 import { _getDb, now, createId, logEvent, NotFoundError } from "./_shared.js";
-import { hydrateContractRow, serializeContractStringList } from "./contract-repository-internals.js";
+import { hydrateContractRow, replaceContractStructuredFields } from "./contract-repository-internals.js";
 import { getTask } from "./task-repository.js";
 
 export function createContract(data: PeerContractCreate): PeerContract {
@@ -19,18 +19,14 @@ export function createContract(data: PeerContractCreate): PeerContract {
     id,
     taskId: data.taskId,
     title: data.title,
-    participants: serializeContractStringList(data.participants),
     scope: data.scope,
-    responsibilities: serializeContractStringList(data.responsibilities),
-    interfaceSpec: serializeContractStringList(data.interfaceSpec),
-    fileBoundaries: serializeContractStringList(data.fileBoundaries),
-    dependencies: serializeContractStringList(data.dependencies),
     testPlan: data.testPlan,
     risks: data.risks,
     status: ContractStatus.DRAFT,
     createdAt: ts,
     updatedAt: ts,
   }).run();
+  replaceContractStructuredFields(id, data);
   // Contract creation drives task status to NEEDS_CONTRACT
   const task = db.select().from(s.tasks).where(eq(s.tasks.id, data.taskId)).get() as unknown as Task | undefined;
   if (task && (task.status as TaskStatus) === TaskStatus.ASSIGNED) {
