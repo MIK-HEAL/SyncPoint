@@ -17,9 +17,9 @@ function hydrateReview(db: ReturnType<typeof _getDb>, row: any): CheckpointRevie
   const approvers = db.select().from(s.checkpointReviewApprovers)
     .where(eq(s.checkpointReviewApprovers.reviewId, row.id)).all();
 
-  const requiredApproverIds = approvers.map(a => a.agentId).join(",");
-  const approvedByIds = approvers.filter(a => a.role === "approved").map(a => a.agentId).join(",");
-  const rejectedByIds = approvers.filter(a => a.role === "rejected").map(a => a.agentId).join(",");
+  const requiredApproverIds = approvers.map(a => a.agentId) as unknown as CheckpointReview["requiredApproverIds"];
+  const approvedByIds = approvers.filter(a => a.role === "approved").map(a => a.agentId) as unknown as CheckpointReview["approvedByIds"];
+  const rejectedByIds = approvers.filter(a => a.role === "rejected").map(a => a.agentId) as unknown as CheckpointReview["rejectedByIds"];
 
   return {
     id: row.id,
@@ -35,7 +35,7 @@ function hydrateReview(db: ReturnType<typeof _getDb>, row: any): CheckpointRevie
     decisionSummary: row.decisionSummary ?? "",
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-  } as CheckpointReview;
+  };
 }
 
 // ── CRUD ────────────────────────────────────────────
@@ -88,33 +88,26 @@ export function updateCheckpointReviewStatus(
   return getCheckpointReview(id);
 }
 
-export function updateCheckpointReviewApprovedBy(id: string, approvedByIds: string): CheckpointReview {
-  // Update approver roles in the join table based on the CSV
+export function approveCheckpointReviewBy(id: string, agentId: string): CheckpointReview {
   const db = _getDb();
-  const agentIds = approvedByIds.split(",").map(s => s.trim()).filter(Boolean);
-  for (const agentId of agentIds) {
-    db.update(s.checkpointReviewApprovers).set({
-      role: "approved",
-      decidedAt: now(),
-    }).where(
-      and(eq(s.checkpointReviewApprovers.reviewId, id), eq(s.checkpointReviewApprovers.agentId, agentId))
-    ).run();
-  }
+  db.update(s.checkpointReviewApprovers).set({
+    role: "approved",
+    decidedAt: now(),
+  }).where(
+    and(eq(s.checkpointReviewApprovers.reviewId, id), eq(s.checkpointReviewApprovers.agentId, agentId))
+  ).run();
   db.update(s.checkpointReviews).set({ updatedAt: now() }).where(eq(s.checkpointReviews.id, id)).run();
   return getCheckpointReview(id);
 }
 
-export function updateCheckpointReviewRejectedBy(id: string, rejectedByIds: string): CheckpointReview {
+export function rejectCheckpointReviewBy(id: string, agentId: string): CheckpointReview {
   const db = _getDb();
-  const agentIds = rejectedByIds.split(",").map(s => s.trim()).filter(Boolean);
-  for (const agentId of agentIds) {
-    db.update(s.checkpointReviewApprovers).set({
-      role: "rejected",
-      decidedAt: now(),
-    }).where(
-      and(eq(s.checkpointReviewApprovers.reviewId, id), eq(s.checkpointReviewApprovers.agentId, agentId))
-    ).run();
-  }
+  db.update(s.checkpointReviewApprovers).set({
+    role: "rejected",
+    decidedAt: now(),
+  }).where(
+    and(eq(s.checkpointReviewApprovers.reviewId, id), eq(s.checkpointReviewApprovers.agentId, agentId))
+  ).run();
   db.update(s.checkpointReviews).set({ updatedAt: now() }).where(eq(s.checkpointReviews.id, id)).run();
   return getCheckpointReview(id);
 }

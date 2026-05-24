@@ -50,6 +50,29 @@ export function validateOperationTransition(
 
 // ── Schema ──────────────────────────────────────────
 
+export const OperationCheckItemSchema = z.object({
+  check: z.string(),
+  passed: z.boolean(),
+  detail: z.string(),
+});
+
+export const OperationConstraintViolationSchema = z.object({
+  rule: z.string(),
+  sourceMemoryId: z.string(),
+  projectionId: z.string(),
+  message: z.string(),
+  evidence: z.array(z.string()).optional(),
+});
+
+export const OperationCheckResultSchema = z.object({
+  allPassed: z.boolean(),
+  items: z.array(OperationCheckItemSchema),
+  targetResources: z.array(ResourceRefSchema),
+  uncoveredResources: z.array(ResourceRefSchema),
+  conflictingClaimIds: z.array(z.string()),
+  constraintViolations: z.array(OperationConstraintViolationSchema).optional(),
+});
+
 export const OperationSchema = z.object({
   id: z.string(),
   type: z.string().min(1),
@@ -61,7 +84,7 @@ export const OperationSchema = z.object({
   targetResources: z.array(ResourceRefSchema),
   payloadRef: z.string().default(""),
   status: z.nativeEnum(OperationStatus),
-  checkResult: z.string().default(""),
+  checkResult: OperationCheckResultSchema.nullable().default(null),
   decisionSummary: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -84,26 +107,9 @@ export type OperationCreate = z.infer<typeof OperationCreateSchema>;
 
 // ── Check result (generic) ──────────────────────────
 
-export interface OperationCheckItem {
-  check: string;
-  passed: boolean;
-  detail: string;
-}
+export type OperationCheckItem = z.infer<typeof OperationCheckItemSchema>;
 
-export interface OperationCheckResult {
-  allPassed: boolean;
-  items: OperationCheckItem[];
-  targetResources: ResourceRef[];
-  uncoveredResources: ResourceRef[];
-  conflictingClaimIds: string[];
-  constraintViolations?: Array<{
-    rule: string;
-    sourceMemoryId: string;
-    projectionId: string;
-    message: string;
-    evidence?: string[];
-  }>;
-}
+export type OperationCheckResult = z.infer<typeof OperationCheckResultSchema>;
 
 // ── Approval ────────────────────────────────────────
 

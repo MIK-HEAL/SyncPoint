@@ -507,7 +507,7 @@ export const operations = sqliteTable("operation", {
   summary: text("summary").notNull().default(""),
   payloadRef: text("payload_ref").notNull().default(""),
   status: text("status").notNull().default("DRAFT"),
-  checkResult: text("check_result").notNull().default(""),
+  checkResultJson: text("check_result").notNull().default(""),
   decisionSummary: text("decision_summary").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

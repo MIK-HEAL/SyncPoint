@@ -2,6 +2,12 @@
  * SyncPoint Core — public API.
  */
 
+export * as FoundationApi from "./foundation-api.js";
+export * as ContextApi from "./context-api.js";
+export * as RuntimeApi from "./runtime-api.js";
+export * as ProtocolApi from "./protocol-api.js";
+export * as NegotiationApi from "./negotiation-api.js";
+
 // States & protocol
 export {
   AgentStatus,

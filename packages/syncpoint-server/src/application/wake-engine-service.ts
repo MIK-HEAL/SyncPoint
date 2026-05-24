@@ -24,10 +24,9 @@ import type { SyncPointEventData } from "../event-bus.js";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import "./_scope-matchers.js";
-import { resolveResourceRefs } from "./_resource-resolve.js";
-import { EventType, evaluateConstraints } from "syncpoint-core";
+import { EventType } from "syncpoint-core";
 import { sgCheckAgent } from "./sync-gate-service.js";
-import { buildProjection } from "./reality-projection-service.js";
+import { evaluateExecutionReadiness } from "./collaboration-coordinator.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -319,20 +318,11 @@ export function wakeStart(id: string): WakeRequest {
   // P4C: Constraint Runtime enforcement
   if (wr.taskId) {
     try {
-      const latestCap = repo.getLatestContextSnapshot(wr.taskId, wr.targetAgentId);
-      let wr2: string[] = [];
-      if (latestCap) {
-        const p = latestCap.payload ?? {};
-        if (Array.isArray(p.workingResources)) wr2 = p.workingResources;
-      }
-      const projection = buildProjection({ taskId: wr.taskId, workingResources: wr2 });
-      const decision = evaluateConstraints({
+      const decision = evaluateExecutionReadiness({
+        agentId: wr.targetAgentId,
+        taskId: wr.taskId,
         action: "wake_start",
-        projection,
-        touchedResources: wr2.length > 0
-          ? resolveResourceRefs(wr2, wr.targetAgentId)
-          : undefined,
-      });
+      }).constraintDecision;
       if (!decision.permitted) {
         const reasons = decision.blockers.map(b => b.message).join("; ");
         throw new Error(`Constraint violation: ${reasons}`);
@@ -383,20 +373,11 @@ export function wakeNext(agentId: string): WakeRequest | null {
   const wr = queued[0];
   if (wr.taskId) {
     try {
-      const latestCap = repo.getLatestContextSnapshot(wr.taskId, wr.targetAgentId);
-      let wr3: string[] = [];
-      if (latestCap) {
-        const p = latestCap.payload ?? {};
-        if (Array.isArray(p.workingResources)) wr3 = p.workingResources;
-      }
-      const projection = buildProjection({ taskId: wr.taskId, workingResources: wr3 });
-      const decision = evaluateConstraints({
+      const decision = evaluateExecutionReadiness({
+        agentId: wr.targetAgentId,
+        taskId: wr.taskId,
         action: "wake_start",
-        projection,
-        touchedResources: wr3.length > 0
-          ? resolveResourceRefs(wr3, wr.targetAgentId)
-          : undefined,
-      });
+      }).constraintDecision;
       if (!decision.permitted) return null;
     } catch { /* Fail-closed: projection unavailable — skip this wake */ return null; }
   }

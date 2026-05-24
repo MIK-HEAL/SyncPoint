@@ -43,6 +43,14 @@ export interface OperationStatusResult {
   checkResult: OperationCheckResult | null;
 }
 
+function normalizeCheckResult(value: Operation["checkResult"]): OperationCheckResult | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try { return JSON.parse(value) as OperationCheckResult; } catch { return null; }
+  }
+  return value;
+}
+
 // ── Use Cases ──────────────────────────────────────────
 
 /**
@@ -140,7 +148,7 @@ export function opCheck(operationId: string): OperationStatusResult {
   }
 
   const updated = repo.updateOperation(operationId, {
-    checkResult: JSON.stringify(checkResult),
+    checkResult,
     status,
   });
 
@@ -255,11 +263,7 @@ export function opCancel(operationId: string, reason?: string): Operation {
  */
 export function opStatus(operationId: string): OperationStatusResult {
   const operation = repo.getOperation(operationId);
-  let checkResult: OperationCheckResult | null = null;
-  if (operation.checkResult) {
-    try { checkResult = JSON.parse(operation.checkResult); } catch { /* invalid JSON */ }
-  }
-  return { operation, checkResult };
+  return { operation, checkResult: normalizeCheckResult(operation.checkResult) };
 }
 
 /**

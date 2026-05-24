@@ -69,6 +69,7 @@ If you are new to the project, read in this order:
 Read these only after the core story is clear:
 
 - **Architecture boundaries** — [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- **Architecture decisions** — [`architecture-decisions.md`](architecture-decisions.md)
 - **Constraint runtime** — [`constraint-runtime.md`](constraint-runtime.md)
 - **Reality runtime** — [`reality-runtime.md`](reality-runtime.md)
 - **Plugin API** — [`plugin-api.md`](plugin-api.md)

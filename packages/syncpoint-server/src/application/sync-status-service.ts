@@ -7,13 +7,11 @@
  */
 
 import * as repo from "../repositories.js";
-import { sgListActive, sgList, sgStatusDetailed } from "./sync-gate-service.js";
-import { isAgentBlocked, evaluateConstraints, parseGatePolicy, SyncGateStatus } from "syncpoint-core";
-import { rcList, rcDetectConflicts } from "./resource-claim-service.js";
-import { stxListActive } from "./checkpoint-review-service.js";
-import { opList } from "./operation-service.js";
+import { sgStatusDetailed } from "./sync-gate-service.js";
+import { isAgentBlocked, evaluateConstraints, parseGatePolicy, parseIdListCsv, SyncGateStatus } from "syncpoint-core";
 import { buildProjection } from "./reality-projection-service.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
+import { collectStatusOverviewState, collectStatusSnapshotState } from "./collaboration-coordinator.js";
 
 // ── Shared helpers ──────────────────────────────────────
 
@@ -67,8 +65,22 @@ export interface UnifiedBlocker {
 }
 
 export function classifyBlockers(opts: {
-  activeGates: ReturnType<typeof sgListActive>;
-  activeTransactions: ReturnType<typeof stxListActive>;
+  activeGates: Array<{
+    id: string;
+    taskId: string;
+    reason: string;
+    description: string;
+    status: string;
+    requiredAgentIds: string[];
+  }>;
+  activeTransactions: Array<{
+    id: string;
+    taskId: string;
+    checkpointId: string;
+    requestingAgentId: string;
+    status: string;
+    requiredApproverIds: string[] | string;
+  }>;
   pendingHandoffs: Array<any>;
   pendingReviews: Array<any>;
   pendingOperations: Array<any>;
@@ -112,7 +124,7 @@ export function classifyBlockers(opts: {
 
   // Sync Transactions
   for (const tx of opts.activeTransactions) {
-    const approverIds = (tx.requiredApproverIds || "").split(",").filter(Boolean);
+    const approverIds = parseIdListCsv(tx.requiredApproverIds);
     blockers.push({
       type: "sync_transaction",
       id: tx.id,
@@ -182,13 +194,7 @@ export function buildOverview(input?: OverviewInput) {
   const activeSessions = sessions.filter(s =>
     s.status !== "COMPLETED" && s.status !== "CANCELLED"
   );
-  const claims = rcList(input?.taskId ? { taskId: input.taskId } : undefined);
-  const conflicts = rcDetectConflicts(input?.sessionId ? { sessionId: input.sessionId } : undefined);
-  const scopeFilter = buildScopeFilter(input);
-  const gates = sgListActive(scopeFilter);
-  const allGates = sgList(scopeFilter);
-  const wakeRequests = repo.listQueuedWakeRequests();
-  const activeTransactions = stxListActive(scopeFilter);
+  const { claims, conflicts, gates, allGates, wakeRequests, activeTransactions } = collectStatusOverviewState(input);
 
   return {
     agents: agents.map(a => ({
@@ -265,16 +271,7 @@ export function buildSnapshot(input?: SnapshotInput) {
   const tasks = repo.listTasks();
 
   // Scoped: claims, conflicts, gates, transactions, operations, wakes
-  const activeClaims = rcList(sessionId ? { sessionId } : undefined)
-    .filter(c => c.status === "ACTIVE");
-  const conflicts = rcDetectConflicts(sessionId ? { sessionId } : undefined);
-  const activeGates = sgListActive(scopeFilter);
-  const allGates = sgList(scopeFilter);
-  const activeTransactions = stxListActive(scopeFilter);
-  const pendingOps = opList(sessionId ? { sessionId } : undefined).filter(op =>
-    op.status === "DRAFT" || op.status === "SUBMITTED" || op.status === "APPROVED"
-  );
-  const wakeRequests = repo.listQueuedWakeRequests(sessionId);
+  const { activeClaims, conflicts, activeGates, allGates, activeTransactions, pendingOps, wakeRequests } = collectStatusSnapshotState({ sessionId });
 
   // Scoped: assignments, reviews, handoffs
   const allAssignments = scopedSessions.flatMap(s => repo.listTaskAssignments(s.id));

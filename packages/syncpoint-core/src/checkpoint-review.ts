@@ -74,11 +74,11 @@ export const CheckpointReviewSchema = z.object({
   checkpointId: z.string(),
   requestingAgentId: z.string(),
   /** Comma-separated agent IDs that must approve */
-  requiredApproverIds: z.string(),
+  requiredApproverIds: z.array(z.string()).min(1),
   /** Comma-separated agent IDs that have approved */
-  approvedByIds: z.string(),
+  approvedByIds: z.array(z.string()).default([]),
   /** Comma-separated agent IDs that have rejected */
-  rejectedByIds: z.string(),
+  rejectedByIds: z.array(z.string()).default([]),
   /** Bound SyncGate ID (created automatically) */
   gateId: z.string(),
   status: z.nativeEnum(CheckpointReviewStatus),
@@ -105,7 +105,10 @@ export type CheckpointReviewCreate = z.infer<typeof CheckpointReviewCreateSchema
  * Parse a comma-separated ID list into an array.
  * @deprecated Will be removed when CSV fields are replaced by join tables.
  */
-export function parseIdListCsv(ids: string): string[] {
+export function parseIdListCsv(ids: string | string[]): string[] {
+  if (Array.isArray(ids)) {
+    return ids.map(id => id.trim()).filter(id => id.length > 0);
+  }
   return ids.split(",").map(s => s.trim()).filter(s => s.length > 0);
 }
 
@@ -153,3 +156,6 @@ export function isReviewBlocking(status: CheckpointReviewStatus): boolean {
     status === CheckpointReviewStatus.REJECTED
   );
 }
+
+
+

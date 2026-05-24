@@ -28,10 +28,9 @@ import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import { processOrchestrationEvent } from "./wake-engine-service.js";
 import { prepareContext } from "./context-policy-service.js";
-import { sgCheckAgent } from "./sync-gate-service.js";
-import { buildProjection } from "./reality-projection-service.js";
-import { RelationshipMode, evaluateConstraints } from "syncpoint-core";
+import { RelationshipMode } from "syncpoint-core";
 import type { PreparedContext } from "syncpoint-core";
+import { evaluateExecutionReadiness } from "./collaboration-coordinator.js";
 
 /**
  * Log an orchestration event AND trigger wake generation inline.
@@ -198,9 +197,21 @@ export function orchAcceptAssignment(assignmentId: string): TaskAssignment {
  * Start working on an assigned task.
  */
 export function orchStartAssignment(assignmentId: string): TaskAssignment {
-  // SyncGate hard gate — block start if agent has unacknowledged gates
   const ta0 = repo.getTaskAssignment(assignmentId);
-  const blockCheck = sgCheckAgent(ta0.assigneeAgentId, { taskId: ta0.taskId });
+  const agentClaims = repo.listResourceClaims({ actorId: ta0.assigneeAgentId, status: "ACTIVE" });
+  const claimedRefs = agentClaims.flatMap(c => c.resources);
+  const claimedLocators = claimedRefs.map(r => r.locator);
+
+  // SyncGate hard gate — block start if agent has unacknowledged gates
+  const readiness = evaluateExecutionReadiness({
+    agentId: ta0.assigneeAgentId,
+    taskId: ta0.taskId,
+    sessionId: ta0.sessionId,
+    action: "start_assignment",
+    workingResources: claimedLocators,
+    touchedResources: claimedRefs.length > 0 ? claimedRefs : undefined,
+  });
+  const blockCheck = readiness.blockCheck;
   if (blockCheck.blocked) {
     const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
     throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting work.`);
@@ -222,16 +233,7 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
 
   // P4C: Constraint Runtime enforcement
   try {
-    // Use agent's resource claims as workingResources context for constraint evaluation
-    const agentClaims = repo.listResourceClaims({ actorId: ta0.assigneeAgentId, status: "ACTIVE" });
-    const claimedRefs = agentClaims.flatMap(c => c.resources);
-    const claimedLocators = claimedRefs.map(r => r.locator);
-    const projection = buildProjection({ taskId: ta0.taskId, workingResources: claimedLocators });
-    const decision = evaluateConstraints({
-      action: "start_assignment",
-      projection,
-      touchedResources: claimedRefs.length > 0 ? claimedRefs : undefined,
-    });
+    const decision = readiness.constraintDecision;
     if (!decision.permitted) {
       const reasons = decision.blockers.map(b => b.message).join("; ");
       throw new Error(`Constraint violation: ${reasons}`);

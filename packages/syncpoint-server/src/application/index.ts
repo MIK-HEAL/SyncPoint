@@ -328,6 +328,13 @@ export type {
   UnifiedBlocker,
 } from "./sync-status-service.js";
 
+export {
+  prepareResumeProjectionContext,
+  evaluateExecutionReadiness,
+  collectStatusOverviewState,
+  collectStatusSnapshotState,
+} from "./collaboration-coordinator.js";
+
 // P4D Constraint Runtime (read-only visibility)
 export { constraintCheck } from "./constraint-evaluation-service.js";
 

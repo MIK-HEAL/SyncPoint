@@ -9,19 +9,15 @@ import {
   buildAdapterInstruction,
   formatResumePrompt,
   DEFAULT_CONTEXT_MODE,
-  evaluateConstraints,
   buildConstraintManifest,
-  computeContentHash,
 } from "syncpoint-core";
 import type { ConstraintManifest } from "syncpoint-core";
 import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode, ContextSnapshotPayload } from "syncpoint-core";
 import * as repo from "../repositories.js";
-import { sgCheckAgent } from "./sync-gate-service.js";
 import { assembleProtocolGate, injectProjectionIntoGate, validateSnapshot, formatProtocolGatePrompt, formatSnapshotReality, formatValidationNotes } from "./protocol-gate-service.js";
 import { buildProjection } from "./reality-projection-service.js";
-import type { RealityProjection } from "syncpoint-core";
 import "./_scope-matchers.js";
-import { resolveResourceRefs } from "./_resource-resolve.js";
+import { evaluateExecutionReadiness, prepareResumeProjectionContext } from "./collaboration-coordinator.js";
 
 // ── Types ────────────────────────────────────────────
 
@@ -210,8 +206,23 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   // 0. Protocol Gate — assemble all collaboration rules
   let protocolGate = assembleProtocolGate(agent.id, task.id, input.sessionId);
 
+  const resumeProjection = prepareResumeProjectionContext(task.id, agent.id);
+  const latestSnapshot = resumeProjection.latestSnapshot;
+  const snapshotWorkingResources = resumeProjection.workingResources;
+  const latestCheckpoint = resumeProjection.latestCheckpoint;
+  const projection = resumeProjection.projection;
+
   // 0a. SyncGate hard gate — block resume if agent has unacknowledged gates
-  const blockCheck = sgCheckAgent(agent.id, { taskId: task.id });
+  const readiness = evaluateExecutionReadiness({
+    agentId: agent.id,
+    taskId: task.id,
+    sessionId: input.sessionId,
+    action: "resume",
+    workingResources: snapshotWorkingResources,
+    touchedResources: resumeProjection.touchedResources,
+    projection,
+  });
+  const blockCheck = readiness.blockCheck;
   if (blockCheck.blocked) {
     const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
     throw new LoopError(EXIT.STATE_INVALID, `Agent blocked by sync gate(s): ${gateIds}. Acknowledge before resuming.`);
@@ -219,39 +230,6 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
 
   // 0b. P3B — Build projection and inject into gate
   //     workingResources come from latest snapshot if available
-  const latestSnapshot = repo.getLatestContextSnapshot(task.id, agent.id);
-  let snapshotWorkingResources: string[] = [];
-  if (latestSnapshot) {
-    snapshotWorkingResources = latestSnapshot.payload?.workingResources ?? [];
-  }
-  const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
-  const contract = repo.getContractForTask(task.id);
-  const projection: RealityProjection = buildProjection({
-    taskId: task.id,
-    workingResources: snapshotWorkingResources,
-    currentModules: [],
-    snapshotId: latestSnapshot?.id,
-    checkpointId: latestCheckpoint?.id,
-    contractId: contract?.id,
-    snapshotHash: latestSnapshot
-      ? computeContentHash(latestSnapshot.summary, JSON.stringify(latestSnapshot.payload))
-      : undefined,
-    checkpointHash: latestCheckpoint
-      ? computeContentHash(latestCheckpoint.summary, latestCheckpoint.progress)
-      : undefined,
-    contractHash: contract
-      ? computeContentHash(
-        contract.title,
-        contract.scope,
-        contract.responsibilities.join("|"),
-        contract.interfaceSpec.join("|"),
-        contract.fileBoundaries.join("|"),
-        contract.testPlan,
-        contract.risks,
-        contract.status,
-      )
-      : undefined,
-  });
   protocolGate = injectProjectionIntoGate(protocolGate, projection);
 
   // 1. Enforce context policy (hard gate)
@@ -267,11 +245,9 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   const constraintInput = {
     action: "resume" as const,
     projection,
-    touchedResources: snapshotWorkingResources.length > 0
-      ? resolveResourceRefs(snapshotWorkingResources, agent.id)
-      : undefined,
+    touchedResources: readiness.touchedResources,
   };
-  const constraintDecision = evaluateConstraints(constraintInput);
+  const constraintDecision = readiness.constraintDecision;
   const constraintManifest = buildConstraintManifest(constraintInput, constraintDecision);
   const constraintWarnings = [
     ...constraintDecision.blockers.map(b => `[BLOCKED] ${b.rule}: ${b.message}`),

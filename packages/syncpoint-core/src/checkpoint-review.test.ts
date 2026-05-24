@@ -23,9 +23,9 @@ function makeReview(overrides: Partial<CheckpointReview> = {}): CheckpointReview
     taskId: "t1",
     checkpointId: "cp1",
     requestingAgentId: "a1",
-    requiredApproverIds: "a2,a3",
-    approvedByIds: "",
-    rejectedByIds: "",
+    requiredApproverIds: ["a2", "a3"],
+    approvedByIds: [],
+    rejectedByIds: [],
     gateId: "g1",
     status: CheckpointReviewStatus.WAITING_APPROVAL,
     decisionSummary: "",
@@ -89,6 +89,10 @@ describe("parseIdListCsv", () => {
   it("returns empty array for empty string", () => {
     expect(parseIdListCsv("")).toEqual([]);
   });
+
+  it("returns array inputs unchanged", () => {
+    expect(parseIdListCsv(["a1", "a2"])) .toEqual(["a1", "a2"]);
+  });
 });
 
 // ── allApproved ─────────────────────────────────────
@@ -99,11 +103,11 @@ describe("allApproved", () => {
   });
 
   it("false when partial approval", () => {
-    expect(allApproved(makeReview({ approvedByIds: "a2" }))).toBe(false);
+    expect(allApproved(makeReview({ approvedByIds: ["a2"] }))).toBe(false);
   });
 
   it("true when all required approved", () => {
-    expect(allApproved(makeReview({ approvedByIds: "a2,a3" }))).toBe(true);
+    expect(allApproved(makeReview({ approvedByIds: ["a2", "a3"] }))).toBe(true);
   });
 });
 
@@ -115,7 +119,7 @@ describe("hasRejection", () => {
   });
 
   it("true when any rejection", () => {
-    expect(hasRejection(makeReview({ rejectedByIds: "a2" }))).toBe(true);
+    expect(hasRejection(makeReview({ rejectedByIds: ["a2"] }))).toBe(true);
   });
 });
 
@@ -127,11 +131,11 @@ describe("pendingApprovers", () => {
   });
 
   it("returns remaining after partial decision", () => {
-    expect(pendingApprovers(makeReview({ approvedByIds: "a2" }))).toEqual(["a3"]);
+    expect(pendingApprovers(makeReview({ approvedByIds: ["a2"] }))).toEqual(["a3"]);
   });
 
   it("accounts for both approvals and rejections", () => {
-    expect(pendingApprovers(makeReview({ approvedByIds: "a2", rejectedByIds: "a3" }))).toEqual([]);
+    expect(pendingApprovers(makeReview({ approvedByIds: ["a2"], rejectedByIds: ["a3"] }))).toEqual([]);
   });
 });
 

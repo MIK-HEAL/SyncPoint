@@ -5,10 +5,14 @@
 import { eq, and } from "drizzle-orm";
 import * as s from "../schema.js";
 import { OperationStatus } from "syncpoint-core";
-import type { Operation, OperationCreate, ResourceRef } from "syncpoint-core";
+import type { Operation, OperationCheckResult, OperationCreate, ResourceRef } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
+
+function parseJson<T>(value: string, fallback: T): T {
+  try { return JSON.parse(value) as T; } catch { return fallback; }
+}
 
 function loadTargetResources(db: ReturnType<typeof _getDb>, operationId: string): ResourceRef[] {
   return db.select().from(s.operationResources)
@@ -29,7 +33,7 @@ function rowToOperation(row: any, targetResources: ResourceRef[]): Operation {
     targetResources,
     payloadRef: row.payloadRef ?? "",
     status: row.status as OperationStatus,
-    checkResult: row.checkResult ?? "",
+    checkResult: parseJson<OperationCheckResult | null>(row.checkResultJson, null) as unknown as Operation["checkResult"],
     decisionSummary: row.decisionSummary ?? "",
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -52,7 +56,7 @@ export function createOperation(data: OperationCreate): Operation {
     summary: data.summary ?? "",
     payloadRef: data.payloadRef ?? "",
     status: OperationStatus.DRAFT,
-    checkResult: "",
+    checkResultJson: "",
     decisionSummary: "",
     createdAt: ts,
     updatedAt: ts,
@@ -82,15 +86,17 @@ export function updateOperation(
   updates: Partial<{
     status: string;
     payloadRef: string;
-    checkResult: string;
+    checkResult: OperationCheckResult | null;
     decisionSummary: string;
   }>,
 ): Operation {
   const db = _getDb();
-  db.update(s.operations).set({
-    ...updates,
-    updatedAt: now(),
-  }).where(eq(s.operations.id, id)).run();
+  const data: Record<string, unknown> = { updatedAt: now() };
+  if (updates.status !== undefined) data.status = updates.status;
+  if (updates.payloadRef !== undefined) data.payloadRef = updates.payloadRef;
+  if (updates.checkResult !== undefined) data.checkResultJson = updates.checkResult ? JSON.stringify(updates.checkResult) : "";
+  if (updates.decisionSummary !== undefined) data.decisionSummary = updates.decisionSummary;
+  db.update(s.operations).set(data).where(eq(s.operations.id, id)).run();
   return getOperation(id);
 }
 

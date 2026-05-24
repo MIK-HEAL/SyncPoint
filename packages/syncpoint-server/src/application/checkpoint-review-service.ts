@@ -121,8 +121,7 @@ export function stxApprove(txId: string, agentId: string, summary?: string): Syn
   // Add to approved list
   const approved = parseIdListCsv(tx.approvedByIds);
   if (!approved.includes(agentId)) {
-    approved.push(agentId);
-    tx = repo.updateCheckpointReviewApprovedBy(tx.id, approved.join(","));
+    tx = repo.approveCheckpointReviewBy(tx.id, agentId);
   }
 
   logEvent(
@@ -165,8 +164,7 @@ export function stxReject(txId: string, agentId: string, reason?: string): SyncT
   // Add to rejected list
   const rejected = parseIdListCsv(tx.rejectedByIds);
   if (!rejected.includes(agentId)) {
-    rejected.push(agentId);
-    tx = repo.updateCheckpointReviewRejectedBy(tx.id, rejected.join(","));
+    tx = repo.rejectCheckpointReviewBy(tx.id, agentId);
   }
 
   logEvent(
