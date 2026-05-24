@@ -23,14 +23,14 @@ describe("Memory Switch Engine", () => {
     await ctx.rpc("task.assign", { taskId, agentId });
     const cp = (await ctx.rpc("checkpoint.create", { taskId, agentId, summary: "Started auth work", progress: "50%", risks: "", blockers: "" })) as any;
     checkpointId = cp.id;
-    const c = (await ctx.rpc("contract.create", { taskId, title: "Auth contract", scope: "auth module", responsibilities: "backend: API", interfaceSpec: "POST /login", fileBoundaries: "src/auth/*" })) as any;
+    const c = (await ctx.rpc("contract.create", { taskId, title: "Auth contract", scope: "auth module", responsibilities: ["backend: API"], interfaceSpec: ["POST /login"], fileBoundaries: ["src/auth/*"] })) as any;
     contractId = c.id;
     await ctx.rpc("contract.updateStatus", { id: contractId, status: "REVIEWING" });
     await ctx.rpc("contract.updateStatus", { id: contractId, status: "APPROVED" });
     await ctx.rpc("contextSnapshot.create", {
       taskId, agentId, checkpointId,
       summary: "Implement auth API",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Implement auth API",
         currentPhase: "implementation",
         confirmedDecisions: ["JWT auth"],
@@ -39,7 +39,7 @@ describe("Memory Switch Engine", () => {
         remainingWork: "Implement handler",
         nextSteps: ["Write login endpoint"],
         resumePrompt: "Continue implementing POST /login with JWT.",
-      }),
+      },
     });
   });
 
@@ -57,12 +57,12 @@ describe("Memory Switch Engine", () => {
     expect(rc.approvedContract).not.toBeNull();
     expect(rc.approvedContract.title).toBe("Auth contract");
     expect(rc.approvedContract.scope).toBe("auth module");
-    expect(rc.approvedContract.interfaceSpec).toBe("POST /login");
-    expect(rc.approvedContract.fileBoundaries).toBe("src/auth/*");
+    expect(rc.approvedContract.interfaceSpec).toContain("POST /login");
+    expect(rc.approvedContract.fileBoundaries).toContain("src/auth/*");
 
     // Snapshot
     expect(rc.latestSnapshot).not.toBeNull();
-    const snapshotPayload = JSON.parse(rc.latestSnapshot.payloadJson);
+    const snapshotPayload = rc.latestSnapshot.payload;
     expect(snapshotPayload.goal).toBe("Implement auth API");
     expect(snapshotPayload.resumePrompt).toContain("POST /login");
 
@@ -100,7 +100,7 @@ describe("Memory Switch Engine", () => {
       agentId,
       checkpointId: cp2.id,
       summary: "Build UI",
-      payloadJson: JSON.stringify({ goal: "Build UI" }),
+      payload: { goal: "Build UI" },
     });
 
     const rc = (await ctx.rpc("resumeContext.get", { taskId: t2.id, agentId }, "GET")) as any;

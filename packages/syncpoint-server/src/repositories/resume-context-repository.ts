@@ -25,12 +25,49 @@ import { getLatestContextSnapshot } from "./context-snapshot-repository.js";
 import { collectPinnedMemories } from "./memory-repository.js";
 import { collectProjectMemories } from "./project-memory-repository.js";
 
+function parseStringList(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseChangedFiles(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function hydrateContractRow(row: typeof s.peerContracts.$inferSelect): PeerContract {
+  return {
+    ...row,
+    participants: parseStringList(row.participants),
+    responsibilities: parseStringList(row.responsibilities),
+    interfaceSpec: parseStringList(row.interfaceSpec),
+    fileBoundaries: parseStringList(row.fileBoundaries),
+    dependencies: parseStringList(row.dependencies),
+  } as PeerContract;
+}
+
+function hydrateCheckpointRow(row: typeof s.checkpoints.$inferSelect): Checkpoint {
+  return {
+    ...row,
+    changedFiles: parseChangedFiles(row.changedFiles),
+  } as Checkpoint;
+}
+
 /**
  * Run quality checks on the data assembled for resume context.
  */
 function parsePayload(snapshot: ContextSnapshot | null | undefined): ContextSnapshotPayload {
-  if (!snapshot) return {};
-  try { return JSON.parse(snapshot.payloadJson); } catch { return {}; }
+  return snapshot?.payload ?? {};
 }
 
 function runQualityChecks(
@@ -146,9 +183,9 @@ function buildResumePrompt(
     lines.push("## Approved Peer Contract");
     if (contract.title) lines.push(`**Title**: ${contract.title}`);
     if (contract.scope) lines.push(`**Scope**: ${contract.scope}`);
-    if (contract.responsibilities) lines.push(`**Responsibilities**: ${contract.responsibilities}`);
-    if (contract.interfaceSpec) lines.push(`**Interface**: ${contract.interfaceSpec}`);
-    if (contract.fileBoundaries) lines.push(`**File Boundaries**: ${contract.fileBoundaries}`);
+    if (contract.responsibilities.length) lines.push(`**Responsibilities**: ${contract.responsibilities.join(", ")}`);
+    if (contract.interfaceSpec.length) lines.push(`**Interface**: ${contract.interfaceSpec.join(", ")}`);
+    if (contract.fileBoundaries.length) lines.push(`**File Boundaries**: ${contract.fileBoundaries.join(", ")}`);
     lines.push("");
   }
 
@@ -202,7 +239,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
 
   // Approved contract for task
   const allContracts = _getDb().select().from(s.peerContracts)
-    .where(eq(s.peerContracts.taskId, taskId)).all() as unknown as PeerContract[];
+    .where(eq(s.peerContracts.taskId, taskId)).all().map(hydrateContractRow);
   const approvedContract = allContracts.find(c => c.status === ContractStatus.APPROVED) ?? null;
   const latestContract = allContracts.length ? allContracts[allContracts.length - 1] : null;
 
@@ -214,7 +251,8 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
     .where(and(eq(s.checkpoints.taskId, taskId), eq(s.checkpoints.agentId, agentId)))
     .orderBy(desc(s.checkpoints.createdAt))
     .limit(1)
-    .get() as unknown as Checkpoint | undefined ?? null;
+    .get();
+  const latestCheckpoint = checkpoint ? hydrateCheckpointRow(checkpoint) : null;
 
   // Pinned memories
   const pinnedMemories = collectPinnedMemories(taskId);
@@ -224,10 +262,10 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
 
   // Quality checks
   const contractForChecks = approvedContract ?? latestContract;
-  const { checks, warnings, ready } = runQualityChecks(task, agent, snapshot, checkpoint, contractForChecks);
+  const { checks, warnings, ready } = runQualityChecks(task, agent, snapshot, latestCheckpoint, contractForChecks);
 
   // Build resume prompt
-  const resumePrompt = buildResumePrompt(task, agent, approvedContract, snapshot, checkpoint, pinnedMemories, projectMems);
+  const resumePrompt = buildResumePrompt(task, agent, approvedContract, snapshot, latestCheckpoint, pinnedMemories, projectMems);
 
   return {
     taskId,
@@ -258,18 +296,18 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
       id: snapshot.id,
       kind: snapshot.kind,
       summary: snapshot.summary,
-      payloadJson: snapshot.payloadJson,
+      payload: snapshot.payload,
       createdAt: snapshot.createdAt,
     } : null,
-    latestCheckpoint: checkpoint ? {
-      id: checkpoint.id,
-      summary: checkpoint.summary,
-      progress: checkpoint.progress,
-      risks: checkpoint.risks,
-      blockers: checkpoint.blockers,
-      nextSteps: checkpoint.nextSteps,
-      needSync: checkpoint.needSync,
-      createdAt: checkpoint.createdAt,
+    latestCheckpoint: latestCheckpoint ? {
+      id: latestCheckpoint.id,
+      summary: latestCheckpoint.summary,
+      progress: latestCheckpoint.progress,
+      risks: latestCheckpoint.risks,
+      blockers: latestCheckpoint.blockers,
+      nextSteps: latestCheckpoint.nextSteps,
+      needSync: latestCheckpoint.needSync,
+      createdAt: latestCheckpoint.createdAt,
     } : null,
     pinnedMemories,
     projectMemories: projectMems,

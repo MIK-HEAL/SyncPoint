@@ -81,12 +81,12 @@ describe("API flow", () => {
     const snapshot = (await ctx.rpc("contextSnapshot.create", {
       taskId, agentId, checkpointId,
       summary: "Build REST API",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Build REST API",
         currentPhase: "implementation",
-      }),
+      },
     })) as any;
-    expect(JSON.parse(snapshot.payloadJson).goal).toBe("Build REST API");
+    expect(snapshot.payload.goal).toBe("Build REST API");
   });
 
   it("lists events", async () => {

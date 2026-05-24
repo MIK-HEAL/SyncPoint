@@ -25,7 +25,7 @@ import {
   computeGateDetails,
   computeAvailableActions,
 } from "./sync-gate.js";
-import type { SyncGate, GateVote } from "./sync-gate.js";
+import type { SyncGate, GateVote, GatePolicy } from "./sync-gate.js";
 
 // ── helpers ─────────────────────────────────────────
 
@@ -35,17 +35,17 @@ function makeGate(overrides: Partial<SyncGate> = {}): SyncGate {
     sessionId: "s1",
     taskId: "t1",
     requestedByAgentId: "a1",
-    requiredAgentIds: "a2,a3",
-    ackedAgentIds: "",
+    requiredAgentIds: ["a2", "a3"],
+    ackedAgentIds: [],
     reason: SyncGateReason.MANUAL_REQUEST,
     description: "test gate",
-    relatedFiles: "",
-    relatedResourcesJson: "",
+    relatedFiles: [],
+    relatedResources: [],
     relatedCheckpointId: "",
-    relatedClaimIds: "",
+    relatedClaimIds: [],
     status: SyncGateStatus.SYNC_REQUESTED,
     decisionSummary: "",
-    policyJson: "",
+    policy: makePolicy(),
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",
     ...overrides,
@@ -64,8 +64,12 @@ function makeVote(overrides: Partial<GateVote> = {}): GateVote {
   };
 }
 
-function policyJson(policy: Record<string, unknown>): string {
-  return JSON.stringify(policy);
+function makePolicy(policy: Record<string, unknown> = {}): GatePolicy {
+  return {
+    kind: GatePolicyKind.ALL_REQUIRED,
+    timeoutAction: GateTimeoutAction.ESCALATE,
+    ...policy,
+  } as GatePolicy;
 }
 
 // ── transitions ─────────────────────────────────────
@@ -163,15 +167,15 @@ describe("allAcked", () => {
   });
 
   it("false when partial ack", () => {
-    expect(allAcked(makeGate({ ackedAgentIds: "a2" }))).toBe(false);
+    expect(allAcked(makeGate({ ackedAgentIds: ["a2"] }))).toBe(false);
   });
 
   it("true when all required acked", () => {
-    expect(allAcked(makeGate({ ackedAgentIds: "a2,a3" }))).toBe(true);
+    expect(allAcked(makeGate({ ackedAgentIds: ["a2", "a3"] }))).toBe(true);
   });
 
   it("true with extra acks beyond required", () => {
-    expect(allAcked(makeGate({ ackedAgentIds: "a2,a3,a4" }))).toBe(true);
+    expect(allAcked(makeGate({ ackedAgentIds: ["a2", "a3", "a4"] }))).toBe(true);
   });
 });
 
@@ -181,11 +185,11 @@ describe("pendingAgents", () => {
   });
 
   it("returns remaining after partial ack", () => {
-    expect(pendingAgents(makeGate({ ackedAgentIds: "a2" }))).toEqual(["a3"]);
+    expect(pendingAgents(makeGate({ ackedAgentIds: ["a2"] }))).toEqual(["a3"]);
   });
 
   it("returns empty when all acked", () => {
-    expect(pendingAgents(makeGate({ ackedAgentIds: "a2,a3" }))).toEqual([]);
+    expect(pendingAgents(makeGate({ ackedAgentIds: ["a2", "a3"] }))).toEqual([]);
   });
 });
 
@@ -201,7 +205,7 @@ describe("isAgentBlocked", () => {
   });
 
   it("required agent is still blocked after acking until the gate is resolved", () => {
-    expect(isAgentBlocked(makeGate({ ackedAgentIds: "a2" }), "a2")).toBe(true);
+    expect(isAgentBlocked(makeGate({ ackedAgentIds: ["a2"] }), "a2")).toBe(true);
   });
 
   it("non-required agent is NOT blocked", () => {
@@ -253,11 +257,11 @@ describe("hasPartialAcks", () => {
   });
 
   it("true when some but not all acked", () => {
-    expect(hasPartialAcks(makeGate({ ackedAgentIds: "a2" }))).toBe(true);
+    expect(hasPartialAcks(makeGate({ ackedAgentIds: ["a2"] }))).toBe(true);
   });
 
   it("false when all acked", () => {
-    expect(hasPartialAcks(makeGate({ ackedAgentIds: "a2,a3" }))).toBe(false);
+    expect(hasPartialAcks(makeGate({ ackedAgentIds: ["a2", "a3"] }))).toBe(false);
   });
 });
 
@@ -265,12 +269,12 @@ describe("hasPartialAcks", () => {
 
 describe("quorumMet", () => {
   it("false when acks < quorum", () => {
-    expect(quorumMet(makeGate({ ackedAgentIds: "" }), 2)).toBe(false);
+    expect(quorumMet(makeGate({ ackedAgentIds: [] }), 2)).toBe(false);
   });
 
   it("true when acks >= quorum", () => {
-    expect(quorumMet(makeGate({ ackedAgentIds: "a2" }), 1)).toBe(true);
-    expect(quorumMet(makeGate({ ackedAgentIds: "a2,a3" }), 2)).toBe(true);
+    expect(quorumMet(makeGate({ ackedAgentIds: ["a2"] }), 1)).toBe(true);
+    expect(quorumMet(makeGate({ ackedAgentIds: ["a2", "a3"] }), 2)).toBe(true);
   });
 });
 
@@ -301,14 +305,14 @@ describe("parseGatePolicy", () => {
 
   it("parses valid JSON", () => {
     const p = parseGatePolicy(makeGate({
-      policyJson: policyJson({ kind: "quorum_ack", quorum: 1 }),
+      policy: makePolicy({ kind: "quorum_ack", quorum: 1 }),
     }));
     expect(p.kind).toBe(GatePolicyKind.QUORUM_ACK);
     expect(p.quorum).toBe(1);
   });
 
-  it("returns default for invalid JSON", () => {
-    const p = parseGatePolicy(makeGate({ policyJson: "not json" }));
+  it("returns default for invalid policy object", () => {
+    const p = parseGatePolicy(makeGate({ policy: { kind: "not-json" } as unknown as GatePolicy }));
     expect(p.kind).toBe(GatePolicyKind.ALL_REQUIRED);
   });
 });
@@ -326,7 +330,7 @@ describe("evaluateGateLiveness", () => {
   });
 
   it("all_required: continue blocking when all acked (explicit resolve needed)", () => {
-    const d = evaluateGateLiveness(makeGate({ ackedAgentIds: "a2,a3" }), [], T);
+    const d = evaluateGateLiveness(makeGate({ ackedAgentIds: ["a2", "a3"] }), [], T);
     expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
   });
 
@@ -339,7 +343,7 @@ describe("evaluateGateLiveness", () => {
 
   it("deadline passed → escalate (default timeoutAction)", () => {
     const gate = makeGate({
-      policyJson: policyJson({
+      policy: makePolicy({
         kind: "all_required",
         deadlineAt: "2024-06-01T11:00:00Z",
         escalationAgentIds: ["human1"],
@@ -352,7 +356,7 @@ describe("evaluateGateLiveness", () => {
 
   it("deadline passed with cancel action → allow cancel", () => {
     const gate = makeGate({
-      policyJson: policyJson({
+      policy: makePolicy({
         kind: "all_required",
         deadlineAt: "2024-06-01T11:00:00Z",
         timeoutAction: "cancel",
@@ -364,7 +368,7 @@ describe("evaluateGateLiveness", () => {
 
   it("deadline passed with await_decision → require human override", () => {
     const gate = makeGate({
-      policyJson: policyJson({
+      policy: makePolicy({
         kind: "all_required",
         deadlineAt: "2024-06-01T11:00:00Z",
         timeoutAction: "await_decision",
@@ -376,7 +380,7 @@ describe("evaluateGateLiveness", () => {
 
   it("deadline not yet passed → normal policy evaluation", () => {
     const gate = makeGate({
-      policyJson: policyJson({
+      policy: makePolicy({
         kind: "all_required",
         deadlineAt: "2024-06-01T13:00:00Z",
       }),
@@ -389,7 +393,7 @@ describe("evaluateGateLiveness", () => {
 
   it("lease expired → escalate", () => {
     const gate = makeGate({
-      policyJson: policyJson({
+      policy: makePolicy({
         kind: "all_required",
         leaseExpiresAt: "2024-06-01T11:30:00Z",
         escalationAgentIds: ["sup1"],
@@ -404,8 +408,8 @@ describe("evaluateGateLiveness", () => {
 
   it("quorum_ack: not met → blocking", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "quorum_ack", quorum: 2 }),
-      ackedAgentIds: "a2",
+      policy: makePolicy({ kind: "quorum_ack", quorum: 2 }),
+      ackedAgentIds: ["a2"],
     });
     const d = evaluateGateLiveness(gate, [], T);
     expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
@@ -413,8 +417,8 @@ describe("evaluateGateLiveness", () => {
 
   it("quorum_ack: met → allow quorum resolve", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "quorum_ack", quorum: 1 }),
-      ackedAgentIds: "a2",
+      policy: makePolicy({ kind: "quorum_ack", quorum: 1 }),
+      ackedAgentIds: ["a2"],
     });
     const d = evaluateGateLiveness(gate, [], T);
     expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
@@ -422,9 +426,9 @@ describe("evaluateGateLiveness", () => {
 
   it("quorum_ack: defaults to ceil(N/2) when quorum not specified", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "quorum_ack" }),
-      requiredAgentIds: "a1,a2,a3",
-      ackedAgentIds: "a1,a2",
+      policy: makePolicy({ kind: "quorum_ack" }),
+      requiredAgentIds: ["a1", "a2", "a3"],
+      ackedAgentIds: ["a1", "a2"],
     });
     const d = evaluateGateLiveness(gate, [], T);
     expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
@@ -434,7 +438,7 @@ describe("evaluateGateLiveness", () => {
 
   it("majority_veto: majority reject → escalate (not auto-pass)", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
+      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
     });
     const votes = [
       makeVote({ vote: GateVoteKind.REJECT, agentId: "a2" }),
@@ -447,7 +451,7 @@ describe("evaluateGateLiveness", () => {
 
   it("majority_veto: majority approve → allow resolve", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto" }),
+      policy: makePolicy({ kind: "majority_veto" }),
     });
     const votes = [
       makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
@@ -459,7 +463,7 @@ describe("evaluateGateLiveness", () => {
 
   it("majority_veto: no majority → continue blocking", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto" }),
+      policy: makePolicy({ kind: "majority_veto" }),
     });
     const votes = [
       makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
@@ -473,7 +477,7 @@ describe("evaluateGateLiveness", () => {
 
   it("owner_override: owner approved → auto-resolve", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "owner_override" }),
+      policy: makePolicy({ kind: "owner_override" }),
     });
     const votes = [
       makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
@@ -484,7 +488,7 @@ describe("evaluateGateLiveness", () => {
 
   it("owner_override: no owner vote, not all acked → blocking", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "owner_override" }),
+      policy: makePolicy({ kind: "owner_override" }),
     });
     const d = evaluateGateLiveness(gate, [], T);
     expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
@@ -492,8 +496,8 @@ describe("evaluateGateLiveness", () => {
 
   it("owner_override: all acked → auto-resolve even without owner vote", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "owner_override" }),
-      ackedAgentIds: "a2,a3",
+      policy: makePolicy({ kind: "owner_override" }),
+      ackedAgentIds: ["a2", "a3"],
     });
     const d = evaluateGateLiveness(gate, [], T);
     expect(d.action).toBe(LivenessAction.AUTO_RESOLVE);
@@ -503,7 +507,7 @@ describe("evaluateGateLiveness", () => {
 
   it("owner_override: owner reject then approve → latest vote (approve) wins", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "owner_override" }),
+      policy: makePolicy({ kind: "owner_override" }),
     });
     // Simulate two votes from owner: reject first, then approve
     const votes = [
@@ -517,7 +521,7 @@ describe("evaluateGateLiveness", () => {
 
   it("owner_override: owner approve then reject → latest vote (reject) blocks", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "owner_override" }),
+      policy: makePolicy({ kind: "owner_override" }),
     });
     const votes = [
       makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
@@ -532,7 +536,7 @@ describe("evaluateGateLiveness", () => {
   it("majority_veto: voter changes approve → reject flips majority result", () => {
     // 3 required agents. majority = floor(3/2)+1 = 2
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
+      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
     });
     // a2 initially approved, then changed to reject; a3 rejects
     // Deduped: a2=reject, a3=reject → 2 rejects (majority)
@@ -547,7 +551,7 @@ describe("evaluateGateLiveness", () => {
 
   it("majority_veto: voter changes reject → approve flips to resolve", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto" }),
+      policy: makePolicy({ kind: "majority_veto" }),
     });
     // a2 initially rejected, then changed to approve; a3 approves
     // Deduped: a2=approve, a3=approve → 2 approves (majority)
@@ -564,7 +568,7 @@ describe("evaluateGateLiveness", () => {
 
   it("human_required: always require human override", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "human_required", escalationAgentIds: ["human"] }),
+      policy: makePolicy({ kind: "human_required", escalationAgentIds: ["human"] }),
     });
     const d = evaluateGateLiveness(gate, [], T);
     expect(d.action).toBe(LivenessAction.REQUIRE_HUMAN_OVERRIDE);
@@ -575,12 +579,12 @@ describe("evaluateGateLiveness", () => {
 
   it("deadline overrides quorum even if quorum met", () => {
     const gate = makeGate({
-      policyJson: policyJson({
+      policy: makePolicy({
         kind: "quorum_ack",
         quorum: 1,
         deadlineAt: "2024-06-01T11:00:00Z",
       }),
-      ackedAgentIds: "a2",
+      ackedAgentIds: ["a2"],
     });
     const d = evaluateGateLiveness(gate, [], T);
     expect(d.action).toBe(LivenessAction.ESCALATE);
@@ -591,7 +595,7 @@ describe("evaluateGateLiveness", () => {
 
 describe("computeGateDetails", () => {
   it("returns pending, acked, required agent lists correctly", () => {
-    const gate = makeGate({ ackedAgentIds: "a2" });
+    const gate = makeGate({ ackedAgentIds: ["a2"] });
     const details = computeGateDetails(gate, []);
     expect(details.requiredAgentIds).toEqual(["a2", "a3"]);
     expect(details.ackedAgentIds).toEqual(["a2"]);
@@ -601,7 +605,7 @@ describe("computeGateDetails", () => {
 
   it("returns vote counts with dedup", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto" }),
+      policy: makePolicy({ kind: "majority_veto" }),
     });
     const votes = [
       makeVote({ agentId: "a2", vote: GateVoteKind.APPROVE }),
@@ -622,7 +626,7 @@ describe("computeGateDetails", () => {
 
   it("marks requiresHuman for human_required policy", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "human_required", escalationAgentIds: ["human"] }),
+      policy: makePolicy({ kind: "human_required", escalationAgentIds: ["human"] }),
     });
     const details = computeGateDetails(gate, []);
     expect(details.requiresHuman).toBe(true);
@@ -630,7 +634,7 @@ describe("computeGateDetails", () => {
 
   it("does not mark requiresHuman for normal quorum gate", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "quorum_ack", quorum: 1 }),
+      policy: makePolicy({ kind: "quorum_ack", quorum: 1 }),
     });
     const details = computeGateDetails(gate, []);
     expect(details.requiresHuman).toBe(false);
@@ -638,7 +642,7 @@ describe("computeGateDetails", () => {
 
   it("eligible voters include required + owner + escalation (deduped)", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto", escalationAgentIds: ["esc1"] }),
+      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["esc1"] }),
     });
     const details = computeGateDetails(gate, []);
     // required: a2, a3; owner: a1; escalation: esc1
@@ -650,7 +654,7 @@ describe("computeGateDetails", () => {
 
   it("includes deadlineAt from policy", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "quorum_ack", quorum: 1, deadlineAt: "2025-01-01T00:00:00Z" }),
+      policy: makePolicy({ kind: "quorum_ack", quorum: 1, deadlineAt: "2025-01-01T00:00:00Z" }),
     });
     const details = computeGateDetails(gate, []);
     expect(details.deadlineAt).toBe("2025-01-01T00:00:00Z");
@@ -668,7 +672,7 @@ describe("computeAvailableActions", () => {
   });
 
   it("acked required agent gets change_vote instead of ack", () => {
-    const gate = makeGate({ ackedAgentIds: "a2" });
+    const gate = makeGate({ ackedAgentIds: ["a2"] });
     const votes = [makeVote({ agentId: "a2", vote: GateVoteKind.APPROVE })];
     const actions = computeAvailableActions(gate, "a2", votes);
     expect(actions).not.toContain("ack");
@@ -677,7 +681,7 @@ describe("computeAvailableActions", () => {
 
   it("owner with owner_override policy gets owner_override action", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "owner_override" }),
+      policy: makePolicy({ kind: "owner_override" }),
     });
     const actions = computeAvailableActions(gate, "a1", []);
     expect(actions).toContain("owner_override");
@@ -687,7 +691,7 @@ describe("computeAvailableActions", () => {
 
   it("escalation agent gets resolve, cancel, request_more_info", () => {
     const gate = makeGate({
-      policyJson: policyJson({ kind: "majority_veto", escalationAgentIds: ["esc1"] }),
+      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["esc1"] }),
     });
     const actions = computeAvailableActions(gate, "esc1", []);
     expect(actions).toContain("resolve");

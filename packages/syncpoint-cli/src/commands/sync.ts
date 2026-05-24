@@ -77,15 +77,15 @@ export function registerSyncCommands(program: Command): void {
         requiredAgentIds: csv(opts.required).length > 0 ? csv(opts.required) : [opts.agent],
         reason: opts.reason,
         description: opts.description,
-        relatedFiles: opts.resources,
+        relatedFiles: csv(opts.resources),
         relatedCheckpointId: opts.checkpoint,
-        relatedClaimIds: opts.claims,
+        relatedClaimIds: csv(opts.claims),
       });
 
       if (opts.json) print(result, true);
       else {
         console.log(`SyncGate requested: ${result.gate.id} [${result.gate.status}]`);
-        console.log(`  Required: ${result.gate.requiredAgentIds}`);
+        console.log(`  Required: ${result.gate.requiredAgentIds.join(", ")}`);
         console.log(`  Pending: ${result.pending.join(", ") || "none"}`);
       }
     });

@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
 import * as repo from "../../src/repositories.js";
+import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import { constraintCheck } from "../application/constraint-evaluation-service.js";
 import { loopResume } from "../application/loop-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment } from "../application/orchestration-service.js";
@@ -41,6 +42,7 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-p4d-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
+  ensureApplicationBootstrap();
   getDb();
   wakeEngineStart();
 
@@ -72,18 +74,18 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
   });
   repo.createContextSnapshot({
     taskId,
     agentId: agent2Id,
     checkpointId: cp.id,
     summary: "test p4d",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "test p4d",
       currentPhase: "development",
       workingResources: ["src/core/index.ts", "src/core/utils.ts"],
-    }),
+    },
   });
 
   // Seed: do_not_touch memory protecting src/core
@@ -113,18 +115,18 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
   });
   repo.createContextSnapshot({
     taskId: safeTask.id,
     agentId: safeAgentId,
     checkpointId: safeCp.id,
     summary: "frontend work",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "frontend work",
       currentPhase: "development",
       workingResources: ["src/ui/app.tsx"],
-    }),
+    },
   });
 });
 
@@ -363,18 +365,18 @@ describe("P4D: snapshot constraint visibility", () => {
       nextSteps: "",
       needSync: false,
       currentUnderstanding: "",
-      changedFiles: "",
+      changedFiles: [],
     });
     repo.createContextSnapshot({
       taskId: snapTask.id,
       agentId: agent2Id,
       checkpointId: snapCp.id,
       summary: "test snap",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "test snap",
         currentPhase: "development",
         workingResources: ["src/core/router.ts"],
-      }),
+      },
     });
   });
 

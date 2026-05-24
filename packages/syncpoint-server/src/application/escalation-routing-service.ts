@@ -101,7 +101,7 @@ export function routeGateEscalation(gateId: string): EscalationCandidate[] {
     gateId: gate.id,
     taskId: gate.taskId,
     reason: gate.decisionSummary || gate.reason,
-    requiredAgentIds: (gate.requiredAgentIds || "").split(",").filter(Boolean),
+    requiredAgentIds: gate.requiredAgentIds ?? [],
     escalationAgentIds: policy.escalationAgentIds ?? [],
     requiresHuman,
   };

@@ -24,7 +24,6 @@ import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResu
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import { buildProjection } from "./reality-projection-service.js";
-import "./_plugin-init.js";
 
 // ── Types ──────────────────────────────────────────────
 

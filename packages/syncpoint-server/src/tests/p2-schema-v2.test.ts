@@ -1,6 +1,6 @@
 /**
  * P2 Schema V2 Tests — kind, projectionTarget, severity, validity, appliesTo,
- * projection guard, export metadata, backward compat.
+ * projection guard, export metadata, and normalized defaults.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { startE2E, type E2EContext } from "./e2e-helper.ts";
@@ -28,8 +28,7 @@ describe("P2: V2 fields on create", () => {
     expect(m.projectionTarget).toBe("protocol_gate");
     expect(m.severity).toBe("blocking");
     expect(m.validityStatus).toBe("fresh");
-    const at = JSON.parse(m.appliesTo);
-    expect(at.files).toEqual(["src/**/*.ts"]);
+    expect(m.appliesTo).toEqual({ files: ["src/**/*.ts"] });
   });
 
   it("defaults kind from category when not provided", async () => {
@@ -245,25 +244,25 @@ describe("P2: Export preserves V2 metadata", () => {
   });
 });
 
-describe("P2: Backward compatibility", () => {
-  it("old-style create without V2 fields still works", async () => {
+describe("P2: Normalized defaults when optional typed fields are omitted", () => {
+  it("create without optional typed fields still gets normalized defaults", async () => {
     const m = (await ctx.rpc("projectMemory.create", {
       category: "glossary",
-      title: "Backward Compat Test",
-      content: "Legacy style create.",
+      title: "Normalized Default Test",
+      content: "Create without optional typed fields.",
       createdBy: "test-user",
     })) as any;
     expect(m.kind).toBe("fact");
     expect(m.severity).toBe("info");
     expect(m.validityStatus).toBe("fresh");
     expect(m.projectionTarget).toBeNull();
-    expect(m.appliesTo).toBe("");
+    expect(m.appliesTo).toEqual({});
   });
 
-  it("get returns V2 fields on legacy memories", async () => {
+  it("get returns normalized typed fields on stored memories", async () => {
     const m = (await ctx.rpc("projectMemory.create", {
       category: "architecture",
-      title: "Legacy Get Test",
+      title: "Normalized Get Test",
       content: "Architecture note.",
       createdBy: "test-user",
     })) as any;
@@ -305,11 +304,12 @@ describe("P4: Blocking hard_constraint requires validatorType", () => {
       severity: "blocking",
       projectionTarget: "protocol_gate",
       validatorType: "file_forbidden",
-      validatorConfig: JSON.stringify({ pattern: "src/legacy/**" }),
+      validatorConfig: { pattern: "src/legacy/**" },
     })) as any;
     expect(m.kind).toBe("hard_constraint");
     expect(m.severity).toBe("blocking");
     expect(m.validatorType).toBe("file_forbidden");
+    expect(m.validatorConfig).toEqual({ pattern: "src/legacy/**" });
   });
 
   it("allows non-blocking hard_constraint without validatorType (advisory)", async () => {

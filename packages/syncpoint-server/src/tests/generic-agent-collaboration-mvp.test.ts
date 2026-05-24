@@ -19,6 +19,7 @@ import { __setDb } from "../repositories/_shared.js";
 import { runMigrations } from "../db.js";
 import type { SyncPointDb } from "../db.js";
 import * as repo from "../repositories.js";
+import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import {
   ProjectMemoryScope,
   ProjectMemoryCategory,
@@ -56,6 +57,7 @@ beforeAll(() => {
   runMigrations(sqlite);
   db = drizzle(sqlite, { schema }) as unknown as SyncPointDb;
   __setDb(db);
+  ensureApplicationBootstrap();
 
   // Seed agents + task
   agentA = repo.createAgent({ name: "agent-a-designer", provider: "other", role: "frontend" }).id;
@@ -121,7 +123,7 @@ describe("Case B: Constraint Runtime blocks on resource_forbidden", () => {
       category: ProjectMemoryCategory.DECISION,
       title: "Brand logo is frozen for Q2",
       content: "Do not modify the brand logo until Q3 review.",
-      tags: "brand,frozen",
+      tags: ["brand", "frozen"],
       sourceType: ProjectMemorySourceType.AGENT,
       sourceRef: "brand-policy",
       confidence: ProjectMemoryConfidence.HIGH,
@@ -132,11 +134,10 @@ describe("Case B: Constraint Runtime blocks on resource_forbidden", () => {
       projectionTarget: ProjectionTarget.CONSTRAINT_RUNTIME,
       severity: MemorySeverity.BLOCKING,
       validatorType: "resource_forbidden",
-      validatorConfig: JSON.stringify({ message: "Brand logo is frozen for Q2" }),
+      validatorConfig: { message: "Brand logo is frozen for Q2" },
     });
-    // Set appliesTo with resources scope field (raw JSON string via update)
     pmUpdate(memory.id, {
-      appliesTo: JSON.stringify({ resources: ["binary://brand-logo.png"] }),
+      appliesTo: { resources: ["binary://brand-logo.png"] },
       updatedBy: agentA,
     });
     pmApprove(memory.id, agentA);

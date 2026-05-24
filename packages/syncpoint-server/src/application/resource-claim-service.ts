@@ -109,12 +109,10 @@ export function rcClaim(input: ClaimResourcesInput): ClaimResourcesResult {
       overlappingLocators.push(c.overlappingLocator);
     }
     const requiredAgentIds = [input.actorId, ...otherActors];
-    const resourcesJson = JSON.stringify(
-      hardConflicts.flatMap(c => [
-        ...c.claimA.resources,
-        ...c.claimB.resources,
-      ]),
-    );
+    const relatedResources = hardConflicts.flatMap(c => [
+      ...c.claimA.resources,
+      ...c.claimB.resources,
+    ]);
     const gateResult = sgRequest({
       sessionId: input.sessionId,
       taskId: input.taskId,
@@ -122,9 +120,9 @@ export function rcClaim(input: ClaimResourcesInput): ClaimResourcesResult {
       requiredAgentIds,
       reason: SyncGateReason.RESOURCE_CONFLICT,
       description: `Resource conflict: ${overlappingLocators.join("; ")}`,
-      relatedFiles: overlappingLocators.join(","),
-      relatedResourcesJson: resourcesJson,
-      relatedClaimIds: [...relatedClaimIds].join(","),
+      relatedFiles: overlappingLocators,
+      relatedResources,
+      relatedClaimIds: [...relatedClaimIds],
     });
     gateId = gateResult.gate.id;
   }

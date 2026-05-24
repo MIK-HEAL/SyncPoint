@@ -21,7 +21,6 @@ import {
   getMemoryVersion,
 } from "../repositories.js";
 import "./_scope-matchers.js";
-import "./_plugin-init.js";
 
 // ── Projection Cache ──────────────────────────────────────
 

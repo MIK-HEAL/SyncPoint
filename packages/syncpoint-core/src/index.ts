@@ -35,6 +35,7 @@ export {
   PeerContractCreateSchema,
   ContextSnapshotSchema,
   ContextSnapshotCreateSchema,
+  ContextSnapshotPayloadSchema,
   EventSchema,
   StatusResponseSchema,
 } from "./models.js";
@@ -94,6 +95,7 @@ export {
   ValidityStatus,
   AppliesToSchema,
   ValiditySchema,
+  ProjectMemoryValidatorConfigSchema,
   defaultKindFromCategory,
   validProjectionTargets,
   isValidProjection,
@@ -105,6 +107,7 @@ export type {
   MemoryDedupResult,
   AppliesTo,
   Validity,
+  ProjectMemoryValidatorConfig,
 } from "./project-memory.js";
 
 // Reality Projection

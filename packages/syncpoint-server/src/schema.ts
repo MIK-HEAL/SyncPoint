@@ -2,7 +2,7 @@
  * Drizzle ORM schema for SyncPoint SQLite.
  */
 
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 // ── Runtime ────────────────────────────────────────────
 
@@ -147,30 +147,74 @@ export const projectMemories = sqliteTable("project_memory", {
   category: text("category").notNull(),
   title: text("title").notNull(),
   content: text("content").notNull(),
-  tags: text("tags").notNull().default(""),
   sourceType: text("source_type").notNull().default("human"),
   sourceRef: text("source_ref").notNull().default(""),
   status: text("status").notNull().default("draft"),
   confidence: text("confidence").notNull().default("medium"),
   taskId: text("task_id"),
-  fingerprint: text("fingerprint").notNull().default(""),
-  supersedes: text("supersedes"),
-  supersededBy: text("superseded_by"),
-  // V2 fields
   kind: text("kind").notNull().default("fact"),
-  projectionTarget: text("projection_target"),
-  appliesTo: text("applies_to").notNull().default(""),
-  severity: text("severity").notNull().default("info"),
-  validityStatus: text("validity_status").notNull().default("fresh"),
-  validityStaleReason: text("validity_stale_reason").notNull().default(""),
-  // PR4 typed constraint validator
-  validatorType: text("validator_type").notNull().default(""),
-  validatorConfig: text("validator_config").notNull().default(""),
   createdBy: text("created_by").notNull().default(""),
   updatedBy: text("updated_by").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+}, (table) => ({
+  statusIndex: index("idx_project_memory_status").on(table.status),
+  categoryIndex: index("idx_project_memory_category").on(table.category),
+  scopeIndex: index("idx_project_memory_scope").on(table.scope),
+  taskIndex: index("idx_project_memory_task").on(table.taskId),
+}));
+
+export const projectMemoryTags = sqliteTable("project_memory_tag", {
+  id: text("id").primaryKey(),
+  memoryId: text("memory_id").notNull().references(() => projectMemories.id),
+  tag: text("tag").notNull(),
+}, (table) => ({
+  memoryTagUnique: uniqueIndex("uq_project_memory_tag").on(table.memoryId, table.tag),
+}));
+
+export const projectMemoryVersions = sqliteTable("project_memory_version", {
+  memoryId: text("memory_id").primaryKey().references(() => projectMemories.id),
+  fingerprint: text("fingerprint").notNull().default(""),
+  supersedesMemoryId: text("supersedes_memory_id"),
+  supersededByMemoryId: text("superseded_by_memory_id"),
+}, (table) => ({
+  fingerprintIndex: index("idx_project_memory_version_fingerprint").on(table.fingerprint),
+}));
+
+export const projectMemoryProjections = sqliteTable("project_memory_projection", {
+  memoryId: text("memory_id").primaryKey().references(() => projectMemories.id),
+  projectionTarget: text("projection_target"),
 });
+
+export const projectMemoryScopes = sqliteTable("project_memory_scope", {
+  id: text("id").primaryKey(),
+  memoryId: text("memory_id").notNull().references(() => projectMemories.id),
+  field: text("field").notNull(),
+  pattern: text("pattern").notNull(),
+}, (table) => ({
+  memoryScopeUnique: uniqueIndex("uq_project_memory_scope").on(table.memoryId, table.field, table.pattern),
+  fieldIndex: index("idx_project_memory_scope_field").on(table.field),
+}));
+
+export const projectMemoryValidations = sqliteTable("project_memory_validation", {
+  memoryId: text("memory_id").primaryKey().references(() => projectMemories.id),
+  severity: text("severity").notNull().default("info"),
+  validityStatus: text("validity_status").notNull().default("fresh"),
+  staleReason: text("stale_reason").notNull().default(""),
+  validatorType: text("validator_type").notNull().default(""),
+  validatorMessage: text("validator_message").notNull().default(""),
+  validatorPayload: text("validator_payload").notNull().default(""),
+}, (table) => ({
+  validatorTypeIndex: index("idx_project_memory_validation_type").on(table.validatorType),
+}));
+
+export const projectMemoryValidationActions = sqliteTable("project_memory_validation_action", {
+  id: text("id").primaryKey(),
+  memoryId: text("memory_id").notNull().references(() => projectMemories.id),
+  action: text("action").notNull(),
+}, (table) => ({
+  memoryActionUnique: uniqueIndex("uq_project_memory_validation_action").on(table.memoryId, table.action),
+}));
 
 // ── OrchestrationSession ──────────────────────────────
 
@@ -574,11 +618,11 @@ export const pinnedMemories = sqliteTable("pinned_memory", {
 export const PROJECT_MEMORY_FTS_SQL = `
   CREATE VIRTUAL TABLE IF NOT EXISTS project_memory_fts
   USING fts5(
+    memory_id UNINDEXED,
     title,
     content,
-    tags,
     category,
-    content_rowid='rowid',
+    tags,
     tokenize='porter unicode61'
   );
 `;

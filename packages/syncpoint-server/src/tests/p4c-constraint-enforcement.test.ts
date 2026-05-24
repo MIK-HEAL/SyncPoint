@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
 import * as repo from "../../src/repositories.js";
+import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import { loopResume, LoopError } from "../application/loop-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "../application/orchestration-service.js";
 import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
@@ -27,6 +28,7 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-p4c-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
+  ensureApplicationBootstrap();
   getDb();
   wakeEngineStart();
 
@@ -56,18 +58,18 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
   });
   repo.createContextSnapshot({
     taskId,
     agentId: agent2Id,
     checkpointId: cp.id,
     summary: "test",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "test",
       currentPhase: "development",
       workingResources: ["src/core/index.ts", "src/core/utils.ts"],
-    }),
+    },
   });
 
   // Seed: do_not_touch memory protecting src/core (project-wide, no appliesTo filter)
@@ -199,18 +201,18 @@ describe("P4C: wakeStart constraint enforcement", () => {
       nextSteps: "",
       needSync: false,
       currentUnderstanding: "",
-      changedFiles: "",
+      changedFiles: [],
     });
     repo.createContextSnapshot({
       taskId: wakeTaskId,
       agentId: agent2Id,
       checkpointId: wCp.id,
       summary: "test",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "test",
         currentPhase: "development",
         workingResources: ["src/core/index.ts"],
-      }),
+      },
     });
 
     // Create a wake request for the constrained task
@@ -258,18 +260,18 @@ describe("P4C: wakeNext constraint enforcement", () => {
       nextSteps: "",
       needSync: false,
       currentUnderstanding: "",
-      changedFiles: "",
+      changedFiles: [],
     });
     repo.createContextSnapshot({
       taskId: wakeNextTaskId,
       agentId: agent1Id,
       checkpointId: wnCp.id,
       summary: "test",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "test",
         currentPhase: "development",
         workingResources: ["src/core/main.ts"],
-      }),
+      },
     });
 
     // Create a QUEUED wake request for agent1 on this constrained task

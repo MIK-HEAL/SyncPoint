@@ -83,24 +83,26 @@ export enum ValidityStatus {
 
 // ── V2 Sub-schemas ──────────────────────────────────
 
-export const AppliesToSchema = z.object({
-  files: z.array(z.string()).optional(),
-  modules: z.array(z.string()).optional(),
-  taskTypes: z.array(z.string()).optional(),
-}).optional();
+export const AppliesToSchema = z.record(z.string(), z.array(z.string()));
 
 export type AppliesTo = z.infer<typeof AppliesToSchema>;
 
 export const ValiditySchema = z.object({
   status: z.nativeEnum(ValidityStatus).default(ValidityStatus.FRESH),
   staleReason: z.string().optional(),
-}).optional();
+});
 
 export type Validity = z.infer<typeof ValiditySchema>;
 
+export const ProjectMemoryValidatorConfigSchema = z.object({
+  message: z.string().optional(),
+  actions: z.array(z.string()).optional(),
+}).catchall(z.unknown());
+
+export type ProjectMemoryValidatorConfig = z.infer<typeof ProjectMemoryValidatorConfigSchema>;
+
 /**
- * Default kind inference from legacy category.
- * Used for backward compat when kind is not explicitly set.
+ * Default kind inference from category when kind is not explicitly set.
  */
 export function defaultKindFromCategory(category: string): MemoryKind {
   switch (category) {
@@ -174,7 +176,7 @@ export const ProjectMemorySchema = z.object({
   category: z.nativeEnum(ProjectMemoryCategory),
   title: z.string().min(1),
   content: z.string().min(1),
-  tags: z.string().default(""),
+  tags: z.array(z.string()).default([]),
   sourceType: z.nativeEnum(ProjectMemorySourceType).default(ProjectMemorySourceType.HUMAN),
   sourceRef: z.string().default(""),
   status: z.nativeEnum(ProjectMemoryStatus).default(ProjectMemoryStatus.DRAFT),
@@ -186,13 +188,13 @@ export const ProjectMemorySchema = z.object({
   // V2 fields
   kind: z.nativeEnum(MemoryKind).default(MemoryKind.FACT),
   projectionTarget: z.nativeEnum(ProjectionTarget).nullable().default(null),
-  appliesTo: z.string().default(""),       // JSON-serialized AppliesTo
+  appliesTo: AppliesToSchema.default({}),
   severity: z.nativeEnum(MemorySeverity).default(MemorySeverity.INFO),
   validityStatus: z.nativeEnum(ValidityStatus).default(ValidityStatus.FRESH),
   validityStaleReason: z.string().default(""),
   // PR4 typed constraint validator
   validatorType: z.string().default(""),
-  validatorConfig: z.string().default(""),
+  validatorConfig: ProjectMemoryValidatorConfigSchema.nullable().default(null),
   createdBy: z.string().default(""),
   updatedBy: z.string().default(""),
   createdAt: z.string(),
@@ -206,7 +208,7 @@ export const ProjectMemoryCreateSchema = z.object({
   category: z.nativeEnum(ProjectMemoryCategory),
   title: z.string().min(1),
   content: z.string().min(1),
-  tags: z.string().default(""),
+  tags: z.array(z.string()).default([]),
   sourceType: z.nativeEnum(ProjectMemorySourceType).default(ProjectMemorySourceType.HUMAN),
   sourceRef: z.string().default(""),
   confidence: z.nativeEnum(ProjectMemoryConfidence).default(ProjectMemoryConfidence.MEDIUM),
@@ -215,12 +217,12 @@ export const ProjectMemoryCreateSchema = z.object({
   // V2 optional fields
   kind: z.nativeEnum(MemoryKind).optional(),
   projectionTarget: z.nativeEnum(ProjectionTarget).nullable().optional(),
-  appliesTo: AppliesToSchema,
+  appliesTo: AppliesToSchema.optional(),
   severity: z.nativeEnum(MemorySeverity).optional(),
-  validity: ValiditySchema,
+  validity: ValiditySchema.optional(),
   // PR4 typed constraint validator
   validatorType: z.string().optional(),
-  validatorConfig: z.string().optional(),
+  validatorConfig: ProjectMemoryValidatorConfigSchema.nullable().optional(),
 });
 
 export type ProjectMemoryCreate = z.infer<typeof ProjectMemoryCreateSchema>;

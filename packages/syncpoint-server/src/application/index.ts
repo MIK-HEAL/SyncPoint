@@ -64,6 +64,17 @@ export type {
 } from "./loop-service.js";
 
 export {
+  ensureApplicationBootstrap,
+  getApplicationBootstrapStatus,
+  resetApplicationBootstrapForTest,
+} from "./bootstrap.js";
+
+export type {
+  ApplicationBootstrapPluginStatus,
+  ApplicationBootstrapStatus,
+} from "./bootstrap.js";
+
+export {
   prepareContext,
   enforcePreparedContext,
   getContextPolicyInfo,

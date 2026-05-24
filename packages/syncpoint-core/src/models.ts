@@ -74,7 +74,7 @@ export const CheckpointSchema = z.object({
   summary: z.string().min(1),
   progress: z.string().default(""),
   currentUnderstanding: z.string().default(""),
-  changedFiles: jsonField,
+  changedFiles: z.array(z.string()).default([]),
   risks: z.string().default(""),
   blockers: z.string().default(""),
   nextSteps: z.string().default(""),
@@ -90,7 +90,7 @@ export const CheckpointCreateSchema = z.object({
   summary: z.string().min(1),
   progress: z.string().default(""),
   currentUnderstanding: z.string().default(""),
-  changedFiles: jsonField,
+  changedFiles: z.array(z.string()).default([]),
   risks: z.string().default(""),
   blockers: z.string().default(""),
   nextSteps: z.string().default(""),
@@ -151,12 +151,12 @@ export const PeerContractSchema = z.object({
   id: nanoid12,
   taskId: nanoid12,
   title: z.string().default(""),
-  participants: jsonField,       // JSON array of agent ids
+  participants: z.array(z.string()).default([]),       // JSON array of agent ids
   scope: z.string().default(""),
-  responsibilities: jsonField,  // JSON {agentId: string}
-  interfaceSpec: jsonField,     // JSON: API endpoints, schemas
-  fileBoundaries: jsonField,    // JSON {agentId: [patterns]}
-  dependencies: jsonField,      // JSON
+  responsibilities: z.array(z.string()).default([]),  // JSON {agentId: string}
+  interfaceSpec: z.array(z.string()).default([]),     // JSON: API endpoints, schemas
+  fileBoundaries: z.array(z.string()).default([]),    // JSON {agentId: [patterns]}
+  dependencies: z.array(z.string()).default([]),      // JSON
   testPlan: z.string().default(""),
   risks: z.string().default(""),
   status: z.nativeEnum(ContractStatus).default(ContractStatus.DRAFT),
@@ -169,17 +169,43 @@ export type PeerContract = z.infer<typeof PeerContractSchema>;
 export const PeerContractCreateSchema = z.object({
   taskId: nanoid12,
   title: z.string().default(""),
-  participants: jsonField,
+  participants: z.array(z.string()).default([]),
   scope: z.string().default(""),
-  responsibilities: jsonField,
-  interfaceSpec: jsonField,
-  fileBoundaries: jsonField,
-  dependencies: jsonField,
+  responsibilities: z.array(z.string()).default([]),
+  interfaceSpec: z.array(z.string()).default([]),
+  fileBoundaries: z.array(z.string()).default([]),
+  dependencies: z.array(z.string()).default([]),
   testPlan: z.string().default(""),
   risks: z.string().default(""),
 });
 
 export type PeerContractCreate = z.infer<typeof PeerContractCreateSchema>;
+
+// ── ContextSnapshotPayload ──────────────────────────
+
+export const ContextSnapshotPayloadSchema = z.object({
+  goal: z.string().optional(),
+  currentPhase: z.string().optional(),
+  confirmedDecisions: z.array(z.string()).optional(),
+  interfaceContract: z.unknown().optional(),
+  completedWork: z.string().optional(),
+  remainingWork: z.string().optional(),
+  risks: z.array(z.string()).optional(),
+  blockers: z.array(z.string()).optional(),
+  nextSteps: z.array(z.string()).optional(),
+  resumePrompt: z.string().optional(),
+  intentScope: z.string().optional(),
+  nonGoals: z.array(z.string()).optional(),
+  verifiedFacts: z.array(z.string()).optional(),
+  unverifiedClaims: z.array(z.string()).optional(),
+  evidenceRefs: z.array(z.string()).optional(),
+  activeConstraints: z.array(z.string()).optional(),
+  doNotTouch: z.array(z.string()).optional(),
+  handoffInstructions: z.string().optional(),
+  workingResources: z.array(z.string()).optional(),
+});
+
+export type ContextSnapshotPayload = z.infer<typeof ContextSnapshotPayloadSchema>;
 
 // ── ContextSnapshot ────────────────────────────────
 
@@ -190,7 +216,7 @@ export const ContextSnapshotSchema = z.object({
   checkpointId: nanoid12.optional(),
   kind: z.enum(["resume", "handoff", "review", "system"]).default("resume"),
   summary: z.string().default(""),
-  payloadJson: z.string().default("{}"),
+  payload: ContextSnapshotPayloadSchema,
   validationStatus: z.string().default(""),
   staleReason: z.string().default(""),
   createdAt: isoDate,
@@ -204,33 +230,10 @@ export const ContextSnapshotCreateSchema = z.object({
   checkpointId: nanoid12.optional(),
   kind: z.enum(["resume", "handoff", "review", "system"]).default("resume"),
   summary: z.string().default(""),
-  payloadJson: z.string().default("{}"),
+  payload: ContextSnapshotPayloadSchema,
 });
 
 export type ContextSnapshotCreate = z.input<typeof ContextSnapshotCreateSchema>;
-
-/** Typed payload stored in context_snapshot.payload_json */
-export interface ContextSnapshotPayload {
-  goal?: string;
-  currentPhase?: string;
-  confirmedDecisions?: string[];
-  interfaceContract?: unknown;
-  completedWork?: string;
-  remainingWork?: string;
-  risks?: string[];
-  blockers?: string[];
-  nextSteps?: string[];
-  resumePrompt?: string;
-  intentScope?: string;
-  nonGoals?: string[];
-  verifiedFacts?: string[];
-  unverifiedClaims?: string[];
-  evidenceRefs?: string[];
-  activeConstraints?: string[];
-  doNotTouch?: string[];
-  handoffInstructions?: string;
-  workingResources?: string[];
-}
 
 // ── Event ──────────────────────────────────────────────
 

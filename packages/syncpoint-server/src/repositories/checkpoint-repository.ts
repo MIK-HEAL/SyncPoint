@@ -10,6 +10,27 @@ import { _getDb, now, createId, logEvent } from "./_shared.js";
 import { getTask } from "./task-repository.js";
 import { getAgent } from "./agent-repository.js";
 
+function serializeChangedFiles(changedFiles: string[]): string {
+  return JSON.stringify(changedFiles);
+}
+
+function parseChangedFiles(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function hydrateCheckpoint(row: typeof s.checkpoints.$inferSelect): Checkpoint {
+  return {
+    ...row,
+    changedFiles: parseChangedFiles(row.changedFiles),
+  } as Checkpoint;
+}
+
 export function createCheckpoint(data: CheckpointCreate): Checkpoint {
   getTask(data.taskId);
   getAgent(data.agentId);
@@ -23,7 +44,7 @@ export function createCheckpoint(data: CheckpointCreate): Checkpoint {
     summary: data.summary,
     progress: data.progress,
     currentUnderstanding: data.currentUnderstanding,
-    changedFiles: data.changedFiles,
+    changedFiles: serializeChangedFiles(data.changedFiles),
     risks: data.risks,
     blockers: data.blockers,
     nextSteps: data.nextSteps,
@@ -31,12 +52,12 @@ export function createCheckpoint(data: CheckpointCreate): Checkpoint {
     createdAt: ts,
   }).run();
   logEvent(EventType.CHECKPOINT_CREATED, "checkpoint", id);
-  return db.select().from(s.checkpoints).where(eq(s.checkpoints.id, id)).get() as unknown as Checkpoint;
+  return hydrateCheckpoint(db.select().from(s.checkpoints).where(eq(s.checkpoints.id, id)).get()!);
 }
 
 export function listCheckpoints(taskId: string): Checkpoint[] {
   getTask(taskId);
-  return _getDb().select().from(s.checkpoints).where(eq(s.checkpoints.taskId, taskId)).all() as unknown as Checkpoint[];
+  return _getDb().select().from(s.checkpoints).where(eq(s.checkpoints.taskId, taskId)).all().map(hydrateCheckpoint);
 }
 
 export function getLatestCheckpointForAgent(taskId: string, agentId: string): Checkpoint | null {
@@ -44,8 +65,8 @@ export function getLatestCheckpointForAgent(taskId: string, agentId: string): Ch
     .where(and(eq(s.checkpoints.taskId, taskId), eq(s.checkpoints.agentId, agentId)))
     .orderBy(desc(s.checkpoints.createdAt))
     .limit(1)
-    .all() as unknown as Checkpoint[];
-  return rows[0] ?? null;
+    .all();
+  return rows[0] ? hydrateCheckpoint(rows[0]) : null;
 }
 
 export function createDiaryEntry(data: DiaryEntryCreate): DiaryEntry {

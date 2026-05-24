@@ -8,7 +8,6 @@ import {
 import type { FileAuditDecision, FileAuditGateContext, ResourceClaim, ResourceRef, SyncGate } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
-import "./_plugin-init.js";
 import { rcList } from "./resource-claim-service.js";
 import { sgCheckAgent, sgListActive, sgRequest } from "./sync-gate-service.js";
 
@@ -130,9 +129,9 @@ function maybeCreateOrUpdateGate(
     requiredAgentIds: [...new Set([input.actorId, ...conflictingActors])],
     reason: SyncGateReason.RESOURCE_CONFLICT,
     description: `File pollution detected: ${input.locator} changed by ${input.actorId}; claimed by ${conflictingActors.join(", ")}.`,
-    relatedFiles: input.locator,
-    relatedResourcesJson: JSON.stringify(relatedResources),
-    relatedClaimIds: relatedClaimIds.join(","),
+    relatedFiles: [input.locator],
+    relatedResources,
+    relatedClaimIds,
   });
 
   return { gateId: result.gate.id, reusedGate: false };
@@ -158,24 +157,6 @@ function toAuditGateContext(gate: SyncGate): FileAuditGateContext {
   return {
     id: gate.id,
     relatedFiles: gate.relatedFiles,
-    relatedResources: parseResourceRefs(gate.relatedResourcesJson),
+    relatedResources: gate.relatedResources,
   };
-}
-
-function parseResourceRefs(value: string): ResourceRef[] {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isResourceRef);
-  } catch {
-    return [];
-  }
-}
-
-function isResourceRef(value: unknown): value is ResourceRef {
-  return typeof value === "object" &&
-    value !== null &&
-    typeof (value as ResourceRef).type === "string" &&
-    typeof (value as ResourceRef).locator === "string";
 }

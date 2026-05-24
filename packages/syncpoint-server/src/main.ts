@@ -12,11 +12,13 @@ import { createContext } from "./routers/_trpc.js";
 import { getDb, closeDb, getDbPath } from "./db.js";
 import { SyncPointEventBus } from "./event-bus.js";
 import type { SyncPointEventData } from "./event-bus.js";
+import { ensureApplicationBootstrap } from "./application/bootstrap.js";
 import { wakeEngineStart, wakeEngineStop } from "./application/wake-engine-service.js";
 
 const DEFAULT_PORT = 8765;
 
 export function startServer(port = DEFAULT_PORT): http.Server {
+  ensureApplicationBootstrap();
   // Ensure DB is initialized
   getDb();
 

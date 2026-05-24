@@ -22,10 +22,9 @@ import {
   LoopError,
 } from "syncpoint-server/application";
 import * as repo from "syncpoint-server/repositories";
-import { formatStatusOutput, formatBlockedExplanation, formatResumeExplanation } from "./formatter.js";
+import { formatStatusOutput, formatResumeExplanation } from "./formatter.js";
 import type { Snapshot } from "./formatter.js";
 import { resolveAgent } from "./connect.js";
-import type { ContextSnapshotPayload } from "syncpoint-core";
 
 interface StatusOptions {
   session?: string;
@@ -198,8 +197,7 @@ export function registerFacadeCommands(program: Command): void {
         try {
           const snapshot = repo.getLatestContextSnapshot(opts.task, agentId);
           if (snapshot) {
-            let payload: ContextSnapshotPayload = {};
-            try { payload = JSON.parse(snapshot.payloadJson) as ContextSnapshotPayload; } catch {}
+            const payload = snapshot.payload ?? {};
             snapshotInfo = {
               goal: payload.goal,
               phase: payload.currentPhase,

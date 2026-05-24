@@ -81,7 +81,7 @@ describe("loop lifecycle — single agent", () => {
       agentId: agentA.id,
       checkpointId: cp.id,
       summary: "Build dashboard UI",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Build dashboard UI",
         currentPhase: "implementation",
         workingResources: ["src/Dashboard.tsx"],
@@ -89,7 +89,7 @@ describe("loop lifecycle — single agent", () => {
         remainingWork: "Navigation, widgets",
         nextSteps: ["Add navigation menu"],
         resumePrompt: "Continue building dashboard. Header is done. Add nav next.",
-      }),
+      },
     }, "POST") as any;
     expect(snapshot.id).toBeDefined();
 
@@ -115,7 +115,7 @@ describe("loop lifecycle — single agent", () => {
 
     expect(ctx.ready).toBe(true);
     expect(ctx.latestSnapshot).toBeDefined();
-    const snapshotPayload = JSON.parse(ctx.latestSnapshot.payloadJson);
+    const snapshotPayload = ctx.latestSnapshot.payload;
     expect(snapshotPayload.goal).toBe("Build dashboard UI");
     // P3B: ctx.resumePrompt is stripped at transport (contains baked-in raw PM)
     // Resume instructions live in latestSnapshot.resumePrompt
@@ -139,7 +139,7 @@ describe("loop lifecycle — single agent", () => {
     expect(agent.id).toBe(agentA.id);
     expect(checkpoints.length).toBeGreaterThan(0);
     expect(snapshot).toBeDefined();
-    expect(JSON.parse(snapshot.payloadJson).goal).toBe("Build dashboard UI");
+    expect(snapshot.payload.goal).toBe("Build dashboard UI");
   });
 });
 
@@ -158,14 +158,14 @@ describe("loop lifecycle — handoff between agents", () => {
       agentId: agentA.id,
       checkpointId: cp.id,
       summary: "Build dashboard UI",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Build dashboard UI",
         currentPhase: "handoff",
         completedWork: "Header + nav done",
         remainingWork: "API integration",
         nextSteps: ["Handoff to codex for backend work"],
         resumePrompt: "Need API endpoints for dashboard widgets",
-      }),
+      },
     }, "POST");
 
     // Create handoff
@@ -209,13 +209,13 @@ describe("loop lifecycle — handoff between agents", () => {
       agentId: agentB.id,
       checkpointId: cp.id,
       summary: "Build dashboard API",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Build dashboard API",
         currentPhase: "implementation",
         workingResources: ["src/api/widgets.ts"],
         nextSteps: ["Implement GET /widgets"],
         resumePrompt: "Implement GET /widgets endpoint returning dashboard data",
-      }),
+      },
     }, "POST") as any;
     expect(snapshot.id).toBeDefined();
 
@@ -225,7 +225,7 @@ describe("loop lifecycle — handoff between agents", () => {
       agentId: agentB.id,
     }, "GET") as any;
     expect(ctx.ready).toBe(true);
-    expect(JSON.parse(ctx.latestSnapshot.payloadJson).goal).toBe("Build dashboard API");
+    expect(ctx.latestSnapshot.payload.goal).toBe("Build dashboard API");
   });
 });
 

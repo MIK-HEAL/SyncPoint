@@ -109,10 +109,10 @@ describe("write permit service", () => {
       requiredAgentIds: [agentA, agentB],
       reason: SyncGateReason.RESOURCE_CONFLICT,
       description: "conflict acknowledged but not resolved",
-      relatedFiles: "auth.ts",
-      relatedResourcesJson: JSON.stringify([fileResource("auth.ts")]),
+      relatedFiles: ["auth.ts"],
+      relatedResources: [fileResource("auth.ts")],
       relatedCheckpointId: "",
-      relatedClaimIds: "",
+      relatedClaimIds: [],
     });
     repo.updateSyncGateStatus(gate.id, SyncGateStatus.SYNC_ACKED, "acked only");
 

@@ -151,7 +151,7 @@ function handleBypass(
     .find(g =>
       g.reason === SyncGateReason.BACKING_STORE_BYPASS &&
       (g.relatedFiles.includes(locator) ||
-        parseRelatedResources(g.relatedResourcesJson).some(r => r.locator === locator)),
+        g.relatedResources.some(r => r.locator === locator)),
     );
 
   if (existingGate) {
@@ -173,9 +173,9 @@ function handleBypass(
     requiredAgentIds,
     reason: SyncGateReason.BACKING_STORE_BYPASS,
     description: `Backing store bypass detected: ${locator} was modified outside SyncPoint. Claimed by: ${affectedActorIds.join(", ") || "unknown"}.`,
-    relatedFiles: locator,
-    relatedResourcesJson: JSON.stringify([resource]),
-    relatedClaimIds: relatedClaimIds.join(","),
+    relatedFiles: [locator],
+    relatedResources: [resource],
+    relatedClaimIds,
   });
 
   return { locator, bypassed: true, gateId: result.gate.id, reusedGate: false };
@@ -202,14 +202,4 @@ function normalizeKey(root: string, locator: string): string {
 
 function hashFile(filePath: string): string {
   return createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
-}
-
-function parseRelatedResources(json: string): ResourceRef[] {
-  if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
 }

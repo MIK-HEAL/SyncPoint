@@ -25,23 +25,23 @@ describe("Context snapshot isolation", () => {
       agentId: a1.id,
       checkpointId: cp1.id,
       summary: "a1 goal",
-      payloadJson: JSON.stringify({ goal: "a1 goal" }),
+      payload: { goal: "a1 goal" },
     });
     await ctx.rpc("contextSnapshot.create", {
       taskId: t.id,
       agentId: a2.id,
       checkpointId: cp2.id,
       summary: "a2 goal",
-      payloadJson: JSON.stringify({ goal: "a2 goal" }),
+      payload: { goal: "a2 goal" },
     });
 
     // getLatest should return the correct snapshot for each agent
     const latest1 = (await ctx.rpc("contextSnapshot.getLatest", { taskId: t.id, agentId: a1.id }, "GET")) as any;
-    expect(JSON.parse(latest1.payloadJson).goal).toBe("a1 goal");
+    expect(latest1.payload.goal).toBe("a1 goal");
     expect(latest1.agentId).toBe(a1.id);
 
     const latest2 = (await ctx.rpc("contextSnapshot.getLatest", { taskId: t.id, agentId: a2.id }, "GET")) as any;
-    expect(JSON.parse(latest2.payloadJson).goal).toBe("a2 goal");
+    expect(latest2.payload.goal).toBe("a2 goal");
     expect(latest2.agentId).toBe(a2.id);
   });
 
@@ -56,14 +56,14 @@ describe("Context snapshot isolation", () => {
       agentId: a.id,
       checkpointId: cp.id,
       summary: "v1",
-      payloadJson: JSON.stringify({ goal: "v1" }),
+      payload: { goal: "v1" },
     });
     await ctx.rpc("contextSnapshot.create", {
       taskId: t.id,
       agentId: a.id,
       checkpointId: cp.id,
       summary: "v2",
-      payloadJson: JSON.stringify({ goal: "v2" }),
+      payload: { goal: "v2" },
     });
 
     const snapshots = (await ctx.rpc("contextSnapshot.list", { taskId: t.id }, "GET")) as any[];

@@ -91,9 +91,9 @@ function formatReviewPrompt(
   if (contract) {
     lines.push("## Peer Contract");
     lines.push(`- **Scope**: ${contract.scope}`);
-    lines.push(`- **Responsibilities**: ${contract.responsibilities}`);
-    lines.push(`- **Interface**: ${contract.interfaceSpec}`);
-    lines.push(`- **Resource Boundaries**: ${contract.fileBoundaries}`);
+    lines.push(`- **Responsibilities**: ${contract.responsibilities.join(", ")}`);
+    lines.push(`- **Interface**: ${contract.interfaceSpec.join(", ")}`);
+    lines.push(`- **Resource Boundaries**: ${contract.fileBoundaries.join(", ")}`);
     lines.push("");
   }
 
@@ -107,8 +107,7 @@ function formatReviewPrompt(
   }
 
   if (snapshot) {
-    let p: Record<string, unknown> = {};
-    try { p = JSON.parse(snapshot.payloadJson ?? "{}"); } catch { /* ok */ }
+    const p = snapshot.payload ?? {};
     lines.push("## Context Snapshot");
     if (p.goal) lines.push(`- **Goal**: ${p.goal}`);
     if (p.currentPhase) lines.push(`- **Phase**: ${p.currentPhase}`);
@@ -204,8 +203,7 @@ function formatHandoffReceivePrompt(
   }
 
   if (senderSnapshot) {
-    let p: Record<string, unknown> = {};
-    try { p = JSON.parse(senderSnapshot.payloadJson ?? "{}"); } catch { /* ok */ }
+    const p = senderSnapshot.payload ?? {};
     lines.push("## Sender Context Snapshot");
     if (p.goal) lines.push(`- **Goal**: ${p.goal}`);
     if (p.currentPhase) lines.push(`- **Phase**: ${p.currentPhase}`);
@@ -224,8 +222,8 @@ function formatHandoffReceivePrompt(
   if (receiverResume?.approvedContract) {
     lines.push("## Approved Contract");
     lines.push(`- **Scope**: ${receiverResume.approvedContract.scope}`);
-    lines.push(`- **Responsibilities**: ${receiverResume.approvedContract.responsibilities}`);
-    lines.push(`- **Interface**: ${receiverResume.approvedContract.interfaceSpec}`);
+    lines.push(`- **Responsibilities**: ${receiverResume.approvedContract.responsibilities.join(", ")}`);
+    lines.push(`- **Interface**: ${receiverResume.approvedContract.interfaceSpec.join(", ")}`);
     lines.push("");
   }
 
@@ -499,7 +497,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
         break;
       case "risks":
         present = approvedMems.some(m => m.category === "risk") ||
-          (resumeCtx?.latestSnapshot?.payloadJson ? (() => { try { const p = JSON.parse(resumeCtx.latestSnapshot!.payloadJson); return Array.isArray(p.risks) && p.risks.length > 0; } catch { return false; } })() : false);
+          (() => { const p = resumeCtx?.latestSnapshot?.payload; return Array.isArray(p?.risks) && p.risks.length > 0; })();
         break;
       default:
         present = false;

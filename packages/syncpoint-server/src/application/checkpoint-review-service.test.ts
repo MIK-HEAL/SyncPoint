@@ -23,7 +23,7 @@ function makeCheckpoint(taskId: string, agentId: string, summary: string) {
     summary,
     progress: "",
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
     risks: "",
     blockers: "",
     nextSteps: "",

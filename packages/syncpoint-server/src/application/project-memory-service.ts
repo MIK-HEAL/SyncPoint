@@ -12,7 +12,13 @@ import {
   defaultKindFromCategory,
   isConstraintRuleKnown,
 } from "syncpoint-core";
-import type { ProjectMemory, ProjectMemoryCreate, MemoryDedupResult } from "syncpoint-core";
+import type {
+  AppliesTo,
+  ProjectMemory,
+  ProjectMemoryCreate,
+  ProjectMemoryValidatorConfig,
+  MemoryDedupResult,
+} from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { isProjectLocal, getSyncpointDir } from "../db.js";
 
@@ -198,19 +204,19 @@ export function pmGet(id: string): ProjectMemory {
 export function pmUpdate(id: string, fields: {
   title?: string;
   content?: string;
-  tags?: string;
+  tags?: string[];
   confidence?: string;
   updatedBy: string;
   // V2
   kind?: string;
   projectionTarget?: string | null;
-  appliesTo?: string;
+  appliesTo?: AppliesTo;
   severity?: string;
   validityStatus?: string;
   validityStaleReason?: string;
   // PR4 typed constraint validator
   validatorType?: string;
-  validatorConfig?: string;
+  validatorConfig?: ProjectMemoryValidatorConfig | null;
 }): ProjectMemory {
   requireCallerIdentity(fields.updatedBy);
   // V2 projection guard on update — validate against FINAL merged state
@@ -334,7 +340,7 @@ function renderProjectMemoryMarkdown(memories: ProjectMemory[]): string {
 
     for (const m of items) {
       lines.push(`### ${m.title}`);
-      if (m.tags) lines.push(`> Tags: ${m.tags}`);
+      if (m.tags.length > 0) lines.push(`> Tags: ${m.tags.join(", ")}`);
       if (m.confidence !== "medium") lines.push(`> Confidence: ${m.confidence}`);
       if (m.scope !== "project") lines.push(`> Scope: ${m.scope}`);
       // V2 metadata
@@ -342,12 +348,9 @@ function renderProjectMemoryMarkdown(memories: ProjectMemory[]): string {
       if (m.severity && m.severity !== "info") lines.push(`> Severity: ${m.severity}`);
       if (m.projectionTarget) lines.push(`> Projection: ${m.projectionTarget}`);
       if (m.validityStatus && m.validityStatus !== "fresh") lines.push(`> Validity: ${m.validityStatus}`);
-      if (m.appliesTo) {
-        try {
-          const at = JSON.parse(m.appliesTo);
-          if (at.files?.length) lines.push(`> Files: ${at.files.join(", ")}`);
-          if (at.modules?.length) lines.push(`> Modules: ${at.modules.join(", ")}`);
-        } catch { /* not valid JSON, skip */ }
+      if (Object.keys(m.appliesTo).length > 0) {
+        if (m.appliesTo.files?.length) lines.push(`> Files: ${m.appliesTo.files.join(", ")}`);
+        if (m.appliesTo.modules?.length) lines.push(`> Modules: ${m.appliesTo.modules.join(", ")}`);
       }
       lines.push("");
       lines.push(m.content);

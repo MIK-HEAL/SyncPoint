@@ -26,7 +26,6 @@ import type {
 import * as repo from "../repositories.js";
 import { buildProjection } from "./reality-projection-service.js";
 import "./_scope-matchers.js";
-import "./_plugin-init.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
 
 // ── Types ────────────────────────────────────────────────
@@ -106,12 +105,8 @@ function parseCsvFiles(csv: string | undefined | null): string[] {
   return csv.split(",").map(f => f.trim()).filter(Boolean);
 }
 
-function parsePayloadWorkingResources(snapshot: { payloadJson?: string } | null | undefined): string[] {
-  if (!snapshot?.payloadJson) return [];
-  try {
-    const p = JSON.parse(snapshot.payloadJson);
-    return Array.isArray(p.workingResources) ? p.workingResources : [];
-  } catch { return []; }
+function parsePayloadWorkingResources(snapshot: { payload?: { workingResources?: string[] } } | null | undefined): string[] {
+  return snapshot?.payload?.workingResources ?? [];
 }
 
 // ── Input Resolution ─────────────────────────────────────

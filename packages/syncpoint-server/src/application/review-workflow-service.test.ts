@@ -73,7 +73,7 @@ beforeAll(() => {
     summary: "Auth module done",
     progress: "100%",
     currentUnderstanding: "",
-    changedFiles: "auth.ts",
+    changedFiles: ["auth.ts"],
     risks: "",
     blockers: "",
     nextSteps: "Review",

@@ -66,7 +66,7 @@ describe("evaluateFileAuditChange", () => {
       actorId: "agent-b",
       changedResource: resource("src/auth.ts"),
       activeClaims: [claim({ id: "claim-a", actorId: "agent-a", taskId: "task-a", locator: "src/auth.ts" })],
-      blockingGates: [{ id: "gate-1", relatedFiles: "src/auth.ts" }],
+      blockingGates: [{ id: "gate-1", relatedFiles: ["src/auth.ts"] }],
     });
 
     expect(decision.kind).toBe(FileAuditDecisionKind.FILE_AUDIT_ALERT);

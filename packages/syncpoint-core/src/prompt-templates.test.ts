@@ -20,16 +20,16 @@ function makeContext(overrides?: Partial<ResumeContext>): ResumeContext {
       id: "c1",
       title: "Auth contract",
       scope: "auth module",
-      responsibilities: "backend: API",
-      interfaceSpec: "POST /login",
-      fileBoundaries: "src/auth/*",
+      responsibilities: ["backend: API"],
+      interfaceSpec: ["POST /login"],
+      fileBoundaries: ["src/auth/*"],
       status: "APPROVED",
     },
     latestSnapshot: {
       id: "cap1",
       kind: "resume",
       summary: "Implement auth API",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Implement auth API",
         currentPhase: "implementation",
         confirmedDecisions: ["JWT auth"],
@@ -48,7 +48,7 @@ function makeContext(overrides?: Partial<ResumeContext>): ResumeContext {
         activeConstraints: [],
         doNotTouch: [],
         handoffInstructions: "",
-      }),
+      },
       createdAt: "2026-01-01T00:00:00.000Z",
     },
     latestCheckpoint: {

@@ -15,6 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
 import * as repo from "../../src/repositories.js";
+import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import { loopResume } from "../application/loop-service.js";
 import {
   orchCreateSession,
@@ -39,6 +40,7 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-adv-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
+  ensureApplicationBootstrap();
   getDb();
   wakeEngineStart();
 
@@ -68,18 +70,18 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
   });
   repo.createContextSnapshot({
     taskId,
     agentId: executorId,
     checkpointId: cp.id,
     summary: "test",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "test",
       currentPhase: "development",
       workingResources: ["src/protected/core.ts", "src/protected/db.ts"],
-    }),
+    },
   });
 
   // Seed: do_not_touch memory protecting src/protected

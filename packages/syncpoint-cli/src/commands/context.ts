@@ -115,7 +115,7 @@ export function registerContextCommands(program: Command): void {
             agentId: opts.agent,
             checkpointId: opts.checkpoint,
             summary: opts.goal ?? "",
-            payloadJson: JSON.stringify(payload),
+            payload,
           });
           console.log(JSON.stringify(snapshot, null, 2));
         })

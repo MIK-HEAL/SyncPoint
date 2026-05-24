@@ -93,8 +93,8 @@ export interface ProjectedMemoryItem {
   scope?: ProjectionScope;
   /** PR4: Typed validator type (e.g. "resource_forbidden", "require_review"). */
   validatorType?: string;
-  /** PR4: Typed validator config (JSON-serialized). */
-  validatorConfig?: string;
+  /** PR4: Typed validator config. */
+  validatorConfig?: { message?: string; actions?: string[] } | string | null;
 }
 
 /** A detected conflict between projected items. */
@@ -149,12 +149,12 @@ export interface MemoryProjectionInput {
   fingerprint: string;
   kind: string;
   projectionTarget: string | null;
-  appliesTo: string;   // JSON-serialized or ""
+  appliesTo: ProjectionScope | string;
   severity: string;
   validityStatus: string;
   // PR4 typed constraint validator
   validatorType?: string;
-  validatorConfig?: string;
+  validatorConfig?: { message?: string; actions?: string[] } | string | null;
 }
 
 /** Context for the projection compiler. */
@@ -244,8 +244,11 @@ interface ParsedAppliesTo {
   [key: string]: string[] | undefined;
 }
 
-function parseAppliesTo(raw: string): ParsedAppliesTo | null {
+function parseAppliesTo(raw: ProjectionScope | string | null | undefined): ParsedAppliesTo | null {
   if (!raw) return null;
+  if (typeof raw !== "string") {
+    return raw as ParsedAppliesTo;
+  }
   try {
     return JSON.parse(raw) as ParsedAppliesTo;
   } catch {

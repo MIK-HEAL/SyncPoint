@@ -192,26 +192,15 @@ function relevantBlockingGates(input: WriteDecisionInput): SyncGate[] {
 }
 
 function gateOverlapsResource(gate: SyncGate, resource: ResourceRef): boolean {
-  const related = parseRelatedResources(gate.relatedResourcesJson);
+  const related = gate.relatedResources ?? [];
   if (related.some(candidate => resourceLocatorsOverlap(candidate, resource))) return true;
   if (resource.type !== "file") return false;
   return parseRelatedFileLocators(gate.relatedFiles).some(locator => resourceLocatorsOverlap({ type: "file", locator, metadata: "" }, resource));
 }
 
-function parseRelatedResources(json: string): ResourceRef[] {
-  if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(candidate => ResourceRefSchema.safeParse(candidate).success) as ResourceRef[];
-  } catch {
-    return [];
-  }
-}
-
-function parseRelatedFileLocators(value: string): string[] {
-  return value
-    .split(",")
+function parseRelatedFileLocators(value: string[] | string): string[] {
+  const parts = Array.isArray(value) ? value : value.split(",");
+  return parts
     .flatMap(part => part.split("↔"))
     .map(part => part.trim())
     .filter(Boolean);

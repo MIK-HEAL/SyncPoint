@@ -13,6 +13,7 @@
  */
 
 import { z } from "zod";
+import { ResourceRefSchema } from "./resource.js";
 
 // ── Status ──────────────────────────────────────────
 
@@ -224,20 +225,17 @@ export const SyncGateSchema = z.object({
   sessionId: z.string(),
   taskId: z.string(),
   requestedByAgentId: z.string(),
-  /** Comma-separated agent IDs that must acknowledge */
-  requiredAgentIds: z.string(),
-  /** Comma-separated agent IDs that have acknowledged so far */
-  ackedAgentIds: z.string(),
+  requiredAgentIds: z.array(z.string()).default([]),
+  ackedAgentIds: z.array(z.string()).default([]),
   reason: z.nativeEnum(SyncGateReason),
   description: z.string(),
-  relatedFiles: z.string(),
-  relatedResourcesJson: z.string(),
+  relatedFiles: z.array(z.string()).default([]),
+  relatedResources: z.array(ResourceRefSchema).default([]),
   relatedCheckpointId: z.string(),
-  relatedClaimIds: z.string(),
+  relatedClaimIds: z.array(z.string()).default([]),
   status: z.nativeEnum(SyncGateStatus),
   decisionSummary: z.string(),
-  /** Structured liveness policy (JSON) */
-  policyJson: z.string().default(""),
+  policy: GatePolicySchema.default(DEFAULT_GATE_POLICY),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -251,10 +249,10 @@ export const SyncGateCreateSchema = z.object({
   requiredAgentIds: z.array(z.string()).min(1),
   reason: z.nativeEnum(SyncGateReason).default(SyncGateReason.MANUAL_REQUEST),
   description: z.string().default(""),
-  relatedFiles: z.string().default(""),
-  relatedResourcesJson: z.string().default(""),
+  relatedFiles: z.array(z.string()).default([]),
+  relatedResources: z.array(ResourceRefSchema).default([]),
   relatedCheckpointId: z.string().default(""),
-  relatedClaimIds: z.string().default(""),
+  relatedClaimIds: z.array(z.string()).default([]),
   policy: GatePolicySchema.optional(),
 });
 
@@ -275,7 +273,8 @@ export type SyncGateAck = z.infer<typeof SyncGateAckSchema>;
 /**
  * Parse a comma-separated ID list into an array.
  */
-export function parseIdList(ids: string): string[] {
+export function parseIdList(ids: string[] | string): string[] {
+  if (Array.isArray(ids)) return ids.map(s => s.trim()).filter(s => s.length > 0);
   return ids.split(",").map(s => s.trim()).filter(s => s.length > 0);
 }
 
@@ -300,9 +299,8 @@ export function quorumMet(gate: SyncGate, quorum: number): boolean {
  * Parse the gate's policy JSON. Returns DEFAULT_GATE_POLICY if empty/invalid.
  */
 export function parseGatePolicy(gate: SyncGate): GatePolicy {
-  if (!gate.policyJson) return { ...DEFAULT_GATE_POLICY };
   try {
-    return GatePolicySchema.parse(JSON.parse(gate.policyJson));
+    return GatePolicySchema.parse(gate.policy ?? DEFAULT_GATE_POLICY);
   } catch {
     return { ...DEFAULT_GATE_POLICY };
   }

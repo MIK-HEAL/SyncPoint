@@ -101,11 +101,15 @@ export function parseRuntimeSpec(content: string): ConstraintRuleSpec | null {
 }
 
 /**
- * Parse validator config JSON string into a partial spec override.
- * Expected format: `{"message":"...", "actions":["operation_submit"]}`
+ * Parse validator config into a partial spec override.
  */
-function parseValidatorConfig(config: string | undefined): { message?: string; actions?: string[] } | null {
+function parseValidatorConfig(
+  config: string | { message?: string; actions?: string[] } | null | undefined,
+): { message?: string; actions?: string[] } | null {
   if (!config) return null;
+  if (typeof config !== "string") {
+    return config;
+  }
   try {
     return JSON.parse(config);
   } catch {

@@ -8,40 +8,40 @@
 
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
-import { SyncGateStatus } from "syncpoint-core";
-import type { SyncGate, SyncGateCreate, GateAck, GateAckCreate, GateVote, GateVoteCreate } from "syncpoint-core";
+import { SyncGateStatus, GatePolicySchema, DEFAULT_GATE_POLICY } from "syncpoint-core";
+import type { SyncGate, SyncGateCreate, GateAck, GateAckCreate, GateVote, GateVoteCreate, ResourceRef } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
 
 function hydrateGate(db: ReturnType<typeof _getDb>, row: any): SyncGate {
-  // Required agents from join table → CSV
   const reqRows = db.select().from(s.syncGateRequiredAgents)
     .where(eq(s.syncGateRequiredAgents.gateId, row.id)).all();
-  const requiredAgentIds = reqRows.map(r => r.agentId).join(",");
+  const requiredAgentIds = [...new Set(reqRows.map(r => r.agentId))];
 
-  // Acked agents = rows in sync_gate_ack (separate from governance votes)
   const ackRows = db.select().from(s.syncGateAcks)
     .where(eq(s.syncGateAcks.gateId, row.id)).all();
-  const ackedAgentIds = ackRows.map(r => r.agentId).join(",");
+  const ackedAgentIds = [...new Set(ackRows.map(r => r.agentId))];
 
-  // Related resources → JSON string
   const resRows = db.select().from(s.syncGateResources)
     .where(eq(s.syncGateResources.gateId, row.id)).all();
-  const relatedResourcesJson = resRows.length > 0
-    ? JSON.stringify(resRows.map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata })))
-    : "";
-
-  // Related files = resource locators where type === "file"
-  const relatedFiles = resRows
+  const relatedResources = resRows.map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata })) as ResourceRef[];
+  const relatedFiles = [...new Set(resRows
     .filter(r => r.resourceType === "file")
     .map(r => r.locator)
-    .join(",");
+  )];
 
-  // Related claim IDs from join table → CSV
   const claimRows = db.select().from(s.syncGateRelatedClaims)
     .where(eq(s.syncGateRelatedClaims.gateId, row.id)).all();
-  const relatedClaimIds = claimRows.map(r => r.claimId).join(",");
+  const relatedClaimIds = [...new Set(claimRows.map(r => r.claimId))];
+  const policy = (() => {
+    if (!row.policyJson) return { ...DEFAULT_GATE_POLICY };
+    try {
+      return GatePolicySchema.parse(JSON.parse(row.policyJson));
+    } catch {
+      return { ...DEFAULT_GATE_POLICY };
+    }
+  })();
 
   return {
     id: row.id,
@@ -53,12 +53,12 @@ function hydrateGate(db: ReturnType<typeof _getDb>, row: any): SyncGate {
     reason: row.reason,
     description: row.description ?? "",
     relatedFiles,
-    relatedResourcesJson,
+    relatedResources,
     relatedCheckpointId: row.relatedCheckpointId ?? "",
     relatedClaimIds,
     status: row.status,
     decisionSummary: row.decisionSummary ?? "",
-    policyJson: row.policyJson ?? "",
+    policy,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   } as SyncGate;
@@ -93,44 +93,29 @@ export function createSyncGate(data: SyncGateCreate): SyncGate {
       agentId,
     }).run();
   }
-  // Insert related resources (from relatedResourcesJson if provided)
-  if (data.relatedResourcesJson) {
-    try {
-      const refs = JSON.parse(data.relatedResourcesJson) as Array<{ type: string; locator: string; metadata?: string }>;
-      for (const ref of refs) {
-        db.insert(s.syncGateResources).values({
-          id: createId(),
-          gateId: id,
-          resourceType: ref.type,
-          locator: ref.locator,
-          metadata: ref.metadata ?? "",
-        }).run();
-      }
-    } catch { /* ignore invalid JSON */ }
+  const resourceMap = new Map<string, ResourceRef>();
+  for (const ref of data.relatedResources ?? []) {
+    resourceMap.set(`${ref.type}::${ref.locator}::${ref.metadata ?? ""}`, { ...ref, metadata: ref.metadata ?? "" });
   }
-  // Insert related files as file-type resources
-  if (data.relatedFiles) {
-    const paths = data.relatedFiles.split(",").map(p => p.trim()).filter(Boolean);
-    for (const p of paths) {
-      db.insert(s.syncGateResources).values({
-        id: createId(),
-        gateId: id,
-        resourceType: "file",
-        locator: p,
-        metadata: "",
-      }).run();
-    }
+  for (const locator of data.relatedFiles ?? []) {
+    resourceMap.set(`file::${locator}::`, { type: "file", locator, metadata: "" });
   }
-  // Insert related claim IDs
-  if (data.relatedClaimIds) {
-    const cids = data.relatedClaimIds.split(",").map(c => c.trim()).filter(Boolean);
-    for (const cid of cids) {
+  for (const ref of resourceMap.values()) {
+    db.insert(s.syncGateResources).values({
+      id: createId(),
+      gateId: id,
+      resourceType: ref.type,
+      locator: ref.locator,
+      metadata: ref.metadata ?? "",
+    }).run();
+  }
+  for (const cid of data.relatedClaimIds ?? []) {
+    if (!cid) continue;
       db.insert(s.syncGateRelatedClaims).values({
         id: createId(),
         gateId: id,
         claimId: cid,
       }).run();
-    }
   }
   return getSyncGate(id);
 }
@@ -223,9 +208,7 @@ export function listActiveSyncGates(opts?: {
 export function listGatesByRelatedClaimIds(claimIds: string[]): SyncGate[] {
   const allActive = listActiveSyncGates();
   return allActive.filter(g => {
-    if (!g.relatedClaimIds) return false;
-    const gateClaimIds = g.relatedClaimIds.split(",").map(c => c.trim()).filter(Boolean);
-    return claimIds.some(cid => gateClaimIds.includes(cid));
+    return claimIds.some(cid => g.relatedClaimIds.includes(cid));
   });
 }
 

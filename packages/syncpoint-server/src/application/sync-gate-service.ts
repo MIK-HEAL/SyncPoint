@@ -32,7 +32,7 @@ import {
   computeGateDetails,
   computeAvailableActions,
 } from "syncpoint-core";
-import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision, GateDetailedStatus, GateAction } from "syncpoint-core";
+import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision, GateDetailedStatus, GateAction, ResourceRef } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 
@@ -45,10 +45,10 @@ export interface SyncGateRequestInput {
   requiredAgentIds: string[];
   reason?: string;
   description?: string;
-  relatedFiles?: string;
-  relatedResourcesJson?: string;
+  relatedFiles?: string[];
+  relatedResources?: ResourceRef[];
   relatedCheckpointId?: string;
-  relatedClaimIds?: string;
+  relatedClaimIds?: string[];
   policy?: GatePolicy;
 }
 
@@ -78,10 +78,10 @@ export function sgRequest(input: SyncGateRequestInput): SyncGateStatusResult {
     requiredAgentIds: input.requiredAgentIds,
     reason: (input.reason as SyncGateReason) ?? SyncGateReason.MANUAL_REQUEST,
     description: input.description ?? "",
-    relatedFiles: input.relatedFiles ?? "",
-    relatedResourcesJson: input.relatedResourcesJson ?? "",
+    relatedFiles: input.relatedFiles ?? [],
+    relatedResources: input.relatedResources ?? [],
     relatedCheckpointId: input.relatedCheckpointId ?? "",
-    relatedClaimIds: input.relatedClaimIds ?? "",
+    relatedClaimIds: input.relatedClaimIds ?? [],
     policy: input.policy,
   };
 
@@ -292,8 +292,8 @@ export function sgReconcileForClaims(claimIds: string[]): void {
     if (!isGateBlocking(gate)) continue;
 
     // For resource_conflict gates, re-evaluate whether the conflict persists
-    if (gate.reason === SyncGateReason.RESOURCE_CONFLICT && gate.relatedClaimIds) {
-      const relatedIds = parseIdList(gate.relatedClaimIds);
+    if (gate.reason === SyncGateReason.RESOURCE_CONFLICT && gate.relatedClaimIds.length > 0) {
+      const relatedIds = gate.relatedClaimIds;
       // Gather all still-active claims referenced by this gate
       const activeClaims = relatedIds
         .map(id => { try { return repo.getResourceClaim(id); } catch { return null; } })

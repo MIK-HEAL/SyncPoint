@@ -46,7 +46,7 @@ beforeAll(async () => {
     summary: "Initial MCP checkpoint",
     progress: "10%",
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
     risks: "",
     blockers: "",
     nextSteps: "Continue MCP implementation",
@@ -57,7 +57,7 @@ beforeAll(async () => {
     agentId,
     checkpointId: checkpoint.id,
     summary: "Implement MCP server adapter",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "Implement MCP server adapter",
       currentPhase: "acceptance",
       confirmedDecisions: [],
@@ -69,7 +69,7 @@ beforeAll(async () => {
       blockers: [],
       nextSteps: ["Run tests"],
       resumePrompt: "Continue MCP acceptance.",
-    }),
+    },
   });
 
   // Seed project memory
@@ -78,7 +78,7 @@ beforeAll(async () => {
     title: "MCP Architecture",
     content: "SyncPoint uses stdio MCP server for local integrations.",
     scope: "project",
-    tags: "mcp,architecture",
+    tags: ["mcp", "architecture"],
     sourceType: "human",
     sourceRef: "",
     confidence: "high",
@@ -269,6 +269,14 @@ describe("tools", () => {
         category: "decision",
         title: "Use stdio transport",
         content: "First MCP version uses stdio only.",
+        tags: ["mcp", "transport"],
+        kind: "hard_constraint",
+        projectionTarget: "protocol_gate",
+        appliesTo: { files: ["packages/syncpoint-mcp/src/**/*.ts"] },
+        severity: "blocking",
+        validity: { status: "fresh" },
+        validatorType: "custom",
+        validatorConfig: { message: "MCP transport choice is fixed", actions: ["review"] },
         createdBy: "test-user",
       },
     });
@@ -277,6 +285,15 @@ describe("tools", () => {
     expect(data.ok).toBe(true);
     expect(data.status).toBe("draft");
     expect(data.nextSuggestedAction).toContain("syncpoint_project_memory_approve");
+    const created = repo.getProjectMemory(data.id);
+    expect(created.tags).toEqual(["mcp", "transport"]);
+    expect(created.kind).toBe("hard_constraint");
+    expect(created.projectionTarget).toBe("protocol_gate");
+    expect(created.appliesTo).toEqual({ files: ["packages/syncpoint-mcp/src/**/*.ts"] });
+    expect(created.severity).toBe("blocking");
+    expect(created.validityStatus).toBe("fresh");
+    expect(created.validatorType).toBe("custom");
+    expect(created.validatorConfig).toEqual({ message: "MCP transport choice is fixed", actions: ["review"] });
   });
 
   it("syncpoint_project_memory_add should respect project-local path guard", async () => {

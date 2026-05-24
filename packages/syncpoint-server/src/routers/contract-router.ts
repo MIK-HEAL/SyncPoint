@@ -8,12 +8,12 @@ export const contractRouter = t.router({
     .input(z.object({
       taskId: z.string(),
       title: z.string().default(""),
-      participants: z.string().default(""),
+      participants: z.array(z.string()).default([]),
       scope: z.string().default(""),
-      responsibilities: z.string().default(""),
-      interfaceSpec: z.string().default(""),
-      fileBoundaries: z.string().default(""),
-      dependencies: z.string().default(""),
+      responsibilities: z.array(z.string()).default([]),
+      interfaceSpec: z.array(z.string()).default([]),
+      fileBoundaries: z.array(z.string()).default([]),
+      dependencies: z.array(z.string()).default([]),
       testPlan: z.string().default(""),
       risks: z.string().default(""),
     }))

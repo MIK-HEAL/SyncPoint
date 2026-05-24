@@ -22,7 +22,7 @@ export const projectMemoryRouter = t.router({
       category: z.enum(["overview", "architecture", "decision", "convention", "risk", "gotcha", "glossary", "file-map", "integration"]),
       title: z.string().min(1),
       content: z.string().min(1),
-      tags: z.string().optional(),
+      tags: z.array(z.string()).optional(),
       sourceType: z.enum(["human", "agent", "checkpoint", "handoff", "doc"]).optional(),
       sourceRef: z.string().optional(),
       confidence: z.enum(["low", "medium", "high"]).optional(),
@@ -32,11 +32,7 @@ export const projectMemoryRouter = t.router({
       // V2 optional
       kind: z.enum(["fact", "soft_convention", "risk", "do_not_touch", "hard_constraint", "protocol_rule"]).optional(),
       projectionTarget: z.enum(["context_snapshot", "protocol_gate", "constraint_runtime"]).nullable().optional(),
-      appliesTo: z.object({
-        files: z.array(z.string()).optional(),
-        modules: z.array(z.string()).optional(),
-        taskTypes: z.array(z.string()).optional(),
-      }).optional(),
+      appliesTo: z.record(z.string(), z.array(z.string())).optional(),
       severity: z.enum(["info", "warning", "blocking"]).optional(),
       validity: z.object({
         status: z.enum(["fresh", "needs_revalidation", "stale", "invalid"]).optional(),
@@ -44,7 +40,10 @@ export const projectMemoryRouter = t.router({
       }).optional(),
       // PR4 typed constraint validator
       validatorType: z.string().optional(),
-      validatorConfig: z.string().optional(),
+      validatorConfig: z.object({
+        message: z.string().optional(),
+        actions: z.array(z.string()).optional(),
+      }).catchall(z.unknown()).nullable().optional(),
     }))
     .mutation(({ input, ctx }) => {
       // P0: derive createdBy from authenticated context; input is audit-only
@@ -61,19 +60,22 @@ export const projectMemoryRouter = t.router({
       id: z.string(),
       title: z.string().optional(),
       content: z.string().optional(),
-      tags: z.string().optional(),
+      tags: z.array(z.string()).optional(),
       confidence: z.string().optional(),
       updatedBy: z.string().optional(),
       // V2 optional
       kind: z.enum(["fact", "soft_convention", "risk", "do_not_touch", "hard_constraint", "protocol_rule"]).optional(),
       projectionTarget: z.enum(["context_snapshot", "protocol_gate", "constraint_runtime"]).nullable().optional(),
-      appliesTo: z.string().optional(),
+      appliesTo: z.record(z.string(), z.array(z.string())).optional(),
       severity: z.enum(["info", "warning", "blocking"]).optional(),
       validityStatus: z.enum(["fresh", "needs_revalidation", "stale", "invalid"]).optional(),
       validityStaleReason: z.string().optional(),
       // PR4 typed constraint validator
       validatorType: z.string().optional(),
-      validatorConfig: z.string().optional(),
+      validatorConfig: z.object({
+        message: z.string().optional(),
+        actions: z.array(z.string()).optional(),
+      }).catchall(z.unknown()).nullable().optional(),
     }))
     .mutation(({ input, ctx }) => {
       const { id, ...fields } = input;

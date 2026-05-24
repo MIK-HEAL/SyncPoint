@@ -6,6 +6,16 @@ import { Command } from "commander";
 import * as repo from "syncpoint-server/repositories";
 import { TaskStatus, ContractStatus, DiaryEntryType } from "syncpoint-core";
 
+function parseStringArrayOption(raw: string): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 export function registerPrimitiveCommands(program: Command): void {
   // ── Agent ──────────────────────────────────────────────
 
@@ -154,12 +164,12 @@ export function registerPrimitiveCommands(program: Command): void {
           const c = repo.createContract({
             taskId: opts.task,
             title: opts.title,
-            participants: opts.participants,
+            participants: parseStringArrayOption(opts.participants),
             scope: opts.scope,
-            interfaceSpec: opts.interface,
-            fileBoundaries: opts.boundaries,
-            responsibilities: "",
-            dependencies: "",
+            interfaceSpec: parseStringArrayOption(opts.interface),
+            fileBoundaries: parseStringArrayOption(opts.boundaries),
+            responsibilities: [],
+            dependencies: [],
             testPlan: "",
             risks: "",
           });

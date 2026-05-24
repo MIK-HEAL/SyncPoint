@@ -11,13 +11,6 @@
 
 import type { ResumeContext } from "./memory.js";
 import type { RealityProjection } from "./reality-projection.js";
-import type { ContextSnapshotPayload } from "./models.js";
-
-/** Parse the JSON payload from a context snapshot. */
-function snapshotPayload(ctx: ResumeContext): ContextSnapshotPayload | null {
-  if (!ctx.latestSnapshot) return null;
-  try { return JSON.parse(ctx.latestSnapshot.payloadJson); } catch { return {}; }
-}
 
 export type PromptFormat =
   | "system-prompt"
@@ -172,14 +165,14 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: RealityProjection |
   if (ctx.approvedContract) {
     lines.push("## Peer Contract (APPROVED)");
     lines.push(`- Scope: ${ctx.approvedContract.scope}`);
-    lines.push(`- Responsibilities: ${ctx.approvedContract.responsibilities}`);
-    lines.push(`- Interface: ${ctx.approvedContract.interfaceSpec}`);
-    lines.push(`- File boundaries: ${ctx.approvedContract.fileBoundaries}`);
+    lines.push(`- Responsibilities: ${ctx.approvedContract.responsibilities.join(", ")}`);
+    lines.push(`- Interface: ${ctx.approvedContract.interfaceSpec.join(", ")}`);
+    lines.push(`- File boundaries: ${ctx.approvedContract.fileBoundaries.join(", ")}`);
     lines.push("");
   }
 
   if (ctx.latestSnapshot) {
-    const p = snapshotPayload(ctx)!;
+    const p = ctx.latestSnapshot!.payload;
     lines.push("## Current Context");
     if (p.goal) lines.push(`- Goal: ${p.goal}`);
     if (p.currentPhase) lines.push(`- Phase: ${p.currentPhase}`);
@@ -267,14 +260,14 @@ function formatCursorRules(ctx: ResumeContext, projection?: RealityProjection | 
   if (ctx.approvedContract) {
     lines.push("## Contract");
     lines.push(`Scope: ${ctx.approvedContract.scope}`);
-    lines.push(`Responsibilities: ${ctx.approvedContract.responsibilities}`);
-    lines.push(`Interface: ${ctx.approvedContract.interfaceSpec}`);
-    lines.push(`Files: ${ctx.approvedContract.fileBoundaries}`);
+    lines.push(`Responsibilities: ${ctx.approvedContract.responsibilities.join(", ")}`);
+    lines.push(`Interface: ${ctx.approvedContract.interfaceSpec.join(", ")}`);
+    lines.push(`Files: ${ctx.approvedContract.fileBoundaries.join(", ")}`);
     lines.push("");
   }
 
   if (ctx.latestSnapshot) {
-    const p = snapshotPayload(ctx)!;
+    const p = ctx.latestSnapshot!.payload;
     lines.push("## Context Snapshot");
     if (p.goal) lines.push(`Goal: ${p.goal}`);
     if (p.currentPhase) lines.push(`Phase: ${p.currentPhase}`);
@@ -352,7 +345,7 @@ function formatAgentsMd(ctx: ResumeContext, projection?: RealityProjection | nul
   lines.push("");
 
   if (ctx.latestSnapshot) {
-    const p = snapshotPayload(ctx)!;
+    const p = ctx.latestSnapshot!.payload;
     lines.push("## Current Work Context");
     lines.push("");
     if (p.goal) { lines.push(`**Goal**: ${p.goal}`); lines.push(""); }
@@ -390,11 +383,11 @@ function formatAgentsMd(ctx: ResumeContext, projection?: RealityProjection | nul
     lines.push("");
     lines.push(`**Scope**: ${ctx.approvedContract.scope}`);
     lines.push("");
-    lines.push(`**Responsibilities**: ${ctx.approvedContract.responsibilities}`);
+    lines.push(`**Responsibilities**: ${ctx.approvedContract.responsibilities.join(", ")}`);
     lines.push("");
-    lines.push(`**Interface**: ${ctx.approvedContract.interfaceSpec}`);
+    lines.push(`**Interface**: ${ctx.approvedContract.interfaceSpec.join(", ")}`);
     lines.push("");
-    lines.push(`**File Boundaries**: ${ctx.approvedContract.fileBoundaries}`);
+    lines.push(`**File Boundaries**: ${ctx.approvedContract.fileBoundaries.join(", ")}`);
     lines.push("");
   }
 
@@ -421,7 +414,7 @@ function formatCheckpointMd(ctx: ResumeContext, projection?: RealityProjection |
   }
 
   if (ctx.latestSnapshot) {
-    const p = snapshotPayload(ctx)!;
+    const p = ctx.latestSnapshot!.payload;
     if (p.goal) lines.push(`**Goal**: ${p.goal}`);
     if (p.currentPhase) lines.push(`**Phase**: ${p.currentPhase}`);
     if (p.confirmedDecisions?.length) lines.push(`**Decisions**: ${p.confirmedDecisions.join("; ")}`);
@@ -481,7 +474,7 @@ function formatClipboard(ctx: ResumeContext, projection?: RealityProjection | nu
   }
 
   if (ctx.latestSnapshot) {
-    const p = snapshotPayload(ctx)!;
+    const p = ctx.latestSnapshot!.payload;
     if (p.goal) lines.push(`Goal: ${p.goal}`);
     if (p.currentPhase) lines.push(`Phase: ${p.currentPhase}`);
     if (p.remainingWork) lines.push(`Remaining: ${p.remainingWork}`);

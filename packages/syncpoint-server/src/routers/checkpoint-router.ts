@@ -11,7 +11,7 @@ export const checkpointRouter = t.router({
       summary: z.string().min(1),
       progress: z.string().default(""),
       currentUnderstanding: z.string().default(""),
-      changedFiles: z.string().default(""),
+      changedFiles: z.array(z.string()).default([]),
       risks: z.string().default(""),
       blockers: z.string().default(""),
       nextSteps: z.string().default(""),

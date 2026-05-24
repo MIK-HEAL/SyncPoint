@@ -212,12 +212,12 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
   const contractDraft = repo.createContract({
     taskId: task.id,
     title: "Shared config coordination",
-    participants: JSON.stringify([agentA.id, agentB.id, reviewer.id]),
+    participants: [agentA.id, agentB.id, reviewer.id],
     scope: "Coordinate edits to src/shared-config.ts",
-    responsibilities: "Agent A handles auth logic, Agent B handles token refresh, Reviewer validates.",
-    interfaceSpec: "Both agents must claim files before editing.",
-    fileBoundaries: "src/shared-config.ts is the contended file.",
-    dependencies: "",
+    responsibilities: ["Agent A handles auth logic", "Agent B handles token refresh", "Reviewer validates"],
+    interfaceSpec: ["Both agents must claim files before editing."],
+    fileBoundaries: ["src/shared-config.ts is the contended file."],
+    dependencies: [],
     testPlan: "",
     risks: "Simultaneous edits to the same file without coordination.",
   });
@@ -262,7 +262,7 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
     summary: "Implemented auth session refresh logic in shared-config.ts",
     progress: "60%",
     currentUnderstanding: "Auth config needs token refresh handler.",
-    changedFiles: "src/shared-config.ts",
+    changedFiles: ["src/shared-config.ts"],
     risks: "Another agent may edit the same file.",
     blockers: "",
     nextSteps: "Need review before Agent B can proceed.",
@@ -502,7 +502,7 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
     agentId: designer.id,
     summary: "Completed new hero banner design for launch campaign",
     progress: "Design complete, ready for operation submission",
-    changedFiles: "assets/hero-banner.png",
+    changedFiles: ["assets/hero-banner.png"],
     currentUnderstanding: "hero-banner.png replaced with new campaign design",
     risks: "",
     blockers: "",
@@ -514,7 +514,7 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
     agentId: designer.id,
     checkpointId: designerCheckpoint.id,
     summary: "Replace hero banner for launch campaign",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "Replace hero banner for launch campaign",
       currentPhase: "implementation",
       confirmedDecisions: ["1920x600 PNG format, new branding"],
@@ -523,7 +523,7 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
       remainingWork: "Submit asset_edit operation",
       risks: [],
       blockers: [],
-    }),
+    },
   });
 
   // Designer creates and submits an asset_edit operation
@@ -671,7 +671,7 @@ export function registerDemoCommands(program: Command): void {
           category: ProjectMemoryCategory.OVERVIEW,
           title: "SyncPoint MVP positioning",
           content: "SyncPoint is a local synchronization protocol layer for editor AI agents.",
-          tags: "mvp,positioning",
+          tags: ["mvp", "positioning"],
           sourceType: ProjectMemorySourceType.AGENT,
           sourceRef: "syncpoint-demo-mvp",
           confidence: ProjectMemoryConfidence.HIGH,
@@ -683,7 +683,7 @@ export function registerDemoCommands(program: Command): void {
           category: ProjectMemoryCategory.ARCHITECTURE,
           title: "Layered protocol architecture",
           content: "Core defines protocol types; server owns application use cases; CLI and MCP are transport/adapters.",
-          tags: "architecture,boundary",
+          tags: ["architecture", "boundary"],
           sourceType: ProjectMemorySourceType.AGENT,
           sourceRef: "syncpoint-demo-mvp",
           confidence: ProjectMemoryConfidence.HIGH,
@@ -695,7 +695,7 @@ export function registerDemoCommands(program: Command): void {
           category: ProjectMemoryCategory.DECISION,
           title: "Review requires evidence",
           content: "Reviewer approval must be backed by checklist state and at least one evidence record.",
-          tags: "review,approval",
+          tags: ["review", "approval"],
           sourceType: ProjectMemorySourceType.AGENT,
           sourceRef: "syncpoint-demo-mvp",
           confidence: ProjectMemoryConfidence.HIGH,
@@ -715,12 +715,12 @@ export function registerDemoCommands(program: Command): void {
       const contractDraft = repo.createContract({
         taskId: task.id,
         title: "MVP demo contract",
-        participants: JSON.stringify([architect.id, executor.id, reviewer.id]),
+        participants: [architect.id, executor.id, reviewer.id],
         scope: "Implement and review a showcase-ready SyncPoint MVP flow.",
-        responsibilities: "Architect plans, executor implements, reviewer validates evidence.",
-        interfaceSpec: "CLI/MCP share application services and local SQLite state.",
-        fileBoundaries: "Demo data and generated report stay under the project .syncpoint directory.",
-        dependencies: "syncpoint-core, syncpoint-server, syncpoint-cli, syncpoint-mcp",
+        responsibilities: ["Architect plans", "Executor implements", "Reviewer validates evidence"],
+        interfaceSpec: ["CLI/MCP share application services and local SQLite state."],
+        fileBoundaries: ["Demo data and generated report stay under the project .syncpoint directory."],
+        dependencies: ["syncpoint-core", "syncpoint-server", "syncpoint-cli", "syncpoint-mcp"],
         testPlan: "Record build, typecheck, and test evidence before approval.",
         risks: "Approval without evidence is blocked by the review workflow gate.",
       });
@@ -752,7 +752,7 @@ export function registerDemoCommands(program: Command): void {
         summary: "MVP workflow implemented for demo data.",
         progress: "100%",
         currentUnderstanding: "SyncPoint can coordinate synchronization boundaries and evidence-backed review.",
-        changedFiles: "packages/syncpoint-cli/src/commands/demo.ts, docs/mvp-showcase.md",
+        changedFiles: ["packages/syncpoint-cli/src/commands/demo.ts", "docs/mvp-showcase.md"],
         risks: "Keep MVP focused on local protocol and avoid overpromising automatic runtime.",
         blockers: "",
         nextSteps: "Reviewer validates evidence and approval gate.",
@@ -764,7 +764,7 @@ export function registerDemoCommands(program: Command): void {
         agentId: executor.id,
         checkpointId: checkpoint.id,
         summary: "Demonstrate a complete SyncPoint collaboration loop.",
-        payloadJson: JSON.stringify({
+        payload: {
           goal: "Demonstrate a complete SyncPoint collaboration loop.",
           currentPhase: "review",
           confirmedDecisions: ["Use local SQLite state, CLI, MCP, and evidence-backed review."],
@@ -776,7 +776,7 @@ export function registerDemoCommands(program: Command): void {
           blockers: [],
           nextSteps: ["Show mvp-demo.md and run session/review status commands."],
           resumePrompt: "Continue from the generated MVP demo report and inspect the review packet.",
-        }),
+        },
       });
 
       orchCompleteAssignment(assignment.id);

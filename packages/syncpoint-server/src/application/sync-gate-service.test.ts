@@ -57,7 +57,7 @@ describe("SyncGate full lifecycle", () => {
       requiredAgentIds: [agent2Id, agent3Id],
       reason: "resource_conflict",
       description: "Both agents claim src/auth.ts",
-      relatedFiles: "src/auth.ts",
+      relatedFiles: ["src/auth.ts"],
     });
 
     expect(result.gate.status).toBe(SyncGateStatus.SYNC_REQUESTED);

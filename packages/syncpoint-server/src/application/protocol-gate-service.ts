@@ -57,14 +57,14 @@ export function assembleProtocolGate(
     if (approved.scope) {
       rules.push({ source: "peer-contract", severity: "hard", summary: `Scope: ${approved.scope}`, entityId: approved.id });
     }
-    if (approved.fileBoundaries) {
-      rules.push({ source: "peer-contract", severity: "hard", summary: `Resource boundaries: ${approved.fileBoundaries}`, entityId: approved.id });
+    if (approved.fileBoundaries.length) {
+      rules.push({ source: "peer-contract", severity: "hard", summary: `Resource boundaries: ${approved.fileBoundaries.join(", ")}`, entityId: approved.id });
     }
-    if (approved.responsibilities) {
-      rules.push({ source: "peer-contract", severity: "soft", summary: `Responsibilities: ${approved.responsibilities}`, entityId: approved.id });
+    if (approved.responsibilities.length) {
+      rules.push({ source: "peer-contract", severity: "soft", summary: `Responsibilities: ${approved.responsibilities.join(", ")}`, entityId: approved.id });
     }
-    if (approved.interfaceSpec) {
-      rules.push({ source: "peer-contract", severity: "soft", summary: `Interface: ${approved.interfaceSpec}`, entityId: approved.id });
+    if (approved.interfaceSpec.length) {
+      rules.push({ source: "peer-contract", severity: "soft", summary: `Interface: ${approved.interfaceSpec.join(", ")}`, entityId: approved.id });
     }
   }
 
@@ -293,9 +293,8 @@ export function validateSnapshot(
   }
 
   // Blocker check
-  let payload: Record<string, unknown> = {};
-  try { payload = JSON.parse(snapshot.payloadJson ?? "{}"); } catch { /* ok */ }
-  const blockerText = Array.isArray(payload.blockers) ? (payload.blockers as string[]).join(", ") : "";
+  const payload = snapshot.payload ?? {};
+  const blockerText = Array.isArray(payload.blockers) ? payload.blockers.join(", ") : "";
   if (blockerText.length > 0) {
     hasBlockers = true;
     valid = false;
@@ -395,10 +394,9 @@ export function formatValidationNotes(validation: SnapshotValidation): string {
 export function formatSnapshotReality(snapshot: ContextSnapshot | null): string {
   if (!snapshot) return "";
 
-  let p: Record<string, unknown> = {};
-  try { p = JSON.parse(snapshot.payloadJson ?? "{}"); } catch { /* ok */ }
+  const p = snapshot.payload ?? {};
   const s = (k: string) => {
-    const v = p[k];
+    const v = (p as Record<string, unknown>)[k];
     if (Array.isArray(v)) return v.join(", ");
     return typeof v === "string" ? v : "";
   };

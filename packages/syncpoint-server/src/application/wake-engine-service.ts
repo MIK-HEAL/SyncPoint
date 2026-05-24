@@ -24,7 +24,6 @@ import type { SyncPointEventData } from "../event-bus.js";
 import * as repo from "../repositories.js";
 import { logEvent } from "../repositories/_shared.js";
 import "./_scope-matchers.js";
-import "./_plugin-init.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
 import { EventType, evaluateConstraints } from "syncpoint-core";
 import { sgCheckAgent } from "./sync-gate-service.js";
@@ -323,10 +322,8 @@ export function wakeStart(id: string): WakeRequest {
       const latestCap = repo.getLatestContextSnapshot(wr.taskId, wr.targetAgentId);
       let wr2: string[] = [];
       if (latestCap) {
-        try {
-          const p = JSON.parse(latestCap.payloadJson ?? "{}");
-          if (Array.isArray(p.workingResources)) wr2 = p.workingResources;
-        } catch { /* ok */ }
+        const p = latestCap.payload ?? {};
+        if (Array.isArray(p.workingResources)) wr2 = p.workingResources;
       }
       const projection = buildProjection({ taskId: wr.taskId, workingResources: wr2 });
       const decision = evaluateConstraints({
@@ -389,10 +386,8 @@ export function wakeNext(agentId: string): WakeRequest | null {
       const latestCap = repo.getLatestContextSnapshot(wr.taskId, wr.targetAgentId);
       let wr3: string[] = [];
       if (latestCap) {
-        try {
-          const p = JSON.parse(latestCap.payloadJson ?? "{}");
-          if (Array.isArray(p.workingResources)) wr3 = p.workingResources;
-        } catch { /* ok */ }
+        const p = latestCap.payload ?? {};
+        if (Array.isArray(p.workingResources)) wr3 = p.workingResources;
       }
       const projection = buildProjection({ taskId: wr.taskId, workingResources: wr3 });
       const decision = evaluateConstraints({

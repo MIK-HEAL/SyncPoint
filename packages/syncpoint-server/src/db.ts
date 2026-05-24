@@ -248,28 +248,69 @@ export function runMigrations(db: Database.Database): void {
       category              TEXT NOT NULL,
       title                 TEXT NOT NULL,
       content               TEXT NOT NULL,
-      tags                  TEXT NOT NULL DEFAULT '',
       source_type           TEXT NOT NULL DEFAULT 'human',
       source_ref            TEXT NOT NULL DEFAULT '',
       status                TEXT NOT NULL DEFAULT 'draft',
       confidence            TEXT NOT NULL DEFAULT 'medium',
       task_id               TEXT,
-      fingerprint           TEXT NOT NULL DEFAULT '',
-      supersedes            TEXT,
-      superseded_by         TEXT,
       kind                  TEXT NOT NULL DEFAULT 'fact',
-      projection_target     TEXT,
-      applies_to            TEXT NOT NULL DEFAULT '',
-      severity              TEXT NOT NULL DEFAULT 'info',
-      validity_status       TEXT NOT NULL DEFAULT 'fresh',
-      validity_stale_reason TEXT NOT NULL DEFAULT '',
-      validator_type        TEXT NOT NULL DEFAULT '',
-      validator_config      TEXT NOT NULL DEFAULT '',
       created_by            TEXT NOT NULL DEFAULT '',
       updated_by            TEXT NOT NULL DEFAULT '',
       created_at            TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS project_memory_tag (
+      id         TEXT PRIMARY KEY,
+      memory_id  TEXT NOT NULL REFERENCES project_memory(id),
+      tag        TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_project_memory_tag ON project_memory_tag(memory_id, tag);
+
+    CREATE TABLE IF NOT EXISTS project_memory_version (
+      memory_id               TEXT PRIMARY KEY REFERENCES project_memory(id),
+      fingerprint             TEXT NOT NULL DEFAULT '',
+      supersedes_memory_id    TEXT,
+      superseded_by_memory_id TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_memory_version_fingerprint ON project_memory_version(fingerprint);
+
+    CREATE TABLE IF NOT EXISTS project_memory_projection (
+      memory_id          TEXT PRIMARY KEY REFERENCES project_memory(id),
+      projection_target  TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS project_memory_scope (
+      id         TEXT PRIMARY KEY,
+      memory_id  TEXT NOT NULL REFERENCES project_memory(id),
+      field      TEXT NOT NULL,
+      pattern    TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_project_memory_scope ON project_memory_scope(memory_id, field, pattern);
+    CREATE INDEX IF NOT EXISTS idx_project_memory_scope_field ON project_memory_scope(field);
+
+    CREATE TABLE IF NOT EXISTS project_memory_validation (
+      memory_id          TEXT PRIMARY KEY REFERENCES project_memory(id),
+      severity           TEXT NOT NULL DEFAULT 'info',
+      validity_status    TEXT NOT NULL DEFAULT 'fresh',
+      stale_reason       TEXT NOT NULL DEFAULT '',
+      validator_type     TEXT NOT NULL DEFAULT '',
+      validator_message  TEXT NOT NULL DEFAULT '',
+      validator_payload  TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_memory_validation_type ON project_memory_validation(validator_type);
+
+    CREATE TABLE IF NOT EXISTS project_memory_validation_action (
+      id         TEXT PRIMARY KEY,
+      memory_id  TEXT NOT NULL REFERENCES project_memory(id),
+      action     TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_project_memory_validation_action ON project_memory_validation_action(memory_id, action);
+
+    CREATE INDEX IF NOT EXISTS idx_project_memory_status ON project_memory(status);
+    CREATE INDEX IF NOT EXISTS idx_project_memory_category ON project_memory(category);
+    CREATE INDEX IF NOT EXISTS idx_project_memory_scope ON project_memory(scope);
+    CREATE INDEX IF NOT EXISTS idx_project_memory_task ON project_memory(task_id);
 
     CREATE TABLE IF NOT EXISTS pinned_memory (
       id          TEXT PRIMARY KEY,

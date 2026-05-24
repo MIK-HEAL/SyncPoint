@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { ContextSnapshotPayloadSchema } from "./models.js";
 
 // ── Pinned Memory ─────────────────────────────────────
 
@@ -73,9 +74,9 @@ export const ResumeContextSchema = z.object({
     id: z.string(),
     title: z.string(),
     scope: z.string(),
-    responsibilities: z.string(),
-    interfaceSpec: z.string(),
-    fileBoundaries: z.string(),
+    responsibilities: z.array(z.string()),
+    interfaceSpec: z.array(z.string()),
+    fileBoundaries: z.array(z.string()),
     status: z.string(),
   }).nullable(),
   /** Latest context snapshot (null if none) */
@@ -83,7 +84,7 @@ export const ResumeContextSchema = z.object({
     id: z.string(),
     kind: z.string().default("resume"),
     summary: z.string().default(""),
-    payloadJson: z.string().default("{}"),
+    payload: ContextSnapshotPayloadSchema,
     createdAt: z.string(),
   }).nullable(),
   /** Latest checkpoint (null if none) */

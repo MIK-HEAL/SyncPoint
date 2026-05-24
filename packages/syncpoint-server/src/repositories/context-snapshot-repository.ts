@@ -22,7 +22,7 @@ function rowToSnapshot(row: any): ContextSnapshot {
     checkpointId: row.checkpointId,
     kind: row.kind ?? "resume",
     summary: row.summary ?? "",
-    payloadJson: row.payloadJson ?? "{}",
+    payload: (() => { try { return JSON.parse(row.payloadJson ?? "{}"); } catch { return {}; } })(),
     validationStatus: "",
     staleReason: "",
     createdAt: row.createdAt,
@@ -44,7 +44,7 @@ export function createContextSnapshot(data: ContextSnapshotCreate): ContextSnaps
     checkpointId: data.checkpointId ?? "",
     kind: data.kind ?? "resume",
     summary: data.summary ?? "",
-    payloadJson: data.payloadJson ?? "{}",
+    payloadJson: JSON.stringify(data.payload ?? {}),
     createdAt: ts,
   }).run();
   logEvent(EventType.CONTEXT_SNAPSHOT_CREATED, "context_snapshot", id);

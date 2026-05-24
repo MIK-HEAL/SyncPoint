@@ -14,14 +14,13 @@ import {
   computeContentHash,
 } from "syncpoint-core";
 import type { ConstraintManifest } from "syncpoint-core";
-import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode } from "syncpoint-core";
+import type { AdapterLifecycleEvent, AgentProvider, PromptFormat, ResumeContext, ContextMode, ContextSnapshotPayload } from "syncpoint-core";
 import * as repo from "../repositories.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
 import { assembleProtocolGate, injectProjectionIntoGate, validateSnapshot, formatProtocolGatePrompt, formatSnapshotReality, formatValidationNotes } from "./protocol-gate-service.js";
 import { buildProjection } from "./reality-projection-service.js";
 import type { RealityProjection } from "syncpoint-core";
 import "./_scope-matchers.js";
-import "./_plugin-init.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
 
 // ── Types ────────────────────────────────────────────
@@ -223,10 +222,7 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
   const latestSnapshot = repo.getLatestContextSnapshot(task.id, agent.id);
   let snapshotWorkingResources: string[] = [];
   if (latestSnapshot) {
-    try {
-      const sp = JSON.parse(latestSnapshot.payloadJson ?? "{}");
-      if (Array.isArray(sp.workingResources)) snapshotWorkingResources = sp.workingResources;
-    } catch { /* ok */ }
+    snapshotWorkingResources = latestSnapshot.payload?.workingResources ?? [];
   }
   const latestCheckpoint = repo.getLatestCheckpointForAgent(task.id, agent.id);
   const contract = repo.getContractForTask(task.id);
@@ -238,13 +234,22 @@ export function loopResume(input: LoopResumeInput): LoopResumeResult {
     checkpointId: latestCheckpoint?.id,
     contractId: contract?.id,
     snapshotHash: latestSnapshot
-      ? computeContentHash(latestSnapshot.summary, latestSnapshot.payloadJson)
+      ? computeContentHash(latestSnapshot.summary, JSON.stringify(latestSnapshot.payload))
       : undefined,
     checkpointHash: latestCheckpoint
       ? computeContentHash(latestCheckpoint.summary, latestCheckpoint.progress)
       : undefined,
     contractHash: contract
-      ? computeContentHash(contract.title, contract.scope, contract.responsibilities, contract.interfaceSpec, contract.fileBoundaries, contract.testPlan, contract.risks, contract.status)
+      ? computeContentHash(
+        contract.title,
+        contract.scope,
+        contract.responsibilities.join("|"),
+        contract.interfaceSpec.join("|"),
+        contract.fileBoundaries.join("|"),
+        contract.testPlan,
+        contract.risks,
+        contract.status,
+      )
       : undefined,
   });
   protocolGate = injectProjectionIntoGate(protocolGate, projection);
@@ -451,7 +456,7 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
     summary: input.summary,
     progress: input.progress ?? "",
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
     risks: input.risks ?? "",
     blockers: input.blockers ?? "",
     nextSteps: input.nextSteps ?? "",
@@ -460,16 +465,16 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
 
   // 2. Create snapshot (inherit from latest if not specified)
   const latestSnapshot = repo.getLatestContextSnapshot(task.id, agent.id);
-  let prevPayload: Record<string, unknown> = {};
+  let prevPayload: ContextSnapshotPayload = {};
   if (latestSnapshot) {
-    try { prevPayload = JSON.parse(latestSnapshot.payloadJson ?? "{}"); } catch { /* ok */ }
+    prevPayload = latestSnapshot.payload ?? {};
   }
   const snapshot = repo.createContextSnapshot({
     taskId: task.id,
     agentId: agent.id,
     checkpointId: cp.id,
     summary: input.summary,
-    payloadJson: JSON.stringify({
+    payload: {
       goal: input.goal || (prevPayload.goal ?? ""),
       currentPhase: input.phase || (prevPayload.currentPhase ?? ""),
       confirmedDecisions: prevPayload.confirmedDecisions ?? [],
@@ -480,7 +485,7 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
       blockers: input.blockers ? [input.blockers] : [],
       nextSteps: input.nextSteps ? [input.nextSteps] : [],
       resumePrompt: input.resumePrompt || input.summary,
-    }),
+    },
   });
 
   // 3. Handle needSync flag
@@ -519,7 +524,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
     summary: `Handoff to ${toAgent.name}: ${input.context}`,
     progress: "",
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
     risks: "",
     blockers: "",
     nextSteps: `Handoff to ${toAgent.name}`,
@@ -527,9 +532,9 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   });
 
   const latestSnapshot = repo.getLatestContextSnapshot(task.id, fromAgent.id);
-  let prevP: Record<string, unknown> = {};
+  let prevP: ContextSnapshotPayload = {};
   if (latestSnapshot) {
-    try { prevP = JSON.parse(latestSnapshot.payloadJson ?? "{}"); } catch { /* ok */ }
+    prevP = latestSnapshot.payload ?? {};
   }
   repo.createContextSnapshot({
     taskId: task.id,
@@ -537,12 +542,12 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
     checkpointId: cp.id,
     kind: "handoff",
     summary: `Handoff to ${toAgent.name}: ${input.context}`,
-    payloadJson: JSON.stringify({
+    payload: {
       ...prevP,
       currentPhase: "handoff",
       nextSteps: [`Handoff to ${toAgent.name}: ${input.context}`],
       resumePrompt: input.context,
-    }),
+    },
   });
 
   // 2. Create handoff
@@ -568,7 +573,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
   // P2: build projected reality for handoff receiver
   const receiverProjection = buildProjection({
     taskId: task.id,
-    workingResources: (() => { if (!ctx.latestSnapshot) return []; try { const p = JSON.parse(ctx.latestSnapshot.payloadJson); return Array.isArray(p.workingResources) ? p.workingResources : []; } catch { return []; } })(),
+    workingResources: ctx.latestSnapshot?.payload?.workingResources ?? [],
   });
 
   // P2: inject projected reality into handoff context prompt

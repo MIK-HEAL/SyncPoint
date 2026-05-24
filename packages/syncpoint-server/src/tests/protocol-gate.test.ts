@@ -9,12 +9,8 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "../schema";
 import { TaskStatus, ContractStatus } from "syncpoint-core";
 
-function payloadJson(payload: Record<string, unknown>): string {
-  return JSON.stringify(payload);
-}
-
-function readPayload(snapshot: { payloadJson?: string }) {
-  return JSON.parse(snapshot.payloadJson ?? "{}") as Record<string, unknown>;
+function readPayload(snapshot: { payload?: Record<string, unknown> }) {
+  return (snapshot.payload ?? {}) as Record<string, unknown>;
 }
 
 const MIGRATION_SQL = `
@@ -79,14 +75,14 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "50%", currentUnderstanding: "", changedFiles: "",
+      progress: "50%", currentUnderstanding: "", changedFiles: [],
       risks: "", blockers: "", nextSteps: "Continue", needSync: false,
     });
 
     const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build feature",
-      payloadJson: payloadJson({
+      payload: {
         goal: "Build feature",
         currentPhase: "implementation",
         confirmedDecisions: [],
@@ -98,7 +94,7 @@ describe("P12 Snapshot Validation", () => {
         blockers: [],
         nextSteps: ["Continue"],
         resumePrompt: "Keep going",
-      }),
+      },
     });
 
     const val = validateSnapshot(snapshot, cp, task.id, agent.id);
@@ -116,14 +112,14 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: "",
+      progress: "", currentUnderstanding: "", changedFiles: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
     const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
-      payloadJson: payloadJson({
+      payload: {
         goal: "Build",
         currentPhase: "phase",
         confirmedDecisions: [],
@@ -135,7 +131,7 @@ describe("P12 Snapshot Validation", () => {
         blockers: [],
         nextSteps: [],
         resumePrompt: "",
-      }),
+      },
     });
 
     // Validate against wrong task
@@ -152,14 +148,14 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: "",
+      progress: "", currentUnderstanding: "", changedFiles: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
     const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
-      payloadJson: payloadJson({
+      payload: {
         goal: "Build",
         currentPhase: "phase",
         confirmedDecisions: [],
@@ -171,7 +167,7 @@ describe("P12 Snapshot Validation", () => {
         blockers: ["Waiting for API spec"],
         nextSteps: [],
         resumePrompt: "",
-      }),
+      },
     });
 
     const val = validateSnapshot(snapshot, cp, task.id, agent.id);
@@ -188,14 +184,14 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Need sync",
-      progress: "", currentUnderstanding: "", changedFiles: "",
+      progress: "", currentUnderstanding: "", changedFiles: [],
       risks: "", blockers: "", nextSteps: "", needSync: true,
     });
 
     const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
-      payloadJson: payloadJson({
+      payload: {
         goal: "Build",
         currentPhase: "phase",
         confirmedDecisions: [],
@@ -207,7 +203,7 @@ describe("P12 Snapshot Validation", () => {
         blockers: [],
         nextSteps: [],
         resumePrompt: "",
-      }),
+      },
     });
 
     const val = validateSnapshot(snapshot, cp, task.id, agent.id);
@@ -229,14 +225,14 @@ describe("P12 Extended Snapshot Fields", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: "",
+      progress: "", currentUnderstanding: "", changedFiles: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
     const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Refactor auth",
-      payloadJson: payloadJson({
+      payload: {
         goal: "Refactor auth",
         currentPhase: "implementation",
         confirmedDecisions: [],
@@ -254,7 +250,7 @@ describe("P12 Extended Snapshot Fields", () => {
         unverifiedClaims: ["Redis cache assumed fast enough"],
         doNotTouch: ["packages/billing/*"],
         handoffInstructions: "Reviewer: check token expiry logic",
-      }),
+      },
     });
 
     const payload = readPayload(snapshot);
@@ -279,14 +275,14 @@ describe("P12 Extended Snapshot Fields", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: "",
+      progress: "", currentUnderstanding: "", changedFiles: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
     const snapshot = repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build",
-      payloadJson: payloadJson({
+      payload: {
         goal: "Build",
         currentPhase: "phase",
         confirmedDecisions: [],
@@ -298,7 +294,7 @@ describe("P12 Extended Snapshot Fields", () => {
         blockers: [],
         nextSteps: [],
         resumePrompt: "",
-      }),
+      },
     });
 
     const payload = readPayload(snapshot);
@@ -320,14 +316,14 @@ describe("P12 ResumeContext includes extended snapshot fields", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "50%", currentUnderstanding: "", changedFiles: "",
+      progress: "50%", currentUnderstanding: "", changedFiles: [],
       risks: "", blockers: "", nextSteps: "Continue", needSync: false,
     });
 
     repo.createContextSnapshot({
       taskId: task.id, agentId: agent.id, checkpointId: cp.id,
       summary: "Build feature",
-      payloadJson: payloadJson({
+      payload: {
         goal: "Build feature",
         currentPhase: "implementation",
         confirmedDecisions: [],
@@ -341,7 +337,7 @@ describe("P12 ResumeContext includes extended snapshot fields", () => {
         resumePrompt: "Keep going",
         intentScope: "Feature X only",
         nonGoals: ["No DB changes"],
-      }),
+      },
     });
 
     const ctx = repo.getResumeContext(task.id, agent.id);

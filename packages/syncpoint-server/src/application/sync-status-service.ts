@@ -80,7 +80,7 @@ export function classifyBlockers(opts: {
 
   // Sync Gates
   for (const g of opts.activeGates) {
-    const reqIds = (g.requiredAgentIds || "").split(",").filter(Boolean);
+    const reqIds = g.requiredAgentIds ?? [];
     const details = sgStatusDetailed(g.id, opts.statusAgentId);
     blockers.push({
       type: "sync_gate",
@@ -325,7 +325,7 @@ export function buildSnapshot(input?: SnapshotInput) {
           const snapshot = repo.getLatestContextSnapshot(ta.taskId, a.id);
           let wr: string[] = [];
           if (snapshot) {
-            try { const p = JSON.parse(snapshot.payloadJson ?? "{}"); if (Array.isArray(p.workingResources)) wr = p.workingResources; } catch { /* ok */ }
+            wr = snapshot.payload?.workingResources ?? [];
           }
           const proj = buildProjection({ taskId: ta.taskId, workingResources: wr });
           const decision = evaluateConstraints({

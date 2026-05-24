@@ -41,9 +41,9 @@ beforeAll(async () => {
     taskId,
     title: "Frontend contract",
     scope: "UI components",
-    responsibilities: "Build React components",
-    interfaceSpec: "ComponentProps interface",
-    fileBoundaries: "src/components/*",
+    responsibilities: ["Build React components"],
+    interfaceSpec: ["ComponentProps interface"],
+    fileBoundaries: ["src/components/*"],
   }, "POST") as any;
   await e2e.rpc("contract.updateStatus", { id: contract.id, status: "REVIEWING" }, "POST");
   await e2e.rpc("contract.updateStatus", { id: contract.id, status: "APPROVED" }, "POST");
@@ -53,14 +53,14 @@ beforeAll(async () => {
     agentId,
     checkpointId,
     summary: "Build React components",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "Build React components",
       currentPhase: "implementation",
       workingResources: ["src/components/Button.tsx"],
       remainingWork: "Finish Button styling",
       nextSteps: ["Add hover states"],
       resumePrompt: "Continue building Button component with hover states",
-    }),
+    },
   }, "POST");
 
   await e2e.rpc("pinnedMemory.create", {

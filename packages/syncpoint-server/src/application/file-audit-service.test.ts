@@ -79,8 +79,8 @@ describe("auditFileChange", () => {
     const gates = repo.listActiveSyncGates({ taskId: taskB, sessionId });
     expect(gates).toHaveLength(1);
     expect(gates[0].reason).toBe(SyncGateReason.RESOURCE_CONFLICT);
-    expect(gates[0].relatedClaimIds).toBe(claimResult.claim.id);
-    expect(gates[0].requiredAgentIds.split(",").sort()).toEqual([agentA, agentB].sort());
+    expect(gates[0].relatedClaimIds).toEqual([claimResult.claim.id]);
+    expect([...gates[0].requiredAgentIds].sort()).toEqual([agentA, agentB].sort());
 
     const latestEvent = repo.listEvents(5)[0];
     expect(latestEvent.eventType).toBe(EventType.FILE_POLLUTION_DETECTED);
@@ -117,7 +117,7 @@ describe("auditFileChange", () => {
       requiredAgentIds: [agentB],
       reason: SyncGateReason.RESOURCE_CONFLICT,
       description: "Initial blocking gate",
-      relatedFiles: "src/auth.ts",
+      relatedFiles: ["src/auth.ts"],
     }).gate;
 
     const result = auditFileChange({

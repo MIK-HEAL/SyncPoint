@@ -34,7 +34,7 @@ beforeAll(() => {
     summary: "Initial work done",
     progress: "50%",
     currentUnderstanding: "",
-    changedFiles: "",
+    changedFiles: [],
     risks: "None",
     blockers: "",
     nextSteps: "Continue",
@@ -44,7 +44,7 @@ beforeAll(() => {
     taskId, agentId,
     checkpointId: cp.id,
     summary: "Build feature X",
-    payloadJson: JSON.stringify({
+    payload: {
       goal: "Build feature X",
       currentPhase: "implementation",
       confirmedDecisions: [],
@@ -56,7 +56,7 @@ beforeAll(() => {
       blockers: [],
       nextSteps: ["Continue coding"],
       resumePrompt: "Continue building feature X",
-    }),
+    },
   });
 
   // Project memory
@@ -65,7 +65,7 @@ beforeAll(() => {
     title: "Test Architecture",
     content: "We use a layered architecture.",
     scope: "project" as any,
-    tags: "arch",
+    tags: ["arch"],
     sourceType: "human" as any,
     sourceRef: "",
     confidence: "high" as any,
@@ -81,7 +81,7 @@ beforeAll(() => {
     title: "Draft Decision",
     content: "This is a draft and should not be in execution context.",
     scope: "project" as any,
-    tags: "draft",
+    tags: ["draft"],
     sourceType: "human" as any,
     sourceRef: "",
     confidence: "medium" as any,
@@ -135,7 +135,7 @@ describe("prepareContext", () => {
       summary: "Ready to work",
       progress: "10%",
       currentUnderstanding: "",
-      changedFiles: "",
+      changedFiles: [],
       risks: "",
       blockers: "",
       nextSteps: "Wait for approval",
@@ -146,7 +146,7 @@ describe("prepareContext", () => {
       agentId: a.id,
       checkpointId: cp.id,
       summary: "Implement contract-gated work",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Implement contract-gated work",
         currentPhase: "planning",
         confirmedDecisions: [],
@@ -158,17 +158,17 @@ describe("prepareContext", () => {
         blockers: [],
         nextSteps: ["Approve contract"],
         resumePrompt: "Do not start until contract is approved.",
-      }),
+      },
     });
     repo.createContract({
       taskId: t.id,
       title: "Draft contract",
-      participants: "",
+      participants: [],
       scope: "Contract-gated scope",
-      responsibilities: "",
-      interfaceSpec: "",
-      fileBoundaries: "",
-      dependencies: "",
+      responsibilities: [],
+      interfaceSpec: [],
+      fileBoundaries: [],
+      dependencies: [],
       testPlan: "",
       risks: "",
     });
@@ -202,7 +202,7 @@ describe("prepareContext", () => {
       summary: "Sender work done",
       progress: "70%",
       currentUnderstanding: "",
-      changedFiles: "",
+      changedFiles: [],
       risks: "",
       blockers: "",
       nextSteps: "Receiver continues",
@@ -213,7 +213,7 @@ describe("prepareContext", () => {
       agentId: from.id,
       checkpointId: cp.id,
       summary: "Finish handoff task",
-      payloadJson: JSON.stringify({
+      payload: {
         goal: "Finish handoff task",
         currentPhase: "handoff",
         confirmedDecisions: [],
@@ -225,7 +225,7 @@ describe("prepareContext", () => {
         blockers: [],
         nextSteps: ["Build UI"],
         resumePrompt: "Use sender snapshot to continue.",
-      }),
+      },
     });
     const h = repo.createHandoff({
       taskId: t.id,

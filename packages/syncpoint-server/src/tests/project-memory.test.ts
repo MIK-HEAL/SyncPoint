@@ -17,7 +17,7 @@ describe("Project Memory Layer", () => {
       category: "overview",
       title: "Project Overview",
       content: "SyncPoint is a synchronization protocol layer for editor AI agents.",
-      tags: "core,overview",
+      tags: ["core", "overview"],
       sourceType: "human",
       createdBy: "test-user",
     })) as any;
@@ -27,7 +27,7 @@ describe("Project Memory Layer", () => {
     expect(m.category).toBe("overview");
     expect(m.title).toBe("Project Overview");
     expect(m.content).toContain("synchronization");
-    expect(m.tags).toBe("core,overview");
+    expect(m.tags).toEqual(["core", "overview"]);
   });
 
   it("list shows draft memories", async () => {
@@ -74,7 +74,7 @@ describe("Project Memory Layer", () => {
       agentId: a.id,
       checkpointId: cp.id,
       summary: "Test",
-      payloadJson: JSON.stringify({ goal: "Test" }),
+      payload: { goal: "Test" },
     });
 
     const rc = (await ctx.rpc("resumeContext.get", { taskId: t.id, agentId: a.id }, "GET")) as any;

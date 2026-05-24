@@ -18,14 +18,6 @@ export function formatCheckpointSummary(cp: { id: string; summary: string; creat
   return `- [${cp.createdAt}] ${cp.summary}${sync} [${cp.id}]`;
 }
 
-function parseSnapshotPayload(payloadJson: string): ContextSnapshotPayload {
-  try {
-    return JSON.parse(payloadJson) as ContextSnapshotPayload;
-  } catch {
-    return {};
-  }
-}
-
 function listText(value: string[] | string | undefined): string {
   if (Array.isArray(value)) return value.join(", ");
   return value ?? "";
@@ -35,10 +27,10 @@ export function formatContextSnapshotSummary(snapshot: {
   id: string;
   agentId: string;
   summary?: string;
-  payloadJson: string;
+  payload: ContextSnapshotPayload;
   createdAt: string;
 }): string {
-  const payload = parseSnapshotPayload(snapshot.payloadJson);
+  const payload = snapshot.payload ?? {};
   const workingResources = listText(payload.workingResources);
   const nextSteps = listText(payload.nextSteps);
   const blockers = listText(payload.blockers);

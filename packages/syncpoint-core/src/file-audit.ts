@@ -10,7 +10,7 @@ export enum FileAuditDecisionKind {
 
 export interface FileAuditGateContext {
   id: string;
-  relatedFiles?: string;
+  relatedFiles?: string[];
   relatedResources?: ResourceRef[];
 }
 
@@ -83,13 +83,13 @@ export function gateMatchesResource(gate: FileAuditGateContext, resource: Resour
     return true;
   }
 
-  return parseRelatedFileLocators(gate.relatedFiles ?? "")
+  return parseRelatedFileLocators(gate.relatedFiles ?? [])
     .some(locator => resourceLocatorsOverlap({ type: "file", locator, metadata: "" }, resource));
 }
 
-export function parseRelatedFileLocators(value: string): string[] {
-  return value
-    .split(",")
+export function parseRelatedFileLocators(value: string[] | string): string[] {
+  const parts = Array.isArray(value) ? value : value.split(",");
+  return parts
     .flatMap(part => part.split("↔"))
     .map(part => part.trim())
     .filter(Boolean);
