@@ -15,7 +15,7 @@ import {
   EventType,
 } from "syncpoint-core";
 import type { ResourceClaim, ResourceClaimCreate, ResourceConflict, ResourceRef } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { sgRequest, sgReconcileForClaims } from "./sync-gate-service.js";
 
@@ -58,7 +58,7 @@ export function rcClaim(input: ClaimResourcesInput): ClaimResourcesResult {
     mode: input.mode as any,
   };
 
-  const claim = repo.createResourceClaim(create);
+  const claim = protocolRepo.createResourceClaim(create);
 
   logEvent(
     EventType.RESOURCE_CLAIMED,
@@ -73,7 +73,7 @@ export function rcClaim(input: ClaimResourcesInput): ClaimResourcesResult {
 
   // Detect conflicts involving this new claim
   const resourceType = input.resources[0]?.type;
-  const allActive = repo.listActiveResourceClaims({
+  const allActive = protocolRepo.listActiveResourceClaims({
     sessionId: input.sessionId,
     resourceType,
   });
@@ -134,7 +134,7 @@ export function rcClaim(input: ClaimResourcesInput): ClaimResourcesResult {
  * Release a resource claim.
  */
 export function rcRelease(claimId: string): ResourceClaim {
-  const claim = repo.releaseResourceClaim(claimId);
+  const claim = protocolRepo.releaseResourceClaim(claimId);
 
   logEvent(
     EventType.RESOURCE_RELEASED,
@@ -154,7 +154,7 @@ export function rcRelease(claimId: string): ResourceClaim {
  * List resource claims with optional filters.
  */
 export function rcList(input?: ListResourceClaimsInput): ResourceClaim[] {
-  return repo.listResourceClaims(input);
+  return protocolRepo.listResourceClaims(input);
 }
 
 /**
@@ -164,6 +164,6 @@ export function rcDetectConflicts(opts?: {
   sessionId?: string;
   resourceType?: string;
 }): ResourceConflict[] {
-  const active = repo.listActiveResourceClaims(opts);
+  const active = protocolRepo.listActiveResourceClaims(opts);
   return detectResourceClaimConflicts(active);
 }

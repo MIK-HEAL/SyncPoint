@@ -21,7 +21,9 @@ import type {
   RealityProjection,
 } from "syncpoint-core";
 import { ContractStatus, CheckpointReviewStatus } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
+import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { sgCheckAgent } from "./sync-gate-service.js";
 import { rcDetectConflicts } from "./resource-claim-service.js";
 import { wakeList } from "./wake-engine-service.js";
@@ -42,7 +44,7 @@ export function assembleProtocolGate(
   const rules: ProtocolRule[] = [];
 
   // 1. Pinned memories — always enforced
-  const pinned = repo.collectPinnedMemories(taskId);
+  const pinned = contextMemoryRepo.collectPinnedMemories(taskId);
   for (const m of pinned) {
     rules.push({
       source: "pinned-memory",
@@ -52,7 +54,7 @@ export function assembleProtocolGate(
   }
 
   // 2. Peer contract constraints
-  const approved = repo.getContractForTask(taskId);
+  const approved = contextMemoryRepo.getContractForTask(taskId);
   if (approved && approved.status === ContractStatus.APPROVED) {
     if (approved.scope) {
       rules.push({ source: "peer-contract", severity: "hard", summary: `Scope: ${approved.scope}`, entityId: approved.id });
@@ -69,7 +71,7 @@ export function assembleProtocolGate(
   }
 
   // 3. Resource claims for this agent
-  const claims = repo.listActiveResourceClaims(sessionId ? { sessionId } : undefined);
+  const claims = protocolRepo.listActiveResourceClaims(sessionId ? { sessionId } : undefined);
   const agentClaims = claims.filter((c: any) => c.actorId === agentId);
   for (const c of agentClaims) {
     const locators = c.resources?.map((r: any) => `${r.type}:${r.locator}`).join(", ") ?? "";
@@ -110,7 +112,7 @@ export function assembleProtocolGate(
     CheckpointReviewStatus.REJECTED,
   ]);
   try {
-    const txns = repo.listActiveCheckpointReviews({ taskId, sessionId });
+    const txns = protocolRepo.listActiveCheckpointReviews({ taskId, sessionId });
     for (const tx of txns) {
       const isBlocking = CR_BLOCKING.has(tx.status as string);
       rules.push({
@@ -124,7 +126,7 @@ export function assembleProtocolGate(
 
   // 7. Pending reviews
   try {
-    const reviews = (repo as any).listReviewRequests?.(sessionId) ?? [];
+    const reviews = sessionId ? orchestrationRepo.listReviewRequests(sessionId) : [];
     for (const r of reviews) {
       if (r.status === "PENDING" && r.reviewerAgentId === agentId) {
         rules.push({

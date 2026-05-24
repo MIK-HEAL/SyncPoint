@@ -23,7 +23,9 @@ import type {
   ProjectionValidityStatus,
   ContextMode,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
+import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { buildProjection } from "./reality-projection-service.js";
 import "./_scope-matchers.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
@@ -135,7 +137,7 @@ function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
     };
   }
 
-  const latestSnapshot = repo.getLatestContextSnapshot(input.taskId, input.agentId);
+  const latestSnapshot = contextMemoryRepo.getLatestContextSnapshot(input.taskId, input.agentId);
   const workingResources = parsePayloadWorkingResources(latestSnapshot);
   return {
     taskId: input.taskId,
@@ -150,7 +152,7 @@ function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
 function resolveStartAssignmentInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
   if (!input.assignmentId) throw new Error("assignmentId required for action 'start_assignment'");
 
-  const ta = repo.getTaskAssignment(input.assignmentId);
+  const ta = orchestrationRepo.getTaskAssignment(input.assignmentId);
 
   if (input.touchedResources?.length) {
     return {
@@ -163,7 +165,7 @@ function resolveStartAssignmentInput(input: ConstraintRuntimeCheckInput): Resolv
     };
   }
 
-  const agentClaims = repo.listResourceClaims({ actorId: ta.assigneeAgentId, status: "ACTIVE" });
+  const agentClaims = protocolRepo.listResourceClaims({ actorId: ta.assigneeAgentId, status: "ACTIVE" });
   const claimedLocators = agentClaims.flatMap(c => c.resources.map((r: any) => r.locator));
   return {
     taskId: ta.taskId,
@@ -181,7 +183,7 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
   let sessionId: string | undefined;
 
   if (input.wakeRequestId) {
-    const wr = repo.getWakeRequest(input.wakeRequestId);
+    const wr = orchestrationRepo.getWakeRequest(input.wakeRequestId);
     taskId = wr.taskId ?? input.taskId ?? "";
     agentId = wr.targetAgentId;
     sessionId = wr.sessionId ?? input.sessionId;
@@ -204,7 +206,7 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
     };
   }
 
-  const latestSnapshot = repo.getLatestContextSnapshot(taskId, agentId);
+  const latestSnapshot = contextMemoryRepo.getLatestContextSnapshot(taskId, agentId);
   const workingResources = parsePayloadWorkingResources(latestSnapshot);
   return {
     taskId,
@@ -219,7 +221,7 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
 function resolveOperationInput(input: ConstraintRuntimeCheckInput, action: "operation_submit" | "operation_apply"): ResolvedInput {
   if (!input.operationId) throw new Error(`operationId required for action '${action}'`);
 
-  const op = repo.getOperation(input.operationId);
+  const op = protocolRepo.getOperation(input.operationId);
 
   if (input.touchedResources?.length) {
     return {

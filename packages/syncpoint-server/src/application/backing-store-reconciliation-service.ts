@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { EventType, SyncGateReason } from "syncpoint-core";
 import type { ResourceRef } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent, now } from "../repositories/_shared.js";
 import { getSyncpointDir } from "../db.js";
 import { sgRequest, sgListActive } from "./sync-gate-service.js";
@@ -156,10 +156,10 @@ function handleBypass(
 
   if (existingGate) {
     // Update description with new detection
-    const gate = repo.getSyncGate(existingGate.id);
+    const gate = protocolRepo.getSyncGate(existingGate.id);
     const note = `Backing store bypass detected again: ${locator} (${now()})`;
     if (!gate.description.includes(note)) {
-      repo.updateSyncGateDescription(existingGate.id, `${gate.description} ${note}`);
+      protocolRepo.updateSyncGateDescription(existingGate.id, `${gate.description} ${note}`);
     }
     return { locator, bypassed: true, gateId: existingGate.id, reusedGate: true };
   }

@@ -2,11 +2,13 @@
  * Integration tests for Escalation Routing Service.
  */
 
+import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../db.js";
+import * as schema from "../schema.js";
 import { createAgent, createTask } from "../repositories/index.js";
 import { sgRequest } from "./sync-gate-service.js";
 import { updateSyncGateStatus } from "../repositories/sync-gate-repository.js";
@@ -68,6 +70,26 @@ describe("manifestUpsert / manifestGet", () => {
     });
     const all = manifestList();
     expect(all.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("manifestGet tolerates malformed persisted JSON", () => {
+    manifestUpsert(e1, {
+      capabilities: [{ domain: "code-review", skills: ["typescript"], resourceTypes: ["file"] }],
+      tags: ["reviewer"],
+    });
+
+    getDb().update(schema.agentManifests).set({
+      capabilitiesJson: "{",
+      escalationPreferenceJson: "{",
+      tagsJson: "{",
+      updatedAt: new Date().toISOString(),
+    }).where(eq(schema.agentManifests.agentId, e1)).run();
+
+    const manifest = manifestGet(e1);
+    expect(manifest?.agentId).toBe(e1);
+    expect(manifest?.capabilities).toEqual([]);
+    expect(manifest?.tags).toEqual([]);
+    expect(manifest?.escalationPreference.optIn).toBe(EscalationOptIn.WHEN_AVAILABLE);
   });
 
   it("manifestDelete removes manifest", () => {

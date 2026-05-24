@@ -7,7 +7,6 @@ import {
   CheckpointReviewStatus,
   CHECKPOINT_REVIEW_TRANSITIONS,
   validateCheckpointReviewTransition,
-  parseIdListCsv,
   allApproved,
   hasRejection,
   pendingApprovers,
@@ -76,22 +75,6 @@ describe("CheckpointReview transitions", () => {
   it("backward transitions are invalid", () => {
     expect(validateCheckpointReviewTransition(CheckpointReviewStatus.APPROVED, CheckpointReviewStatus.OPEN)).toBe(false);
     expect(validateCheckpointReviewTransition(CheckpointReviewStatus.RESOLVED, CheckpointReviewStatus.WAITING_APPROVAL)).toBe(false);
-  });
-});
-
-// ── parseIdListCsv ───────────────────────────────────
-
-describe("parseIdListCsv", () => {
-  it("splits comma-separated IDs", () => {
-    expect(parseIdListCsv("a1,a2,a3")).toEqual(["a1", "a2", "a3"]);
-  });
-
-  it("returns empty array for empty string", () => {
-    expect(parseIdListCsv("")).toEqual([]);
-  });
-
-  it("returns array inputs unchanged", () => {
-    expect(parseIdListCsv(["a1", "a2"])) .toEqual(["a1", "a2"]);
   });
 });
 

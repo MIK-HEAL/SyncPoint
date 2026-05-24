@@ -5,6 +5,8 @@
  * end-to-end, and that dual-write from legacy services mirrors data.
  */
 
+import { eq } from "drizzle-orm";
+import { OperationStatus } from "syncpoint-core";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -149,7 +151,7 @@ describe("Operation service", () => {
       title: "add login page",
     });
     // Manual status set for test
-    repo.updateOperation(op.id, { status: "SUBMITTED" });
+    repo.updateOperation(op.id, { status: OperationStatus.SUBMITTED });
 
     const approved = opApprove(op.id, agentId, "looks good");
     expect(approved.status).toBe("APPROVED");
@@ -187,6 +189,25 @@ describe("Operation service", () => {
     expect(result.operation.id).toBe(op.id);
     // No check result yet for DRAFT
     expect(result.checkResult).toBeNull();
+  });
+
+  it("repository getOperation falls back to null for malformed stored check result", () => {
+    const op = repo.createOperation({
+      type: "code_patch",
+      actorId: agentId,
+      taskId,
+      title: "broken check result",
+      summary: "",
+      targetResources: [],
+      payloadRef: "",
+    });
+
+    db.update(schema.operations).set({
+      checkResultJson: "{",
+    }).where(eq(schema.operations.id, op.id)).run();
+
+    const loaded = repo.getOperation(op.id);
+    expect(loaded.checkResult).toBeNull();
   });
 });
 

@@ -33,7 +33,7 @@ import {
   computeAvailableActions,
 } from "syncpoint-core";
 import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision, GateDetailedStatus, GateAction, ResourceRef } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 
 // ── Types ──────────────────────────────────────────────
@@ -85,7 +85,7 @@ export function sgRequest(input: SyncGateRequestInput): SyncGateStatusResult {
     policy: input.policy,
   };
 
-  let gate = repo.createSyncGate(create);
+  let gate = protocolRepo.createSyncGate(create);
 
   logEvent(
     EventType.SYNC_GATE_CREATED,
@@ -99,7 +99,7 @@ export function sgRequest(input: SyncGateRequestInput): SyncGateStatusResult {
   );
 
   // Auto-advance to SYNC_REQUESTED
-  gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.SYNC_REQUESTED);
+  gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.SYNC_REQUESTED);
 
   logEvent(
     EventType.SYNC_GATE_REQUESTED,
@@ -118,7 +118,7 @@ export function sgRequest(input: SyncGateRequestInput): SyncGateStatusResult {
  * Agent acknowledges a sync gate.
  */
 export function sgAck(gateId: string, agentId: string, summary?: string): SyncGateStatusResult {
-  let gate = repo.getSyncGate(gateId);
+  let gate = protocolRepo.getSyncGate(gateId);
 
   // Verify agent is required
   const required = parseIdList(gate.requiredAgentIds);
@@ -137,12 +137,12 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
   // Add to acked list (separate ack table, never overwrites governance votes)
   const acked = parseIdList(gate.ackedAgentIds);
   if (!acked.includes(agentId)) {
-    repo.createGateAck({
+    protocolRepo.createGateAck({
       gateId: gate.id,
       agentId,
       summary: summary ?? "",
     });
-    gate = repo.getSyncGate(gate.id);
+    gate = protocolRepo.getSyncGate(gate.id);
   }
 
   logEvent(
@@ -154,9 +154,9 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
 
   // Auto-advance status based on ack progress
   if (allAcked(gate)) {
-    gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.SYNC_ACKED, summary ?? "");
+    gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.SYNC_ACKED, summary ?? "");
   } else if (hasPartialAcks(gate) && gate.status === SyncGateStatus.SYNC_REQUESTED) {
-    gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.PARTIALLY_ACKED);
+    gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.PARTIALLY_ACKED);
   }
 
   // Run reconcile after ack — quorum/liveness policies may now be satisfied
@@ -173,7 +173,7 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
  *   - Duplicate votes update the agent's position (last vote wins at count time).
  */
 export function sgVote(gateId: string, agentId: string, vote: string, summary?: string): SyncGateStatusResult {
-  const gate = repo.getSyncGate(gateId);
+  const gate = protocolRepo.getSyncGate(gateId);
   if (!isGateBlocking(gate)) {
     throw new Error(`Gate ${gateId} is already resolved (${gate.status})`);
   }
@@ -204,7 +204,7 @@ export function sgVote(gateId: string, agentId: string, vote: string, summary?: 
     vote: vote as GateVoteKind,
     summary: summary ?? "",
   };
-  repo.createGateVote(voteData);
+  protocolRepo.createGateVote(voteData);
 
   logEvent(
     EventType.SYNC_GATE_ACKED,
@@ -223,16 +223,16 @@ export function sgVote(gateId: string, agentId: string, vote: string, summary?: 
  * and eagerly after sgAck, sgVote, rcRelease.
  */
 export function sgReconcile(gateId: string): SyncGateStatusResult {
-  let gate = repo.getSyncGate(gateId);
+  let gate = protocolRepo.getSyncGate(gateId);
   if (!isGateBlocking(gate)) return buildStatusResult(gate);
 
-  const votes = repo.listGateVotes(gateId);
+  const votes = protocolRepo.listGateVotes(gateId);
   const decision = evaluateGateLiveness(gate, votes, new Date());
 
   switch (decision.action) {
     case LivenessAction.AUTO_RESOLVE:
       if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
-        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decision.reason);
+        gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decision.reason);
         logEvent(EventType.SYNC_GATE_RESOLVED, "sync_gate", gate.id,
           JSON.stringify({ reason: decision.reason, auto: true }));
       }
@@ -240,7 +240,7 @@ export function sgReconcile(gateId: string): SyncGateStatusResult {
 
     case LivenessAction.ALLOW_QUORUM_RESOLVE:
       if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
-        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decision.reason);
+        gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decision.reason);
         logEvent(EventType.SYNC_GATE_RESOLVED, "sync_gate", gate.id,
           JSON.stringify({ reason: decision.reason, quorum: true }));
       }
@@ -248,7 +248,7 @@ export function sgReconcile(gateId: string): SyncGateStatusResult {
 
     case LivenessAction.ESCALATE:
       if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.ESCALATED)) {
-        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.ESCALATED, decision.reason);
+        gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.ESCALATED, decision.reason);
         logEvent(EventType.SYNC_GATE_REQUESTED, "sync_gate", gate.id,
           JSON.stringify({ escalatedTo: decision.escalateTo, reason: decision.reason }));
       }
@@ -256,7 +256,7 @@ export function sgReconcile(gateId: string): SyncGateStatusResult {
 
     case LivenessAction.ALLOW_CANCEL:
       if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.CANCELLED)) {
-        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.CANCELLED, decision.reason);
+        gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.CANCELLED, decision.reason);
         logEvent(EventType.SYNC_GATE_CANCELLED, "sync_gate", gate.id,
           JSON.stringify({ reason: decision.reason }));
       }
@@ -264,9 +264,9 @@ export function sgReconcile(gateId: string): SyncGateStatusResult {
 
     case LivenessAction.REQUIRE_HUMAN_OVERRIDE:
       if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.TIMED_OUT)) {
-        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.TIMED_OUT, decision.reason);
+        gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.TIMED_OUT, decision.reason);
       } else if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.ESCALATED)) {
-        gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.ESCALATED, decision.reason);
+        gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.ESCALATED, decision.reason);
       }
       break;
 
@@ -287,7 +287,7 @@ export function sgReconcile(gateId: string): SyncGateStatusResult {
  * claim conflict still exists. If not, auto-resolves the gate.
  */
 export function sgReconcileForClaims(claimIds: string[]): void {
-  const gates = repo.listGatesByRelatedClaimIds(claimIds);
+  const gates = protocolRepo.listGatesByRelatedClaimIds(claimIds);
   for (const gate of gates) {
     if (!isGateBlocking(gate)) continue;
 
@@ -296,7 +296,7 @@ export function sgReconcileForClaims(claimIds: string[]): void {
       const relatedIds = gate.relatedClaimIds;
       // Gather all still-active claims referenced by this gate
       const activeClaims = relatedIds
-        .map(id => { try { return repo.getResourceClaim(id); } catch { return null; } })
+        .map(id => { try { return protocolRepo.getResourceClaim(id); } catch { return null; } })
         .filter((c): c is NonNullable<typeof c> => c != null && c.status === "ACTIVE");
 
       // Re-run conflict detection on remaining active claims
@@ -304,7 +304,7 @@ export function sgReconcileForClaims(claimIds: string[]): void {
       if (conflicts.length === 0) {
         // Conflict resolved — auto-resolve gate if transition is valid
         if (validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
-          repo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, "Resource conflict resolved (claims released)");
+          protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, "Resource conflict resolved (claims released)");
           logEvent(EventType.SYNC_GATE_RESOLVED, "sync_gate", gate.id,
             JSON.stringify({ reason: "conflict_resolved", auto: true }));
           continue;
@@ -322,13 +322,13 @@ export function sgReconcileForClaims(claimIds: string[]): void {
  * SYNC_ACKED, ESCALATED, TIMED_OUT, or BYPASS_REQUESTED.
  */
 export function sgResolve(gateId: string, decisionSummary?: string): SyncGateStatusResult {
-  let gate = repo.getSyncGate(gateId);
+  let gate = protocolRepo.getSyncGate(gateId);
 
   if (!validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
     throw new Error(`Cannot resolve gate ${gateId} from ${gate.status}`);
   }
 
-  gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decisionSummary ?? "");
+  gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decisionSummary ?? "");
 
   logEvent(
     EventType.SYNC_GATE_RESOLVED,
@@ -344,13 +344,13 @@ export function sgResolve(gateId: string, decisionSummary?: string): SyncGateSta
  * Cancel a sync gate.
  */
 export function sgCancel(gateId: string, reason?: string): SyncGate {
-  let gate = repo.getSyncGate(gateId);
+  let gate = protocolRepo.getSyncGate(gateId);
 
   if (!validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.CANCELLED)) {
     throw new Error(`Cannot cancel gate ${gateId} from ${gate.status}`);
   }
 
-  gate = repo.updateSyncGateStatus(gate.id, SyncGateStatus.CANCELLED, reason ?? "");
+  gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.CANCELLED, reason ?? "");
 
   logEvent(
     EventType.SYNC_GATE_CANCELLED,
@@ -376,8 +376,8 @@ export function sgStatus(gateId: string): SyncGateStatusResult {
  */
 export function sgStatusDetailed(gateId: string, agentId?: string): GateDetailedStatus & { availableActions?: GateAction[] } {
   sgReconcile(gateId);
-  const gate = repo.getSyncGate(gateId);
-  const votes = repo.listGateVotes(gateId);
+  const gate = protocolRepo.getSyncGate(gateId);
+  const votes = protocolRepo.listGateVotes(gateId);
   const details = computeGateDetails(gate, votes);
   if (agentId) {
     return { ...details, availableActions: computeAvailableActions(gate, agentId, votes) };
@@ -389,7 +389,7 @@ export function sgStatusDetailed(gateId: string, agentId?: string): GateDetailed
  * List all sync gates with optional filters.
  */
 export function sgList(opts?: { taskId?: string; sessionId?: string; status?: string }): SyncGate[] {
-  return repo.listSyncGates(opts);
+  return protocolRepo.listSyncGates(opts);
 }
 
 /**
@@ -398,7 +398,7 @@ export function sgList(opts?: { taskId?: string; sessionId?: string; status?: st
  */
 export function sgListActive(opts?: { taskId?: string; sessionId?: string }): SyncGate[] {
   sgReconcileActive(opts);
-  return repo.listActiveSyncGates(opts);
+  return protocolRepo.listActiveSyncGates(opts);
 }
 
 /**
@@ -406,7 +406,7 @@ export function sgListActive(opts?: { taskId?: string; sessionId?: string }): Sy
  * Shared entry point for sgListActive, sgCheckAgent, snapshot, and background tick.
  */
 export function sgReconcileActive(opts?: { taskId?: string; sessionId?: string }): void {
-  const activeGates = repo.listActiveSyncGates(opts);
+  const activeGates = protocolRepo.listActiveSyncGates(opts);
   for (const g of activeGates) {
     sgReconcile(g.id);
   }
@@ -421,7 +421,7 @@ export function sgCheckAgent(agentId: string, opts?: { taskId?: string; sessionI
   sgReconcileActive(opts);
 
   // Re-fetch after reconcile — some gates may have been resolved
-  const refreshedGates = repo.listActiveSyncGates(opts);
+  const refreshedGates = protocolRepo.listActiveSyncGates(opts);
   const blockingGates = refreshedGates.filter(g => isAgentBlocked(g, agentId));
   return {
     blocked: blockingGates.length > 0,

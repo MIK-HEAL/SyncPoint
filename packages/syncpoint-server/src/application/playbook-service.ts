@@ -14,7 +14,8 @@ import type {
   EvidenceKind,
   ReviewEvidence,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as foundationRepo from "../repositories/_exports/foundation.js";
+import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
 import { rwAddEvidence, rwEvaluateGate, rwListChangeRequests } from "./review-workflow-service.js";
 import { orchGetSessionStatus } from "./orchestration-service.js";
 import { rcList } from "./resource-claim-service.js";
@@ -67,7 +68,7 @@ export interface ActiveSessionResult {
  */
 export function pbGetNextAction(input: NextActionInput): NextActionResult {
   const status = orchGetSessionStatus(input.sessionId);
-  repo.getAgent(input.agentId); // validate agent exists
+  foundationRepo.getAgent(input.agentId); // validate agent exists
 
   const agentRoles = status.roles
     .filter(r => r.agentId === input.agentId)
@@ -160,21 +161,21 @@ export function pbCaptureEvidence(input: CaptureEvidenceInput): CaptureEvidenceR
  * Looks for the most recent non-COMPLETED, non-CANCELLED session the agent is part of.
  */
 export function pbGetActiveSession(agentId: string): ActiveSessionResult | null {
-  const agent = repo.getAgent(agentId);
-  const sessions = repo.listSessions();
+  const agent = foundationRepo.getAgent(agentId);
+  const sessions = orchestrationRepo.listSessions();
 
   // Find sessions this agent has a role in, sorted by most recent
   for (const sess of sessions.reverse()) {
     if (sess.status === "COMPLETED" || sess.status === "CANCELLED") continue;
 
-    const roles = repo.listRoles(sess.id);
+    const roles = orchestrationRepo.listRoles(sess.id);
     const agentRoles = roles.filter(r => r.agentId === agentId);
     if (agentRoles.length === 0) continue;
 
     // Found active session
     const result = pbGetNextAction({ sessionId: sess.id, agentId });
-    const assignments = repo.listTaskAssignments(sess.id);
-    const reviews = repo.listReviewRequests(sess.id);
+    const assignments = orchestrationRepo.listTaskAssignments(sess.id);
+    const reviews = orchestrationRepo.listReviewRequests(sess.id);
 
     return {
       sessionId: sess.id,

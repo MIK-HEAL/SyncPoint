@@ -27,7 +27,7 @@ function makeOperation(type: string, targetResources?: ResourceRef[]): Operation
     targetResources: targetResources ?? [{ type: "file", locator: "src/auth.ts", metadata: "" }],
     payloadRef: "",
     status: OperationStatus.SUBMITTED,
-    checkResult: "",
+    checkResult: null,
     decisionSummary: "",
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",

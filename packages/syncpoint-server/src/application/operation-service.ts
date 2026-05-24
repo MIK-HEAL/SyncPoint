@@ -21,7 +21,7 @@ import {
   EventType,
 } from "syncpoint-core";
 import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef, ConstraintViolation } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { buildProjection } from "./reality-projection-service.js";
 
@@ -43,21 +43,13 @@ export interface OperationStatusResult {
   checkResult: OperationCheckResult | null;
 }
 
-function normalizeCheckResult(value: Operation["checkResult"]): OperationCheckResult | null {
-  if (!value) return null;
-  if (typeof value === "string") {
-    try { return JSON.parse(value) as OperationCheckResult; } catch { return null; }
-  }
-  return value;
-}
-
 // ── Use Cases ──────────────────────────────────────────
 
 /**
  * Create a draft operation.
  */
 export function opCreate(input: OperationCreateInput): Operation {
-  const operation = repo.createOperation({
+  const operation = protocolRepo.createOperation({
     type: input.type,
     actorId: input.actorId,
     taskId: input.taskId,
@@ -83,13 +75,13 @@ export function opCreate(input: OperationCreateInput): Operation {
  * Automatically runs validators.
  */
 export function opSubmit(operationId: string): OperationStatusResult {
-  let operation = repo.getOperation(operationId);
+  let operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.SUBMITTED)) {
     throw new Error(`Cannot submit operation ${operationId} from ${operation.status}`);
   }
 
-  operation = repo.updateOperation(operationId, {
+  operation = protocolRepo.updateOperation(operationId, {
     status: OperationStatus.SUBMITTED,
   });
 
@@ -102,14 +94,14 @@ export function opSubmit(operationId: string): OperationStatusResult {
  * Run validators on an operation.
  */
 export function opCheck(operationId: string): OperationStatusResult {
-  const operation = repo.getOperation(operationId);
+  const operation = protocolRepo.getOperation(operationId);
 
   // Collect claims for the actor
-  const actorClaims = repo.listActiveResourceClaims({
+  const actorClaims = protocolRepo.listActiveResourceClaims({
     sessionId: operation.sessionId || undefined,
   }).filter(c => c.actorId === operation.actorId);
 
-  const allActiveClaims = repo.listActiveResourceClaims({
+  const allActiveClaims = protocolRepo.listActiveResourceClaims({
     sessionId: operation.sessionId || undefined,
   });
 
@@ -147,7 +139,7 @@ export function opCheck(operationId: string): OperationStatusResult {
     status = OperationStatus.CONFLICTING;
   }
 
-  const updated = repo.updateOperation(operationId, {
+  const updated = protocolRepo.updateOperation(operationId, {
     checkResult,
     status,
   });
@@ -166,13 +158,13 @@ export function opCheck(operationId: string): OperationStatusResult {
  * Approve a submitted operation.
  */
 export function opApprove(operationId: string, actorId: string, summary?: string): Operation {
-  const operation = repo.getOperation(operationId);
+  const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.APPROVED)) {
     throw new Error(`Cannot approve operation ${operationId} from ${operation.status}`);
   }
 
-  const updated = repo.updateOperation(operationId, {
+  const updated = protocolRepo.updateOperation(operationId, {
     status: OperationStatus.APPROVED,
     decisionSummary: summary ?? `Approved by ${actorId}`,
   });
@@ -191,13 +183,13 @@ export function opApprove(operationId: string, actorId: string, summary?: string
  * Reject a submitted operation.
  */
 export function opReject(operationId: string, actorId: string, reason?: string): Operation {
-  const operation = repo.getOperation(operationId);
+  const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.REJECTED)) {
     throw new Error(`Cannot reject operation ${operationId} from ${operation.status}`);
   }
 
-  const updated = repo.updateOperation(operationId, {
+  const updated = protocolRepo.updateOperation(operationId, {
     status: OperationStatus.REJECTED,
     decisionSummary: reason ?? `Rejected by ${actorId}`,
   });
@@ -217,7 +209,7 @@ export function opReject(operationId: string, actorId: string, reason?: string):
  * Runs a final constraint check (action: "operation_apply") before allowing apply.
  */
 export function opApply(operationId: string): Operation {
-  const operation = repo.getOperation(operationId);
+  const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.APPLIED)) {
     throw new Error(`Cannot apply operation ${operationId} from ${operation.status}`);
@@ -231,7 +223,7 @@ export function opApply(operationId: string): Operation {
     );
   }
 
-  const updated = repo.updateOperation(operationId, {
+  const updated = protocolRepo.updateOperation(operationId, {
     status: OperationStatus.APPLIED,
   });
 
@@ -243,13 +235,13 @@ export function opApply(operationId: string): Operation {
  * Cancel an operation.
  */
 export function opCancel(operationId: string, reason?: string): Operation {
-  const operation = repo.getOperation(operationId);
+  const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.CANCELLED)) {
     throw new Error(`Cannot cancel operation ${operationId} from ${operation.status}`);
   }
 
-  const updated = repo.updateOperation(operationId, {
+  const updated = protocolRepo.updateOperation(operationId, {
     status: OperationStatus.CANCELLED,
     decisionSummary: reason ?? "",
   });
@@ -262,8 +254,8 @@ export function opCancel(operationId: string, reason?: string): Operation {
  * Get operation status with parsed check result.
  */
 export function opStatus(operationId: string): OperationStatusResult {
-  const operation = repo.getOperation(operationId);
-  return { operation, checkResult: normalizeCheckResult(operation.checkResult) };
+  const operation = protocolRepo.getOperation(operationId);
+  return { operation, checkResult: operation.checkResult };
 }
 
 /**
@@ -276,7 +268,7 @@ export function opList(opts?: {
   sessionId?: string;
   status?: string;
 }): Operation[] {
-  return repo.listOperations(opts);
+  return protocolRepo.listOperations(opts);
 }
 
 // ── Constraint Runtime Helper ─────────────────────────

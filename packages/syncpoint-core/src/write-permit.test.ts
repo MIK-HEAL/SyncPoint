@@ -59,7 +59,7 @@ function operation(overrides?: Partial<Operation>): Operation {
     targetResources: [resource("src/auth.ts")],
     payloadRef: "",
     status: OperationStatus.APPROVED,
-    checkResult: "",
+    checkResult: null,
     decisionSummary: "",
     createdAt: ts,
     updatedAt: ts,

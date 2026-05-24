@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DiaryEntryType } from "syncpoint-core";
-import { createCheckpoint, listCheckpoints, createDiaryEntry, listDiaryEntries } from "../repositories.js";
+import { createCheckpoint, listCheckpoints, createDiaryEntry, listDiaryEntries } from "../repositories/_exports/context-memory.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const checkpointRouter = t.router({

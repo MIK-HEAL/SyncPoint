@@ -23,7 +23,7 @@ import type {
   ReviewRequest,
   ReviewDecision,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
 import { prepareContext } from "./context-policy-service.js";
 import { orchSubmitReview } from "./orchestration-service.js";
 import type { PreparedContext } from "syncpoint-core";
@@ -79,7 +79,7 @@ export interface WaiveGateInput {
 }
 
 export interface ReviewPacket {
-  reviewRequest: ReturnType<typeof repo.getReviewRequest>;
+  reviewRequest: ReturnType<typeof orchestrationRepo.getReviewRequest>;
   checklistItems: ReviewChecklistItem[];
   evidence: ReviewEvidence[];
   changeRequests: ChangeRequest[];
@@ -105,9 +105,9 @@ export interface ReviewBlockResult {
 // ── Use Cases ────────────────────────────────────────
 
 function ensureReviewInProgress(reviewRequestId: string): ReviewRequest {
-  const rr = repo.getReviewRequest(reviewRequestId);
+  const rr = orchestrationRepo.getReviewRequest(reviewRequestId);
   if (rr.status === ReviewRequestStatus.PENDING) {
-    return repo.updateReviewRequestStatus(reviewRequestId, ReviewRequestStatus.IN_PROGRESS);
+    return orchestrationRepo.updateReviewRequestStatus(reviewRequestId, ReviewRequestStatus.IN_PROGRESS);
   }
   if (rr.status !== ReviewRequestStatus.IN_PROGRESS) {
     throw new Error(`Review request must be IN_PROGRESS to decide; current status is ${rr.status}`);
@@ -119,8 +119,8 @@ function ensureReviewInProgress(reviewRequestId: string): ReviewRequest {
  * Create a checklist item for a review request.
  */
 export function rwCreateChecklistItem(input: AddChecklistItemInput): ReviewChecklistItem {
-  repo.getReviewRequest(input.reviewRequestId);
-  return repo.createChecklistItem({
+  orchestrationRepo.getReviewRequest(input.reviewRequestId);
+  return orchestrationRepo.createChecklistItem({
     reviewRequestId: input.reviewRequestId,
     title: input.title,
     description: input.description,
@@ -132,7 +132,7 @@ export function rwCreateChecklistItem(input: AddChecklistItemInput): ReviewCheck
  * List checklist items for a review request.
  */
 export function rwListChecklist(reviewRequestId: string): ReviewChecklistItem[] {
-  return repo.listChecklistItems(reviewRequestId);
+  return orchestrationRepo.listChecklistItems(reviewRequestId);
 }
 
 /**
@@ -143,15 +143,15 @@ export function rwUpdateChecklistItem(
   status: ChecklistItemStatus,
   opts?: { notes?: string; updatedBy?: string },
 ): ReviewChecklistItem {
-  return repo.updateChecklistItemStatus(itemId, status, opts);
+  return orchestrationRepo.updateChecklistItemStatus(itemId, status, opts);
 }
 
 /**
  * Add evidence to a review request.
  */
 export function rwAddEvidence(input: AddEvidenceInput): ReviewEvidence {
-  repo.getReviewRequest(input.reviewRequestId);
-  return repo.createEvidence({
+  orchestrationRepo.getReviewRequest(input.reviewRequestId);
+  return orchestrationRepo.createEvidence({
     reviewRequestId: input.reviewRequestId,
     kind: input.kind,
     title: input.title,
@@ -165,15 +165,15 @@ export function rwAddEvidence(input: AddEvidenceInput): ReviewEvidence {
  * List evidence for a review request.
  */
 export function rwListEvidence(reviewRequestId: string): ReviewEvidence[] {
-  return repo.listEvidence(reviewRequestId);
+  return orchestrationRepo.listEvidence(reviewRequestId);
 }
 
 /**
  * Request changes — creates a change request, blocks approval gate.
  */
 export function rwRequestChanges(input: RequestChangesInput): ChangeRequest {
-  repo.getReviewRequest(input.reviewRequestId);
-  return repo.createChangeRequest({
+  orchestrationRepo.getReviewRequest(input.reviewRequestId);
+  return orchestrationRepo.createChangeRequest({
     reviewRequestId: input.reviewRequestId,
     summary: input.summary,
     items: input.items,
@@ -185,7 +185,7 @@ export function rwRequestChanges(input: RequestChangesInput): ChangeRequest {
  * Address a change request — marks it as ADDRESSED, optionally links evidence.
  */
 export function rwAddressChange(input: AddressChangeInput): ChangeRequest {
-  return repo.updateChangeRequestStatus(
+  return orchestrationRepo.updateChangeRequestStatus(
     input.changeRequestId,
     ChangeRequestStatus.ADDRESSED,
     { evidenceId: input.evidenceId, addressedBy: input.addressedBy },
@@ -196,16 +196,16 @@ export function rwAddressChange(input: AddressChangeInput): ChangeRequest {
  * List change requests for a review.
  */
 export function rwListChangeRequests(reviewRequestId: string): ChangeRequest[] {
-  return repo.listChangeRequests(reviewRequestId);
+  return orchestrationRepo.listChangeRequests(reviewRequestId);
 }
 
 /**
  * Evaluate the approval gate for a review request (computed, not persisted).
  */
 export function rwEvaluateGate(reviewRequestId: string): ApprovalGateResult {
-  const items = repo.listChecklistItems(reviewRequestId);
-  const evidence = repo.listEvidence(reviewRequestId);
-  const changes = repo.listChangeRequests(reviewRequestId);
+  const items = orchestrationRepo.listChecklistItems(reviewRequestId);
+  const evidence = orchestrationRepo.listEvidence(reviewRequestId);
+  const changes = orchestrationRepo.listChangeRequests(reviewRequestId);
   const openChanges = changes.filter(c => c.status === ChangeRequestStatus.OPEN).length;
   return evaluateApprovalGate(items, evidence.length, openChanges);
 }
@@ -232,7 +232,7 @@ export function rwApproveReview(input: ApproveReviewInput): {
     decidedBy: input.decidedBy,
   });
 
-  const record = repo.createApprovalRecord({
+  const record = orchestrationRepo.createApprovalRecord({
     reviewRequestId: input.reviewRequestId,
     decision: "approved",
     summary: input.summary,
@@ -266,7 +266,7 @@ export function rwBlockReview(input: BlockReviewInput): {
     decidedBy: input.decidedBy,
   });
 
-  const record = repo.createApprovalRecord({
+  const record = orchestrationRepo.createApprovalRecord({
     reviewRequestId: input.reviewRequestId,
     decision: "blocked",
     summary: input.summary,
@@ -276,7 +276,7 @@ export function rwBlockReview(input: BlockReviewInput): {
 
   let changeRequest: ChangeRequest | undefined;
   if (input.requestedChanges) {
-    changeRequest = repo.createChangeRequest({
+    changeRequest = orchestrationRepo.createChangeRequest({
       reviewRequestId: input.reviewRequestId,
       summary: input.requestedChanges,
       requestedBy: input.decidedBy,
@@ -295,7 +295,7 @@ export function rwBlockReview(input: BlockReviewInput): {
  * Waive the approval gate — creates approval record with 'waived' decision.
  */
 export function rwWaiveGate(input: WaiveGateInput): ApprovalRecord {
-  return repo.createApprovalRecord({
+  return orchestrationRepo.createApprovalRecord({
     reviewRequestId: input.reviewRequestId,
     decision: "waived",
     summary: "Gate waived",
@@ -308,11 +308,11 @@ export function rwWaiveGate(input: WaiveGateInput): ApprovalRecord {
  * Prepare a full review packet — everything a reviewer needs.
  */
 export function rwPrepareReviewPacket(reviewRequestId: string): ReviewPacket {
-  const rr = repo.getReviewRequest(reviewRequestId);
-  const checklistItems = repo.listChecklistItems(reviewRequestId);
-  const evidence = repo.listEvidence(reviewRequestId);
-  const changeRequests = repo.listChangeRequests(reviewRequestId);
-  const approvalRecords = repo.listApprovalRecords(reviewRequestId);
+  const rr = orchestrationRepo.getReviewRequest(reviewRequestId);
+  const checklistItems = orchestrationRepo.listChecklistItems(reviewRequestId);
+  const evidence = orchestrationRepo.listEvidence(reviewRequestId);
+  const changeRequests = orchestrationRepo.listChangeRequests(reviewRequestId);
+  const approvalRecords = orchestrationRepo.listApprovalRecords(reviewRequestId);
   const openChanges = changeRequests.filter(c => c.status === ChangeRequestStatus.OPEN).length;
   const gate = evaluateApprovalGate(checklistItems, evidence.length, openChanges);
 

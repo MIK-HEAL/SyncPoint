@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createContextSnapshot, listContextSnapshots, getLatestContextSnapshot } from "../repositories.js";
+import { createContextSnapshot, listContextSnapshots, getLatestContextSnapshot } from "../repositories/_exports/context-memory.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 const ContextSnapshotPayloadSchema = z.object({

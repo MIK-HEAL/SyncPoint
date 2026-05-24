@@ -1,24 +1,31 @@
 /**
  * Negotiation Repository — CRUD for negotiation sessions, participants, and messages.
- *
- * Uses the normalized negotiation_participant join table instead of participantIds CSV.
- * The returned session row is augmented with a reconstructed participantIds CSV
- * for service-layer compat.
  */
 
 import { eq } from "drizzle-orm";
-import { getDb } from "../db.js";
+import { parseNegotiationConfig } from "syncpoint-core";
+import type { NegotiationMessage, NegotiationSession } from "syncpoint-core";
 import * as schema from "../schema.js";
-import { createId } from "./_shared.js";
+import { _getDb, createId, now } from "./_shared.js";
 
-function now(): string {
-  return new Date().toISOString();
-}
-
-function hydrateSession(db: ReturnType<typeof getDb>, row: any) {
+function hydrateSession(db: ReturnType<typeof _getDb>, row: typeof schema.negotiationSessions.$inferSelect): NegotiationSession {
   const parts = db.select().from(schema.negotiationParticipants)
     .where(eq(schema.negotiationParticipants.sessionId, row.id)).all();
-  return { ...row, participantIds: parts.map(p => p.agentId).join(",") };
+
+  return {
+    id: row.id,
+    gateId: row.gateId,
+    participantIds: parts.map(p => p.agentId),
+    status: row.status as NegotiationSession["status"],
+    currentRound: row.currentRound,
+    config: parseNegotiationConfig(row.configJson),
+    roundStartedAt: row.roundStartedAt,
+    deadlineAt: row.deadlineAt,
+    resolvedByAgentId: row.resolvedByAgentId,
+    resolutionSummary: row.resolutionSummary,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  } as NegotiationSession;
 }
 
 // ── Session CRUD ─────────────────────────────────────
@@ -28,8 +35,8 @@ export function createNegotiationSession(opts: {
   participantIds: string[];
   configJson?: string;
   deadlineAt?: string;
-}) {
-  const db = getDb();
+}): NegotiationSession {
+  const db = _getDb();
   const id = createId();
   const ts = now();
   db.insert(schema.negotiationSessions).values({
@@ -53,29 +60,36 @@ export function createNegotiationSession(opts: {
       agentId,
     }).run();
   }
-  return hydrateSession(db, db.select().from(schema.negotiationSessions).where(eq(schema.negotiationSessions.id, id)).get());
+  const row = db.select().from(schema.negotiationSessions).where(eq(schema.negotiationSessions.id, id)).get();
+  if (!row) {
+    throw new Error(`negotiation session not found after create: ${id}`);
+  }
+  return hydrateSession(db, row);
 }
 
-export function getNegotiationSession(id: string) {
-  const db = getDb();
+export function getNegotiationSession(id: string): NegotiationSession | undefined {
+  const db = _getDb();
   const row = db.select().from(schema.negotiationSessions).where(eq(schema.negotiationSessions.id, id)).get();
   if (!row) return undefined;
   return hydrateSession(db, row);
 }
 
-export function getNegotiationSessionByGate(gateId: string) {
-  const db = getDb();
+export function getNegotiationSessionByGate(gateId: string): NegotiationSession | undefined {
+  const db = _getDb();
   const row = db.select().from(schema.negotiationSessions).where(eq(schema.negotiationSessions.gateId, gateId)).get();
   if (!row) return undefined;
   return hydrateSession(db, row);
 }
 
-export function listNegotiationSessions(opts?: { gateId?: string; status?: string }) {
-  const db = getDb();
-  let q = db.select().from(schema.negotiationSessions);
-  if (opts?.gateId) q = q.where(eq(schema.negotiationSessions.gateId, opts.gateId)) as any;
-  if (opts?.status) q = q.where(eq(schema.negotiationSessions.status, opts.status)) as any;
-  return q.all().map(row => hydrateSession(db, row));
+export function listNegotiationSessions(opts?: { gateId?: string; status?: string }): NegotiationSession[] {
+  const db = _getDb();
+  const rows = db.select().from(schema.negotiationSessions).all().filter((row: typeof schema.negotiationSessions.$inferSelect) => {
+    if (opts?.gateId && row.gateId !== opts.gateId) return false;
+    if (opts?.status && row.status !== opts.status) return false;
+    return true;
+  });
+
+  return rows.map((row: typeof schema.negotiationSessions.$inferSelect) => hydrateSession(db, row));
 }
 
 export function updateNegotiationSession(id: string, fields: {
@@ -84,8 +98,8 @@ export function updateNegotiationSession(id: string, fields: {
   roundStartedAt?: string | null;
   resolvedByAgentId?: string | null;
   resolutionSummary?: string | null;
-}) {
-  const db = getDb();
+}): NegotiationSession {
+  const db = _getDb();
   const updates: Record<string, unknown> = { updatedAt: now() };
   if (fields.status !== undefined) updates.status = fields.status;
   if (fields.currentRound !== undefined) updates.currentRound = fields.currentRound;
@@ -104,25 +118,29 @@ export function createNegotiationMessage(opts: {
   round: number;
   kind: string;
   content: string;
-}) {
-  const db = getDb();
+}): NegotiationMessage {
+  const db = _getDb();
   const id = createId();
   const row = {
     id,
     sessionId: opts.sessionId,
     agentId: opts.agentId,
     round: opts.round,
-    kind: opts.kind,
+    kind: opts.kind as NegotiationMessage["kind"],
     content: opts.content,
     createdAt: now(),
   };
   db.insert(schema.negotiationMessages).values(row).run();
-  return row;
+  return row as NegotiationMessage;
 }
 
-export function listNegotiationMessages(sessionId: string) {
-  const db = getDb();
+export function listNegotiationMessages(sessionId: string): NegotiationMessage[] {
+  const db = _getDb();
   return db.select().from(schema.negotiationMessages)
     .where(eq(schema.negotiationMessages.sessionId, sessionId))
-    .all();
+    .all()
+    .sort(
+      (a: typeof schema.negotiationMessages.$inferSelect, b: typeof schema.negotiationMessages.$inferSelect) =>
+        a.createdAt.localeCompare(b.createdAt),
+    ) as NegotiationMessage[];
 }

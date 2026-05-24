@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AgentStatus } from "syncpoint-core";
-import { createAgent, getAgent, listAgents, updateAgentStatus } from "../repositories.js";
+import { createAgent, getAgent, listAgents, updateAgentStatus } from "../repositories/_exports/foundation.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const agentRouter = t.router({

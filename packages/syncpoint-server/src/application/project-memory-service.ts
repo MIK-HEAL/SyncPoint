@@ -19,7 +19,7 @@ import type {
   ProjectMemoryValidatorConfig,
   MemoryDedupResult,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
 import { isProjectLocal, getSyncpointDir } from "../db.js";
 
 // ── Types ────────────────────────────────────────────
@@ -174,7 +174,7 @@ export function pmAdd(input: ProjectMemoryAddInput): ProjectMemory {
   requireCallerIdentity(input.createdBy);
   ensureProjectLocal(input.global);
   // Dedup check: reject if identical fingerprint exists in non-deprecated state
-  const dedup = repo.checkMemoryDuplicate(input.category, input.title, input.content);
+  const dedup = contextMemoryRepo.checkMemoryDuplicate(input.category, input.title, input.content);
   if (dedup.isDuplicate) {
     throw new DuplicateMemoryError(dedup.existingId!);
   }
@@ -187,18 +187,18 @@ export function pmAdd(input: ProjectMemoryAddInput): ProjectMemory {
   }
   // P4: blocking hard_constraint requires validatorType
   requireValidatorForBlockingConstraint(kind, input.severity, input.validatorType);
-  return repo.createProjectMemory(input);
+  return contextMemoryRepo.createProjectMemory(input);
 }
 
 /**
  * Check for duplicate without creating — for callers that want to inspect before deciding.
  */
 export function pmCheckDuplicate(category: string, title: string, content: string): MemoryDedupResult {
-  return repo.checkMemoryDuplicate(category, title, content);
+  return contextMemoryRepo.checkMemoryDuplicate(category, title, content);
 }
 
 export function pmGet(id: string): ProjectMemory {
-  return repo.getProjectMemory(id);
+  return contextMemoryRepo.getProjectMemory(id);
 }
 
 export function pmUpdate(id: string, fields: {
@@ -220,7 +220,7 @@ export function pmUpdate(id: string, fields: {
 }): ProjectMemory {
   requireCallerIdentity(fields.updatedBy);
   // V2 projection guard on update — validate against FINAL merged state
-  const existing = repo.getProjectMemory(id);
+  const existing = contextMemoryRepo.getProjectMemory(id);
   const finalKind = (fields.kind ?? existing.kind ?? defaultKindFromCategory(existing.category)) as MemoryKind;
   const finalTarget = (fields.projectionTarget !== undefined ? fields.projectionTarget : existing.projectionTarget) as ProjectionTarget | null;
   if (finalTarget !== undefined && finalTarget !== null) {
@@ -232,17 +232,17 @@ export function pmUpdate(id: string, fields: {
   const finalSeverity = (fields.severity ?? existing.severity) as string;
   const finalValidatorType = (fields.validatorType ?? existing.validatorType) as string | undefined;
   requireValidatorForBlockingConstraint(finalKind, finalSeverity, finalValidatorType);
-  return repo.updateProjectMemory(id, fields);
+  return contextMemoryRepo.updateProjectMemory(id, fields);
 }
 
 export function pmApprove(id: string, updatedBy: string): ProjectMemory {
   requireCallerIdentity(updatedBy);
-  return repo.approveProjectMemory(id, updatedBy);
+  return contextMemoryRepo.approveProjectMemory(id, updatedBy);
 }
 
 export function pmDeprecate(id: string, updatedBy: string): ProjectMemory {
   requireCallerIdentity(updatedBy);
-  return repo.deprecateProjectMemory(id, updatedBy);
+  return contextMemoryRepo.deprecateProjectMemory(id, updatedBy);
 }
 
 /**
@@ -251,14 +251,14 @@ export function pmDeprecate(id: string, updatedBy: string): ProjectMemory {
  */
 export function pmSupersede(newId: string, oldId: string, updatedBy: string): { newMem: ProjectMemory; oldMem: ProjectMemory } {
   requireCallerIdentity(updatedBy);
-  return repo.supersedeProjectMemory(newId, oldId, updatedBy);
+  return contextMemoryRepo.supersedeProjectMemory(newId, oldId, updatedBy);
 }
 
 /**
  * Get the current memory version counter.
  */
 export function pmGetVersion(): number {
-  return repo.getMemoryVersion();
+  return contextMemoryRepo.getMemoryVersion();
 }
 
 export function pmList(filters?: {
@@ -267,11 +267,11 @@ export function pmList(filters?: {
   scope?: string;
   taskId?: string;
 }): ProjectMemory[] {
-  return repo.listProjectMemories(filters);
+  return contextMemoryRepo.listProjectMemories(filters);
 }
 
 export function pmSearch(query: string): ProjectMemory[] {
-  return repo.searchProjectMemories(query);
+  return contextMemoryRepo.searchProjectMemories(query);
 }
 
 // ── Export ────────────────────────────────────────────
@@ -293,9 +293,9 @@ function resolveMemoryPath(outputPath?: string): string {
 export function pmExport(outputPath?: string, callerBy?: string): ProjectMemoryExportResult {
   requireCallerIdentity(callerBy);
   // P1: use canonical collection — deduplicates by fingerprint, excludes superseded
-  const canonical = repo.collectProjectMemories();
+  const canonical = contextMemoryRepo.collectProjectMemories();
   const canonicalIds = new Set(canonical.map(m => m.id));
-  const approved = repo.listProjectMemories({ status: "approved" })
+  const approved = contextMemoryRepo.listProjectMemories({ status: "approved" })
     .filter(m => canonicalIds.has(m.id));
   const content = renderProjectMemoryMarkdown(approved);
 

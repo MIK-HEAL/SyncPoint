@@ -13,7 +13,14 @@ import {
   type WritePermit,
   type WriteResourceHash,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import {
+  createWritePermit,
+  getOperation,
+  getWritePermit,
+  listActiveResourceClaims,
+  listActiveSyncGates,
+  updateWritePermit,
+} from "../repositories/_exports/protocol.js";
 import { getSyncpointDir } from "../db.js";
 import { logEvent, now } from "../repositories/_shared.js";
 import { buildProjection } from "./reality-projection-service.js";
@@ -77,8 +84,8 @@ function writeCheckAtRoot(input: WriteCheckInput, root: string): WriteCheckResul
     sessionId: input.sessionId,
     resources: input.resources,
     intent: input.intent,
-    operation: input.operationId ? repo.getOperation(input.operationId) : undefined,
-    activeClaims: repo.listActiveResourceClaims({ sessionId: input.sessionId }),
+    operation: input.operationId ? getOperation(input.operationId) : undefined,
+    activeClaims: listActiveResourceClaims({ sessionId: input.sessionId }),
     activeGates: activeGates(input.taskId, input.sessionId),
     constraintDecision: writeConstraintDecision(input),
   });
@@ -108,7 +115,7 @@ export function writePrepare(input: WritePrepareInput): WritePrepareResult {
   const root = resolveRootDir();
   const result = writeCheckAtRoot(input, root);
   const ttl = input.ttlSeconds ?? (input.intent === WriteIntent.BULK ? DEFAULT_BATCH_TTL_SECONDS : DEFAULT_EDITOR_TTL_SECONDS);
-  const permit = repo.createWritePermit({
+  const permit = createWritePermit({
     actorId: input.actorId,
     taskId: input.taskId,
     sessionId: input.sessionId,
@@ -134,19 +141,19 @@ export function writePrepare(input: WritePrepareInput): WritePrepareResult {
 }
 
 export function writeApply(input: WriteApplyInput): WriteApplyResult {
-  let permit = repo.getWritePermit(input.permitId);
+  let permit = getWritePermit(input.permitId);
   const root = resolveRootDir();
   const denial = validatePermitForApply(permit, input.mutations, root);
   if (denial) {
     const decision = { permitted: false, reason: WriteDecisionReason.BLOCKED, blockers: [denial], warnings: [] };
-    permit = repo.updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision });
+    permit = updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision });
     logEvent(EventType.WRITE_BLOCKED, "write_permit", permit.id, JSON.stringify(decision));
     throw new Error(denial.message);
   }
 
   const revalidated = revalidatePermitDecision(permit);
   if (!revalidated.permitted) {
-    permit = repo.updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision: revalidated });
+    permit = updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision: revalidated });
     logEvent(EventType.WRITE_BLOCKED, "write_permit", permit.id, JSON.stringify(revalidated));
     throw new Error(`Write permit no longer valid: ${revalidated.blockers.map(blocker => blocker.message).join("; ")}`);
   }
@@ -159,7 +166,7 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
       blockers: [preparedMutations.denial],
       warnings: [],
     };
-    permit = repo.updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision });
+    permit = updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision });
     logEvent(EventType.WRITE_BLOCKED, "write_permit", permit.id, JSON.stringify(decision));
     throw new Error(preparedMutations.denial.message);
   }
@@ -184,7 +191,7 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
   }
 
   if (permit.singleUse) {
-    permit = repo.updateWritePermit(permit.id, {
+    permit = updateWritePermit(permit.id, {
       status: WritePermitStatus.CONSUMED,
       consumedAt: now(),
     });
@@ -196,7 +203,7 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
 
 function activeGates(taskId: string, sessionId?: string) {
   sgReconcileActive({ taskId, sessionId });
-  return repo.listActiveSyncGates({ taskId, sessionId });
+  return listActiveSyncGates({ taskId, sessionId });
 }
 
 function revalidatePermitDecision(permit: WritePermit): WriteDecision {
@@ -206,8 +213,8 @@ function revalidatePermitDecision(permit: WritePermit): WriteDecision {
     sessionId: permit.sessionId || undefined,
     resources: permit.resources,
     intent: permit.intent,
-    operation: permit.operationId ? repo.getOperation(permit.operationId) : undefined,
-    activeClaims: repo.listActiveResourceClaims({ sessionId: permit.sessionId || undefined }),
+    operation: permit.operationId ? getOperation(permit.operationId) : undefined,
+    activeClaims: listActiveResourceClaims({ sessionId: permit.sessionId || undefined }),
     activeGates: activeGates(permit.taskId, permit.sessionId || undefined),
     constraintDecision: writeConstraintDecision({
       actorId: permit.actorId,
@@ -244,7 +251,7 @@ function validatePermitForApply(permit: WritePermit, mutations: FileMutation[], 
     return { type: "permit_status", id: permit.id, message: `Write permit is not issued: ${permit.status}` };
   }
   if (new Date(permit.expiresAt).getTime() <= Date.now()) {
-    repo.updateWritePermit(permit.id, { status: WritePermitStatus.EXPIRED });
+    updateWritePermit(permit.id, { status: WritePermitStatus.EXPIRED });
     return { type: "permit_expired", id: permit.id, message: `Write permit expired at ${permit.expiresAt}` };
   }
   if (!permit.decision.permitted) {

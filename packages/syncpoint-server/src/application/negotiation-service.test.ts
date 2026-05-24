@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../db.js";
 import { createAgent, createTask } from "../repositories/index.js";
+import { listNegotiationSessions, updateNegotiationSession } from "../repositories/negotiation-repository.js";
 import { sgRequest, sgStatus, sgResolve } from "./sync-gate-service.js";
 import { SyncGateStatus } from "syncpoint-core";
 import {
@@ -66,6 +67,32 @@ describe("negStart", () => {
     });
     negStart(gate.gate.id, [a1, a2]);
     expect(() => negStart(gate.gate.id, [a1, a2])).toThrow("Active negotiation already exists");
+  });
+
+  it("repository list applies gateId and status together", () => {
+    const gateA = sgRequest({
+      taskId,
+      requestedByAgentId: a1,
+      requiredAgentIds: [a1, a2],
+    });
+    const gateB = sgRequest({
+      taskId,
+      requestedByAgentId: a1,
+      requiredAgentIds: [a1, a2],
+    });
+
+    const sessionA = negStart(gateA.gate.id, [a1, a2]);
+    const sessionB = negStart(gateB.gate.id, [a1, a2]);
+
+    updateNegotiationSession(sessionA.id, { status: NegotiationStatus.WAITING_FOR_RESPONSES });
+    updateNegotiationSession(sessionB.id, { status: NegotiationStatus.WAITING_FOR_RESPONSES });
+
+    const matches = listNegotiationSessions({
+      gateId: gateA.gate.id,
+      status: NegotiationStatus.WAITING_FOR_RESPONSES,
+    });
+
+    expect(matches.map(s => s.id)).toEqual([sessionA.id]);
   });
 });
 

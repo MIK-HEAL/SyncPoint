@@ -4,7 +4,7 @@
 
 import { eq, and } from "drizzle-orm";
 import * as s from "../schema.js";
-import { OperationStatus } from "syncpoint-core";
+import { OperationStatus, OperationSchema } from "syncpoint-core";
 import type { Operation, OperationCheckResult, OperationCreate, ResourceRef } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
 
@@ -14,15 +14,26 @@ function parseJson<T>(value: string, fallback: T): T {
   try { return JSON.parse(value) as T; } catch { return fallback; }
 }
 
+function hydrateCheckResult(value: string | null | undefined): OperationCheckResult | null {
+  if (!value) return null;
+  const parsed = parseJson<unknown>(value, null);
+  const result = OperationSchema.shape.checkResult.safeParse(parsed);
+  return result.success ? result.data : null;
+}
+
+function serializeCheckResult(value: Operation["checkResult"]): string {
+  return value ? JSON.stringify(value) : "";
+}
+
 function loadTargetResources(db: ReturnType<typeof _getDb>, operationId: string): ResourceRef[] {
   return db.select().from(s.operationResources)
     .where(eq(s.operationResources.operationId, operationId))
     .all()
-    .map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata }));
+    .map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata ?? "" }));
 }
 
 function rowToOperation(row: any, targetResources: ResourceRef[]): Operation {
-  return {
+  return OperationSchema.parse({
     id: row.id,
     type: row.type,
     actorId: row.actorId,
@@ -33,11 +44,11 @@ function rowToOperation(row: any, targetResources: ResourceRef[]): Operation {
     targetResources,
     payloadRef: row.payloadRef ?? "",
     status: row.status as OperationStatus,
-    checkResult: parseJson<OperationCheckResult | null>(row.checkResultJson, null) as unknown as Operation["checkResult"],
+    checkResult: hydrateCheckResult(row.checkResultJson),
     decisionSummary: row.decisionSummary ?? "",
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-  };
+  });
 }
 
 // ── CRUD ────────────────────────────────────────────
@@ -56,7 +67,7 @@ export function createOperation(data: OperationCreate): Operation {
     summary: data.summary ?? "",
     payloadRef: data.payloadRef ?? "",
     status: OperationStatus.DRAFT,
-    checkResultJson: "",
+    checkResultJson: serializeCheckResult(null),
     decisionSummary: "",
     createdAt: ts,
     updatedAt: ts,
@@ -84,17 +95,17 @@ export function getOperation(id: string): Operation {
 export function updateOperation(
   id: string,
   updates: Partial<{
-    status: string;
-    payloadRef: string;
-    checkResult: OperationCheckResult | null;
-    decisionSummary: string;
+    status: Operation["status"];
+    payloadRef: Operation["payloadRef"];
+    checkResult: Operation["checkResult"];
+    decisionSummary: Operation["decisionSummary"];
   }>,
 ): Operation {
   const db = _getDb();
   const data: Record<string, unknown> = { updatedAt: now() };
   if (updates.status !== undefined) data.status = updates.status;
   if (updates.payloadRef !== undefined) data.payloadRef = updates.payloadRef;
-  if (updates.checkResult !== undefined) data.checkResultJson = updates.checkResult ? JSON.stringify(updates.checkResult) : "";
+  if (updates.checkResult !== undefined) data.checkResultJson = serializeCheckResult(updates.checkResult);
   if (updates.decisionSummary !== undefined) data.decisionSummary = updates.decisionSummary;
   db.update(s.operations).set(data).where(eq(s.operations.id, id)).run();
   return getOperation(id);

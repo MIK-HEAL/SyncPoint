@@ -102,41 +102,26 @@ export type CheckpointReviewCreate = z.infer<typeof CheckpointReviewCreateSchema
 // ── Pure helpers ────────────────────────────────────
 
 /**
- * Parse a comma-separated ID list into an array.
- * @deprecated Will be removed when CSV fields are replaced by join tables.
- */
-export function parseIdListCsv(ids: string | string[]): string[] {
-  if (Array.isArray(ids)) {
-    return ids.map(id => id.trim()).filter(id => id.length > 0);
-  }
-  return ids.split(",").map(s => s.trim()).filter(s => s.length > 0);
-}
-
-/**
  * Check if all required approvers have approved.
  */
 export function allApproved(review: CheckpointReview): boolean {
-  const required = parseIdListCsv(review.requiredApproverIds);
-  const approved = parseIdListCsv(review.approvedByIds);
-  return required.length > 0 && required.every(id => approved.includes(id));
+  const approved = new Set(review.approvedByIds);
+  return review.requiredApproverIds.length > 0 && review.requiredApproverIds.every(id => approved.has(id));
 }
 
 /**
  * Check if any approver has rejected.
  */
 export function hasRejection(review: CheckpointReview): boolean {
-  return parseIdListCsv(review.rejectedByIds).length > 0;
+  return review.rejectedByIds.length > 0;
 }
 
 /**
  * List approvers who have not yet decided.
  */
 export function pendingApprovers(review: CheckpointReview): string[] {
-  const required = parseIdListCsv(review.requiredApproverIds);
-  const approved = parseIdListCsv(review.approvedByIds);
-  const rejected = parseIdListCsv(review.rejectedByIds);
-  const decided = new Set([...approved, ...rejected]);
-  return required.filter(id => !decided.has(id));
+  const decided = new Set([...review.approvedByIds, ...review.rejectedByIds]);
+  return review.requiredApproverIds.filter(id => !decided.has(id));
 }
 
 /**

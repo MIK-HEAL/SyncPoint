@@ -97,7 +97,7 @@ export function negMessage(
   }
 
   // Must be a participant
-  const participants = session.participantIds.split(",").filter(Boolean);
+  const participants = session.participantIds;
   if (!participants.includes(agentId)) {
     throw new Error(`Agent ${agentId} is not a participant in this negotiation`);
   }
@@ -235,15 +235,15 @@ export function negStatus(sessionId: string) {
 
   const messages = repo.listNegotiationMessages(sessionId) as NegotiationMessage[];
   const session = reconciled.session;
-  const participants = (session as any).participantIds.split(",").filter(Boolean);
-  const currentRoundMessages = messages.filter(m => m.round === (session as any).currentRound);
+  const participants = session.participantIds;
+  const currentRoundMessages = messages.filter(m => m.round === session.currentRound);
   const responded = new Set(currentRoundMessages.map(m => m.agentId));
-  const pendingParticipants = participants.filter((p: string) => !responded.has(p));
+  const pendingParticipants = participants.filter(p => !responded.has(p));
 
   return {
     session,
     messages,
-    currentRound: (session as any).currentRound,
+    currentRound: session.currentRound,
     respondedAgentIds: [...responded],
     pendingParticipantIds: pendingParticipants,
     totalMessages: messages.length,

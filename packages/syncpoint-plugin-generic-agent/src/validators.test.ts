@@ -31,7 +31,7 @@ function makeOp(overrides?: Partial<Operation>): Operation {
     targetResources: [{ type: "artifact", locator: "artifact://landing-page", metadata: "" }],
     payloadRef: "ref-123",
     status: OperationStatus.SUBMITTED,
-    checkResult: "",
+    checkResult: null,
     decisionSummary: "",
     createdAt: "2024-01-01",
     updatedAt: "2024-01-01",

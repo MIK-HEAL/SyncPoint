@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "drizzle"
   ],
   "license": "MIT",
   "repository": {
@@ -41,21 +42,21 @@
     "prepublishOnly": "pnpm run build && pnpm run typecheck && pnpm run test"
   },
   "dependencies": {
+    "@trpc/client": "^11.0.0",
+    "@trpc/server": "^11.0.0",
+    "better-sqlite3": "^12.10.0",
+    "drizzle-orm": "^0.36.0",
+    "nanoid": "^5.0.0",
     "syncpoint-core": "workspace:*",
     "syncpoint-plugin-code": "workspace:*",
     "syncpoint-plugin-generic-agent": "workspace:*",
-    "@trpc/server": "^11.0.0",
-    "@trpc/client": "^11.0.0",
-    "drizzle-orm": "^0.36.0",
-    "better-sqlite3": "^11.0.0",
-    "nanoid": "^5.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^20.14.0",
+    "drizzle-kit": "^0.28.0",
     "tsx": "^4.15.0",
-    "drizzle-kit": "^0.28.0"
+    "typescript": "^5.5.0"
   }
 }

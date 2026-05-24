@@ -29,7 +29,7 @@ function makeOp(overrides?: Partial<Operation>): Operation {
     targetResources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
     payloadRef: "",
     status: OperationStatus.SUBMITTED,
-    checkResult: "",
+    checkResult: null,
     decisionSummary: "",
     createdAt: "",
     updatedAt: "",

@@ -4,7 +4,7 @@
  * no claim covers the locator.
  */
 import type { ResourceRef } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 
 /**
  * Convert freeform locator strings (e.g. from snapshot workingResources)
@@ -19,7 +19,7 @@ export function resolveResourceRefs(
   if (locators.length === 0) return [];
 
   // Build a locator→type map from the agent's active claims
-  const claims = repo.listResourceClaims({ actorId: agentId, status: "ACTIVE" });
+  const claims = protocolRepo.listResourceClaims({ actorId: agentId, status: "ACTIVE" });
   const typeByLocator = new Map<string, string>();
   for (const claim of claims) {
     for (const r of claim.resources) {

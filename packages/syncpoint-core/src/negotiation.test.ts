@@ -22,10 +22,10 @@ function makeSession(overrides: Partial<NegotiationSession> = {}): NegotiationSe
   return {
     id: "ns1",
     gateId: "g1",
-    participantIds: "a1,a2",
+    participantIds: ["a1", "a2"],
     status: NegotiationStatus.ROUND_ACTIVE,
     currentRound: 1,
-    configJson: JSON.stringify(DEFAULT_NEGOTIATION_CONFIG),
+    config: { ...DEFAULT_NEGOTIATION_CONFIG },
     roundStartedAt: new Date().toISOString(),
     deadlineAt: new Date(Date.now() + 60 * 60_000).toISOString(),
     resolvedByAgentId: null,

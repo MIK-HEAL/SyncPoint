@@ -10,7 +10,6 @@
  */
 
 import {
-  AgentManifestSchema,
   EscalationPreferenceSchema,
   AgentAvailability,
   routeEscalation,
@@ -39,48 +38,28 @@ export function manifestUpsert(agentId: string, input: {
 }): AgentManifest {
   manifestRepo.upsertAgentManifest({
     agentId,
-    capabilitiesJson: input.capabilities ? JSON.stringify(input.capabilities) : undefined,
-    escalationPreferenceJson: input.escalationPreference
-      ? JSON.stringify(EscalationPreferenceSchema.parse(input.escalationPreference))
+    capabilities: input.capabilities,
+    escalationPreference: input.escalationPreference
+      ? EscalationPreferenceSchema.parse(input.escalationPreference)
       : undefined,
     availability: input.availability,
     canHandleHumanEscalation: input.canHandleHumanEscalation,
-    tagsJson: input.tags ? JSON.stringify(input.tags) : undefined,
+    tags: input.tags,
   });
 
   return manifestGet(agentId)!;
 }
 
 export function manifestGet(agentId: string): AgentManifest | null {
-  const row = manifestRepo.getAgentManifest(agentId);
-  if (!row) return null;
-  return rowToManifest(row);
+  return manifestRepo.getAgentManifest(agentId) ?? null;
 }
 
 export function manifestList(): AgentManifest[] {
-  return manifestRepo.listAgentManifests().map(rowToManifest);
+  return manifestRepo.listAgentManifests();
 }
 
 export function manifestDelete(agentId: string): void {
   manifestRepo.deleteAgentManifest(agentId);
-}
-
-function rowToManifest(row: {
-  agentId: string;
-  capabilitiesJson: string;
-  escalationPreferenceJson: string;
-  availability: string;
-  canHandleHumanEscalation: boolean;
-  tagsJson: string;
-}): AgentManifest {
-  return AgentManifestSchema.parse({
-    agentId: row.agentId,
-    capabilities: JSON.parse(row.capabilitiesJson || "[]"),
-    escalationPreference: JSON.parse(row.escalationPreferenceJson || "{}"),
-    availability: row.availability,
-    canHandleHumanEscalation: row.canHandleHumanEscalation,
-    tags: JSON.parse(row.tagsJson || "[]"),
-  });
 }
 
 // ── Escalation routing ──────────────────────────────

@@ -69,10 +69,10 @@ export type NegotiationConfig = z.infer<typeof NegotiationConfigSchema>;
 export const NegotiationSessionSchema = z.object({
   id: z.string(),
   gateId: z.string(),
-  participantIds: z.string(), // comma-separated
+  participantIds: z.array(z.string()),
   status: z.nativeEnum(NegotiationStatus),
   currentRound: z.number().int().min(0),
-  configJson: z.string(),
+  config: NegotiationConfigSchema,
   roundStartedAt: z.string().optional().nullable(),
   deadlineAt: z.string().optional().nullable(),
   resolvedByAgentId: z.string().optional().nullable(),
@@ -100,9 +100,10 @@ export type NegotiationMessage = z.infer<typeof NegotiationMessageSchema>;
 /**
  * Parse the config JSON stored on a session row.
  */
-export function parseNegotiationConfig(session: { configJson: string }): NegotiationConfig {
+export function parseNegotiationConfig(session: { configJson: string } | string): NegotiationConfig {
+  const rawConfig = typeof session === "string" ? session : session.configJson;
   try {
-    const raw = JSON.parse(session.configJson || "{}");
+    const raw = JSON.parse(rawConfig || "{}");
     return NegotiationConfigSchema.parse(raw);
   } catch {
     return { ...DEFAULT_NEGOTIATION_CONFIG };
@@ -122,8 +123,7 @@ export function isNegotiationExpired(session: NegotiationSession, now = new Date
  */
 export function isRoundExpired(session: NegotiationSession, now = new Date()): boolean {
   if (!session.roundStartedAt) return false;
-  const config = parseNegotiationConfig(session);
-  const roundEnd = new Date(new Date(session.roundStartedAt).getTime() + config.roundDeadlineMinutes * 60_000);
+  const roundEnd = new Date(new Date(session.roundStartedAt).getTime() + session.config.roundDeadlineMinutes * 60_000);
   return roundEnd <= now;
 }
 
@@ -188,8 +188,7 @@ export function evaluateNegotiation(
     return { action: "timeout", reason: "Negotiation deadline exceeded" };
   }
 
-  const config = parseNegotiationConfig(session);
-  const participants = session.participantIds.split(",").filter(Boolean);
+  const participants = session.participantIds;
 
   // Check for universal accept this round (latest stance per agent wins)
   const currentRoundMessages = messages.filter(m => m.round === session.currentRound);
@@ -211,8 +210,8 @@ export function evaluateNegotiation(
     }
 
     // Max rounds reached?
-    if (session.currentRound >= config.maxRounds) {
-      return { action: "deadlock", reason: `Max rounds (${config.maxRounds}) reached without resolution` };
+    if (session.currentRound >= session.config.maxRounds) {
+      return { action: "deadlock", reason: `Max rounds (${session.config.maxRounds}) reached without resolution` };
     }
 
     return { action: "advance_round", reason: "Round deadline passed, advancing to next round" };
@@ -230,8 +229,8 @@ export function evaluateNegotiation(
   }
 
   // Max rounds?
-  if (session.currentRound >= config.maxRounds) {
-    return { action: "deadlock", reason: `Max rounds (${config.maxRounds}) reached without resolution` };
+  if (session.currentRound >= session.config.maxRounds) {
+    return { action: "deadlock", reason: `Max rounds (${session.config.maxRounds}) reached without resolution` };
   }
 
   return { action: "advance_round", reason: "All responded, advancing to next round" };

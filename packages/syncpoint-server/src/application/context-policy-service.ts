@@ -24,7 +24,8 @@ import type {
   ContextSnapshot,
   Handoff,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
+import * as foundationRepo from "../repositories/_exports/foundation.js";
 import { pmList } from "./project-memory-service.js";
 import {
   formatArchitectPrompt as formatArchitectPromptImpl,
@@ -151,13 +152,13 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
 
   if (needsTask && input.taskId && input.agentId) {
     try {
-      resumeCtx = repo.getResumeContext(input.taskId, input.agentId);
+      resumeCtx = contextMemoryRepo.getResumeContext(input.taskId, input.agentId);
       taskInfo = resumeCtx.task;
       agentInfo = resumeCtx.agent;
       if (input.intent === "handoff-receive") {
-        handoff = repo.getLatestHandoffForReceiver(input.taskId, input.agentId) ?? null;
+        handoff = contextMemoryRepo.getLatestHandoffForReceiver(input.taskId, input.agentId) ?? null;
         if (handoff) {
-          senderSnapshot = repo.getLatestContextSnapshot(input.taskId, handoff.fromAgentId) ?? null;
+          senderSnapshot = contextMemoryRepo.getLatestContextSnapshot(input.taskId, handoff.fromAgentId) ?? null;
         }
       }
     } catch {
@@ -165,7 +166,7 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
     }
   } else if (needsAgent && input.agentId) {
     try {
-      const agent = repo.getAgent(input.agentId);
+      const agent = foundationRepo.getAgent(input.agentId);
       agentInfo = { id: agent.id, name: agent.name, role: agent.role };
     } catch {
       warnings.push("Agent not found.");
@@ -185,10 +186,10 @@ export function prepareContext(input: PrepareContextInput): PreparedContext {
 
   // Task list and agent list
   const taskList = allSections.includes("task-list")
-    ? repo.listTasks().map(t => ({ id: t.id, title: t.title, status: t.status, ownerAgentId: t.ownerAgentId }))
+    ? foundationRepo.listTasks().map(t => ({ id: t.id, title: t.title, status: t.status, ownerAgentId: t.ownerAgentId }))
     : [];
   const agentList = allSections.includes("agent-list")
-    ? repo.listAgents().map(a => ({ id: a.id, name: a.name, role: a.role, status: a.status }))
+    ? foundationRepo.listAgents().map(a => ({ id: a.id, name: a.name, role: a.role, status: a.status }))
     : [];
 
   // ── Check required sections ──

@@ -5,7 +5,7 @@ import {
   listPinnedMemories,
   updatePinnedMemory,
   deletePinnedMemory,
-} from "../repositories.js";
+} from "../repositories/_exports/context-memory.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const pinnedMemoryRouter = t.router({

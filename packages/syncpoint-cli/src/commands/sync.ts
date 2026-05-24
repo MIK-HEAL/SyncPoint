@@ -3,7 +3,6 @@
  */
 
 import { Command } from "commander";
-import { parseIdListCsv } from "syncpoint-core";
 import {
   sgRequest,
   sgAck,
@@ -242,8 +241,8 @@ export function registerSyncCommands(program: Command): void {
       console.log(`CheckpointReview: ${result.tx.id} [${result.tx.status}]`);
       console.log(`  Gate: ${result.tx.gateId}`);
       console.log(`  Checkpoint: ${result.tx.checkpointId}`);
-      console.log(`  Approved: ${parseIdListCsv(result.tx.approvedByIds).join(", ") || "none"}`);
-      console.log(`  Rejected: ${parseIdListCsv(result.tx.rejectedByIds).join(", ") || "none"}`);
+      console.log(`  Approved: ${result.tx.approvedByIds.join(", ") || "none"}`);
+      console.log(`  Rejected: ${result.tx.rejectedByIds.join(", ") || "none"}`);
       console.log(`  Pending: ${result.pending.join(", ") || "none"}`);
       console.log(`  Blocking: ${result.isBlocking ? "yes" : "no"}`);
     });

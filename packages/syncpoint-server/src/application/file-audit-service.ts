@@ -6,7 +6,7 @@ import {
   gateMatchesResource,
 } from "syncpoint-core";
 import type { FileAuditDecision, FileAuditGateContext, ResourceClaim, ResourceRef, SyncGate } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { rcList } from "./resource-claim-service.js";
 import { sgCheckAgent, sgListActive, sgRequest } from "./sync-gate-service.js";
@@ -148,9 +148,9 @@ function findExistingPollutionGate(input: AuditFileChangeInput, changedResource:
 }
 
 function appendAuditNote(gateId: string, note: string): void {
-  const gate = repo.getSyncGate(gateId);
+  const gate = protocolRepo.getSyncGate(gateId);
   if (gate.description.includes(note)) return;
-  repo.updateSyncGateDescription(gateId, gate.description ? `${gate.description} ${note}` : note);
+  protocolRepo.updateSyncGateDescription(gateId, gate.description ? `${gate.description} ${note}` : note);
 }
 
 function toAuditGateContext(gate: SyncGate): FileAuditGateContext {

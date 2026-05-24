@@ -24,13 +24,15 @@ import type {
   OrchestratorRole,
   ReviewVerdict,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import * as foundationRepo from "../repositories/_exports/foundation.js";
+import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
+import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { processOrchestrationEvent } from "./wake-engine-service.js";
 import { prepareContext } from "./context-policy-service.js";
 import { RelationshipMode } from "syncpoint-core";
 import type { PreparedContext } from "syncpoint-core";
-import { evaluateExecutionReadiness } from "./collaboration-coordinator.js";
+import { collaborationCoordinator } from "./collaboration-coordinator.js";
 
 /**
  * Log an orchestration event AND trigger wake generation inline.
@@ -115,10 +117,10 @@ export interface AdvanceSessionResult {
  */
 export function orchCreateSession(input: CreateSessionInput): CreateSessionResult {
   if (input.architectId) {
-    repo.getAgent(input.architectId);
+    foundationRepo.getAgent(input.architectId);
   }
 
-  const session = repo.createSession({
+  const session = orchestrationRepo.createSession({
     title: input.title,
     description: input.description ?? "",
     relationshipMode: (input.relationshipMode as any) ?? undefined,
@@ -128,7 +130,7 @@ export function orchCreateSession(input: CreateSessionInput): CreateSessionResul
 
   let architectRole: RoleProfile | undefined;
   if (input.architectId) {
-    architectRole = repo.assignRole({
+    architectRole = orchestrationRepo.assignRole({
       sessionId: session.id,
       agentId: input.architectId,
       role: "architect",
@@ -144,10 +146,10 @@ export function orchCreateSession(input: CreateSessionInput): CreateSessionResul
  * Assign a role to an agent within a session.
  */
 export function orchAssignRole(input: AssignRoleInput): RoleProfile {
-  repo.getSession(input.sessionId);
-  repo.getAgent(input.agentId);
+  orchestrationRepo.getSession(input.sessionId);
+  foundationRepo.getAgent(input.agentId);
 
-  const role = repo.assignRole({
+  const role = orchestrationRepo.assignRole({
     sessionId: input.sessionId,
     agentId: input.agentId,
     role: input.role,
@@ -162,18 +164,18 @@ export function orchAssignRole(input: AssignRoleInput): RoleProfile {
  * Also assigns the task to the agent via existing repo.
  */
 export function orchPlanTask(input: PlanTaskInput): TaskAssignment {
-  repo.getSession(input.sessionId);
-  repo.getAgent(input.assigneeAgentId);
+  orchestrationRepo.getSession(input.sessionId);
+  foundationRepo.getAgent(input.assigneeAgentId);
 
   // Ensure task is assigned to agent in the core task table
-  const task = repo.getTask(input.taskId);
+  const task = foundationRepo.getTask(input.taskId);
   if (!task.ownerAgentId) {
-    repo.assignTask(input.taskId, input.assigneeAgentId);
+    foundationRepo.assignTask(input.taskId, input.assigneeAgentId);
   } else if (task.ownerAgentId !== input.assigneeAgentId) {
     throw new Error(`Task ${task.id} is already assigned to ${task.ownerAgentId}, not ${input.assigneeAgentId}`);
   }
 
-  const assignment = repo.createTaskAssignment({
+  const assignment = orchestrationRepo.createTaskAssignment({
     sessionId: input.sessionId,
     taskId: input.taskId,
     assigneeAgentId: input.assigneeAgentId,
@@ -188,7 +190,7 @@ export function orchPlanTask(input: PlanTaskInput): TaskAssignment {
  * Accept a task assignment — agent confirms they will work on it.
  */
 export function orchAcceptAssignment(assignmentId: string): TaskAssignment {
-  const ta = repo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.ACCEPTED);
+  const ta = orchestrationRepo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.ACCEPTED);
   orchEvent(EventType.ASSIGNMENT_ACCEPTED, "task_assignment", ta.id);
   return ta;
 }
@@ -197,13 +199,13 @@ export function orchAcceptAssignment(assignmentId: string): TaskAssignment {
  * Start working on an assigned task.
  */
 export function orchStartAssignment(assignmentId: string): TaskAssignment {
-  const ta0 = repo.getTaskAssignment(assignmentId);
-  const agentClaims = repo.listResourceClaims({ actorId: ta0.assigneeAgentId, status: "ACTIVE" });
+  const ta0 = orchestrationRepo.getTaskAssignment(assignmentId);
+  const agentClaims = protocolRepo.listResourceClaims({ actorId: ta0.assigneeAgentId, status: "ACTIVE" });
   const claimedRefs = agentClaims.flatMap(c => c.resources);
   const claimedLocators = claimedRefs.map(r => r.locator);
 
   // SyncGate hard gate — block start if agent has unacknowledged gates
-  const readiness = evaluateExecutionReadiness({
+  const readiness = collaborationCoordinator.execution.evaluateReadiness({
     agentId: ta0.assigneeAgentId,
     taskId: ta0.taskId,
     sessionId: ta0.sessionId,
@@ -218,9 +220,9 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
   }
 
   // P7: peer-contract requires resource claims before starting work
-  const session = repo.getSession(ta0.sessionId);
+  const session = orchestrationRepo.getSession(ta0.sessionId);
   if ((session as any).relationshipMode === RelationshipMode.PEER_CONTRACT) {
-    const claims = repo.listActiveResourceClaims({ sessionId: ta0.sessionId });
+    const claims = protocolRepo.listActiveResourceClaims({ sessionId: ta0.sessionId });
     const agentClaims = claims.filter(c => c.actorId === ta0.assigneeAgentId);
     if (agentClaims.length === 0) {
       throw new Error(
@@ -244,13 +246,13 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
     throw new Error(`Cannot start assignment: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`);
   }
 
-  const ta = repo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.IN_PROGRESS);
+  const ta = orchestrationRepo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.IN_PROGRESS);
   orchEvent(EventType.ASSIGNMENT_STARTED, "task_assignment", ta.id);
   // Also move task to IN_PROGRESS if it's in a pre-work state
   try {
-    const task = repo.getTask(ta.taskId);
+    const task = foundationRepo.getTask(ta.taskId);
     if (task.status === TaskStatus.ASSIGNED || task.status === TaskStatus.READY_TO_WORK) {
-      repo.updateTaskStatus(ta.taskId, TaskStatus.IN_PROGRESS);
+      foundationRepo.updateTaskStatus(ta.taskId, TaskStatus.IN_PROGRESS);
     }
   } catch { /* ignore if task status transition is invalid */ }
   return ta;
@@ -260,7 +262,7 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
  * Complete a task assignment.
  */
 export function orchCompleteAssignment(assignmentId: string): TaskAssignment {
-  const ta = repo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.COMPLETED);
+  const ta = orchestrationRepo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.COMPLETED);
   orchEvent(EventType.ASSIGNMENT_COMPLETED, "task_assignment", ta.id);
   return ta;
 }
@@ -269,11 +271,11 @@ export function orchCompleteAssignment(assignmentId: string): TaskAssignment {
  * Request a review for a task.
  */
 export function orchRequestReview(input: RequestReviewInput): ReviewRequest {
-  repo.getSession(input.sessionId);
-  repo.getTask(input.taskId);
-  repo.getAgent(input.reviewerAgentId);
+  orchestrationRepo.getSession(input.sessionId);
+  foundationRepo.getTask(input.taskId);
+  foundationRepo.getAgent(input.reviewerAgentId);
 
-  const assignments = repo.listTaskAssignments(input.sessionId);
+  const assignments = orchestrationRepo.listTaskAssignments(input.sessionId);
   const inSession = assignments.some(a => a.taskId === input.taskId);
   if (!inSession) {
     throw new Error(`Task ${input.taskId} is not assigned in session ${input.sessionId}`);
@@ -281,13 +283,13 @@ export function orchRequestReview(input: RequestReviewInput): ReviewRequest {
 
   // Move task to REVIEWING status if it's IN_PROGRESS
   try {
-    const task = repo.getTask(input.taskId);
+    const task = foundationRepo.getTask(input.taskId);
     if (task.status === TaskStatus.IN_PROGRESS) {
-      repo.updateTaskStatus(input.taskId, TaskStatus.REVIEWING);
+      foundationRepo.updateTaskStatus(input.taskId, TaskStatus.REVIEWING);
     }
   } catch { /* ignore */ }
 
-  const rr = repo.createReviewRequest({
+  const rr = orchestrationRepo.createReviewRequest({
     sessionId: input.sessionId,
     taskId: input.taskId,
     reviewerAgentId: input.reviewerAgentId,
@@ -302,7 +304,7 @@ export function orchRequestReview(input: RequestReviewInput): ReviewRequest {
  * Start a review (reviewer picks up the request).
  */
 export function orchStartReview(reviewRequestId: string): ReviewRequest {
-  const rr = repo.updateReviewRequestStatus(reviewRequestId, ReviewRequestStatus.IN_PROGRESS);
+  const rr = orchestrationRepo.updateReviewRequestStatus(reviewRequestId, ReviewRequestStatus.IN_PROGRESS);
   orchEvent(EventType.REVIEW_STARTED, "review_request", rr.id);
   return rr;
 }
@@ -315,9 +317,9 @@ export function orchSubmitReview(input: SubmitReviewInput): {
   reviewRequest: ReviewRequest;
 } {
   // Mark review request as decided
-  const rr = repo.updateReviewRequestStatus(input.reviewRequestId, ReviewRequestStatus.DECIDED);
+  const rr = orchestrationRepo.updateReviewRequestStatus(input.reviewRequestId, ReviewRequestStatus.DECIDED);
 
-  const decision = repo.createReviewDecision({
+  const decision = orchestrationRepo.createReviewDecision({
     reviewRequestId: input.reviewRequestId,
     verdict: input.verdict,
     summary: input.summary,
@@ -329,10 +331,10 @@ export function orchSubmitReview(input: SubmitReviewInput): {
   try {
     if (input.verdict === "approved") {
       // Move task to DONE
-      repo.updateTaskStatus(rr.taskId, TaskStatus.DONE);
+      foundationRepo.updateTaskStatus(rr.taskId, TaskStatus.DONE);
     } else if (input.verdict === "request-changes") {
       // Move task back to IN_PROGRESS
-      repo.updateTaskStatus(rr.taskId, TaskStatus.IN_PROGRESS);
+      foundationRepo.updateTaskStatus(rr.taskId, TaskStatus.IN_PROGRESS);
     }
   } catch { /* ignore invalid transitions */ }
 
@@ -349,11 +351,11 @@ export function orchSubmitReview(input: SubmitReviewInput): {
  * Get full session status with all roles, assignments, reviews, decisions.
  */
 export function orchGetSessionStatus(sessionId: string): SessionStatusResult {
-  const session = repo.getSession(sessionId);
-  const roles = repo.listRoles(sessionId);
-  const assignments = repo.listTaskAssignments(sessionId);
-  const reviews = repo.listReviewRequests(sessionId);
-  const decisions = repo.listReviewDecisions(sessionId);
+  const session = orchestrationRepo.getSession(sessionId);
+  const roles = orchestrationRepo.listRoles(sessionId);
+  const assignments = orchestrationRepo.listTaskAssignments(sessionId);
+  const reviews = orchestrationRepo.listReviewRequests(sessionId);
+  const decisions = orchestrationRepo.listReviewDecisions(sessionId);
 
   return { session, roles, assignments, reviews, decisions };
 }
@@ -362,15 +364,15 @@ export function orchGetSessionStatus(sessionId: string): SessionStatusResult {
  * Advance session status based on current state of assignments and reviews.
  */
 export function orchAdvanceSession(sessionId: string): AdvanceSessionResult {
-  const session = repo.getSession(sessionId);
-  const assignments = repo.listTaskAssignments(sessionId);
-  const reviews = repo.listReviewRequests(sessionId);
+  const session = orchestrationRepo.getSession(sessionId);
+  const assignments = orchestrationRepo.listTaskAssignments(sessionId);
+  const reviews = orchestrationRepo.listReviewRequests(sessionId);
 
   const currentStatus = session.status as SessionStatus;
 
   // PLANNING → EXECUTING: when there's at least one assignment
   if (currentStatus === SessionStatus.PLANNING && assignments.length > 0) {
-    const updated = repo.updateSessionStatus(sessionId, SessionStatus.EXECUTING);
+    const updated = orchestrationRepo.updateSessionStatus(sessionId, SessionStatus.EXECUTING);
     orchEvent(EventType.SESSION_ADVANCED, "session", sessionId, `PLANNING→EXECUTING`);
     return { session: updated, transitioned: true, reason: "Tasks assigned, moving to execution." };
   }
@@ -380,7 +382,7 @@ export function orchAdvanceSession(sessionId: string): AdvanceSessionResult {
     const allCompleted = assignments.length > 0 &&
       assignments.every(a => a.status === TaskAssignmentStatus.COMPLETED);
     if (allCompleted) {
-      const updated = repo.updateSessionStatus(sessionId, SessionStatus.REVIEWING);
+      const updated = orchestrationRepo.updateSessionStatus(sessionId, SessionStatus.REVIEWING);
       orchEvent(EventType.SESSION_ADVANCED, "session", sessionId, `EXECUTING→REVIEWING`);
       return { session: updated, transitioned: true, reason: "All tasks completed, moving to review." };
     }
@@ -391,15 +393,15 @@ export function orchAdvanceSession(sessionId: string): AdvanceSessionResult {
     const allDecided = reviews.length > 0 &&
       reviews.every(r => r.status === ReviewRequestStatus.DECIDED);
     if (allDecided) {
-      const decisions = repo.listReviewDecisions(sessionId);
+      const decisions = orchestrationRepo.listReviewDecisions(sessionId);
       const allApproved = decisions.every(d => d.verdict === "approved");
       if (allApproved) {
-        const updated = repo.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
+        const updated = orchestrationRepo.updateSessionStatus(sessionId, SessionStatus.COMPLETED);
         orchEvent(EventType.SESSION_ADVANCED, "session", sessionId, `REVIEWING→COMPLETED`);
         return { session: updated, transitioned: true, reason: "All reviews approved, session completed." };
       }
       // Some rejected — back to executing
-      const updated = repo.updateSessionStatus(sessionId, SessionStatus.EXECUTING);
+      const updated = orchestrationRepo.updateSessionStatus(sessionId, SessionStatus.EXECUTING);
       orchEvent(EventType.SESSION_ADVANCED, "session", sessionId, `REVIEWING→EXECUTING`);
       return { session: updated, transitioned: true, reason: "Some reviews not approved, returning to execution." };
     }
@@ -419,7 +421,7 @@ export function orchPrepareReviewContext(taskId: string, reviewerAgentId: string
  * Cancel a session.
  */
 export function orchCancelSession(sessionId: string): OrchestrationSession {
-  const session = repo.updateSessionStatus(sessionId, SessionStatus.CANCELLED);
+  const session = orchestrationRepo.updateSessionStatus(sessionId, SessionStatus.CANCELLED);
   orchEvent(EventType.SESSION_CANCELLED, "session", sessionId);
   return session;
 }

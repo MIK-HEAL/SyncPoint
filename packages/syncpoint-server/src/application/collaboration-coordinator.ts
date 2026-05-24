@@ -6,7 +6,12 @@ import {
   type RealityProjection,
   type ResourceRef,
 } from "syncpoint-core";
-import * as repo from "../repositories.js";
+import {
+  getContractForTask,
+  getLatestCheckpointForAgent,
+  getLatestContextSnapshot,
+} from "../repositories/_exports/context-memory.js";
+import { listQueuedWakeRequests } from "../repositories/_exports/orchestration.js";
 import { resolveResourceRefs } from "./_resource-resolve.js";
 import { buildProjection } from "./reality-projection-service.js";
 import { rcDetectConflicts, rcList } from "./resource-claim-service.js";
@@ -15,9 +20,9 @@ import { stxListActive } from "./checkpoint-review-service.js";
 import { opList } from "./operation-service.js";
 
 export interface ResumeProjectionContext {
-  latestSnapshot: ReturnType<typeof repo.getLatestContextSnapshot>;
-  latestCheckpoint: ReturnType<typeof repo.getLatestCheckpointForAgent>;
-  contract: ReturnType<typeof repo.getContractForTask>;
+  latestSnapshot: ReturnType<typeof getLatestContextSnapshot>;
+  latestCheckpoint: ReturnType<typeof getLatestCheckpointForAgent>;
+  contract: ReturnType<typeof getContractForTask>;
   workingResources: string[];
   touchedResources?: ResourceRef[];
   projection: RealityProjection;
@@ -52,9 +57,9 @@ function toStringArray(value: string[] | string | undefined | null): string[] {
 }
 
 export function prepareResumeProjectionContext(taskId: string, agentId: string): ResumeProjectionContext {
-  const latestSnapshot = repo.getLatestContextSnapshot(taskId, agentId);
-  const latestCheckpoint = repo.getLatestCheckpointForAgent(taskId, agentId);
-  const contract = repo.getContractForTask(taskId);
+  const latestSnapshot = getLatestContextSnapshot(taskId, agentId);
+  const latestCheckpoint = getLatestCheckpointForAgent(taskId, agentId);
+  const contract = getContractForTask(taskId);
   const workingResources = toStringArray(latestSnapshot?.payload?.workingResources);
   const touchedResources = workingResources.length > 0
     ? resolveResourceRefs(workingResources, agentId)
@@ -96,9 +101,17 @@ export function prepareResumeProjectionContext(taskId: string, agentId: string):
   };
 }
 
+export function checkAgentBlock(input: { agentId: string; taskId?: string; sessionId?: string }) {
+  return sgCheckAgent(input.agentId, { taskId: input.taskId, sessionId: input.sessionId });
+}
+
 export function evaluateExecutionReadiness(input: ExecutionReadinessInput): ExecutionReadiness {
-  const blockCheck = sgCheckAgent(input.agentId, { taskId: input.taskId, sessionId: input.sessionId });
-  const workingResources = input.workingResources ?? toStringArray(repo.getLatestContextSnapshot(input.taskId, input.agentId)?.payload?.workingResources);
+  const blockCheck = checkAgentBlock({
+    agentId: input.agentId,
+    taskId: input.taskId,
+    sessionId: input.sessionId,
+  });
+  const workingResources = input.workingResources ?? toStringArray(getLatestContextSnapshot(input.taskId, input.agentId)?.payload?.workingResources);
   const touchedResources = input.touchedResources ?? (
     workingResources.length > 0
       ? resolveResourceRefs(workingResources, input.agentId)
@@ -133,7 +146,7 @@ export function collectStatusOverviewState(input?: { sessionId?: string; taskId?
     conflicts: rcDetectConflicts(input?.sessionId ? { sessionId: input.sessionId } : undefined),
     gates: sgListActive(scopeFilter),
     allGates: sgList(scopeFilter),
-    wakeRequests: repo.listQueuedWakeRequests(),
+    wakeRequests: listQueuedWakeRequests(),
     activeTransactions: stxListActive(scopeFilter),
   };
 }
@@ -152,6 +165,20 @@ export function collectStatusSnapshotState(input?: { sessionId?: string }) {
     pendingOps: opList(input?.sessionId ? { sessionId: input.sessionId } : undefined).filter(op =>
       op.status === "DRAFT" || op.status === "SUBMITTED" || op.status === "APPROVED"
     ),
-    wakeRequests: repo.listQueuedWakeRequests(input?.sessionId),
+    wakeRequests: listQueuedWakeRequests(input?.sessionId),
   };
 }
+
+export const collaborationCoordinator = {
+  resume: {
+    prepareProjectionContext: prepareResumeProjectionContext,
+  },
+  execution: {
+    checkAgentBlock,
+    evaluateReadiness: evaluateExecutionReadiness,
+  },
+  status: {
+    collectOverviewState: collectStatusOverviewState,
+    collectSnapshotState: collectStatusSnapshotState,
+  },
+} as const;

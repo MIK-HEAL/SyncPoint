@@ -24,16 +24,7 @@ import { getTask } from "./task-repository.js";
 import { getLatestContextSnapshot } from "./context-snapshot-repository.js";
 import { collectPinnedMemories } from "./memory-repository.js";
 import { collectProjectMemories } from "./project-memory-repository.js";
-
-function parseStringList(raw: string | null | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
-}
+import { hydrateContractRow } from "./contract-repository-internals.js";
 
 function parseChangedFiles(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -43,17 +34,6 @@ function parseChangedFiles(raw: string | null | undefined): string[] {
   } catch {
     return [];
   }
-}
-
-function hydrateContractRow(row: typeof s.peerContracts.$inferSelect): PeerContract {
-  return {
-    ...row,
-    participants: parseStringList(row.participants),
-    responsibilities: parseStringList(row.responsibilities),
-    interfaceSpec: parseStringList(row.interfaceSpec),
-    fileBoundaries: parseStringList(row.fileBoundaries),
-    dependencies: parseStringList(row.dependencies),
-  } as PeerContract;
 }
 
 function hydrateCheckpointRow(row: typeof s.checkpoints.$inferSelect): Checkpoint {
@@ -238,7 +218,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
   const agent = getAgent(agentId);
 
   // Approved contract for task
-  const allContracts = _getDb().select().from(s.peerContracts)
+  const allContracts: PeerContract[] = _getDb().select().from(s.peerContracts)
     .where(eq(s.peerContracts.taskId, taskId)).all().map(hydrateContractRow);
   const approvedContract = allContracts.find(c => c.status === ContractStatus.APPROVED) ?? null;
   const latestContract = allContracts.length ? allContracts[allContracts.length - 1] : null;

@@ -3,61 +3,95 @@
  */
 
 import { eq } from "drizzle-orm";
-import { getDb } from "../db.js";
+import type { AgentCapability, AgentManifest, EscalationPreference } from "syncpoint-core";
+import { AgentManifestSchema, DEFAULT_AGENT_MANIFEST } from "syncpoint-core";
 import * as schema from "../schema.js";
+import { _getDb, now } from "./_shared.js";
 
-function now(): string {
-  return new Date().toISOString();
+function parseJson<T>(value: string | null | undefined, fallback: T): T {
+  try {
+    return JSON.parse(value ?? "") as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function hydrateAgentManifest(row: typeof schema.agentManifests.$inferSelect): AgentManifest {
+  const capabilities = AgentManifestSchema.shape.capabilities.safeParse(
+    parseJson(row.capabilitiesJson, DEFAULT_AGENT_MANIFEST.capabilities),
+  );
+  const escalationPreference = AgentManifestSchema.shape.escalationPreference.safeParse(
+    parseJson(row.escalationPreferenceJson, DEFAULT_AGENT_MANIFEST.escalationPreference),
+  );
+  const availability = AgentManifestSchema.shape.availability.safeParse(row.availability);
+  const tags = AgentManifestSchema.shape.tags.safeParse(
+    parseJson(row.tagsJson, DEFAULT_AGENT_MANIFEST.tags),
+  );
+
+  return AgentManifestSchema.parse({
+    agentId: row.agentId,
+    capabilities: capabilities.success ? capabilities.data : DEFAULT_AGENT_MANIFEST.capabilities,
+    escalationPreference: escalationPreference.success
+      ? escalationPreference.data
+      : DEFAULT_AGENT_MANIFEST.escalationPreference,
+    availability: availability.success ? availability.data : DEFAULT_AGENT_MANIFEST.availability,
+    canHandleHumanEscalation: row.canHandleHumanEscalation,
+    tags: tags.success ? tags.data : DEFAULT_AGENT_MANIFEST.tags,
+  });
 }
 
 export function upsertAgentManifest(opts: {
   agentId: string;
-  capabilitiesJson?: string;
-  escalationPreferenceJson?: string;
-  availability?: string;
+  capabilities?: AgentCapability[];
+  escalationPreference?: EscalationPreference;
+  availability?: AgentManifest["availability"];
   canHandleHumanEscalation?: boolean;
-  tagsJson?: string;
-}) {
-  const db = getDb();
+  tags?: string[];
+}): AgentManifest {
+  const db = _getDb();
   const ts = now();
   const existing = getAgentManifest(opts.agentId);
 
   if (existing) {
     const updates: Record<string, unknown> = { updatedAt: ts };
-    if (opts.capabilitiesJson !== undefined) updates.capabilitiesJson = opts.capabilitiesJson;
-    if (opts.escalationPreferenceJson !== undefined) updates.escalationPreferenceJson = opts.escalationPreferenceJson;
+    if (opts.capabilities !== undefined) updates.capabilitiesJson = JSON.stringify(opts.capabilities);
+    if (opts.escalationPreference !== undefined) {
+      updates.escalationPreferenceJson = JSON.stringify(opts.escalationPreference);
+    }
     if (opts.availability !== undefined) updates.availability = opts.availability;
     if (opts.canHandleHumanEscalation !== undefined) updates.canHandleHumanEscalation = opts.canHandleHumanEscalation;
-    if (opts.tagsJson !== undefined) updates.tagsJson = opts.tagsJson;
+    if (opts.tags !== undefined) updates.tagsJson = JSON.stringify(opts.tags);
     db.update(schema.agentManifests).set(updates).where(eq(schema.agentManifests.agentId, opts.agentId)).run();
     return getAgentManifest(opts.agentId)!;
   }
 
-  const row = {
+  db.insert(schema.agentManifests).values({
     agentId: opts.agentId,
-    capabilitiesJson: opts.capabilitiesJson ?? "[]",
-    escalationPreferenceJson: opts.escalationPreferenceJson ?? "{}",
-    availability: opts.availability ?? "online",
-    canHandleHumanEscalation: opts.canHandleHumanEscalation ?? false,
-    tagsJson: opts.tagsJson ?? "[]",
+    capabilitiesJson: JSON.stringify(opts.capabilities ?? DEFAULT_AGENT_MANIFEST.capabilities),
+    escalationPreferenceJson: JSON.stringify(
+      opts.escalationPreference ?? DEFAULT_AGENT_MANIFEST.escalationPreference,
+    ),
+    availability: opts.availability ?? DEFAULT_AGENT_MANIFEST.availability,
+    canHandleHumanEscalation: opts.canHandleHumanEscalation ?? DEFAULT_AGENT_MANIFEST.canHandleHumanEscalation,
+    tagsJson: JSON.stringify(opts.tags ?? DEFAULT_AGENT_MANIFEST.tags),
     createdAt: ts,
     updatedAt: ts,
-  };
-  db.insert(schema.agentManifests).values(row).run();
-  return row;
+  }).run();
+  return getAgentManifest(opts.agentId)!;
 }
 
-export function getAgentManifest(agentId: string) {
-  const db = getDb();
-  return db.select().from(schema.agentManifests).where(eq(schema.agentManifests.agentId, agentId)).get();
+export function getAgentManifest(agentId: string): AgentManifest | undefined {
+  const db = _getDb();
+  const row = db.select().from(schema.agentManifests).where(eq(schema.agentManifests.agentId, agentId)).get();
+  return row ? hydrateAgentManifest(row) : undefined;
 }
 
-export function listAgentManifests() {
-  const db = getDb();
-  return db.select().from(schema.agentManifests).all();
+export function listAgentManifests(): AgentManifest[] {
+  const db = _getDb();
+  return db.select().from(schema.agentManifests).all().map(hydrateAgentManifest);
 }
 
 export function deleteAgentManifest(agentId: string) {
-  const db = getDb();
+  const db = _getDb();
   db.delete(schema.agentManifests).where(eq(schema.agentManifests.agentId, agentId)).run();
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ContractStatus } from "syncpoint-core";
-import { createContract, getContract, getContractForTask, updateContractStatus } from "../repositories.js";
+import { createContract, getContract, getContractForTask, updateContractStatus } from "../repositories/_exports/context-memory.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const contractRouter = t.router({

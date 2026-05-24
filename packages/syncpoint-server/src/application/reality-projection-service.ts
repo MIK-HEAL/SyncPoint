@@ -19,7 +19,7 @@ import {
 import {
   collectProjectMemories,
   getMemoryVersion,
-} from "../repositories.js";
+} from "../repositories/_exports/context-memory.js";
 import "./_scope-matchers.js";
 
 // ── Projection Cache ──────────────────────────────────────

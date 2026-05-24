@@ -7,32 +7,8 @@ import * as s from "../schema.js";
 import { ContractStatus, TaskStatus, EventType, validateTaskTransition, validateContractTransition } from "syncpoint-core";
 import type { PeerContract, PeerContractCreate, Task } from "syncpoint-core";
 import { _getDb, now, createId, logEvent, NotFoundError } from "./_shared.js";
+import { hydrateContractRow, serializeContractStringList } from "./contract-repository-internals.js";
 import { getTask } from "./task-repository.js";
-
-function serializeStringList(values: string[]): string {
-  return JSON.stringify(values);
-}
-
-function parseStringList(raw: string | null | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function hydrateContract(row: typeof s.peerContracts.$inferSelect): PeerContract {
-  return {
-    ...row,
-    participants: parseStringList(row.participants),
-    responsibilities: parseStringList(row.responsibilities),
-    interfaceSpec: parseStringList(row.interfaceSpec),
-    fileBoundaries: parseStringList(row.fileBoundaries),
-    dependencies: parseStringList(row.dependencies),
-  } as PeerContract;
-}
 
 export function createContract(data: PeerContractCreate): PeerContract {
   getTask(data.taskId);
@@ -43,12 +19,12 @@ export function createContract(data: PeerContractCreate): PeerContract {
     id,
     taskId: data.taskId,
     title: data.title,
-    participants: serializeStringList(data.participants),
+    participants: serializeContractStringList(data.participants),
     scope: data.scope,
-    responsibilities: serializeStringList(data.responsibilities),
-    interfaceSpec: serializeStringList(data.interfaceSpec),
-    fileBoundaries: serializeStringList(data.fileBoundaries),
-    dependencies: serializeStringList(data.dependencies),
+    responsibilities: serializeContractStringList(data.responsibilities),
+    interfaceSpec: serializeContractStringList(data.interfaceSpec),
+    fileBoundaries: serializeContractStringList(data.fileBoundaries),
+    dependencies: serializeContractStringList(data.dependencies),
     testPlan: data.testPlan,
     risks: data.risks,
     status: ContractStatus.DRAFT,
@@ -62,19 +38,19 @@ export function createContract(data: PeerContractCreate): PeerContract {
     db.update(s.tasks).set({ status: TaskStatus.NEEDS_CONTRACT, updatedAt: ts }).where(eq(s.tasks.id, data.taskId)).run();
   }
   logEvent(EventType.CONTRACT_DRAFTED, "contract", id);
-  return hydrateContract(db.select().from(s.peerContracts).where(eq(s.peerContracts.id, id)).get()!);
+  return hydrateContractRow(db.select().from(s.peerContracts).where(eq(s.peerContracts.id, id)).get()!);
 }
 
 export function getContract(id: string): PeerContract {
   const db = _getDb();
   const row = db.select().from(s.peerContracts).where(eq(s.peerContracts.id, id)).get();
   if (!row) throw new NotFoundError("contract", id);
-  return hydrateContract(row);
+  return hydrateContractRow(row);
 }
 
 export function getContractForTask(taskId: string): PeerContract | undefined {
   const row = _getDb().select().from(s.peerContracts).where(eq(s.peerContracts.taskId, taskId)).get();
-  return row ? hydrateContract(row) : undefined;
+  return row ? hydrateContractRow(row) : undefined;
 }
 
 export function updateContractStatus(id: string, target: ContractStatus): PeerContract {

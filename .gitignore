@@ -4,6 +4,8 @@ dist/
 .syncpoint/
 .vscode/
 drizzle/
+!packages/syncpoint-server/drizzle/
+!packages/syncpoint-server/drizzle/**
 *.db
 
 # Prevent stale compiled artifacts in src/

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createHandoff, acceptHandoff, rejectHandoff } from "../repositories.js";
+import { createHandoff, acceptHandoff, rejectHandoff } from "../repositories/_exports/context-memory.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const handoffRouter = t.router({

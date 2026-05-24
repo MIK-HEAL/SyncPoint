@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TaskStatus } from "syncpoint-core";
-import { createTask, getTask, listTasks, assignTask, updateTaskStatus } from "../repositories.js";
+import { createTask, getTask, listTasks, assignTask, updateTaskStatus } from "../repositories/_exports/foundation.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const taskRouter = t.router({
