@@ -28,6 +28,21 @@ export const agentManifests = sqliteTable("agent_manifest", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const agentRegistryEntries = sqliteTable("agent_registry_entry", {
+  manifestPath: text("manifest_path").primaryKey(),
+  agentId: text("agent_id"),
+  sourceFormat: text("source_format").notNull().default(""),
+  contentHash: text("content_hash").notNull().default(""),
+  manifestJson: text("manifest_json").notNull().default(""),
+  status: text("status").notNull().default("pending"),
+  errorMessage: text("error_message").notNull().default(""),
+  lastSyncAt: text("last_sync_at").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => ({
+  agentUnique: uniqueIndex("uq_agent_registry_entry_agent").on(table.agentId),
+}));
+
 // ── Negotiation Session ─────────────────────────────
 
 export const negotiationSessions = sqliteTable("negotiation_session", {

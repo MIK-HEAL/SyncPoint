@@ -86,6 +86,20 @@ export type {
 } from "../backing-store-reconciliation-service.js";
 
 export {
+  AgentRegistryPathError,
+  getAgentManifestDirectory,
+  ensureAgentManifestDirectory,
+  listDeclaredAgents,
+  syncDeclaredAgents,
+  syncDeclaredAgentFile,
+  removeDeclaredAgentFile,
+} from "../agent-registry-service.js";
+
+export type {
+  DeclaredAgentRecord,
+} from "../agent-registry-service.js";
+
+export {
   lockClaimedFiles,
   unlockClaimedFiles,
   refreshGuardLocks,

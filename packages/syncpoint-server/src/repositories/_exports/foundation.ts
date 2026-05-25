@@ -5,6 +5,7 @@ export {
   getAgent,
   getAgentByName,
   listAgents,
+  updateAgentProfile,
   updateAgentStatus,
   updateAgentRuntime,
 } from "../agent-repository.js";

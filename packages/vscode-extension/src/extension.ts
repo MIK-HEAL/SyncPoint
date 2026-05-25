@@ -10,7 +10,9 @@ import * as vscode from "vscode";
 import { createSyncPointClient, createEventStream } from "syncpoint-sdk";
 import type { EventStreamHandle } from "syncpoint-sdk";
 import { formatResumePrompt } from "syncpoint-core";
-import type { PromptFormat, ResumeContext } from "syncpoint-core";
+import type { AgentRole, PromptFormat, ResumeContext, UserAgentProvider } from "syncpoint-core";
+import { createAgentManifestFile, getPrimaryWorkspaceFolder } from "./agent-manifest-files.js";
+import { registerAgentManifestWatcher } from "./agent-manifest-watcher.js";
 import { registerFileGuard } from "./file-guard.js";
 import { registerGuardedEditor } from "./guarded-editor.js";
 
@@ -575,6 +577,11 @@ export function activate(context: vscode.ExtensionContext) {
     client,
     onAudited: () => syncView.refresh(),
   }));
+  context.subscriptions.push(registerAgentManifestWatcher({
+    client,
+    onSynced: () => syncView.refresh(),
+    onWarning: message => vscode.window.showWarningMessage(message),
+  }));
   context.subscriptions.push(registerGuardedEditor({ client }));
 
   // Commands
@@ -596,22 +603,28 @@ export function activate(context: vscode.ExtensionContext) {
     }),
 
     vscode.commands.registerCommand("syncpoint.registerAgent", async () => {
+      const workspaceRoot = getPrimaryWorkspaceFolder();
+      if (!workspaceRoot) {
+        vscode.window.showWarningMessage("No workspace folder open");
+        return;
+      }
       const name = await vscode.window.showInputBox({ prompt: "Agent name" });
       if (!name) return;
       const provider = await vscode.window.showQuickPick(
         ["codex", "claude-code", "cursor", "cline", "copilot", "human", "other"],
         { placeHolder: "Provider" }
-      );
+      ) as UserAgentProvider | undefined;
       if (!provider) return;
       const role = await vscode.window.showQuickPick(
         ["manager", "frontend", "backend", "tester", "reviewer", "other"],
         { placeHolder: "Role" }
-      );
+      ) as AgentRole | undefined;
       if (!role) return;
       try {
-        await client.agent.create.mutate({ name, provider, role });
+        const fileUri = await createAgentManifestFile(workspaceRoot, { name, provider, role });
+        await client.agentRegistry.syncFile.mutate({ filePath: fileUri.fsPath });
         syncView.refresh();
-        vscode.window.showInformationMessage(`Agent "${name}" registered`);
+        vscode.window.showInformationMessage(`Agent manifest created: ${fileUri.fsPath}`);
       } catch (e: any) {
         vscode.window.showErrorMessage(`Failed to register agent: ${e.message}`);
       }

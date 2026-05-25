@@ -67,6 +67,39 @@ export type {
   StatusResponse,
 } from "./models.js";
 
+export {
+  AGENT_PROVIDER_VALUES,
+  AGENT_ROLE_VALUES,
+  USER_AGENT_PROVIDER_VALUES,
+  AGENT_MANIFEST_FILE_EXTENSIONS,
+  AgentProviderSchema,
+  AgentRoleSchema,
+  UserAgentProviderSchema,
+  AgentManifestFileFormatSchema,
+  AgentManifestCapabilityInputSchema,
+  UserAgentManifestSchema,
+  parseUserAgentManifestObject,
+  parseUserAgentManifestContent,
+  createUserAgentManifestTemplate,
+  serializeUserAgentManifest,
+  resolveAgentProvider,
+  resolveAgentRole,
+  toAgentCreateFromUserAgentManifest,
+  toRuntimeAgentManifestInputFromUserAgentManifest,
+  detectUserAgentManifestFormatFromPath,
+  isSupportedUserAgentManifestPath,
+} from "./agent-file-manifest.js";
+
+export type {
+  AgentProvider as AgentProviderValue,
+  AgentRole,
+  UserAgentProvider,
+  AgentManifestFileFormat,
+  AgentManifestCapabilityInput,
+  UserAgentManifestInput,
+  UserAgentManifest,
+} from "./agent-file-manifest.js";
+
 // Memory Switch Engine
 export {
   PinnedMemorySchema,

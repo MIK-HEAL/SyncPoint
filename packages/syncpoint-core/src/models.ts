@@ -12,6 +12,7 @@ import {
   DiaryEntryType,
   EventType,
 } from "./states.js";
+import { AgentProviderSchema, AgentRoleSchema } from "./agent-file-manifest.js";
 
 // ── Helpers ────────────────────────────────────────────
 
@@ -24,8 +25,8 @@ const jsonField = z.string().default(""); // JSON stored as string
 export const AgentSchema = z.object({
   id: nanoid12,
   name: z.string().min(1),
-  provider: z.enum(["codex", "claude-code", "cursor", "cline", "copilot", "human", "other"]),
-  role: z.enum(["manager", "frontend", "backend", "tester", "reviewer", "other"]),
+  provider: AgentProviderSchema,
+  role: AgentRoleSchema,
   status: z.nativeEnum(AgentStatus).default(AgentStatus.IDLE),
   currentTaskId: z.string().nullable().default(null),
   runtimeId: z.string().nullable().default(null),
@@ -37,8 +38,8 @@ export type Agent = z.infer<typeof AgentSchema>;
 
 export const AgentCreateSchema = z.object({
   name: z.string().min(1),
-  provider: z.enum(["codex", "claude-code", "cursor", "cline", "copilot", "human", "other"]),
-  role: z.enum(["manager", "frontend", "backend", "tester", "reviewer", "other"]),
+  provider: AgentProviderSchema,
+  role: AgentRoleSchema,
 });
 
 export type AgentCreate = z.infer<typeof AgentCreateSchema>;

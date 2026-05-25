@@ -56,6 +56,11 @@ const PEER_CONTRACT_NORMALIZATION_SQL_PATH = path.join(
   "0001_peer_contract_normalization.sql",
 );
 
+const AGENT_REGISTRY_ENTRY_SQL_PATH = path.join(
+  DRIZZLE_MIGRATIONS_DIR,
+  "0002_agent_registry_entry.sql",
+);
+
 function ensureDrizzleMigrationAssets(): void {
   if (!fs.existsSync(DRIZZLE_MIGRATIONS_DIR) || !fs.existsSync(DRIZZLE_JOURNAL_PATH)) {
     throw new Error("Drizzle migrations not found. Run `pnpm --filter syncpoint-server db:generate` first.");
@@ -70,6 +75,10 @@ function hasColumn(db: Database.Database, tableName: string, columnName: string)
   if (!hasTable(db, tableName)) return false;
   const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
   return columns.some(column => column.name === columnName);
+}
+
+function hasIndex(db: Database.Database, indexName: string): boolean {
+  return Boolean(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?").get(indexName));
 }
 
 function hasLegacySchema(db: Database.Database): boolean {
@@ -126,6 +135,21 @@ function runPeerContractNormalizationMigration(db: Database.Database): void {
   }
 
   db.exec(fs.readFileSync(PEER_CONTRACT_NORMALIZATION_SQL_PATH, "utf-8"));
+}
+
+function runAgentRegistryEntryMigration(db: Database.Database): void {
+  if (!hasTable(db, "agent_registry_entry")) {
+    if (!fs.existsSync(AGENT_REGISTRY_ENTRY_SQL_PATH)) {
+      throw new Error("Missing agent_registry_entry migration SQL.");
+    }
+
+    db.exec(fs.readFileSync(AGENT_REGISTRY_ENTRY_SQL_PATH, "utf-8"));
+    return;
+  }
+
+  if (!hasIndex(db, "uq_agent_registry_entry_agent")) {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS `uq_agent_registry_entry_agent` ON `agent_registry_entry` (`agent_id`);");
+  }
 }
 
 function ensureRuntimeOnlyTables(db: Database.Database): void {
@@ -228,5 +252,6 @@ export function runMigrations(db: Database.Database): void {
   bootstrapLegacyDrizzleJournal(db);
   migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });
   runPeerContractNormalizationMigration(db);
+  runAgentRegistryEntryMigration(db);
   ensureRuntimeOnlyTables(db);
 }

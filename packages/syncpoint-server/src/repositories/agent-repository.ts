@@ -57,3 +57,18 @@ export function updateAgentRuntime(id: string, runtimeId: string | null): Agent 
   _getDb().update(s.agents).set({ runtimeId, updatedAt: now() }).where(eq(s.agents.id, id)).run();
   return getAgent(id);
 }
+
+export function updateAgentProfile(id: string, input: Partial<AgentCreate>): Agent {
+  getAgent(id);
+
+  const updates: Partial<Pick<Agent, "name" | "provider" | "role" | "updatedAt">> = {
+    updatedAt: now(),
+  };
+
+  if (input.name !== undefined) updates.name = input.name;
+  if (input.provider !== undefined) updates.provider = input.provider;
+  if (input.role !== undefined) updates.role = input.role;
+
+  _getDb().update(s.agents).set(updates).where(eq(s.agents.id, id)).run();
+  return getAgent(id);
+}

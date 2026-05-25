@@ -41,6 +41,15 @@ export const Disposable = {
   from: (...items: any[]) => ({ dispose: () => items.forEach(item => item.dispose?.()) }),
 };
 
+export class RelativePattern {
+  baseUri: any;
+  pattern: string;
+  constructor(baseUri: any, pattern: string) {
+    this.baseUri = baseUri;
+    this.pattern = pattern;
+  }
+}
+
 let configurationValues: Record<string, any> = {};
 const willSaveHandlers: Function[] = [];
 const didSaveHandlers: Function[] = [];
@@ -140,6 +149,12 @@ export const workspace = {
   getConfiguration: () => ({
     get: (key: string, defaultValue: any) =>
       Object.prototype.hasOwnProperty.call(configurationValues, key) ? configurationValues[key] : defaultValue,
+  }),
+  createFileSystemWatcher: () => ({
+    onDidCreate: () => ({ dispose: () => {} }),
+    onDidChange: () => ({ dispose: () => {} }),
+    onDidDelete: () => ({ dispose: () => {} }),
+    dispose: () => {},
   }),
   onWillSaveTextDocument: (handler: Function) => {
     willSaveHandlers.push(handler);
