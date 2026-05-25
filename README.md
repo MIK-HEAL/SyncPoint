@@ -142,7 +142,7 @@ To actually prevent non-cooperating processes from writing protected files, depl
 ### Install
 
 ```bash
-npm install -g @syncpoint/cli
+npm install -g syncpoint-cli
 ```
 
 Or for local development:

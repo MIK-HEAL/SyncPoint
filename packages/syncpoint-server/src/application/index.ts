@@ -3,6 +3,7 @@
  * CLI, MCP, and tRPC all call these functions.
  */
 
+export * from "./bootstrap.js";
 export * from "./_exports/context-loop.js";
 export * from "./_exports/orchestration-workflow.js";
 export * from "./_exports/resource-runtime.js";

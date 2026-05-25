@@ -2,7 +2,7 @@
 
 > **Goal**: Build `syncpoint-plugin-generic-agent` — the first non-code plugin that proves SyncPoint is a resource-first agent coordination runtime.
 
-> **MVP acceptance status (2026-05-06)**: Accepted for the generic-agent MVP. S1-S9 and S11 are complete; S10 demo refactor is explicitly deferred to a follow-up PR. Verification: package tests passed for `syncpoint-core` 478/478, `syncpoint-server` 380/380, `syncpoint-mcp` 48/48, `syncpoint-plugin-code` 30/30, `syncpoint-plugin-generic-agent` 77/77, `@syncpoint/cli` 1/1, `syncpoint-sdk` 1/1, and `syncpoint-vscode` 4/4; `pnpm typecheck` and `pnpm build` also pass.
+> **MVP acceptance status (2026-05-06)**: Accepted for the generic-agent MVP. S1-S9 and S11 are complete; S10 demo refactor is explicitly deferred to a follow-up PR. Verification: package tests passed for `syncpoint-core` 478/478, `syncpoint-server` 380/380, `syncpoint-mcp` 48/48, `syncpoint-plugin-code` 30/30, `syncpoint-plugin-generic-agent` 77/77, `syncpoint-cli` 1/1, `syncpoint-sdk` 1/1, and `syncpoint-vscode` 4/4; `pnpm typecheck` and `pnpm build` also pass.
 
 ---
 

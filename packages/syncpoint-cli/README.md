@@ -5,7 +5,7 @@ Stop unsafe AI continuation before it becomes lost context, overwritten work, or
 ## Quick Start
 
 ```bash
-npm install -g @syncpoint/cli
+npm install -g syncpoint-cli
 
 syncpoint init
 syncpoint demo

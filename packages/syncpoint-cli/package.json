@@ -1,5 +1,5 @@
 {
-  "name": "@syncpoint/cli",
+  "name": "syncpoint-cli",
   "version": "0.1.0",
   "description": "SyncPoint CLI — stop unsafe AI continuation before it breaks your project",
   "type": "module",
