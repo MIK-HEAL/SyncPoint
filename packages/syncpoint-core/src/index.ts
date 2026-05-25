@@ -100,6 +100,47 @@ export type {
   UserAgentManifest,
 } from "./agent-file-manifest.js";
 
+export {
+  toUserAgentManifestFromRuntime,
+} from "./agent-manifest-conversion.js";
+
+export type {
+  RuntimeToUserAgentManifestInput,
+} from "./agent-manifest-conversion.js";
+
+export {
+  AgentCardEndpointSchema,
+  AgentCardSchema,
+  buildAgentCard,
+} from "./agent-card.js";
+
+export type {
+  AgentCardEndpoint,
+  AgentCard,
+  BuildAgentCardInput,
+} from "./agent-card.js";
+
+export {
+  AgentTeamMemberTemplateSchema,
+  AgentTeamTemplateSchema,
+  parseAgentTeamTemplateObject,
+  parseAgentTeamTemplateContent,
+  createAgentTeamTemplate,
+  serializeAgentTeamTemplate,
+  materializeAgentTeamTemplate,
+  listBuiltInAgentTeamTemplates,
+  getBuiltInAgentTeamTemplate,
+} from "./agent-team-template.js";
+
+export type {
+  AgentTeamMemberTemplate,
+  AgentTeamTemplate,
+  AgentTeamTemplateInput,
+  MaterializeAgentTeamTemplateOptions,
+  MaterializedAgentManifest,
+  BuiltInAgentTeamTemplate,
+} from "./agent-team-template.js";
+
 // Memory Switch Engine
 export {
   PinnedMemorySchema,

@@ -100,6 +100,36 @@ export type {
 } from "../agent-registry-service.js";
 
 export {
+  listAgentTeamTemplates,
+  getAgentTeamTemplate,
+  initAgentTeam,
+  importAgentDeclarations,
+  validateAgentDeclarations,
+  migrateRuntimeAgentsToDeclaredManifests,
+  exportAgentCards,
+  resolveAgentIdsForCardExport,
+  listRuntimeAgentIds,
+} from "../agent-registration-service.js";
+
+export type {
+  AgentManifestWriteResult,
+  InitAgentTeamInput,
+  InitAgentTeamResult,
+  AgentDeclarationImportInput,
+  AgentDeclarationImportResult,
+  ValidateAgentDeclarationsInput,
+  AgentDeclarationValidationRecord,
+  ValidateAgentDeclarationsResult,
+  MigrateRuntimeAgentsInput,
+  MigrateRuntimeAgentsResult,
+  RuntimeAgentMigrationItem,
+  ExportAgentCardsInput,
+  ExportAgentCardsResult,
+  ExportedAgentCardRecord,
+  AgentTeamTemplateCatalogResult,
+} from "../agent-registration-service.js";
+
+export {
   lockClaimedFiles,
   unlockClaimedFiles,
   refreshGuardLocks,

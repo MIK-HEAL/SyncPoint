@@ -4,9 +4,8 @@
 
 import { Command } from "commander";
 import * as repo from "syncpoint-server/repositories";
-import { listDeclaredAgents, syncDeclaredAgents } from "syncpoint-server/application";
-import type { DeclaredAgentRecord } from "syncpoint-server/application";
 import { TaskStatus, ContractStatus, DiaryEntryType } from "syncpoint-core";
+import { registerAgentCommands } from "./agent.js";
 
 function parseStringArrayOption(raw: string): string[] {
   if (!raw) return [];
@@ -18,69 +17,10 @@ function parseStringArrayOption(raw: string): string[] {
   }
 }
 
-function printDeclaredAgents(records: ReturnType<typeof listDeclaredAgents>): void {
-  if (!records.length) {
-    console.log("No declared agents found.");
-    return;
-  }
-
-  console.table(records.map((record: DeclaredAgentRecord) => ({
-    name: record.name ?? "",
-    profile: record.profile ?? "",
-    provider: record.provider ?? "",
-    role: record.role ?? "",
-    status: record.status,
-    format: record.sourceFormat ?? "",
-    agentId: record.agentId ?? "",
-    manifestPath: record.manifestPath,
-    error: record.errorMessage,
-  })));
-}
-
 export function registerPrimitiveCommands(program: Command): void {
   // ── Agent ──────────────────────────────────────────────
 
-  program
-    .command("agent")
-    .description("Manage agents")
-    .addCommand(
-      new Command("add")
-        .description("Register a new agent")
-        .requiredOption("--name <name>", "Agent name")
-        .requiredOption("--provider <provider>", "Provider: codex|claude-code|cursor|cline|copilot|human|other")
-        .requiredOption("--role <role>", "Role: manager|frontend|backend|tester|reviewer|other")
-        .action(async (opts) => {
-          const agent = repo.createAgent({ name: opts.name, provider: opts.provider, role: opts.role });
-          console.log(JSON.stringify(agent, null, 2));
-        })
-    )
-    .addCommand(
-      new Command("list")
-        .description("List declared agents from manifest files")
-        .option("--runtime", "List runtime agent rows instead of declared manifest agents")
-        .option("--no-sync", "Skip syncing manifest files before listing declared agents")
-        .option("--removed", "Include removed manifest entries")
-        .option("--json", "Output JSON")
-        .action((opts) => {
-          if (opts.runtime) {
-            const agents = repo.listAgents();
-            if (opts.json) {
-              console.log(JSON.stringify(agents, null, 2));
-              return;
-            }
-            console.table(agents);
-            return;
-          }
-
-          if (opts.sync !== false) syncDeclaredAgents();
-          const declaredAgents = listDeclaredAgents({ includeRemoved: opts.removed === true });
-          if (opts.json) {
-            console.log(JSON.stringify(declaredAgents, null, 2));
-            return;
-          }
-          printDeclaredAgents(declaredAgents);
-        })
-    );
+  registerAgentCommands(program);
 
   // ── Task ───────────────────────────────────────────────
 

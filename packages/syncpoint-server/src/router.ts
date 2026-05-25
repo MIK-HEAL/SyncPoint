@@ -21,6 +21,7 @@ import { constraintRouter } from "./routers/constraint-router.js";
 import { syncGateRouter } from "./routers/sync-gate-router.js";
 import { negotiationRouter } from "./routers/negotiation-router.js";
 import { agentManifestRouter } from "./routers/agent-manifest-router.js";
+import { agentRegistrationRouter } from "./routers/agent-registration-router.js";
 import { agentRegistryRouter } from "./routers/agent-registry-router.js";
 import { fileAuditRouter } from "./routers/file-audit-router.js";
 import { writeRouter } from "./routers/write-router.js";
@@ -49,6 +50,7 @@ export const appRouter = t.router({
   syncGate: syncGateRouter,
   negotiation: negotiationRouter,
   agentManifest: agentManifestRouter,
+  agentRegistration: agentRegistrationRouter,
   agentRegistry: agentRegistryRouter,
   fileAudit: fileAuditRouter,
   write: writeRouter,
