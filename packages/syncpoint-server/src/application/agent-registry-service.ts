@@ -5,6 +5,7 @@ import {
   detectUserAgentManifestFormatFromPath,
   isSupportedUserAgentManifestPath,
   parseUserAgentManifestContent,
+  RuntimeStatus,
   toAgentCreateFromUserAgentManifest,
   toRuntimeAgentManifestInputFromUserAgentManifest,
 } from "syncpoint-core";
@@ -34,6 +35,9 @@ import type {
   AgentRegistryEntry,
   AgentRegistryEntryStatus,
 } from "../repositories/agent-registry-repository.js";
+import { listRuntimes } from "../repositories/runtime-repository.js";
+
+export type AgentAvailability = "running" | "offline" | "available" | "error" | "removed";
 
 export interface DeclaredAgentRecord {
   manifestPath: string;
@@ -42,6 +46,7 @@ export interface DeclaredAgentRecord {
   sourceFormat: AgentManifestFileFormat | null;
   contentHash: string;
   status: AgentRegistryEntryStatus;
+  availability: AgentAvailability;
   errorMessage: string;
   lastSyncAt: string;
   agentId: string | null;
@@ -271,6 +276,7 @@ function persistAgentRegistryError(input: {
 function toDeclaredAgentRecord(entry: AgentRegistryEntry): DeclaredAgentRecord {
   const absolutePath = absolutePathFromStoredManifestPath(entry.manifestPath);
   const boundAgent = entry.agentId ? tryGetAgent(entry.agentId) : null;
+  const availability = computeAvailability(entry, boundAgent);
 
   return {
     manifestPath: entry.manifestPath,
@@ -279,6 +285,7 @@ function toDeclaredAgentRecord(entry: AgentRegistryEntry): DeclaredAgentRecord {
     sourceFormat: entry.sourceFormat,
     contentHash: entry.contentHash,
     status: entry.status,
+    availability,
     errorMessage: entry.errorMessage,
     lastSyncAt: entry.lastSyncAt,
     agentId: entry.agentId,
@@ -288,6 +295,32 @@ function toDeclaredAgentRecord(entry: AgentRegistryEntry): DeclaredAgentRecord {
     role: entry.manifest?.role ?? boundAgent?.role ?? null,
     manifest: entry.manifest,
   };
+}
+
+function computeAvailability(
+  entry: AgentRegistryEntry,
+  boundAgent: { id: string } | null,
+): AgentAvailability {
+  if (entry.status === "error") return "error";
+  if (entry.status === "removed") return "removed";
+  if (entry.status === "pending") return "available";
+
+  // status === "active" — check runtime binding
+  if (boundAgent) {
+    const runtimeOnline = isAgentRuntimeOnline(boundAgent.id);
+    return runtimeOnline ? "running" : "offline";
+  }
+
+  return "available";
+}
+
+function isAgentRuntimeOnline(agentId: string): boolean {
+  try {
+    const runtimes = listRuntimes();
+    return runtimes.some((rt: { agentId: string | null; status: string }) => rt.agentId === agentId && rt.status === RuntimeStatus.ACTIVE);
+  } catch {
+    return false;
+  }
 }
 
 function normalizeManifestPath(filePath: string): {

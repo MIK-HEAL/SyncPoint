@@ -63,3 +63,58 @@ SyncPoint's memory system is a five-layer executable runtime (see `docs/reality-
 - `hard_constraint` / `protocol_rule` must enter gate/runtime, never capsule-only.
 - Projection conflicts are always surfaced explicitly, never silently merged.
 - Constraint evaluation is read-only; enforcement happens at entry points (`loopResume`, `orchStartAssignment`, `wakeStart`, `opCheck`).
+
+## Filesystem as Agent Registry
+
+SyncPoint uses the project's `.syncpoint/agents/` directory as the **agent registry**. Creating a manifest file in this directory registers the agent; deleting the file removes it. This is the primary registration mechanism.
+
+### How it works
+
+```text
+.syncpoint/agents/
+├── my-agent.yml          # YAML manifest → auto-synced into runtime
+├── reviewer-alice.yml    # each file = one declared agent
+└── ops-bot.json          # JSON manifests also supported
+```
+
+1. **File creation** → watcher detects new file → `syncDeclaredAgentFile()` parses and upserts into DB
+2. **File modification** → watcher triggers re-sync → runtime agent updated
+3. **File deletion** → watcher marks agent as "removed" → runtime agent deactivated
+
+### Manifest schema
+
+Each manifest file contains:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `version` | yes | Schema version (currently `1`) |
+| `name` | yes | Agent display name |
+| `provider` | no | AI provider (`auto_detect`, `cursor`, `claude-code`, etc.) |
+| `profile` | no | Agent profile (`general`, `executor`, `reviewer`, `manager`) |
+| `role` | no | Explicit role override |
+| `tags` | no | String array for categorization |
+| `capabilities` | no | Capability domains with optional proficiency |
+| `availability` | no | Availability status |
+| `autoStart` | no | Whether to auto-start on session creation |
+| `notes` | no | Freeform notes |
+
+### Application-layer functions
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `syncDeclaredAgents()` | `agent-registry-service.ts` | Full rescan of `.syncpoint/agents/` |
+| `syncDeclaredAgentFile()` | `agent-registry-service.ts` | Sync a single file by path |
+| `listDeclaredAgents()` | `agent-registry-service.ts` | Query declared agents with metadata |
+| `initAgentManifest()` | `agent-registration/init.ts` | Create a single manifest file |
+| `initProjectAgents()` | `agent-registration/init.ts` | Bootstrap example + team manifests |
+| `diagnoseAgentRegistry()` | `agent-registration/diagnose.ts` | Diagnose errors and suggest fixes |
+| `validateAgentDeclarations()` | `agent-registration/validate.ts` | Schema validation |
+| `migrateRuntimeAgentsToDeclaredManifests()` | `agent-registration/migrate.ts` | Convert DB agents to files |
+
+### Key invariant
+
+**Creating a manifest file registers the agent.** There is no separate registration API. The file IS the registration. This ensures:
+
+- Agent declarations are version-controllable (git-trackable)
+- The registry state is always derivable from the filesystem
+- No orphan agents exist without a corresponding file

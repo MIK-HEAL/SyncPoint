@@ -3,6 +3,7 @@ import {
   USER_AGENT_PROVIDER_VALUES,
 } from "syncpoint-core";
 import {
+  diagnoseAgentRegistry,
   exportAgentCards,
   getAgentTeamTemplate,
   importAgentDeclarations,
@@ -73,4 +74,8 @@ export const agentRegistrationRouter = t.router({
       sync: z.boolean().optional(),
     }).optional())
     .mutation(({ input }) => exportAgentCards(input ?? {})),
+
+  diagnose: publicProcedure
+    .input(z.object({ sync: z.boolean().optional() }).optional())
+    .query(({ input }) => diagnoseAgentRegistry(input ?? {})),
 });

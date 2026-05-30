@@ -5,6 +5,28 @@ export {
 } from "./agent-registration/team.js";
 
 export {
+  initAgentManifest,
+  initProjectAgents,
+} from "./agent-registration/init.js";
+
+export type {
+  InitAgentManifestInput,
+  InitAgentManifestResult,
+  InitProjectAgentsInput,
+  InitProjectAgentsResult,
+} from "./agent-registration/init.js";
+
+export {
+  diagnoseAgentRegistry,
+} from "./agent-registration/diagnose.js";
+
+export type {
+  DiagnoseAgentRegistryInput,
+  DiagnoseAgentRegistryResult,
+  AgentDiagnosticEntry,
+} from "./agent-registration/diagnose.js";
+
+export {
   importAgentDeclarations,
 } from "./agent-registration/import.js";
 

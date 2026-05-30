@@ -96,6 +96,7 @@ export {
 } from "../agent-registry-service.js";
 
 export type {
+  AgentAvailability,
   DeclaredAgentRecord,
 } from "../agent-registry-service.js";
 
@@ -103,6 +104,9 @@ export {
   listAgentTeamTemplates,
   getAgentTeamTemplate,
   initAgentTeam,
+  initAgentManifest,
+  initProjectAgents,
+  diagnoseAgentRegistry,
   importAgentDeclarations,
   validateAgentDeclarations,
   migrateRuntimeAgentsToDeclaredManifests,
@@ -115,6 +119,13 @@ export type {
   AgentManifestWriteResult,
   InitAgentTeamInput,
   InitAgentTeamResult,
+  InitAgentManifestInput,
+  InitAgentManifestResult,
+  InitProjectAgentsInput,
+  InitProjectAgentsResult,
+  DiagnoseAgentRegistryInput,
+  DiagnoseAgentRegistryResult,
+  AgentDiagnosticEntry,
   AgentDeclarationImportInput,
   AgentDeclarationImportResult,
   ValidateAgentDeclarationsInput,

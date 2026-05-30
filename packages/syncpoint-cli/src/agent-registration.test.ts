@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Command } from "commander";
-import { closeDb, getDb } from "syncpoint-server";
+import { closeDb, getDb, initSyncpointDir } from "syncpoint-server";
 import { ensureApplicationBootstrap } from "syncpoint-server/application";
 import * as repo from "syncpoint-server/repositories";
 import { upsertAgentManifest } from "syncpoint-server/repositories";
@@ -41,11 +41,13 @@ describe("agent/team command registration", () => {
     const agent = program.commands.find(command => command.name() === "agent");
     expect(agent).toBeDefined();
     expect(agent?.commands.map(command => command.name())).toEqual([
+      "init",
       "add",
       "list",
       "import",
       "validate",
       "sync",
+      "diagnose",
       "migrate",
       "card",
     ]);
@@ -135,6 +137,37 @@ agent:
     const cardPayload = JSON.parse(cards);
     expect(Array.isArray(cardPayload)).toBe(true);
     expect(cardPayload.length).toBeGreaterThan(1);
+  });
+
+  it("generates a single agent manifest via agent init", async () => {
+    const output = await runCli(["agent", "init", "--name", "test-builder", "--profile", "backend", "--provider", "cursor", "--json"]);
+    const payload = JSON.parse(output);
+
+    expect(payload.manifest.name).toBe("test-builder");
+    expect(payload.manifest.profile).toBe("backend");
+    expect(payload.manifest.provider).toBe("cursor");
+    expect(payload.write.written).toBe(true);
+    expect(fs.existsSync(payload.write.filePath)).toBe(true);
+  });
+
+  it("agent init with --no-sync creates file without syncing", async () => {
+    const output = await runCli(["agent", "init", "--name", "unsynced-agent", "--no-sync", "--json"]);
+    const payload = JSON.parse(output);
+
+    expect(payload.manifest.name).toBe("unsynced-agent");
+    expect(payload.write.written).toBe(true);
+    expect(payload.write.syncedRecord).toBeNull();
+  });
+
+  it("diagnoses the agent registry via CLI", async () => {
+    const output = await runCli(["agent", "diagnose", "--json"]);
+    const payload = JSON.parse(output);
+
+    expect(payload).toHaveProperty("total");
+    expect(payload).toHaveProperty("healthy");
+    expect(payload).toHaveProperty("errors");
+    expect(payload).toHaveProperty("entries");
+    expect(Array.isArray(payload.entries)).toBe(true);
   });
 });
 

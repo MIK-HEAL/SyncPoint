@@ -152,6 +152,33 @@ pnpm install
 pnpm build
 ```
 
+### Initialize and declare agents
+
+```bash
+# Initialize .syncpoint/ with an example agent manifest
+syncpoint init
+
+# Or interactively create a single agent manifest
+syncpoint agent init
+
+# Materialize a built-in team template (e.g. lean-pair)
+syncpoint init --team lean-pair
+```
+
+Creating a manifest file in `.syncpoint/agents/` **registers the agent automatically**. No separate registration step needed.
+
+```yaml
+# .syncpoint/agents/my-agent.yml
+version: 1
+name: my-agent
+provider: auto_detect
+profile: general
+role: executor
+tags: []
+capabilities: []
+notes: ""
+```
+
 ### Run the demo
 
 ```bash
@@ -191,6 +218,19 @@ syncpoint status
 ```
 
 Shows sessions, agents, resource claims, conflicts, blockers, and suggested actions.
+
+### Inspect declared agents
+
+```bash
+# List all declared agents with manifest metadata
+syncpoint agent list
+
+# Diagnose registry issues and get fix suggestions
+syncpoint agent diagnose
+
+# Validate a manifest file against the schema
+syncpoint agent validate .syncpoint/agents/my-agent.yml
+```
 
 ### Stop at the blocked state
 
@@ -261,13 +301,25 @@ v0.1 top-level commands:
 
 | Command | What it does |
 |---|---|
-| `syncpoint init` | Initialize `.syncpoint/` state |
+| `syncpoint init` | Initialize `.syncpoint/` with example agent manifest |
 | `syncpoint demo` | Run the disaster blocking demo |
 | `syncpoint status` | Show who is blocked, why, and what to do |
 | `syncpoint claim <locators>` | Declare resource ownership (`--type file` default) |
 | `syncpoint checkpoint` | Save progress + context capsule |
 | `syncpoint resume` | Resume from latest capsule/checkpoint |
 | `syncpoint wake` | Check or acknowledge pending sync obligations |
+
+Agent subcommands:
+
+| Command | What it does |
+|---|---|
+| `syncpoint agent init` | Interactively create a single agent manifest |
+| `syncpoint agent list` | List declared agents with manifest metadata |
+| `syncpoint agent diagnose` | Diagnose registry issues and suggest fixes |
+| `syncpoint agent validate <path>` | Validate manifest against schema |
+| `syncpoint agent sync` | Manually rescan manifest files |
+| `syncpoint agent import <path>` | Import manifests or team templates |
+| `syncpoint agent migrate` | Convert runtime agents to manifest files |
 
 Power-user commands (subgroups):
 
@@ -332,6 +384,7 @@ The VS Code extension provides a single visual map of the synchronization state:
 | **Blockers** | Gates, transactions, reviews, and handoffs that stop continuation |
 | **Operations** | Operation lifecycle and check results |
 | **Wake Queue** | Pending sync obligations for agents |
+| **Agent Registry** | Declared agents, manifest metadata, parse errors, removed entries |
 
 This is the operator view for answering: **"Who is blocked, why, and what unblocks them?"**
 
@@ -400,6 +453,7 @@ Operational guides:
 | [`docs/cli-agent-loop.md`](docs/cli-agent-loop.md) | Start, resume, checkpoint, and handoff paths |
 | [`docs/runtime-identity.md`](docs/runtime-identity.md) | MCP runtime identity binding |
 | [`docs/mvp-showcase.md`](docs/mvp-showcase.md) | Short presentation script |
+| [`docs/migration-guide.md`](docs/migration-guide.md) | Migrating from imperative registration to manifest files |
 
 ## Tech Stack
 
@@ -424,6 +478,7 @@ Operational guides:
 | Review gate | [`examples/review-gate`](examples/review-gate) | Checkpoint requires approval — blocked |
 | Handoff | [`examples/handoff`](examples/handoff) | Context transfer between agents |
 | Generic agent collaboration | [`examples/generic-agent-collaboration`](examples/generic-agent-collaboration) | Non-code resources + Constraint Runtime |
+| Team collaboration | [`examples/team-collaboration`](examples/team-collaboration) | Multi-agent team with declarative manifests |
 
 For the interactive version, run `syncpoint demo`.
 

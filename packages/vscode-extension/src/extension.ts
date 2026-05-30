@@ -6,6 +6,7 @@
  * blockers, operations, and wake queue in a unified tree view.
  */
 
+import path from "node:path";
 import * as vscode from "vscode";
 import { createSyncPointClient, createEventStream } from "syncpoint-sdk";
 import type { EventStreamHandle } from "syncpoint-sdk";
@@ -272,6 +273,81 @@ class SyncViewProvider implements vscode.TreeDataProvider<SyncNode> {
           )
         )
       ));
+
+      // ── 7. Agent Registry ──
+      try {
+        const registry = await client.agentRegistry.list.query({});
+        const runningAgents = registry.filter((a: any) => a.availability === "running");
+        const offlineAgents = registry.filter((a: any) => a.availability === "offline");
+        const availableAgents = registry.filter((a: any) => a.availability === "available");
+        const errorAgents = registry.filter((a: any) => a.availability === "error");
+        const removedAgents = registry.filter((a: any) => a.availability === "removed");
+        const badge = errorAgents.length > 0
+          ? `${runningAgents.length} running, ${errorAgents.length} error`
+          : `${runningAgents.length} running`;
+
+        const registryChildren: SyncNode[] = [];
+
+        if (runningAgents.length) {
+          registryChildren.push(section("Running", "pulse",
+            runningAgents.map((a: any) => {
+              const capStr = a.manifest?.capabilities?.map((c: any) => c.domain).join(", ") ?? "";
+              const tagStr = a.manifest?.tags?.join(", ") ?? "";
+              const tooltip = `Provider: ${a.provider ?? "?"} | Role: ${a.role ?? "?"}` +
+                (capStr ? `\nCapabilities: ${capStr}` : "") +
+                (tagStr ? `\nTags: ${tagStr}` : "") +
+                `\nManifest: ${a.manifestPath}`;
+              return item(a.name ?? "(unnamed)", `${a.provider ?? "?"} / ${a.role ?? "?"}`, "pulse", tooltip);
+            })
+          ));
+        }
+
+        if (offlineAgents.length) {
+          registryChildren.push(section("Offline", "debug-pause",
+            offlineAgents.map((a: any) =>
+              item(a.name ?? "(unnamed)", `${a.provider ?? "?"} / ${a.role ?? "?"}`, "debug-pause", `Last sync: ${a.lastSyncAt}\nManifest: ${a.manifestPath}`)
+            )
+          ));
+        }
+
+        if (availableAgents.length) {
+          registryChildren.push(section("Available", "circle-outline",
+            availableAgents.map((a: any) =>
+              item(a.name ?? "(unnamed)", `${a.provider ?? "?"} / ${a.role ?? "?"}`, "circle-outline", `Not yet bound to a runtime\nManifest: ${a.manifestPath}`)
+            )
+          ));
+        }
+
+        if (errorAgents.length) {
+          registryChildren.push(section("Parse Errors", "error",
+            errorAgents.map((a: any) =>
+              item(
+                a.manifestPath,
+                a.errorMessage ?? "unknown error",
+                "error",
+                `Fix: check file for syntax errors or missing required fields`
+              )
+            )
+          ));
+        }
+
+        if (removedAgents.length) {
+          registryChildren.push(section("Removed", "trash",
+            removedAgents.map((a: any) =>
+              item(
+                a.name ?? a.manifestPath,
+                "removed",
+                "trash",
+                a.exists ? "File still exists — run syncpoint agent sync to reconcile" : "File deleted"
+              )
+            )
+          ));
+        }
+
+        root.push(section("Agent Registry", "organization", registryChildren, badge));
+      } catch {
+        // Agent registry not available — skip section
+      }
 
       this._root = root;
     } catch {
@@ -570,9 +646,14 @@ export function activate(context: vscode.ExtensionContext) {
   const url = config.get<string>("serverUrl", DEFAULT_URL);
   client = createSyncPointClient(url);
 
-  // Unified Sync View — single tree with all 6 sections
+  // Unified Sync View — single tree with all 7 sections
   const syncView = new SyncViewProvider();
   vscode.window.registerTreeDataProvider("syncpoint-sync-view", syncView);
+
+  // Output channel for watcher and diagnostic logging
+  const syncpointChannel = vscode.window.createOutputChannel("SyncPoint");
+  context.subscriptions.push(syncpointChannel);
+
   context.subscriptions.push(registerFileGuard({
     client,
     onAudited: () => syncView.refresh(),
@@ -581,6 +662,8 @@ export function activate(context: vscode.ExtensionContext) {
     client,
     onSynced: () => syncView.refresh(),
     onWarning: message => vscode.window.showWarningMessage(message),
+    onCreated: uri => vscode.window.showInformationMessage(`New agent detected, synced into collaboration network: ${path.basename(uri.fsPath)}`),
+    outputChannel: syncpointChannel,
   }));
   context.subscriptions.push(registerGuardedEditor({ client }));
 

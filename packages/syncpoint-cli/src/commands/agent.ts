@@ -1,14 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
+import readline from "node:readline/promises";
 import { Command, Option } from "commander";
 import {
   AGENT_PROVIDER_VALUES,
   AGENT_ROLE_VALUES,
   USER_AGENT_PROVIDER_VALUES,
 } from "syncpoint-core";
+import type { AgentManifestFileFormat, UserAgentProvider } from "syncpoint-core";
 import {
+  diagnoseAgentRegistry,
   exportAgentCards,
   importAgentDeclarations,
+  initAgentManifest,
   listDeclaredAgents,
   migrateRuntimeAgentsToDeclaredManifests,
   syncDeclaredAgents,
@@ -24,7 +28,50 @@ import { resolveAgent } from "./connect.js";
 export function registerAgentCommands(program: Command): void {
   program
     .command("agent")
-    .description("Manage declared and runtime agents")
+    .description("Manage declared and runtime agents — creating a manifest file registers the agent")
+    .addCommand(
+      new Command("init")
+        .description("Interactively generate a single agent manifest file (creating a file registers the agent)")
+        .option("--name <name>", "Agent name (prompts if omitted)")
+        .addOption(new Option("--profile <profile>", "Agent profile (e.g. executor, reviewer, manager)").default("general"))
+        .addOption(new Option("--provider <provider>", "AI provider").choices([...USER_AGENT_PROVIDER_VALUES]).default("auto_detect"))
+        .option("--role <role>", "Explicit role override")
+        .option("--tags <json>", "Tags (JSON array)", "[]")
+        .option("--capabilities <json>", "Capability domains (JSON array)", "[]")
+        .option("--notes <notes>", "Freeform notes", "")
+        .addOption(new Option("--format <format>", "Manifest format").choices(["yaml", "json"]).default("yaml"))
+        .option("--no-sync", "Skip syncing the manifest into runtime state")
+        .option("--force", "Overwrite existing manifest file")
+        .option("--json", "Output JSON")
+        .action(async (opts) => {
+          const answers = await promptAgentInitAnswers(opts);
+          const tags = parseStringArrayOption(answers.tags);
+          const capabilities = parseStringArrayOption(answers.capabilities);
+          const result = initAgentManifest({
+            name: answers.name,
+            profile: answers.profile,
+            provider: answers.provider,
+            role: answers.role,
+            tags,
+            capabilities,
+            notes: answers.notes,
+            format: answers.format,
+            sync: answers.sync,
+            force: answers.force === true,
+          });
+          if (answers.json) {
+            console.log(JSON.stringify({ write: result.write, manifest: result.manifest }, null, 2));
+            return;
+          }
+          console.log(`Created manifest: ${result.write.filePath}`);
+          console.log(`  Name:      ${result.manifest.name}`);
+          console.log(`  Profile:   ${result.manifest.profile}`);
+          console.log(`  Provider:  ${result.manifest.provider}`);
+          console.log(`  Role:      ${result.manifest.role}`);
+          if (result.manifest.tags.length) console.log(`  Tags:      ${result.manifest.tags.join(", ")}`);
+          console.log(`\nEdit the file to customize, then run \`syncpoint agent sync\` to refresh.`);
+        })
+    )
     .addCommand(
       new Command("add")
         .description("Register a new runtime agent")
@@ -38,7 +85,7 @@ export function registerAgentCommands(program: Command): void {
     )
     .addCommand(
       new Command("list")
-        .description("List declared agents from manifest files")
+        .description("List declared agents with manifest source, status, capabilities, and sync time")
         .option("--runtime", "List runtime agent rows instead of declared manifest agents")
         .option("--no-sync", "Skip syncing manifest files before listing declared agents")
         .option("--removed", "Include removed manifest entries")
@@ -120,6 +167,41 @@ export function registerAgentCommands(program: Command): void {
             return;
           }
           printDeclaredAgents(records);
+        })
+    )
+    .addCommand(
+      new Command("diagnose")
+        .description("Diagnose agent registry issues and suggest fixes")
+        .option("--no-sync", "Skip syncing before diagnosis")
+        .option("--json", "Output JSON")
+        .action((opts) => {
+          const result = diagnoseAgentRegistry({ sync: opts.sync });
+          if (opts.json) {
+            console.log(JSON.stringify(result, null, 2));
+            return;
+          }
+          console.log(`Agent Registry Diagnosis`);
+          console.log(`  Total:   ${result.total}`);
+          console.log(`  Healthy: ${result.healthy}`);
+          console.log(`  Errors:  ${result.errors}`);
+          console.log(`  Removed: ${result.removed}`);
+          if (result.entries.length) {
+            const problemEntries = result.entries.filter((e: { availability: string }) => e.availability !== "running" && e.availability !== "available");
+            if (problemEntries.length) {
+              console.log(`\nIssues:`);
+              for (const entry of problemEntries) {
+                console.log(`  ${entry.manifestPath}: ${entry.availability}`);
+                if (entry.errorMessage) console.log(`    Error: ${entry.errorMessage}`);
+                for (const fix of entry.fixSuggestions) {
+                  console.log(`    Fix:   ${fix}`);
+                }
+              }
+            } else {
+              console.log(`\nAll agents healthy.`);
+            }
+          } else {
+            console.log(`\nNo agents registered. Run \`syncpoint init\` to get started.`);
+          }
         })
     )
     .addCommand(
@@ -212,6 +294,10 @@ function printDeclaredAgents(records: DeclaredAgentRecord[]): void {
     role: record.role ?? "",
     status: record.status,
     format: record.sourceFormat ?? "",
+    capabilities: record.manifest?.capabilities?.map(c => c.domain).join(", ") ?? "",
+    tags: record.manifest?.tags?.join(", ") ?? "",
+    availability: record.availability,
+    lastSync: record.lastSyncAt,
     agentId: record.agentId ?? "",
     manifestPath: record.manifestPath,
     error: record.errorMessage,
@@ -275,6 +361,62 @@ function resolveAgentId(value: string): string {
     throw new Error(`Agent not found: ${value}`);
   }
   return agent.id;
+}
+
+function parseStringArrayOption(raw: string): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item: unknown): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+interface AgentInitAnswers {
+  name: string;
+  profile: string;
+  provider: UserAgentProvider;
+  role: string | undefined;
+  tags: string;
+  capabilities: string;
+  notes: string;
+  format: AgentManifestFileFormat;
+  sync: boolean;
+  force: boolean | undefined;
+  json: boolean | undefined;
+}
+
+async function promptAgentInitAnswers(opts: AgentInitAnswers): Promise<AgentInitAnswers> {
+  if (opts.name) return opts;
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  try {
+    console.log("Agent manifest interactive setup");
+    console.log("Press Enter to accept defaults.\n");
+
+    const name = await rl.question("Agent name (required): ");
+    if (!name.trim()) {
+      throw new Error("Agent name is required.");
+    }
+
+    const profile = (await rl.question(`Profile [general]: `)).trim() || "general";
+    const provider = (await rl.question(`Provider [auto_detect]: `)).trim() || "auto_detect";
+    const role = (await rl.question("Role (leave empty to infer from profile): ")).trim() || undefined;
+    const notes = (await rl.question("Notes: ")).trim();
+
+    return {
+      ...opts,
+      name: name.trim(),
+      profile,
+      provider: provider as UserAgentProvider,
+      role,
+      notes,
+    };
+  } finally {
+    rl.close();
+  }
 }
 
 function writeJsonFile(targetPath: string, value: unknown): string {

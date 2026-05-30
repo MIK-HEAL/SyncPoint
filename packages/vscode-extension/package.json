@@ -88,7 +88,7 @@
       },
       {
         "command": "syncpoint.registerAgent",
-        "title": "SyncPoint: Register Agent"
+        "title": "SyncPoint: Add New Member"
       },
       {
         "command": "syncpoint.createTask",
@@ -146,7 +146,16 @@
         "command": "syncpoint.openDecisionPanel",
         "title": "SyncPoint: Open Decision Panel"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "syncpoint.registerAgent",
+          "when": "view == syncpoint-sync-view",
+          "group": "navigation@1"
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

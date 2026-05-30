@@ -7,8 +7,10 @@
  * Command implementations live in ./commands/*.
  */
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { closeDb, startServer, initSyncpointDir } from "syncpoint-server";
+import { USER_AGENT_PROVIDER_VALUES } from "syncpoint-core";
+import { initProjectAgents, listAgentTeamTemplates } from "syncpoint-server/application";
 import { registerPrimitiveCommands } from "./commands/primitives.js";
 import { registerAdapterCommand } from "./commands/adapter.js";
 import { registerContextCommands } from "./commands/context.js";
@@ -32,7 +34,7 @@ const program = new Command();
 let keepDbOpen = false;
 program
   .name("syncpoint")
-  .description("SyncPoint — local synchronization protocol layer for editor AI agents")
+  .description("SyncPoint — declare agents in files, sync automatically")
   .version("0.1.0");
 
 // ── Init ──────────────────────────────────────────────
@@ -41,10 +43,48 @@ program
   .command("init")
   .description("Initialize .syncpoint/ in the current (or given) directory")
   .argument("[dir]", "Directory to initialize (defaults to cwd)")
-  .action((dir?: string) => {
+  .addOption(new Option("--no-agents", "Skip generating the default example agent manifest"))
+  .addOption(new Option("--team <templateId>", "Materialize a built-in team template alongside the example agent").choices(listAgentTeamTemplates().templates.map((t: { id: string }) => t.id)))
+  .addOption(new Option("--provider <provider>", "Default provider for generated agents").choices([...USER_AGENT_PROVIDER_VALUES]))
+  .addOption(new Option("--agent-format <format>", "Manifest file format").choices(["yaml", "json"]))
+  .option("--prefix <prefix>", "Name prefix for generated agents")
+  .option("--no-sync", "Skip syncing generated manifests into runtime state")
+  .action((dir, opts) => {
     const created = initSyncpointDir(dir);
     console.log(`Initialized SyncPoint at ${created}`);
     console.log(`Database: ${created}/syncpoint.db`);
+
+    const generateExample = opts.agents !== false;
+    if (generateExample || opts.team) {
+      const agentResult = initProjectAgents({
+        exampleAgent: generateExample,
+        teamTemplateId: opts.team,
+        defaultProvider: opts.provider,
+        format: opts.agentFormat,
+        namePrefix: opts.prefix,
+        sync: opts.sync,
+      });
+
+      if (agentResult.exampleManifest) {
+        const m = agentResult.exampleManifest;
+        console.log(`\nExample agent: ${m.manifest.name} → ${m.write.filePath}`);
+        console.log(`  Edit this file to customize your agent, or add more manifests to .syncpoint/agents/`);
+      }
+
+      if (agentResult.teamWrites.length) {
+        console.log(`\nTeam template agents:`);
+        for (const w of agentResult.teamWrites) {
+          console.log(`  ${w.manifestPath} → ${w.filePath}`);
+        }
+      }
+
+      console.log(`\nNext steps:`);
+      console.log(`  1. Edit manifests in .syncpoint/agents/ to describe your agents`);
+      console.log(`  2. Run \`syncpoint agent sync\` to refresh runtime state after edits`);
+      console.log(`  3. Run \`syncpoint agent list\` to see all declared agents`);
+    } else {
+      console.log(`\nNo agent manifests generated. Run \`syncpoint agent init --name <name>\` to create one.`);
+    }
   });
 
 // ── Server ─────────────────────────────────────────────
