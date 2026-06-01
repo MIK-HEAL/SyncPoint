@@ -25,7 +25,14 @@ function hydrateGate(db: ReturnType<typeof _getDb>, row: any): SyncGate {
 
   const resRows = db.select().from(s.syncGateResources)
     .where(eq(s.syncGateResources.gateId, row.id)).all();
-  const relatedResources = resRows.map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata })) as ResourceRef[];
+  const relatedResources = resRows.map(r => ({
+    type: r.resourceType,
+    locator: r.locator,
+    ...(r.scope && r.scope !== "file" ? { scope: r.scope as any } : {}),
+    ...(r.functionName ? { functionName: r.functionName } : {}),
+    ...(r.lineStart != null && r.lineEnd != null ? { lineRange: { start: r.lineStart, end: r.lineEnd } } : {}),
+    metadata: r.metadata,
+  })) as ResourceRef[];
   const relatedFiles = [...new Set(resRows
     .filter(r => r.resourceType === "file")
     .map(r => r.locator)
@@ -37,7 +44,7 @@ function hydrateGate(db: ReturnType<typeof _getDb>, row: any): SyncGate {
   const policy = (() => {
     if (!row.policyJson) return { ...DEFAULT_GATE_POLICY };
     try {
-      return GatePolicySchema.parse(JSON.parse(row.policyJson));
+      return GatePolicySchema.parse(row.policyJson);
     } catch {
       return { ...DEFAULT_GATE_POLICY };
     }
@@ -70,7 +77,7 @@ export function createSyncGate(data: SyncGateCreate): SyncGate {
   const db = _getDb();
   const id = createId();
   const ts = now();
-  const policyJson = data.policy ? JSON.stringify(data.policy) : "";
+  const policyJson = data.policy ?? DEFAULT_GATE_POLICY;
   db.insert(s.syncGates).values({
     id,
     sessionId: data.sessionId ?? "",
@@ -106,6 +113,10 @@ export function createSyncGate(data: SyncGateCreate): SyncGate {
       gateId: id,
       resourceType: ref.type,
       locator: ref.locator,
+      scope: ref.scope ?? "file",
+      functionName: ref.functionName ?? null,
+      lineStart: ref.lineRange?.start ?? null,
+      lineEnd: ref.lineRange?.end ?? null,
       metadata: ref.metadata ?? "",
     }).run();
   }
@@ -170,7 +181,7 @@ export function listSyncGates(opts?: {
   return rows.map(row => hydrateGate(db, row));
 }
 
-export function updateSyncGatePolicyJson(id: string, policyJson: string): SyncGate {
+export function updateSyncGatePolicyJson(id: string, policyJson: import("syncpoint-core").GatePolicy): SyncGate {
   const db = _getDb();
   db.update(s.syncGates).set({ policyJson, updatedAt: now() }).where(eq(s.syncGates.id, id)).run();
   return getSyncGate(id);

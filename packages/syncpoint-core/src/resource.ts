@@ -13,10 +13,22 @@ import { z } from "zod";
 /**
  * A reference to any addressable resource in the project.
  */
+export const ResourceScope = z.enum(["file", "function", "line_range"]);
+export type ResourceScope = z.infer<typeof ResourceScope>;
+
+export const LineRangeSchema = z.object({
+  start: z.number().int().min(0),
+  end: z.number().int().min(0),
+});
+export type LineRange = z.infer<typeof LineRangeSchema>;
+
 export const ResourceRefSchema = z.object({
   type: z.string().min(1),
   id: z.string().optional(),
   locator: z.string().min(1),
+  scope: ResourceScope.optional(),
+  functionName: z.string().optional(),
+  lineRange: LineRangeSchema.optional(),
   metadata: z.string().default(""),
 });
 
@@ -113,9 +125,14 @@ export function clearResourceMatcherRegistry(): void {
 // ── Pure functions ─────────────────────────────────
 
 /**
- * Check if two resource locators overlap.
- * Delegates to a registered ResourceMatcher for the type;
- * falls back to exact locator equality if no matcher is registered.
+ * Check if two resource refs overlap.
+ * 1. Different types never overlap.
+ * 2. Delegates to a registered ResourceMatcher for locator-level overlap.
+ * 3. If locators overlap, applies scope refinement:
+ *    - Either scope "file" (default) → overlap (full-file claim covers everything)
+ *    - Both scope "function" → overlap only if same functionName
+ *    - Both scope "line_range" → overlap if line ranges intersect
+ *    - Mixed function/line_range → overlap (conservative)
  */
 export function resourceLocatorsOverlap(
   a: ResourceRef,
@@ -124,13 +141,45 @@ export function resourceLocatorsOverlap(
   // Different resource types never overlap
   if (a.type !== b.type) return false;
 
+  // Locator-level overlap check (delegates to matcher or exact match)
   const matcher = _matchers.get(a.type);
-  if (matcher) {
-    return matcher.locatorsOverlap(a.locator, b.locator);
+  const locatorsOverlap = matcher
+    ? matcher.locatorsOverlap(a.locator, b.locator)
+    : a.locator === b.locator;
+
+  if (!locatorsOverlap) return false;
+
+  // Scope refinement: if locators overlap, check sub-file granularity
+  return scopesOverlap(a, b);
+}
+
+/**
+ * Determine if two ResourceRefs with overlapping locators also overlap at scope level.
+ * If either ref claims the whole file (scope "file" or unset), they overlap.
+ * Otherwise, check function/line_range granularity.
+ */
+function scopesOverlap(a: ResourceRef, b: ResourceRef): boolean {
+  const sa = a.scope ?? "file";
+  const sb = b.scope ?? "file";
+
+  // Either side claims the whole file → overlap
+  if (sa === "file" || sb === "file") return true;
+
+  // Both function-scoped → overlap only if same function
+  if (sa === "function" && sb === "function") {
+    return a.functionName === b.functionName;
   }
 
-  // Default: exact match on locator
-  return a.locator === b.locator;
+  // Both line-range-scoped → overlap if ranges intersect
+  if (sa === "line_range" && sb === "line_range") {
+    const ra = a.lineRange;
+    const rb = b.lineRange;
+    if (!ra || !rb) return true; // missing range info → conservative overlap
+    return ra.start <= rb.end && rb.start <= ra.end;
+  }
+
+  // Mixed function/line_range → conservative overlap
+  return true;
 }
 
 /**

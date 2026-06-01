@@ -57,7 +57,7 @@ export function negStart(
   const session = repo.createNegotiationSession({
     gateId,
     participantIds,
-    configJson: JSON.stringify(merged),
+    configJson: merged,
     deadlineAt,
   });
 

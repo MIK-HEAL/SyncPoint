@@ -115,7 +115,7 @@ export const contextSnapshots = sqliteTable("context_snapshot", {
   checkpointId: text("checkpoint_id").notNull().references(() => checkpoints.id),
   kind: text("kind").notNull().default("checkpoint"),
   summary: text("summary").notNull().default(""),
-  payloadJson: text("payload_json").notNull().default("{}"),
+  payloadJson: text("payload_json", { mode: "json" }).$type<import("syncpoint-core").ContextSnapshotPayload>().notNull().default({}),
   createdAt: text("created_at").notNull(),
 });
 
@@ -124,10 +124,14 @@ export const contextSnapshotResources = sqliteTable("context_snapshot_resource",
   snapshotId: text("snapshot_id").notNull().references(() => contextSnapshots.id),
   resourceType: text("resource_type").notNull(),
   locator: text("locator").notNull(),
+  scope: text("scope").notNull().default("file"),
+  functionName: text("function_name"),
+  lineStart: integer("line_start"),
+  lineEnd: integer("line_end"),
   metadata: text("metadata").notNull().default(""),
 });
 
-// ── ProjectMemory ─────────────────────────────────────
+// ── ProjectMemory
 
 export const projectMemories = sqliteTable("project_memory", {
   id: text("id").primaryKey(),

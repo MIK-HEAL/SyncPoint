@@ -10,26 +10,28 @@ import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
 
-function parseJson<T>(value: string, fallback: T): T {
-  try { return JSON.parse(value) as T; } catch { return fallback; }
-}
-
-function hydrateCheckResult(value: string | null | undefined): OperationCheckResult | null {
+function hydrateCheckResult(value: import("syncpoint-core").OperationCheckResult | null | undefined): OperationCheckResult | null {
   if (!value) return null;
-  const parsed = parseJson<unknown>(value, null);
-  const result = OperationSchema.shape.checkResult.safeParse(parsed);
+  const result = OperationSchema.shape.checkResult.safeParse(value);
   return result.success ? result.data : null;
 }
 
-function serializeCheckResult(value: Operation["checkResult"]): string {
-  return value ? JSON.stringify(value) : "";
+function serializeCheckResult(value: Operation["checkResult"]): import("syncpoint-core").OperationCheckResult | null {
+  return value ?? null;
 }
 
 function loadTargetResources(db: ReturnType<typeof _getDb>, operationId: string): ResourceRef[] {
   return db.select().from(s.operationResources)
     .where(eq(s.operationResources.operationId, operationId))
     .all()
-    .map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata ?? "" }));
+    .map(r => ({
+      type: r.resourceType,
+      locator: r.locator,
+      ...(r.scope && r.scope !== "file" ? { scope: r.scope as any } : {}),
+      ...(r.functionName ? { functionName: r.functionName } : {}),
+      ...(r.lineStart != null && r.lineEnd != null ? { lineRange: { start: r.lineStart, end: r.lineEnd } } : {}),
+      metadata: r.metadata ?? "",
+    }));
 }
 
 function rowToOperation(row: any, targetResources: ResourceRef[]): Operation {
@@ -79,6 +81,10 @@ export function createOperation(data: OperationCreate): Operation {
       operationId: id,
       resourceType: ref.type,
       locator: ref.locator,
+      scope: ref.scope ?? "file",
+      functionName: ref.functionName ?? null,
+      lineStart: ref.lineRange?.start ?? null,
+      lineEnd: ref.lineRange?.end ?? null,
       metadata: ref.metadata ?? "",
     }).run();
   }

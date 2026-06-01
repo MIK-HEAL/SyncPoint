@@ -32,10 +32,10 @@ interface UpsertAgentRegistryEntryInput {
   lastSyncAt?: string;
 }
 
-function parseManifestJson(value: string): UserAgentManifest | null {
+function parseManifestJson(value: import("syncpoint-core").UserAgentManifest | null): import("syncpoint-core").UserAgentManifest | null {
   if (!value) return null;
   try {
-    return UserAgentManifestSchema.parse(JSON.parse(value));
+    return UserAgentManifestSchema.parse(value);
   } catch {
     return null;
   }
@@ -105,8 +105,8 @@ export function upsertAgentRegistryEntry(input: UpsertAgentRegistryEntryInput): 
           : input.sourceFormat ?? "",
         contentHash: input.contentHash ?? existing.contentHash,
         manifestJson: input.manifest === undefined
-          ? existing.manifest ? JSON.stringify(existing.manifest) : ""
-          : input.manifest ? JSON.stringify(input.manifest) : "",
+          ? existing.manifest ?? null
+          : input.manifest ?? null,
         status: input.status ?? existing.status,
         errorMessage: input.errorMessage ?? existing.errorMessage,
         lastSyncAt: input.lastSyncAt ?? ts,
@@ -124,7 +124,7 @@ export function upsertAgentRegistryEntry(input: UpsertAgentRegistryEntryInput): 
       agentId: input.agentId ?? null,
       sourceFormat: input.sourceFormat ?? "",
       contentHash: input.contentHash ?? "",
-      manifestJson: input.manifest ? JSON.stringify(input.manifest) : "",
+      manifestJson: input.manifest ?? null,
       status: input.status ?? "pending",
       errorMessage: input.errorMessage ?? "",
       lastSyncAt: input.lastSyncAt ?? ts,

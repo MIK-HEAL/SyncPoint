@@ -395,6 +395,8 @@ export type {
 export {
   ResourceClaimStatus,
   ResourceClaimMode,
+  ResourceScope,
+  LineRangeSchema,
   ResourceRefSchema,
   ResourceClaimSchema,
   ResourceClaimCreateSchema,
@@ -406,6 +408,7 @@ export {
 } from "./resource.js";
 
 export type {
+  LineRange,
   ResourceRef,
   ResourceClaim,
   ResourceClaimCreate,

@@ -14,7 +14,14 @@ function loadResources(db: ReturnType<typeof _getDb>, claimId: string): Resource
   return db.select().from(s.resourceClaimResources)
     .where(eq(s.resourceClaimResources.claimId, claimId))
     .all()
-    .map(r => ({ type: r.resourceType, locator: r.locator, metadata: r.metadata }));
+    .map(r => ({
+      type: r.resourceType,
+      locator: r.locator,
+      ...(r.scope && r.scope !== "file" ? { scope: r.scope as any } : {}),
+      ...(r.functionName ? { functionName: r.functionName } : {}),
+      ...(r.lineStart != null && r.lineEnd != null ? { lineRange: { start: r.lineStart, end: r.lineEnd } } : {}),
+      metadata: r.metadata,
+    }));
 }
 
 function rowToResourceClaim(row: any, resources: ResourceRef[]): ResourceClaim {
@@ -62,6 +69,10 @@ export function createResourceClaim(data: ResourceClaimCreate): ResourceClaim {
       claimId: id,
       resourceType: ref.type,
       locator: ref.locator,
+      scope: ref.scope ?? "file",
+      functionName: ref.functionName ?? null,
+      lineStart: ref.lineRange?.start ?? null,
+      lineEnd: ref.lineRange?.end ?? null,
       metadata: ref.metadata ?? "",
     }).run();
   }

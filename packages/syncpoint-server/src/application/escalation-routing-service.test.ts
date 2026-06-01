@@ -2,7 +2,7 @@
  * Integration tests for Escalation Routing Service.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
@@ -78,12 +78,16 @@ describe("manifestUpsert / manifestGet", () => {
       tags: ["reviewer"],
     });
 
-    getDb().update(schema.agentManifests).set({
-      capabilitiesJson: "{",
-      escalationPreferenceJson: "{",
-      tagsJson: "{",
-      updatedAt: new Date().toISOString(),
-    }).where(eq(schema.agentManifests.agentId, e1)).run();
+    // Write malformed JSON directly via raw SQL — Drizzle's mode:"json" columns
+    // would stringify a plain string, so we bypass to store truly broken text.
+    getDb().run(
+      sql`UPDATE agent_manifest SET
+        capabilities_json = ${"{"},
+        escalation_preference_json = ${"{"},
+        tags_json = ${"{"},
+        updated_at = ${new Date().toISOString()}
+        WHERE agent_id = ${e1}`
+    );
 
     const manifest = manifestGet(e1);
     expect(manifest?.agentId).toBe(e1);

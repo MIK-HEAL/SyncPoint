@@ -1,4 +1,5 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import { GatePolicyKind, GateTimeoutAction } from "syncpoint-core";
 import { agents, tasks } from "./foundation.js";
 
 // ── ResourceClaim (generic) ───────────────────────────
@@ -21,8 +22,14 @@ export const resourceClaimResources = sqliteTable("resource_claim_resource", {
   claimId: text("claim_id").notNull().references(() => resourceClaims.id),
   resourceType: text("resource_type").notNull(),
   locator: text("locator").notNull(),
+  scope: text("scope").notNull().default("file"),
+  functionName: text("function_name"),
+  lineStart: integer("line_start"),
+  lineEnd: integer("line_end"),
   metadata: text("metadata").notNull().default(""),
-});
+}, (table) => ({
+  claimIdIdx: index("idx_rcr_claim").on(table.claimId),
+}));
 
 // ── FileClaim ─────────────────────────────────────────
 
@@ -36,7 +43,10 @@ export const fileClaims = sqliteTable("file_claim", {
   status: text("status").notNull().default("ACTIVE"),
   createdAt: text("created_at").notNull(),
   releasedAt: text("released_at").notNull().default(""),
-});
+}, (table) => ({
+  agentIdIdx: index("idx_fc_agent").on(table.agentId),
+  taskIdIdx: index("idx_fc_task").on(table.taskId),
+}));
 
 // ── SyncGate (normalized — CSV fields removed) ────────
 
@@ -50,7 +60,7 @@ export const syncGates = sqliteTable("sync_gate", {
   relatedCheckpointId: text("related_checkpoint_id").notNull().default(""),
   status: text("status").notNull().default("NEEDS_SYNC"),
   decisionSummary: text("decision_summary").notNull().default(""),
-  policyJson: text("policy_json").notNull().default(""),
+  policyJson: text("policy_json", { mode: "json" }).$type<import("syncpoint-core").GatePolicy>().notNull().default({ kind: GatePolicyKind.ALL_REQUIRED, timeoutAction: GateTimeoutAction.ESCALATE }),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -70,15 +80,23 @@ export const syncGateResources = sqliteTable("sync_gate_resource", {
   gateId: text("gate_id").notNull().references(() => syncGates.id),
   resourceType: text("resource_type").notNull(),
   locator: text("locator").notNull(),
+  scope: text("scope").notNull().default("file"),
+  functionName: text("function_name"),
+  lineStart: integer("line_start"),
+  lineEnd: integer("line_end"),
   metadata: text("metadata").notNull().default(""),
-});
+}, (table) => ({
+  gateIdIdx: index("idx_sgr_gate").on(table.gateId),
+}));
 
 /** Join table: related claim IDs for a gate */
 export const syncGateRelatedClaims = sqliteTable("sync_gate_related_claim", {
   id: text("id").primaryKey(),
   gateId: text("gate_id").notNull().references(() => syncGates.id),
   claimId: text("claim_id").notNull(),
-});
+}, (table) => ({
+  gateIdIdx: index("idx_sgrc_gate").on(table.gateId),
+}));
 
 // ── SyncGate Ack (replaces ackedAgentIds CSV) ──
 // One row per (gate, agent) — represents "I see it / I'm aware".
@@ -147,7 +165,7 @@ export const operations = sqliteTable("operation", {
   summary: text("summary").notNull().default(""),
   payloadRef: text("payload_ref").notNull().default(""),
   status: text("status").notNull().default("DRAFT"),
-  checkResultJson: text("check_result").notNull().default(""),
+  checkResultJson: text("check_result", { mode: "json" }).$type<import("syncpoint-core").OperationCheckResult | null>().default(null),
   decisionSummary: text("decision_summary").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -159,8 +177,14 @@ export const operationResources = sqliteTable("operation_resource", {
   operationId: text("operation_id").notNull().references(() => operations.id),
   resourceType: text("resource_type").notNull(),
   locator: text("locator").notNull(),
+  scope: text("scope").notNull().default("file"),
+  functionName: text("function_name"),
+  lineStart: integer("line_start"),
+  lineEnd: integer("line_end"),
   metadata: text("metadata").notNull().default(""),
-});
+}, (table) => ({
+  operationIdIdx: index("idx_opr_op").on(table.operationId),
+}));
 
 export const writePermits = sqliteTable("write_permit", {
   id: text("id").primaryKey(),
@@ -173,7 +197,7 @@ export const writePermits = sqliteTable("write_permit", {
   expiresAt: text("expires_at").notNull(),
   singleUse: integer("single_use", { mode: "boolean" }).notNull().default(true),
   status: text("status").notNull(),
-  decisionJson: text("decision_json").notNull(),
+  decisionJson: text("decision_json", { mode: "json" }).$type<import("syncpoint-core").WriteDecision>().notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   consumedAt: text("consumed_at").notNull().default(""),
@@ -186,5 +210,11 @@ export const writePermitResources = sqliteTable("write_permit_resource", {
   resourceType: text("resource_type").notNull(),
   locator: text("locator").notNull(),
   baseHash: text("base_hash").notNull().default(""),
+  scope: text("scope").notNull().default("file"),
+  functionName: text("function_name"),
+  lineStart: integer("line_start"),
+  lineEnd: integer("line_end"),
   metadata: text("metadata").notNull().default(""),
-});
+}, (table) => ({
+  permitIdIdx: index("idx_wpr_permit").on(table.permitId),
+}));

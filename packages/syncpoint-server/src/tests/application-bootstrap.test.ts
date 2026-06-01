@@ -57,9 +57,7 @@ describe("application bootstrap", () => {
 
   it("exposes the bootstrap API from the application barrel and server startup", () => {
     const barrelSource = fs.readFileSync(path.join(applicationDir, "index.ts"), "utf8");
-    expect(barrelSource).toContain("ensureApplicationBootstrap");
-    expect(barrelSource).toContain("getApplicationBootstrapStatus");
-    expect(barrelSource).toContain("resetApplicationBootstrapForTest");
+    expect(barrelSource).toContain('export * from "./bootstrap.js"');
 
     const mainSource = fs.readFileSync(mainPath, "utf8");
     expect(mainSource).toContain('import { ensureApplicationBootstrap } from "./application/bootstrap.js";');

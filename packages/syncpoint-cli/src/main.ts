@@ -29,6 +29,7 @@ import { registerWatchCommands } from "./commands/watch.js";
 import { registerWriteCommands } from "./commands/write.js";
 import { registerGuardCommands } from "./commands/guard.js";
 import { registerTeamCommands } from "./commands/team.js";
+import { registerDevCommands } from "./commands/dev.js";
 
 const program = new Command();
 let keepDbOpen = false;
@@ -122,6 +123,7 @@ registerWatchCommands(program);
 registerWriteCommands(program);
 registerGuardCommands(program);
 registerTeamCommands(program);
+registerDevCommands(program);
 
 // ── Parse ────────────────────────────────────────────
 

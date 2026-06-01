@@ -8,25 +8,17 @@ import { AgentManifestSchema, DEFAULT_AGENT_MANIFEST } from "syncpoint-core";
 import * as schema from "../schema.js";
 import { _getDb, now } from "./_shared.js";
 
-function parseJson<T>(value: string | null | undefined, fallback: T): T {
-  try {
-    return JSON.parse(value ?? "") as T;
-  } catch {
-    return fallback;
-  }
+/** Safe JSON parse — returns undefined on malformed text instead of throwing. */
+function safeJsonParse<T>(raw: string): T | undefined {
+  try { return JSON.parse(raw) as T; }
+  catch { return undefined; }
 }
 
 function hydrateAgentManifest(row: typeof schema.agentManifests.$inferSelect): AgentManifest {
-  const capabilities = AgentManifestSchema.shape.capabilities.safeParse(
-    parseJson(row.capabilitiesJson, DEFAULT_AGENT_MANIFEST.capabilities),
-  );
-  const escalationPreference = AgentManifestSchema.shape.escalationPreference.safeParse(
-    parseJson(row.escalationPreferenceJson, DEFAULT_AGENT_MANIFEST.escalationPreference),
-  );
+  const capabilities = AgentManifestSchema.shape.capabilities.safeParse(safeJsonParse<AgentCapability[]>(row.capabilitiesJson));
+  const escalationPreference = AgentManifestSchema.shape.escalationPreference.safeParse(safeJsonParse<EscalationPreference>(row.escalationPreferenceJson));
   const availability = AgentManifestSchema.shape.availability.safeParse(row.availability);
-  const tags = AgentManifestSchema.shape.tags.safeParse(
-    parseJson(row.tagsJson, DEFAULT_AGENT_MANIFEST.tags),
-  );
+  const tags = AgentManifestSchema.shape.tags.safeParse(safeJsonParse<string[]>(row.tagsJson));
 
   return AgentManifestSchema.parse({
     agentId: row.agentId,
@@ -68,9 +60,7 @@ export function upsertAgentManifest(opts: {
   db.insert(schema.agentManifests).values({
     agentId: opts.agentId,
     capabilitiesJson: JSON.stringify(opts.capabilities ?? DEFAULT_AGENT_MANIFEST.capabilities),
-    escalationPreferenceJson: JSON.stringify(
-      opts.escalationPreference ?? DEFAULT_AGENT_MANIFEST.escalationPreference,
-    ),
+    escalationPreferenceJson: JSON.stringify(opts.escalationPreference ?? DEFAULT_AGENT_MANIFEST.escalationPreference),
     availability: opts.availability ?? DEFAULT_AGENT_MANIFEST.availability,
     canHandleHumanEscalation: opts.canHandleHumanEscalation ?? DEFAULT_AGENT_MANIFEST.canHandleHumanEscalation,
     tagsJson: JSON.stringify(opts.tags ?? DEFAULT_AGENT_MANIFEST.tags),

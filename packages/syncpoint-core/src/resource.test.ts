@@ -184,3 +184,76 @@ describe("detectResourceClaimConflicts", () => {
     expect(detectResourceClaimConflicts(claims)).toHaveLength(0);
   });
 });
+
+// ── Scope-aware overlap ─────────────────────────────
+
+describe("resourceLocatorsOverlap — scope refinement", () => {
+  beforeEach(() => clearResourceMatcherRegistry());
+
+  // Register a file matcher so locator-level overlap works
+  registerResourceMatcher({
+    type: "file",
+    locatorsOverlap: (a, b) => {
+      const na = a.replace(/\/+$/, "");
+      const nb = b.replace(/\/+$/, "");
+      if (na === nb) return true;
+      if (na.startsWith(nb + "/") || nb.startsWith(na + "/")) return true;
+      if (na.includes("*") || nb.includes("*")) return true;
+      return false;
+    },
+  });
+
+  it("file scope (default) overlaps with any sub-file scope on same locator", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "function", functionName: "login", metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(true);
+  });
+
+  it("function scope: same function overlaps", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "function", functionName: "login", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "function", functionName: "login", metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(true);
+  });
+
+  it("function scope: different functions do NOT overlap", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "function", functionName: "login", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "function", functionName: "logout", metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(false);
+  });
+
+  it("line_range scope: overlapping ranges overlap", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 10, end: 30 }, metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 20, end: 40 }, metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(true);
+  });
+
+  it("line_range scope: non-overlapping ranges do NOT overlap", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 10, end: 20 }, metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 30, end: 50 }, metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(false);
+  });
+
+  it("line_range scope: touching ranges (end === start) overlap", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 10, end: 20 }, metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 20, end: 30 }, metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(true);
+  });
+
+  it("mixed function + line_range → conservative overlap", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "function", functionName: "login", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 50, end: 80 }, metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(true);
+  });
+
+  it("different locators never overlap regardless of scope", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "function", functionName: "login", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/api.ts", scope: "function", functionName: "login", metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(false);
+  });
+
+  it("file scope vs line_range on same locator overlaps", () => {
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", scope: "line_range", lineRange: { start: 1, end: 10 }, metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(true);
+  });
+});

@@ -3,8 +3,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import { parseNegotiationConfig } from "syncpoint-core";
-import type { NegotiationMessage, NegotiationSession } from "syncpoint-core";
+import { NegotiationConfigSchema, DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-core";
+import type { NegotiationMessage, NegotiationSession, NegotiationConfig } from "syncpoint-core";
 import * as schema from "../schema.js";
 import { _getDb, createId, now } from "./_shared.js";
 
@@ -18,7 +18,7 @@ function hydrateSession(db: ReturnType<typeof _getDb>, row: typeof schema.negoti
     participantIds: parts.map(p => p.agentId),
     status: row.status as NegotiationSession["status"],
     currentRound: row.currentRound,
-    config: parseNegotiationConfig(row.configJson),
+    config: (() => { const r = NegotiationConfigSchema.safeParse(row.configJson); return r.success ? r.data : { ...DEFAULT_NEGOTIATION_CONFIG }; })(),
     roundStartedAt: row.roundStartedAt,
     deadlineAt: row.deadlineAt,
     resolvedByAgentId: row.resolvedByAgentId,
@@ -33,7 +33,7 @@ function hydrateSession(db: ReturnType<typeof _getDb>, row: typeof schema.negoti
 export function createNegotiationSession(opts: {
   gateId: string;
   participantIds: string[];
-  configJson?: string;
+  configJson?: NegotiationConfig;
   deadlineAt?: string;
 }): NegotiationSession {
   const db = _getDb();
@@ -44,7 +44,7 @@ export function createNegotiationSession(opts: {
     gateId: opts.gateId,
     status: "OPEN",
     currentRound: 0,
-    configJson: opts.configJson ?? "{}",
+    configJson: opts.configJson ?? { maxRounds: 3, roundDeadlineMinutes: 15, negotiationDeadlineMinutes: 45 },
     roundStartedAt: null,
     deadlineAt: opts.deadlineAt ?? null,
     resolvedByAgentId: null,

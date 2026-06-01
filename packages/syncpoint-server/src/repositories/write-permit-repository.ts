@@ -5,10 +5,6 @@ import { _getDb, createId, now } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
 
-function parseJson<T>(value: string, fallback: T): T {
-  try { return JSON.parse(value) as T; } catch { return fallback; }
-}
-
 function loadPermitResources(db: ReturnType<typeof _getDb>, permitId: string): { resources: ResourceRef[]; baseHashes: WriteResourceHash[] } {
   const rows = db.select().from(s.writePermitResources)
     .where(eq(s.writePermitResources.permitId, permitId))
@@ -16,7 +12,14 @@ function loadPermitResources(db: ReturnType<typeof _getDb>, permitId: string): {
   const resources: ResourceRef[] = [];
   const baseHashes: WriteResourceHash[] = [];
   for (const r of rows) {
-    const ref: ResourceRef = { type: r.resourceType, locator: r.locator, metadata: r.metadata };
+    const ref: ResourceRef = {
+      type: r.resourceType,
+      locator: r.locator,
+      ...(r.scope && r.scope !== "file" ? { scope: r.scope as any } : {}),
+      ...(r.functionName ? { functionName: r.functionName } : {}),
+      ...(r.lineStart != null && r.lineEnd != null ? { lineRange: { start: r.lineStart, end: r.lineEnd } } : {}),
+      metadata: r.metadata,
+    };
     resources.push(ref);
     baseHashes.push({ resource: ref, sha256: r.baseHash || undefined, exists: !!r.baseHash });
   }
@@ -37,7 +40,7 @@ function rowToWritePermit(row: any, resources: ResourceRef[], baseHashes: WriteR
     expiresAt: row.expiresAt,
     singleUse: Boolean(row.singleUse),
     status: row.status,
-    decision: parseJson<WriteDecision>(row.decisionJson, { permitted: false, reason: "blocked" as any, blockers: [], warnings: [] }),
+    decision: row.decisionJson ?? { permitted: false, reason: "blocked" as any, blockers: [], warnings: [] },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     consumedAt: row.consumedAt ?? "",
@@ -66,7 +69,7 @@ export function createWritePermit(data: WritePermitCreate): WritePermit {
     expiresAt: data.expiresAt,
     singleUse: data.singleUse,
     status: data.status,
-    decisionJson: JSON.stringify(data.decision),
+    decisionJson: data.decision,
     createdAt: ts,
     updatedAt: ts,
     consumedAt: "",
@@ -85,6 +88,10 @@ export function createWritePermit(data: WritePermitCreate): WritePermit {
       resourceType: ref.type,
       locator: ref.locator,
       baseHash: bh?.sha256 ?? "",
+      scope: ref.scope ?? "file",
+      functionName: ref.functionName ?? null,
+      lineStart: ref.lineRange?.start ?? null,
+      lineEnd: ref.lineRange?.end ?? null,
       metadata: ref.metadata ?? "",
     }).run();
   }
@@ -102,7 +109,7 @@ export function updateWritePermit(id: string, updates: Partial<Pick<WritePermit,
   const db = _getDb();
   const data: Record<string, unknown> = { updatedAt: now() };
   if (updates.status !== undefined) data.status = updates.status;
-  if (updates.decision !== undefined) data.decisionJson = JSON.stringify(updates.decision);
+  if (updates.decision !== undefined) data.decisionJson = updates.decision;
   if (updates.consumedAt !== undefined) data.consumedAt = updates.consumedAt;
   if (updates.expiresAt !== undefined) data.expiresAt = updates.expiresAt;
   db.update(s.writePermits).set(data).where(eq(s.writePermits.id, id)).run();
