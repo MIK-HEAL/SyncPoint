@@ -661,3 +661,24 @@ export type {
   EscalationCandidate,
   EscalationRoutingInput,
 } from "./agent-manifest.js";
+
+// Agent Message
+export {
+  AgentMessageKind,
+  AgentMessageReadStatus,
+  AgentMessageRequestStatus,
+  AGENT_MESSAGE_REQUEST_TRANSITIONS,
+  validateAgentMessageRequestTransition,
+  AgentMessageSchema,
+  AgentMessageCreateSchema,
+  isRequestPending,
+  isRequestExpired,
+  isRequestEscalated,
+  isRequestTimedOut,
+  shouldRetry,
+} from "./agent-message.js";
+
+export type {
+  AgentMessage,
+  AgentMessageCreate,
+} from "./agent-message.js";

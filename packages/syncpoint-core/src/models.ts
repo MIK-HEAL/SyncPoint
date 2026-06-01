@@ -241,7 +241,7 @@ export type ContextSnapshotCreate = z.input<typeof ContextSnapshotCreateSchema>;
 export const EventSchema = z.object({
   id: nanoid12,
   eventType: z.nativeEnum(EventType),
-  entityType: z.enum(["agent", "task", "checkpoint", "handoff", "contract", "context_snapshot", "diary"]),
+  entityType: z.enum(["agent", "task", "checkpoint", "handoff", "contract", "context_snapshot", "diary", "agent_message"]),
   entityId: nanoid12,
   detail: z.string().default(""),
   createdAt: isoDate,
