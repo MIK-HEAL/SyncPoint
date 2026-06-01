@@ -24,3 +24,18 @@ export {
   listAgentManifests,
   deleteAgentManifest,
 } from "../agent-manifest-repository.js";
+
+export {
+  createMessage,
+  getMessage,
+  listMessages,
+  listThread,
+  markRead,
+  markRequestResponded,
+  markRequestExpired,
+  markRequestEscalated,
+  incrementRetry,
+  listTimedOutRequests,
+} from "../agent-message-repository.js";
+
+export type { ListMessagesFilter } from "../agent-message-repository.js";

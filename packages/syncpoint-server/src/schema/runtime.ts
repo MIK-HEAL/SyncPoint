@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-core";
 
 // ── Runtime ────────────────────────────────────────────
@@ -67,6 +67,33 @@ export const negotiationParticipants = sqliteTable("negotiation_participant", {
   agentId: text("agent_id").notNull(),
 }, (table) => ({
   sessionAgentUnique: uniqueIndex("uq_neg_participant").on(table.sessionId, table.agentId),
+}));
+
+// ── Agent Message ─────────────────────────────────
+
+export const agentMessages = sqliteTable("agent_message", {
+  id: text("id").primaryKey(),
+  fromAgent: text("from_agent").notNull(),
+  toAgent: text("to_agent").notNull(),
+  kind: text("kind").notNull().default("message"),
+  subject: text("subject").notNull().default(""),
+  body: text("body").notNull().default(""),
+  threadRootId: text("thread_root_id"),
+  replyToMessageId: text("reply_to_message_id"),
+  readStatus: text("read_status").notNull().default("unread"),
+  readAt: text("read_at"),
+  requestStatus: text("request_status").notNull().default("none"),
+  respondedAt: text("responded_at"),
+  expiresAt: text("expires_at"),
+  retryCount: integer("retry_count").notNull().default(0),
+  lastRetryAt: text("last_retry_at"),
+  escalatedAt: text("escalated_at"),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  toAgentCreatedIdx: index("idx_am_to_agent_created").on(table.toAgent, table.createdAt),
+  requestStatusExpiresIdx: index("idx_am_request_expires").on(table.requestStatus, table.expiresAt),
+  replyToIdx: index("idx_am_reply_to").on(table.replyToMessageId),
+  threadRootIdx: index("idx_am_thread_root").on(table.threadRootId),
 }));
 
 // ── Negotiation Message ─────────────────────────────

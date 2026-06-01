@@ -51,6 +51,11 @@ const AGENT_REGISTRY_ENTRY_SQL_PATH = path.join(
   "0002_agent_registry_entry.sql",
 );
 
+const AGENT_MESSAGE_SQL_PATH = path.join(
+  DRIZZLE_MIGRATIONS_DIR,
+  "0004_agent_message.sql",
+);
+
 
 function ensureDrizzleMigrationAssets(): void {
   if (!fs.existsSync(DRIZZLE_MIGRATIONS_DIR)) {
@@ -127,6 +132,14 @@ function runAgentRegistryEntryMigration(db: Database.Database): void {
   if (!hasIndex(db, "uq_agent_registry_entry_agent")) {
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS `uq_agent_registry_entry_agent` ON `agent_registry_entry` (`agent_id`);");
   }
+}
+
+function runAgentMessageMigration(db: Database.Database): void {
+  if (hasTable(db, "agent_message")) return;
+  if (!fs.existsSync(AGENT_MESSAGE_SQL_PATH)) {
+    throw new Error("Missing agent_message migration SQL.");
+  }
+  db.exec(fs.readFileSync(AGENT_MESSAGE_SQL_PATH, "utf-8"));
 }
 
 /**
@@ -260,6 +273,7 @@ export function runMigrations(db: Database.Database): void {
   migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });
   runPeerContractNormalizationMigration(db);
   runAgentRegistryEntryMigration(db);
+  runAgentMessageMigration(db);
   runFkIndexesMigration(db);
   runResourceScopeMigration(db);
   ensureRuntimeOnlyTables(db);

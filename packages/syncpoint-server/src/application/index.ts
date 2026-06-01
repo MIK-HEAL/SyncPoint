@@ -9,3 +9,4 @@ export * from "./_exports/orchestration-workflow.js";
 export * from "./_exports/resource-runtime.js";
 export * from "./_exports/review-operation-status.js";
 export * from "./_exports/protocol-negotiation.js";
+export * from "./_exports/agent-messaging.js";

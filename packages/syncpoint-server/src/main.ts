@@ -15,6 +15,7 @@ import type { SyncPointEventData } from "./event-bus.js";
 import { ensureApplicationBootstrap } from "./application/bootstrap.js";
 import { syncDeclaredAgents } from "./application/agent-registry-service.js";
 import { wakeEngineStart, wakeEngineStop } from "./application/wake-engine-service.js";
+import { startMessageTimeoutChecker, stopMessageTimeoutChecker } from "./application/agent-message-timeout.js";
 
 const DEFAULT_PORT = 8765;
 
@@ -82,6 +83,9 @@ export function startServer(port = DEFAULT_PORT): http.Server {
   // Start Wake Engine (auto-wake orchestration)
   wakeEngineStart();
 
+  // Start message timeout checker
+  startMessageTimeoutChecker();
+
   server.listen(port, () => {
     console.log(`SyncPoint server running at http://127.0.0.1:${port}`);
     console.log(`  Database:   ${getDbPath()}`);
@@ -94,6 +98,7 @@ export function startServer(port = DEFAULT_PORT): http.Server {
   // Graceful shutdown
   const shutdown = () => {
     console.log("\nShutting down SyncPoint server...");
+    stopMessageTimeoutChecker();
     wakeEngineStop();
     closeDb();
     server.close();

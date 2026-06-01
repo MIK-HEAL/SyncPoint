@@ -1041,3 +1041,134 @@ describe("sync gate MCP tools", () => {
     expect(data.gate).toBeDefined();
   });
 });
+
+// ── Agent Message Tools ─────────────────────────────────
+
+describe("agent message tools", () => {
+  const senderId = "sMsgSender001";
+  const recipientId = "sMsgRecip001";
+
+  // Ensure agents exist for message operations
+  beforeAll(() => {
+    repo.createAgent({ name: "msg-sender", provider: "other", role: "backend" });
+    repo.createAgent({ name: "msg-recipient", provider: "other", role: "frontend" });
+    const agents = repo.listAgents();
+    // Use actual IDs from DB
+    Object.assign(globalThis, { _msgSenderId: agents.find((a: any) => a.name === "msg-sender")?.id ?? senderId });
+    Object.assign(globalThis, { _msgRecipientId: agents.find((a: any) => a.name === "msg-recipient")?.id ?? recipientId });
+  });
+
+  it("syncpoint_message_send creates a plain message", async () => {
+    const agents = repo.listAgents();
+    const from = agents.find((a: any) => a.name === "msg-sender")?.id ?? senderId;
+    const to = agents.find((a: any) => a.name === "msg-recipient")?.id ?? recipientId;
+
+    const result: any = await client.callTool({
+      name: "syncpoint_message_send",
+      arguments: { fromAgent: from, toAgent: to, subject: "Hello MCP", body: "Test message" },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.id).toBeTruthy();
+    expect(data.kind).toBe("message");
+  });
+
+  it("syncpoint_message_send creates a request", async () => {
+    const agents = repo.listAgents();
+    const from = agents.find((a: any) => a.name === "msg-sender")?.id ?? senderId;
+    const to = agents.find((a: any) => a.name === "msg-recipient")?.id ?? recipientId;
+
+    const result: any = await client.callTool({
+      name: "syncpoint_message_send",
+      arguments: {
+        fromAgent: from,
+        toAgent: to,
+        kind: "request",
+        subject: "Approval needed",
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.kind).toBe("request");
+    expect(data.requestStatus).toBe("pending");
+  });
+
+  it("syncpoint_message_list returns messages", async () => {
+    const agents = repo.listAgents();
+    const to = agents.find((a: any) => a.name === "msg-recipient")?.id ?? recipientId;
+
+    const result: any = await client.callTool({
+      name: "syncpoint_message_list",
+      arguments: { toAgent: to },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.count).toBeGreaterThanOrEqual(1);
+    expect(data.messages).toBeDefined();
+  });
+
+  it("syncpoint_message_read marks as read", async () => {
+    const agents = repo.listAgents();
+    const to = agents.find((a: any) => a.name === "msg-recipient")?.id ?? recipientId;
+
+    // List to get an unread message
+    const listResult: any = await client.callTool({
+      name: "syncpoint_message_list",
+      arguments: { toAgent: to, unreadOnly: true, limit: 1 },
+    });
+    const listData = JSON.parse(listResult.content[0].text);
+    if (listData.count > 0) {
+      const msgId = listData.messages[0].id;
+      const result: any = await client.callTool({
+        name: "syncpoint_message_read",
+        arguments: { messageId: msgId, agentId: to },
+      });
+      const data = JSON.parse(result.content[0].text);
+      expect(data.readStatus).toBe("read");
+    }
+  });
+
+  it("syncpoint_message_reply creates a response", async () => {
+    const agents = repo.listAgents();
+    const from = agents.find((a: any) => a.name === "msg-sender")?.id ?? senderId;
+    const to = agents.find((a: any) => a.name === "msg-recipient")?.id ?? recipientId;
+
+    // Send a request first
+    const sendResult: any = await client.callTool({
+      name: "syncpoint_message_send",
+      arguments: { fromAgent: from, toAgent: to, kind: "request", subject: "Reply test" },
+    });
+    const sentData = JSON.parse(sendResult.content[0].text);
+
+    const result: any = await client.callTool({
+      name: "syncpoint_message_reply",
+      arguments: { messageId: sentData.id, agentId: to, body: "Done!" },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.id).toBeTruthy();
+    expect(data.replyToMessageId).toBe(sentData.id);
+  });
+
+  it("syncpoint_message_thread returns thread messages", async () => {
+    const agents = repo.listAgents();
+    const from = agents.find((a: any) => a.name === "msg-sender")?.id ?? senderId;
+    const to = agents.find((a: any) => a.name === "msg-recipient")?.id ?? recipientId;
+
+    // Create thread: request + reply
+    const sendResult: any = await client.callTool({
+      name: "syncpoint_message_send",
+      arguments: { fromAgent: from, toAgent: to, kind: "request", subject: "Thread test" },
+    });
+    const sentData = JSON.parse(sendResult.content[0].text);
+
+    await client.callTool({
+      name: "syncpoint_message_reply",
+      arguments: { messageId: sentData.id, agentId: to, body: "In thread" },
+    });
+
+    const result: any = await client.callTool({
+      name: "syncpoint_message_thread",
+      arguments: { threadRootId: sentData.id },
+    });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.count).toBe(2);
+  });
+});

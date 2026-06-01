@@ -17,6 +17,7 @@ import { registerCheckpointReviewTools } from "./tools/checkpoint-review.js";
 import { registerOperationTools } from "./tools/operation.js";
 import { registerGuardTools } from "./tools/guard.js";
 import { registerRuntimeTools } from "./tools/runtime.js";
+import { registerAgentMessageTools } from "./tools/agent-message.js";
 
 export function registerTools(server: McpServer): void {
   registerLoopContextTools(server);
@@ -32,4 +33,5 @@ export function registerTools(server: McpServer): void {
   registerOperationTools(server);
   registerGuardTools(server);
   registerRuntimeTools(server);
+  registerAgentMessageTools(server);
 }

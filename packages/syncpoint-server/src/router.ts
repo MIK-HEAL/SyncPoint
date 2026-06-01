@@ -26,6 +26,7 @@ import { agentRegistryRouter } from "./routers/agent-registry-router.js";
 import { fileAuditRouter } from "./routers/file-audit-router.js";
 import { writeRouter } from "./routers/write-router.js";
 import { guardRouter } from "./routers/guard-router.js";
+import { agentMessageRouter } from "./routers/agent-message-router.js";
 
 // ── Root router ────────────────────────────────────────
 
@@ -55,6 +56,7 @@ export const appRouter = t.router({
   fileAudit: fileAuditRouter,
   write: writeRouter,
   guard: guardRouter,
+  agentMessage: agentMessageRouter,
 });
 
 export type AppRouter = typeof appRouter;
