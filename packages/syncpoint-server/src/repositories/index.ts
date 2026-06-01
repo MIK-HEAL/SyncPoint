@@ -1,6 +1,5 @@
 /**
  * Repository barrel — re-exports all domain repositories.
- * Backward-compatible: import * from "syncpoint-server/repositories" still works.
  */
 
 export * from "./_exports/foundation.js";

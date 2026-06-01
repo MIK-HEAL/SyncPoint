@@ -9,7 +9,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import { loopResume, LoopError } from "../application/loop-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "../application/orchestration-service.js";
@@ -58,7 +58,7 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
   });
   repo.createContextSnapshot({
     taskId,
@@ -201,7 +201,7 @@ describe("P4C: wakeStart constraint enforcement", () => {
       nextSteps: "",
       needSync: false,
       currentUnderstanding: "",
-      changedFiles: [],
+      changedResources: [],
     });
     repo.createContextSnapshot({
       taskId: wakeTaskId,
@@ -260,7 +260,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
       nextSteps: "",
       needSync: false,
       currentUnderstanding: "",
-      changedFiles: [],
+      changedResources: [],
     });
     repo.createContextSnapshot({
       taskId: wakeNextTaskId,

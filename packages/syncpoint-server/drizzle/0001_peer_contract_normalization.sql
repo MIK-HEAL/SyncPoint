@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS `peer_contract` (
 	`scope` text DEFAULT '' NOT NULL,
 	`responsibilities` text DEFAULT '' NOT NULL,
 	`interface_spec` text DEFAULT '' NOT NULL,
-	`file_boundaries` text DEFAULT '' NOT NULL,
+	`resource_boundaries` text DEFAULT '' NOT NULL,
 	`dependencies` text DEFAULT '' NOT NULL,
 	`test_plan` text DEFAULT '' NOT NULL,
 	`risks` text DEFAULT '' NOT NULL,
@@ -55,11 +55,11 @@ CREATE TABLE `peer_contract_interface_spec` (
 	FOREIGN KEY (`contract_id`) REFERENCES `peer_contract`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `peer_contract_file_boundary` (
+CREATE TABLE `peer_contract_resource_boundary` (
 	`id` text PRIMARY KEY NOT NULL,
 	`contract_id` text NOT NULL,
 	`position` integer NOT NULL,
-	`boundary` text NOT NULL,
+	`resource_boundary` text NOT NULL,
 	FOREIGN KEY (`contract_id`) REFERENCES `peer_contract`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
@@ -83,9 +83,9 @@ CREATE INDEX `idx_peer_contract_interface_spec_contract` ON `peer_contract_inter
 --> statement-breakpoint
 CREATE UNIQUE INDEX `uq_peer_contract_interface_spec_position` ON `peer_contract_interface_spec` (`contract_id`,`position`);
 --> statement-breakpoint
-CREATE INDEX `idx_peer_contract_file_boundary_contract` ON `peer_contract_file_boundary` (`contract_id`);
+CREATE INDEX `idx_peer_contract_resource_boundary_contract` ON `peer_contract_resource_boundary` (`contract_id`);
 --> statement-breakpoint
-CREATE UNIQUE INDEX `uq_peer_contract_file_boundary_position` ON `peer_contract_file_boundary` (`contract_id`,`position`);
+CREATE UNIQUE INDEX `uq_peer_contract_resource_boundary_position` ON `peer_contract_resource_boundary` (`contract_id`,`position`);
 --> statement-breakpoint
 CREATE INDEX `idx_peer_contract_dependency_contract` ON `peer_contract_dependency` (`contract_id`);
 --> statement-breakpoint
@@ -131,14 +131,14 @@ FROM `peer_contract__old` AS legacy,
 		END
 	) AS items;
 --> statement-breakpoint
-INSERT INTO `peer_contract_file_boundary` (`id`, `contract_id`, `position`, `boundary`)
+INSERT INTO `peer_contract_resource_boundary` (`id`, `contract_id`, `position`, `resource_boundary`)
 SELECT lower(hex(randomblob(16))), legacy.`id`, CAST(items.`key` AS integer), CAST(items.`value` AS text)
 FROM `peer_contract__old` AS legacy,
 	json_each(
 		CASE
-			WHEN trim(legacy.`file_boundaries`) = '' THEN '[]'
-			WHEN json_valid(legacy.`file_boundaries`) = 0 THEN '[]'
-			WHEN json_type(legacy.`file_boundaries`) = 'array' THEN legacy.`file_boundaries`
+			WHEN trim(legacy.`resource_boundaries`) = '' THEN '[]'
+			WHEN json_valid(legacy.`resource_boundaries`) = 0 THEN '[]'
+			WHEN json_type(legacy.`resource_boundaries`) = 'array' THEN legacy.`resource_boundaries`
 			ELSE '[]'
 		END
 	) AS items;

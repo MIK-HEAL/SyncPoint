@@ -27,7 +27,7 @@ function makeCtx(overrides?: Partial<ResumeContext>): ResumeContext {
       scope: "auth module",
       responsibilities: ["backend: API"],
       interfaceSpec: ["POST /login"],
-      fileBoundaries: ["src/auth/*"],
+      resourceBoundaries: ["src/auth/*"],
       status: "APPROVED",
     },
     latestSnapshot: {

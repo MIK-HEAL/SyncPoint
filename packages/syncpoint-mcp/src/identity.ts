@@ -20,7 +20,7 @@ let _cachedIdentity: BoundIdentity | null | undefined = undefined;
  * Call with an optional inputAgentId (from tool parameters).
  * - If connection is bound (env vars), uses the bound identity.
  * - If inputAgentId conflicts with bound identity, throws IdentityConflictError.
- * - If no binding, falls back to inputAgentId (legacy mode).
+ * - If no binding, returns null — tools require explicit agentId.
  *
  * Returns the effective agentId, or null if none can be determined.
  */
@@ -64,7 +64,7 @@ export function getConnectionIdentity(): BoundIdentity | null {
  */
 export function isBound(): boolean {
   const id = getConnectionIdentity();
-  return id !== null && id.source !== "parameter";
+  return id !== null;
 }
 
 /**
@@ -81,10 +81,10 @@ export function logIdentityStatus(): void {
     if (resolved) {
       log(`Identity bound: agentId=${resolved} via runtimeId=${envRuntime}`);
     } else {
-      log(`Runtime ${envRuntime} registered but no agent bound — legacy mode`);
+      log(`Runtime ${envRuntime} registered but no agent bound — unbound`);
     }
   } else {
-    log("No identity binding — tools require explicit agentId (legacy mode)");
+    log("No identity binding — tools require explicit agentId");
   }
 }
 

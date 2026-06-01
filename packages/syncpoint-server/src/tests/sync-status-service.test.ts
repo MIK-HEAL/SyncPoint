@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MemoryKind, TaskStatus } from "syncpoint-core";
 import { getDb, closeDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import {
   orchAcceptAssignment,
@@ -17,7 +17,7 @@ import { stxCreate } from "../application/checkpoint-review-service.js";
 import { opCreate, opSubmit } from "../application/operation-service.js";
 import { pmAdd, pmApprove } from "../application/project-memory-service.js";
 import { rcClaim } from "../application/resource-claim-service.js";
-import { buildOverview, buildScopeFilter, buildSnapshot } from "../application/sync-status-service.js";
+import { buildScopeFilter, buildSnapshot } from "../application/sync-status-service.js";
 import { sgRequest } from "../application/sync-gate-service.js";
 
 let tmpDir: string;
@@ -75,7 +75,7 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
   });
   repo.createContextSnapshot({
     taskId,
@@ -190,7 +190,7 @@ describe("sync-status-service", () => {
 
     expect(blockerTypes).toEqual(expect.arrayContaining([
       "sync_gate",
-      "sync_transaction",
+      "checkpoint_review",
       "handoff",
       "review",
       "operation",
@@ -248,14 +248,5 @@ describe("sync-status-service", () => {
     const serialized = JSON.stringify(snapshot);
     expect(serialized).not.toContain("under stability freeze");
     expect(serialized).not.toContain("Do not touch src/core");
-  });
-
-  it("buildOverview exposes the same fixture through the legacy aggregate view", () => {
-    const overview = buildOverview();
-
-    expect(overview.activeTransactions.some(tx => tx.id === transactionId)).toBe(true);
-    expect(overview.activeGates.some(gate => gate.description === "P1 snapshot gate")).toBe(true);
-    expect(overview.conflicts.some(conflict => conflict.overlappingLocator.includes("src/feature/conflict.ts"))).toBe(true);
-    expect(overview.claims.some(claim => claim.actorId === execId)).toBe(true);
   });
 });

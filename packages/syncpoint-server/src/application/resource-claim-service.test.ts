@@ -10,7 +10,7 @@ import {
   WriteIntent,
 } from "syncpoint-core";
 import { closeDb, getDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "./bootstrap.js";
 import { __clearReconciliationStateForTest } from "./backing-store-reconciliation-service.js";
 import { __clearFilePermissionGuardsForTest } from "./file-permission-guard.js";

@@ -14,10 +14,10 @@ export function registerCheckpointReviewTools(server: McpServer): void {
   // ═══════════════════════════════════════════════════════
 
   server.registerTool(
-    "syncpoint_sync_transaction_create",
+    "syncpoint_checkpoint_review_create",
     {
-      title: "Create Sync Transaction",
-      description: "Create a sync transaction for a checkpoint. Automatically creates a bound SyncGate. The requesting agent is blocked until all approvers approve and the transaction is resolved.",
+      title: "Create Checkpoint Review",
+      description: "Create a checkpoint review for a checkpoint. Automatically creates a bound SyncGate. The requesting agent is blocked until all approvers approve and the review is resolved.",
       inputSchema: {
         sessionId: z.string(),
         taskId: z.string(),
@@ -40,10 +40,10 @@ export function registerCheckpointReviewTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "syncpoint_sync_transaction_status",
+    "syncpoint_checkpoint_review_status",
     {
-      title: "Sync Transaction Status",
-      description: "Get detailed status of a sync transaction — pending approvers, approval/rejection state, blocking state.",
+      title: "Checkpoint Review Status",
+      description: "Get detailed status of a checkpoint review — pending approvers, approval/rejection state, blocking state.",
       inputSchema: { txId: z.string() },
     },
     async ({ txId }) => {
@@ -61,10 +61,10 @@ export function registerCheckpointReviewTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "syncpoint_sync_transaction_approve",
+    "syncpoint_checkpoint_review_approve",
     {
-      title: "Approve Sync Transaction",
-      description: "Approve a sync transaction as a required approver. When all approvers approve, the transaction advances to APPROVED.",
+      title: "Approve Checkpoint Review",
+      description: "Approve a checkpoint review as a required approver. When all approvers approve, the review advances to APPROVED.",
       inputSchema: {
         txId: z.string(),
         agentId: z.string(),
@@ -84,10 +84,10 @@ export function registerCheckpointReviewTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "syncpoint_sync_transaction_reject",
+    "syncpoint_checkpoint_review_reject",
     {
-      title: "Reject Sync Transaction",
-      description: "Reject a sync transaction. The requesting agent remains blocked. A follow-up action is required before the transaction can be resolved.",
+      title: "Reject Checkpoint Review",
+      description: "Reject a checkpoint review. The requesting agent remains blocked. A follow-up action is required before the review can be resolved.",
       inputSchema: {
         txId: z.string(),
         agentId: z.string(),
@@ -103,10 +103,10 @@ export function registerCheckpointReviewTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "syncpoint_sync_transaction_resolve",
+    "syncpoint_checkpoint_review_resolve",
     {
-      title: "Resolve Sync Transaction",
-      description: "Resolve a sync transaction and release the bound SyncGate. The requesting agent may now resume work.",
+      title: "Resolve Checkpoint Review",
+      description: "Resolve a checkpoint review and release the bound SyncGate. The requesting agent may now resume work.",
       inputSchema: {
         txId: z.string(),
         decisionSummary: z.string().optional(),

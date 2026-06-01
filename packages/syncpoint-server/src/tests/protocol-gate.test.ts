@@ -16,14 +16,14 @@ function readPayload(snapshot: { payload?: Record<string, unknown> }) {
 const MIGRATION_SQL = `
   CREATE TABLE IF NOT EXISTS agent (id TEXT PRIMARY KEY, name TEXT NOT NULL, provider TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'IDLE', current_task_id TEXT, runtime_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS task (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'OPEN', owner_agent_id TEXT REFERENCES agent(id), parent_task_id TEXT REFERENCES task(id), created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
-  CREATE TABLE IF NOT EXISTS checkpoint (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), agent_id TEXT NOT NULL REFERENCES agent(id), summary TEXT NOT NULL, progress TEXT NOT NULL DEFAULT '', current_understanding TEXT NOT NULL DEFAULT '', changed_files TEXT NOT NULL DEFAULT '', risks TEXT NOT NULL DEFAULT '', blockers TEXT NOT NULL DEFAULT '', next_steps TEXT NOT NULL DEFAULT '', need_sync INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+  CREATE TABLE IF NOT EXISTS checkpoint (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), agent_id TEXT NOT NULL REFERENCES agent(id), summary TEXT NOT NULL, progress TEXT NOT NULL DEFAULT '', current_understanding TEXT NOT NULL DEFAULT '', changed_resources TEXT NOT NULL DEFAULT '', risks TEXT NOT NULL DEFAULT '', blockers TEXT NOT NULL DEFAULT '', next_steps TEXT NOT NULL DEFAULT '', need_sync INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS diary_entry (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL REFERENCES agent(id), task_id TEXT NOT NULL REFERENCES task(id), entry_type TEXT NOT NULL DEFAULT 'NOTE', content TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS handoff (id TEXT PRIMARY KEY, from_agent_id TEXT NOT NULL REFERENCES agent(id), to_agent_id TEXT NOT NULL REFERENCES agent(id), task_id TEXT NOT NULL REFERENCES task(id), context_summary TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'PENDING', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS peer_contract (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), title TEXT NOT NULL DEFAULT '', scope TEXT NOT NULL DEFAULT '', test_plan TEXT NOT NULL DEFAULT '', risks TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'DRAFT', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS peer_contract_participant (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, participant TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS peer_contract_responsibility (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, responsibility TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS peer_contract_interface_spec (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, spec TEXT NOT NULL, UNIQUE(contract_id, position));
-  CREATE TABLE IF NOT EXISTS peer_contract_file_boundary (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, boundary TEXT NOT NULL, UNIQUE(contract_id, position));
+  CREATE TABLE IF NOT EXISTS peer_contract_resource_boundary (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, resource_boundary TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS peer_contract_dependency (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, dependency TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS context_snapshot (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), agent_id TEXT NOT NULL REFERENCES agent(id), checkpoint_id TEXT NOT NULL REFERENCES checkpoint(id), kind TEXT NOT NULL DEFAULT 'resume', summary TEXT NOT NULL DEFAULT '', payload_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS context_snapshot_resource (id TEXT PRIMARY KEY, snapshot_id TEXT NOT NULL REFERENCES context_snapshot(id), resource_type TEXT NOT NULL, locator TEXT NOT NULL, metadata TEXT NOT NULL DEFAULT '');
@@ -59,7 +59,7 @@ vi.mock("../db.js", () => ({
   runMigrations: () => {},
 }));
 
-const repo = await import("../repositories.ts");
+const repo = await import("../repositories/index.ts");
 const { validateSnapshot } = await import("../application/protocol-gate-service.ts");
 
 describe("P12 Snapshot Validation", () => {
@@ -80,7 +80,7 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "50%", currentUnderstanding: "", changedFiles: [],
+      progress: "50%", currentUnderstanding: "", changedResources: [],
       risks: "", blockers: "", nextSteps: "Continue", needSync: false,
     });
 
@@ -117,7 +117,7 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: [],
+      progress: "", currentUnderstanding: "", changedResources: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
@@ -153,7 +153,7 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: [],
+      progress: "", currentUnderstanding: "", changedResources: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
@@ -189,7 +189,7 @@ describe("P12 Snapshot Validation", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Need sync",
-      progress: "", currentUnderstanding: "", changedFiles: [],
+      progress: "", currentUnderstanding: "", changedResources: [],
       risks: "", blockers: "", nextSteps: "", needSync: true,
     });
 
@@ -230,7 +230,7 @@ describe("P12 Extended Snapshot Fields", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: [],
+      progress: "", currentUnderstanding: "", changedResources: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
@@ -280,7 +280,7 @@ describe("P12 Extended Snapshot Fields", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "", currentUnderstanding: "", changedFiles: [],
+      progress: "", currentUnderstanding: "", changedResources: [],
       risks: "", blockers: "", nextSteps: "", needSync: false,
     });
 
@@ -321,7 +321,7 @@ describe("P12 ResumeContext includes extended snapshot fields", () => {
 
     const cp = repo.createCheckpoint({
       taskId: task.id, agentId: agent.id, summary: "Progress",
-      progress: "50%", currentUnderstanding: "", changedFiles: [],
+      progress: "50%", currentUnderstanding: "", changedResources: [],
       risks: "", blockers: "", nextSteps: "Continue", needSync: false,
     });
 

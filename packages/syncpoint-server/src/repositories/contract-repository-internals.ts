@@ -41,7 +41,7 @@ function replaceContractListRows(
 
 export function replaceContractStructuredFields(
   contractId: string,
-  data: Pick<PeerContractCreate, "participants" | "responsibilities" | "interfaceSpec" | "fileBoundaries" | "dependencies">,
+  data: Pick<PeerContractCreate, "participants" | "responsibilities" | "interfaceSpec" | "resourceBoundaries" | "dependencies">,
 ): void {
   const db = _getDb();
 
@@ -95,16 +95,16 @@ export function replaceContractStructuredFields(
 
   replaceContractListRows(
     contractId,
-    data.fileBoundaries,
+    data.resourceBoundaries,
     () => {
-      db.delete(s.peerContractFileBoundaries).where(eq(s.peerContractFileBoundaries.contractId, contractId)).run();
+      db.delete(s.peerContractResourceBoundaries).where(eq(s.peerContractResourceBoundaries.contractId, contractId)).run();
     },
-    (boundary, position) => {
-      db.insert(s.peerContractFileBoundaries).values({
+    (resourceBoundary, position) => {
+      db.insert(s.peerContractResourceBoundaries).values({
         id: createId(),
         contractId,
         position,
-        boundary,
+        resourceBoundary,
       }).run();
     },
   );
@@ -140,8 +140,8 @@ export function hydrateContractRows(rows: PeerContractRow[]): PeerContract[] {
   const interfaceSpecRows = db.select().from(s.peerContractInterfaceSpecs)
     .where(inArray(s.peerContractInterfaceSpecs.contractId, ids))
     .all();
-  const fileBoundaryRows = db.select().from(s.peerContractFileBoundaries)
-    .where(inArray(s.peerContractFileBoundaries.contractId, ids))
+  const resourceBoundaryRows = db.select().from(s.peerContractResourceBoundaries)
+    .where(inArray(s.peerContractResourceBoundaries.contractId, ids))
     .all();
   const dependencyRows = db.select().from(s.peerContractDependencies)
     .where(inArray(s.peerContractDependencies.contractId, ids))
@@ -150,7 +150,7 @@ export function hydrateContractRows(rows: PeerContractRow[]): PeerContract[] {
   const participantsByContract = groupContractListValues(participantRows, row => row.participant);
   const responsibilitiesByContract = groupContractListValues(responsibilityRows, row => row.responsibility);
   const interfaceSpecByContract = groupContractListValues(interfaceSpecRows, row => row.spec);
-  const fileBoundariesByContract = groupContractListValues(fileBoundaryRows, row => row.boundary);
+  const resourceBoundariesByContract = groupContractListValues(resourceBoundaryRows, row => row.resourceBoundary);
   const dependenciesByContract = groupContractListValues(dependencyRows, row => row.dependency);
 
   return rows.map(row => ({
@@ -158,7 +158,7 @@ export function hydrateContractRows(rows: PeerContractRow[]): PeerContract[] {
     participants: participantsByContract.get(row.id) ?? [],
     responsibilities: responsibilitiesByContract.get(row.id) ?? [],
     interfaceSpec: interfaceSpecByContract.get(row.id) ?? [],
-    fileBoundaries: fileBoundariesByContract.get(row.id) ?? [],
+    resourceBoundaries: resourceBoundariesByContract.get(row.id) ?? [],
     dependencies: dependenciesByContract.get(row.id) ?? [],
   }) as PeerContract);
 }

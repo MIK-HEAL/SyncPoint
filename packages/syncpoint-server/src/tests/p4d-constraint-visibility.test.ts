@@ -15,7 +15,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import { constraintCheck } from "../application/constraint-evaluation-service.js";
 import { loopResume } from "../application/loop-service.js";
@@ -74,7 +74,7 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
   });
   repo.createContextSnapshot({
     taskId,
@@ -115,7 +115,7 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
   });
   repo.createContextSnapshot({
     taskId: safeTask.id,
@@ -365,7 +365,7 @@ describe("P4D: snapshot constraint visibility", () => {
       nextSteps: "",
       needSync: false,
       currentUnderstanding: "",
-      changedFiles: [],
+      changedResources: [],
     });
     repo.createContextSnapshot({
       taskId: snapTask.id,

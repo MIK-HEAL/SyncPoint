@@ -7,14 +7,14 @@ import { AgentStatus, TaskStatus, ContractStatus, HandoffStatus, InvalidTransiti
 const MIGRATION_SQL = `
   CREATE TABLE IF NOT EXISTS agent (id TEXT PRIMARY KEY, name TEXT NOT NULL, provider TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'IDLE', current_task_id TEXT, runtime_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS task (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'OPEN', owner_agent_id TEXT REFERENCES agent(id), parent_task_id TEXT REFERENCES task(id), created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
-  CREATE TABLE IF NOT EXISTS checkpoint (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), agent_id TEXT NOT NULL REFERENCES agent(id), summary TEXT NOT NULL, progress TEXT NOT NULL DEFAULT '', current_understanding TEXT NOT NULL DEFAULT '', changed_files TEXT NOT NULL DEFAULT '', risks TEXT NOT NULL DEFAULT '', blockers TEXT NOT NULL DEFAULT '', next_steps TEXT NOT NULL DEFAULT '', need_sync INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+  CREATE TABLE IF NOT EXISTS checkpoint (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), agent_id TEXT NOT NULL REFERENCES agent(id), summary TEXT NOT NULL, progress TEXT NOT NULL DEFAULT '', current_understanding TEXT NOT NULL DEFAULT '', changed_resources TEXT NOT NULL DEFAULT '', risks TEXT NOT NULL DEFAULT '', blockers TEXT NOT NULL DEFAULT '', next_steps TEXT NOT NULL DEFAULT '', need_sync INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS diary_entry (id TEXT PRIMARY KEY, agent_id TEXT NOT NULL REFERENCES agent(id), task_id TEXT NOT NULL REFERENCES task(id), entry_type TEXT NOT NULL DEFAULT 'NOTE', content TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS handoff (id TEXT PRIMARY KEY, from_agent_id TEXT NOT NULL REFERENCES agent(id), to_agent_id TEXT NOT NULL REFERENCES agent(id), task_id TEXT NOT NULL REFERENCES task(id), context_summary TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'PENDING', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS peer_contract (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), title TEXT NOT NULL DEFAULT '', scope TEXT NOT NULL DEFAULT '', test_plan TEXT NOT NULL DEFAULT '', risks TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'DRAFT', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS peer_contract_participant (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, participant TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS peer_contract_responsibility (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, responsibility TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS peer_contract_interface_spec (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, spec TEXT NOT NULL, UNIQUE(contract_id, position));
-  CREATE TABLE IF NOT EXISTS peer_contract_file_boundary (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, boundary TEXT NOT NULL, UNIQUE(contract_id, position));
+  CREATE TABLE IF NOT EXISTS peer_contract_resource_boundary (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, resource_boundary TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS peer_contract_dependency (id TEXT PRIMARY KEY, contract_id TEXT NOT NULL REFERENCES peer_contract(id), position INTEGER NOT NULL, dependency TEXT NOT NULL, UNIQUE(contract_id, position));
   CREATE TABLE IF NOT EXISTS context_capsule (id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES task(id), agent_id TEXT NOT NULL REFERENCES agent(id), checkpoint_id TEXT NOT NULL REFERENCES checkpoint(id), goal TEXT NOT NULL DEFAULT '', current_phase TEXT NOT NULL DEFAULT '', confirmed_decisions TEXT NOT NULL DEFAULT '', interface_contract TEXT NOT NULL DEFAULT '', working_files TEXT NOT NULL DEFAULT '', completed_work TEXT NOT NULL DEFAULT '', remaining_work TEXT NOT NULL DEFAULT '', risks TEXT NOT NULL DEFAULT '', blockers TEXT NOT NULL DEFAULT '', next_steps TEXT NOT NULL DEFAULT '', resume_prompt TEXT NOT NULL DEFAULT '', intent_scope TEXT NOT NULL DEFAULT '', non_goals TEXT NOT NULL DEFAULT '', verified_facts TEXT NOT NULL DEFAULT '', unverified_claims TEXT NOT NULL DEFAULT '', evidence_refs TEXT NOT NULL DEFAULT '', active_constraints TEXT NOT NULL DEFAULT '', do_not_touch TEXT NOT NULL DEFAULT '', handoff_instructions TEXT NOT NULL DEFAULT '', validation_status TEXT NOT NULL DEFAULT '', stale_reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')));
   CREATE TABLE IF NOT EXISTS event (id TEXT PRIMARY KEY, event_type TEXT NOT NULL, entity_type TEXT NOT NULL, entity_id TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')));
@@ -46,7 +46,7 @@ vi.mock("./db.js", () => ({
 }));
 
 // Import after mock is set up — use explicit source path
-const repo = await import("./repositories.ts");
+const repo = await import("./repositories/index.ts");
 
 describe("Repositories", () => {
   beforeEach(() => {
@@ -131,7 +131,7 @@ describe("Repositories", () => {
         summary: "Auth scaffold done",
         progress: "60%",
         currentUnderstanding: "Need refresh tokens",
-        changedFiles: ["src/auth/*.ts"],
+        changedResources: ["src/auth/*.ts"],
         risks: "Token expiry",
         blockers: "",
         nextSteps: "Add refresh endpoint",
@@ -154,7 +154,7 @@ describe("Repositories", () => {
         scope: "Auth API",
         responsibilities: ["codex: backend"],
         interfaceSpec: ["POST /auth/login"],
-        fileBoundaries: ["src/auth/"],
+        resourceBoundaries: ["src/auth/"],
         dependencies: [],
         testPlan: "Integration test",
         risks: "Token mismatch",
@@ -179,7 +179,7 @@ describe("Repositories", () => {
         scope: "",
         responsibilities: [],
         interfaceSpec: [],
-        fileBoundaries: [],
+        resourceBoundaries: [],
         dependencies: [],
         testPlan: "",
         risks: "",
@@ -200,7 +200,7 @@ describe("Repositories", () => {
         scope: "",
         responsibilities: [],
         interfaceSpec: [],
-        fileBoundaries: [],
+        resourceBoundaries: [],
         dependencies: [],
         testPlan: "",
         risks: "",
@@ -219,7 +219,7 @@ describe("Repositories", () => {
         scope: "",
         responsibilities: [],
         interfaceSpec: [],
-        fileBoundaries: [],
+        resourceBoundaries: [],
         dependencies: [],
         testPlan: "",
         risks: "",
@@ -241,7 +241,7 @@ describe("Repositories", () => {
         scope: "",
         responsibilities: [],
         interfaceSpec: [],
-        fileBoundaries: [],
+        resourceBoundaries: [],
         dependencies: [],
         testPlan: "",
         risks: "",
@@ -262,7 +262,7 @@ describe("Repositories", () => {
         scope: "",
         responsibilities: [],
         interfaceSpec: [],
-        fileBoundaries: [],
+        resourceBoundaries: [],
         dependencies: [],
         testPlan: "",
         risks: "",

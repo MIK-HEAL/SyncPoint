@@ -167,7 +167,7 @@ function formatSystemPrompt(ctx: ResumeContext, projection?: RealityProjection |
     lines.push(`- Scope: ${ctx.approvedContract.scope}`);
     lines.push(`- Responsibilities: ${ctx.approvedContract.responsibilities.join(", ")}`);
     lines.push(`- Interface: ${ctx.approvedContract.interfaceSpec.join(", ")}`);
-    lines.push(`- File boundaries: ${ctx.approvedContract.fileBoundaries.join(", ")}`);
+    lines.push(`- Resource boundaries: ${ctx.approvedContract.resourceBoundaries.join(", ")}`);
     lines.push("");
   }
 
@@ -262,7 +262,7 @@ function formatCursorRules(ctx: ResumeContext, projection?: RealityProjection | 
     lines.push(`Scope: ${ctx.approvedContract.scope}`);
     lines.push(`Responsibilities: ${ctx.approvedContract.responsibilities.join(", ")}`);
     lines.push(`Interface: ${ctx.approvedContract.interfaceSpec.join(", ")}`);
-    lines.push(`Files: ${ctx.approvedContract.fileBoundaries.join(", ")}`);
+    lines.push(`Resources: ${ctx.approvedContract.resourceBoundaries.join(", ")}`);
     lines.push("");
   }
 
@@ -387,7 +387,7 @@ function formatAgentsMd(ctx: ResumeContext, projection?: RealityProjection | nul
     lines.push("");
     lines.push(`**Interface**: ${ctx.approvedContract.interfaceSpec.join(", ")}`);
     lines.push("");
-    lines.push(`**File Boundaries**: ${ctx.approvedContract.fileBoundaries.join(", ")}`);
+    lines.push(`**Resource Boundaries**: ${ctx.approvedContract.resourceBoundaries.join(", ")}`);
     lines.push("");
   }
 

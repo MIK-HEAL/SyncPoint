@@ -10,7 +10,6 @@ export {
   createSyncGate,
   getSyncGate,
   updateSyncGateStatus,
-  updateSyncGateAckedAgents,
   updateSyncGateDescription,
   updateSyncGatePolicyJson,
   listSyncGates,

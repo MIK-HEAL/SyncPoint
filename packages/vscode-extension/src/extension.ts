@@ -195,7 +195,7 @@ class SyncViewProvider implements vscode.TreeDataProvider<SyncNode> {
           const agentNames = b.requiredAgents.map((a: any) => a.name).join(", ");
           const iconMap: Record<string, string> = {
             sync_gate: "shield",
-            sync_transaction: "git-pull-request",
+            checkpoint_review: "git-pull-request",
             handoff: "arrow-swap",
             review: "eye",
           };

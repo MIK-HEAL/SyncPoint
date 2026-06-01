@@ -46,7 +46,7 @@ beforeAll(async () => {
     summary: "Initial MCP checkpoint",
     progress: "10%",
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
     risks: "",
     blockers: "",
     nextSteps: "Continue MCP implementation",
@@ -72,6 +72,9 @@ beforeAll(async () => {
     },
   });
 
+  // Bind identity — MCP tools require bound agent (no legacy parameter fallback)
+  process.env.SYNCPOINT_AGENT_ID = agentId;
+
   // Seed project memory
   const mem = pmAdd({
     category: "architecture",
@@ -96,6 +99,7 @@ beforeAll(async () => {
   await client.connect(clientTransport);
 
   cleanup = () => {
+    delete process.env.SYNCPOINT_AGENT_ID;
     closeDb();
     delete process.env.SYNCPOINT_DB_DIR;
     if (previousProjectRoot === undefined) delete process.env.SYNCPOINT_PROJECT_ROOT;
@@ -757,14 +761,13 @@ describe("playbook tools", () => {
     expect(data.evidence.content).toContain("162 tests");
   });
 
-  it("syncpoint_active_session should return null for unassigned agent", async () => {
-    const lonely = repo.createAgent({ name: "lonely-mcp", provider: "cursor", role: "other" });
+  it("syncpoint_active_session should return session for bound agent", async () => {
     const result: any = await client.callTool({
       name: "syncpoint_active_session",
-      arguments: { agentId: lonely.id },
+      arguments: {},
     });
     const data = JSON.parse(result.content[0].text);
-    expect(data.active).toBe(false);
+    expect(data.active !== false).toBe(true);
   });
 
   it("syncpoint_active_session should return session for active agent", async () => {

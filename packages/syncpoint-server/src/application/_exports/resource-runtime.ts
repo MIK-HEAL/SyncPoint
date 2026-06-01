@@ -33,7 +33,7 @@ export type {
 
 export {
   auditFileChange,
-  fileAuditListActiveFileClaims,
+  auditListActiveResourceClaims,
 } from "../file-audit-service.js";
 
 export type {

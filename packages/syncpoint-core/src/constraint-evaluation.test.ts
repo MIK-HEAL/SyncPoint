@@ -6,7 +6,6 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   evaluateConstraints,
   buildConstraintManifest,
-  parseRuntimeSpec,
   resolveRuntimeSpec,
   registerConstraintEvaluator,
   clearConstraintEvaluatorRegistry,
@@ -420,9 +419,9 @@ describe("Constraint Runtime — evaluateConstraints", () => {
   });
 });
 
-// ── Projection dual-write integration ────────────────────
+// ── Projection routing integration ────────────────────
 
-describe("Projection dual-write — do_not_touch enters constraintRules", () => {
+describe("Projection routing — do_not_touch and constraintRules", () => {
 
   function makeMemory(overrides: Partial<MemoryProjectionInput>): MemoryProjectionInput {
     return {
@@ -445,7 +444,7 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
     memoryVersion: 1,
   };
 
-  it("do_not_touch memory appears in both doNotTouch and constraintRules", () => {
+  it("do_not_touch memory appears in doNotTouch only (no dual-write)", () => {
     const projection = buildRealityProjection([
       makeMemory({
         id: "pm_dnt",
@@ -460,10 +459,10 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
     expect(projection.contextPatch.doNotTouch[0].title).toBe("Auth Core");
     expect(projection.contextPatch.doNotTouch[0].scope?.files).toEqual(["src/auth/"]);
 
-    // Dual-write: also in constraintRules
+    // No dual-write: not in constraintRules
     expect(projection.constraintRules.some(
-      cr => cr.source.sourceMemoryId === "pm_dnt" && cr.source.projectionReason.includes("dual-write"),
-    )).toBe(true);
+      cr => cr.source.sourceMemoryId === "pm_dnt",
+    )).toBe(false);
   });
 
   it("hard_constraint enters constraintRules only (not doNotTouch)", () => {
@@ -481,7 +480,7 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
     expect(projection.contextPatch.doNotTouch).toHaveLength(0);
   });
 
-  it("do_not_touch dual-write carries scope to constraintRules entry", () => {
+  it("do_not_touch with projectionTarget=constraint_runtime enters constraintRules", () => {
     const projection = buildRealityProjection([
       makeMemory({
         id: "pm_scoped",
@@ -489,6 +488,7 @@ describe("Projection dual-write — do_not_touch enters constraintRules", () => 
         title: "DB Schema",
         content: "Do not touch DB schema",
         appliesTo: JSON.stringify({ files: ["db/schema/"], modules: ["database"] }),
+        projectionTarget: "constraint_runtime",
       }),
     ], { ...ctx, workingResources: ["db/schema/users.sql"] });
 
@@ -656,35 +656,6 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
 
 // ── PR4: Typed Hard Constraint Validators ─────────────────
 
-describe("PR4: parseRuntimeSpec", () => {
-  it("parses embedded runtime-spec from content", () => {
-    const content = "Do not modify auth files.\n<!-- runtime-spec: {\"rule\":\"test_forbidden\"} -->";
-    const spec = parseRuntimeSpec(content);
-    expect(spec).not.toBeNull();
-    expect(spec!.rule).toBe("test_forbidden");
-  });
-
-  it("parses spec with custom message", () => {
-    const content = '<!-- runtime-spec: {"rule":"require_review","message":"Must get approval"} -->';
-    const spec = parseRuntimeSpec(content);
-    expect(spec).not.toBeNull();
-    expect(spec!.rule).toBe("require_review");
-    expect(spec!.message).toBe("Must get approval");
-  });
-
-  it("returns null for content without spec", () => {
-    expect(parseRuntimeSpec("Just a plain constraint")).toBeNull();
-  });
-
-  it("returns null for malformed JSON", () => {
-    expect(parseRuntimeSpec("<!-- runtime-spec: {bad json} -->")).toBeNull();
-  });
-
-  it("returns null for spec without rule field", () => {
-    expect(parseRuntimeSpec('<!-- runtime-spec: {"type":"something"} -->')).toBeNull();
-  });
-});
-
 describe("PR4: resolveRuntimeSpec", () => {
   it("returns spec from validatorType field (primary path)", () => {
     const item: ProjectedMemoryItem = {
@@ -698,13 +669,13 @@ describe("PR4: resolveRuntimeSpec", () => {
     expect(spec!.message).toBe("Auth locked");
   });
 
-  it("falls back to embedded spec when validatorType is empty", () => {
+  it("returns null when validatorType is empty (no embedded fallback)", () => {
     const item: ProjectedMemoryItem = {
-      ...makeItem("pm_x", "Auth Guard", 'No auth changes\n<!-- runtime-spec: {"rule":"require_review"} -->', { files: ["src/auth/"] }),
+      ...makeItem("pm_x", "Auth Guard", 'No auth changes', { files: ["src/auth/"] }),
       kind: "hard_constraint",
     };
     const spec = resolveRuntimeSpec(item);
-    expect(spec!.rule).toBe("require_review");
+    expect(spec).toBeNull();
   });
 
   it("does NOT infer from scope alone — hard_constraint with file scope but no validator stays null", () => {
@@ -716,7 +687,7 @@ describe("PR4: resolveRuntimeSpec", () => {
     expect(spec).toBeNull();
   });
 
-  it("returns null for hard_constraint without validator or embedded spec", () => {
+  it("returns null for hard_constraint without validator", () => {
     const item: ProjectedMemoryItem = {
       ...makeItem("pm_x", "Rule", "General rule"),
       kind: "hard_constraint",
@@ -778,12 +749,14 @@ describe("PR4: Typed hard constraint evaluation", () => {
     expect(decision.warnings.some(w => w.sourceMemoryId === "pm_typed_2")).toBe(false);
   });
 
-  it("hard_constraint with embedded test_forbidden spec blocks", () => {
+  it("hard_constraint with validatorType test_forbidden blocks", () => {
     const proj = emptyProjection({
       constraintRules: [
         {
-          ...makeItem("pm_typed_3", "Config Lock", 'Do not modify\n<!-- runtime-spec: {"rule":"test_forbidden","message":"Config locked"} -->', { files: ["config/"] }),
+          ...makeItem("pm_typed_3", "Config Lock", 'Do not modify', { files: ["config/"] }),
           kind: "hard_constraint",
+          validatorType: "test_forbidden",
+          validatorConfig: '{"message":"Config locked"}',
         },
       ],
     });
@@ -797,7 +770,7 @@ describe("PR4: Typed hard constraint evaluation", () => {
     expect(decision.blockers[0].message).toBe("Config locked");
   });
 
-  it("hard_constraint with file scope but NO validatorType stays advisory (backward compat)", () => {
+  it("hard_constraint with file scope but NO validatorType stays advisory", () => {
     const proj = emptyProjection({
       constraintRules: [
         { ...makeItem("pm_no_vt", "Protect Core", "Guard core files", { files: ["src/core/"] }), kind: "hard_constraint" },
@@ -853,8 +826,9 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const proj = emptyProjection({
       constraintRules: [
         {
-          ...makeItem("pm_rev_1", "Review Required", '<!-- runtime-spec: {"rule":"require_review"} -->'),
+          ...makeItem("pm_rev_1", "Review Required", 'Review required before submit'),
           kind: "hard_constraint",
+          validatorType: "require_review",
         },
       ],
     });
@@ -870,8 +844,9 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const proj = emptyProjection({
       constraintRules: [
         {
-          ...makeItem("pm_rev_2", "Review Required", '<!-- runtime-spec: {"rule":"require_review"} -->'),
+          ...makeItem("pm_rev_2", "Review Required", 'Review required before submit'),
           kind: "hard_constraint",
+          validatorType: "require_review",
         },
       ],
     });
@@ -916,8 +891,9 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const proj = emptyProjection({
       constraintRules: [
         {
-          ...makeItem("pm_custom", "Custom Rule", '<!-- runtime-spec: {"rule":"custom"} -->'),
+          ...makeItem("pm_custom", "Custom Rule", 'A custom rule'),
           kind: "hard_constraint",
+          validatorType: "custom",
         },
       ],
     });

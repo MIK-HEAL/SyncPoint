@@ -127,7 +127,7 @@ function indent(text: string, level = 1): string {
 function blockerTypeLabel(type: string): string {
   switch (type) {
     case "sync_gate": return "Sync Gate";
-    case "sync_transaction": return "Checkpoint Transaction";
+    case "checkpoint_review": return "Checkpoint Review";
     case "handoff": return "Pending Handoff";
     case "review": return "Review Required";
     case "operation": return "Operation";
@@ -155,8 +155,8 @@ function suggestedAction(blocker: UnifiedBlocker): string {
     case "sync_gate":
       return `syncpoint sync ack --gate ${blocker.id} --agent <agentId>\n` +
              `syncpoint sync resolve --gate ${blocker.id} --summary "Resolved"`;
-    case "sync_transaction":
-      return `syncpoint sync tx approve --tx ${blocker.id} --agent <agentId>`;
+    case "checkpoint_review":
+      return `syncpoint checkpoint review approve --tx ${blocker.id} --agent <agentId>`;
     case "handoff":
       return `syncpoint handoff accept --handoff ${blocker.id}`;
     case "review":
@@ -419,7 +419,7 @@ export function formatBlockedExplanation(snapshot: Snapshot): string {
           reasons.push(reason);
         }
       }
-      if (b.type === "sync_transaction") {
+      if (b.type === "checkpoint_review") {
         const reason = "checkpoint requires approval before another agent continues";
         if (!seenReasons.has(reason)) {
           seenReasons.add(reason);

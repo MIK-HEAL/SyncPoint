@@ -3,7 +3,7 @@ CREATE TABLE `agent_registry_entry` (
 	`agent_id` text,
 	`source_format` text DEFAULT '' NOT NULL,
 	`content_hash` text DEFAULT '' NOT NULL,
-	`manifest_json` text DEFAULT '' NOT NULL,
+	`manifest_json` text DEFAULT NULL,
 	`status` text DEFAULT 'pending' NOT NULL,
 	`error_message` text DEFAULT '' NOT NULL,
 	`last_sync_at` text NOT NULL,

@@ -77,7 +77,7 @@ CREATE TABLE `checkpoint` (
 	`summary` text NOT NULL,
 	`progress` text DEFAULT '' NOT NULL,
 	`current_understanding` text DEFAULT '' NOT NULL,
-	`changed_files` text DEFAULT '' NOT NULL,
+	`changed_resources` text DEFAULT '' NOT NULL,
 	`risks` text DEFAULT '' NOT NULL,
 	`blockers` text DEFAULT '' NOT NULL,
 	`next_steps` text DEFAULT '' NOT NULL,
@@ -128,20 +128,6 @@ CREATE TABLE `event` (
 	`entity_id` text NOT NULL,
 	`detail` text DEFAULT '' NOT NULL,
 	`created_at` text NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE `file_claim` (
-	`id` text PRIMARY KEY NOT NULL,
-	`agent_id` text NOT NULL,
-	`task_id` text NOT NULL,
-	`session_id` text DEFAULT '' NOT NULL,
-	`paths` text NOT NULL,
-	`mode` text DEFAULT 'exclusive' NOT NULL,
-	`status` text DEFAULT 'ACTIVE' NOT NULL,
-	`created_at` text NOT NULL,
-	`released_at` text DEFAULT '' NOT NULL,
-	FOREIGN KEY (`agent_id`) REFERENCES `agent`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`task_id`) REFERENCES `task`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE `handoff` (
@@ -209,7 +195,7 @@ CREATE TABLE `operation` (
 	`summary` text DEFAULT '' NOT NULL,
 	`payload_ref` text DEFAULT '' NOT NULL,
 	`status` text DEFAULT 'DRAFT' NOT NULL,
-	`check_result` text DEFAULT '' NOT NULL,
+	`check_result` text DEFAULT NULL,
 	`decision_summary` text DEFAULT '' NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
@@ -235,7 +221,7 @@ CREATE TABLE `peer_contract` (
 	`scope` text DEFAULT '' NOT NULL,
 	`responsibilities` text DEFAULT '' NOT NULL,
 	`interface_spec` text DEFAULT '' NOT NULL,
-	`file_boundaries` text DEFAULT '' NOT NULL,
+	`resource_boundaries` text DEFAULT '' NOT NULL,
 	`dependencies` text DEFAULT '' NOT NULL,
 	`test_plan` text DEFAULT '' NOT NULL,
 	`risks` text DEFAULT '' NOT NULL,

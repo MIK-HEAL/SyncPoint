@@ -83,7 +83,7 @@ export function prepareResumeProjectionContext(taskId: string, agentId: string):
         contract.scope,
         toStringArray(contract.responsibilities).join("|"),
         toStringArray(contract.interfaceSpec).join("|"),
-        toStringArray(contract.fileBoundaries).join("|"),
+        toStringArray(contract.resourceBoundaries).join("|"),
         contract.testPlan,
         contract.risks,
         contract.status,
@@ -136,21 +136,6 @@ export function evaluateExecutionReadiness(input: ExecutionReadinessInput): Exec
   };
 }
 
-export function collectStatusOverviewState(input?: { sessionId?: string; taskId?: string }) {
-  const scopeFilter = input?.sessionId || input?.taskId
-    ? { sessionId: input?.sessionId, taskId: input?.taskId }
-    : undefined;
-
-  return {
-    claims: rcList(input?.taskId ? { taskId: input.taskId } : undefined),
-    conflicts: rcDetectConflicts(input?.sessionId ? { sessionId: input.sessionId } : undefined),
-    gates: sgListActive(scopeFilter),
-    allGates: sgList(scopeFilter),
-    wakeRequests: listQueuedWakeRequests(),
-    activeTransactions: stxListActive(scopeFilter),
-  };
-}
-
 export function collectStatusSnapshotState(input?: { sessionId?: string }) {
   const scopeFilter = input?.sessionId ? { sessionId: input.sessionId } : undefined;
   const activeClaims = rcList(input?.sessionId ? { sessionId: input.sessionId } : undefined)
@@ -178,7 +163,6 @@ export const collaborationCoordinator = {
     evaluateReadiness: evaluateExecutionReadiness,
   },
   status: {
-    collectOverviewState: collectStatusOverviewState,
     collectSnapshotState: collectStatusSnapshotState,
   },
 } as const;

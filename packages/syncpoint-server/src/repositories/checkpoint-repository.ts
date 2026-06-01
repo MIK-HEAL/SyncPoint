@@ -10,11 +10,11 @@ import { _getDb, now, createId, logEvent } from "./_shared.js";
 import { getTask } from "./task-repository.js";
 import { getAgent } from "./agent-repository.js";
 
-function serializeChangedFiles(changedFiles: string[]): string {
-  return JSON.stringify(changedFiles);
+function serializeChangedResources(changedResources: string[]): string {
+  return JSON.stringify(changedResources);
 }
 
-function parseChangedFiles(raw: string | null | undefined): string[] {
+function parseChangedResources(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -27,7 +27,7 @@ function parseChangedFiles(raw: string | null | undefined): string[] {
 function hydrateCheckpoint(row: typeof s.checkpoints.$inferSelect): Checkpoint {
   return {
     ...row,
-    changedFiles: parseChangedFiles(row.changedFiles),
+    changedResources: parseChangedResources(row.changedResources),
   } as Checkpoint;
 }
 
@@ -44,7 +44,7 @@ export function createCheckpoint(data: CheckpointCreate): Checkpoint {
     summary: data.summary,
     progress: data.progress,
     currentUnderstanding: data.currentUnderstanding,
-    changedFiles: serializeChangedFiles(data.changedFiles),
+    changedResources: serializeChangedResources(data.changedResources),
     risks: data.risks,
     blockers: data.blockers,
     nextSteps: data.nextSteps,

@@ -30,7 +30,7 @@ export function loopCheckpoint(input: LoopCheckpointInput): LoopCheckpointResult
     summary: input.summary,
     progress: input.progress ?? "",
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
     risks: input.risks ?? "",
     blockers: input.blockers ?? "",
     nextSteps: input.nextSteps ?? "",

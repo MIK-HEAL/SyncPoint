@@ -18,7 +18,7 @@ import * as schema from "../schema.js";
 import { __setDb } from "../repositories/_shared.js";
 import { runMigrations } from "../db.js";
 import type { SyncPointDb } from "../db.js";
-import * as repo from "../repositories.js";
+import * as repo from "../repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import {
   ProjectMemoryScope,

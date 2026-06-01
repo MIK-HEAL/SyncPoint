@@ -8,9 +8,7 @@
 
 export { buildScopeFilter } from "./sync-status/shared.js";
 export { classifyBlockers } from "./sync-status/blockers.js";
-export { buildOverview } from "./sync-status/overview.js";
 export { buildSnapshot } from "./sync-status/snapshot.js";
 
 export type { UnifiedBlocker } from "./sync-status/blockers.js";
-export type { OverviewInput } from "./sync-status/overview.js";
 export type { SnapshotInput } from "./sync-status/snapshot.js";

@@ -31,23 +31,6 @@ export const resourceClaimResources = sqliteTable("resource_claim_resource", {
   claimIdIdx: index("idx_rcr_claim").on(table.claimId),
 }));
 
-// ── FileClaim ─────────────────────────────────────────
-
-export const fileClaims = sqliteTable("file_claim", {
-  id: text("id").primaryKey(),
-  agentId: text("agent_id").notNull().references(() => agents.id),
-  taskId: text("task_id").notNull().references(() => tasks.id),
-  sessionId: text("session_id").notNull().default(""),
-  paths: text("paths").notNull(),
-  mode: text("mode").notNull().default("exclusive"),
-  status: text("status").notNull().default("ACTIVE"),
-  createdAt: text("created_at").notNull(),
-  releasedAt: text("released_at").notNull().default(""),
-}, (table) => ({
-  agentIdIdx: index("idx_fc_agent").on(table.agentId),
-  taskIdIdx: index("idx_fc_task").on(table.taskId),
-}));
-
 // ── SyncGate (normalized — CSV fields removed) ────────
 
 export const syncGates = sqliteTable("sync_gate", {
@@ -127,7 +110,7 @@ export const syncGateVotes = sqliteTable("sync_gate_vote", {
   gateAgentUnique: uniqueIndex("uq_gate_vote_agent").on(table.gateId, table.agentId),
 }));
 
-// ── CheckpointReview (replaces sync_transaction) ─────
+// ── CheckpointReview ─────────────────────────────────
 
 export const checkpointReviews = sqliteTable("checkpoint_review", {
   id: text("id").primaryKey(),

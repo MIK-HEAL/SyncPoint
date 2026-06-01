@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { closeDb, getDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import { EventType, RelationshipMode, ResourceClaimMode, SyncGateReason } from "syncpoint-core";
 import { rcClaim } from "./resource-claim-service.js";
 import { sgRequest } from "./sync-gate-service.js";

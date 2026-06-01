@@ -76,7 +76,7 @@ export const ResumeContextSchema = z.object({
     scope: z.string(),
     responsibilities: z.array(z.string()),
     interfaceSpec: z.array(z.string()),
-    fileBoundaries: z.array(z.string()),
+    resourceBoundaries: z.array(z.string()),
     status: z.string(),
   }).nullable(),
   /** Latest context snapshot (null if none) */

@@ -7,7 +7,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { SyncGateReason, SyncGateStatus, WriteIntent } from "syncpoint-core";
 import type { SyncPointDb } from "../db.js";
 import { runMigrations } from "../db.js";
-import * as repo from "../repositories.js";
+import * as repo from "../repositories/index.js";
 import { __setDb } from "../repositories/_shared.js";
 import * as schema from "../schema.js";
 import { rcClaim } from "../application/resource-claim-service.js";

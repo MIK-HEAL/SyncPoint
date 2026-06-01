@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
-import { auditFileChange, fileAuditListActiveFileClaims } from "syncpoint-server/application";
+import { auditFileChange, auditListActiveResourceClaims } from "syncpoint-server/application";
 import type { AuditFileChangeResult } from "syncpoint-server/application";
 import { FileAuditDecisionKind } from "syncpoint-core";
 import { resolveAgent } from "./connect.js";
@@ -76,7 +76,7 @@ export function registerWatchCommands(program: Command): void {
 
 function buildBaseline(root: string, taskId: string, sessionId?: string): Map<string, FileBaseline> {
   const baseline = new Map<string, FileBaseline>();
-  const claims = fileAuditListActiveFileClaims({ taskId, sessionId });
+  const claims = auditListActiveResourceClaims({ taskId, sessionId });
   const locators = new Set<string>();
 
   for (const claim of claims) {

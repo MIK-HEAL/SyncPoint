@@ -147,7 +147,7 @@ export function registerPrimitiveCommands(program: Command): void {
             participants: parseStringArrayOption(opts.participants),
             scope: opts.scope,
             interfaceSpec: parseStringArrayOption(opts.interface),
-            fileBoundaries: parseStringArrayOption(opts.boundaries),
+            resourceBoundaries: parseStringArrayOption(opts.boundaries),
             responsibilities: [],
             dependencies: [],
             testPlan: "",

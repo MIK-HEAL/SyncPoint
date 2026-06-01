@@ -419,10 +419,9 @@ describe("resolveProjectionRoute", () => {
     expect(r.buckets).toEqual(["protocolRules"]);
   });
 
-  it("default: do_not_touch → dual-write doNotTouch + constraintRules", () => {
+  it("default: do_not_touch → doNotTouch only", () => {
     const r = resolveProjectionRoute("do_not_touch", null);
-    expect(r.buckets).toEqual(["doNotTouch", "constraintRules"]);
-    expect(r.reason).toContain("dual-write");
+    expect(r.buckets).toEqual(["doNotTouch"]);
   });
 
   it("explicit target: risk → constraint_runtime routes to constraintRules", () => {
@@ -489,11 +488,11 @@ describe("buildRealityProjection — target routing integration", () => {
     expect(r.contextPatch.doNotTouch).toHaveLength(0);
   });
 
-  it("do_not_touch without target → dual-write (backward compat)", () => {
+  it("do_not_touch without target → doNotTouch only (no dual-write)", () => {
     const mem = makeMem({ kind: "do_not_touch" });
     const r = buildRealityProjection([mem], makeCtx());
     expect(r.contextPatch.doNotTouch).toHaveLength(1);
-    expect(r.constraintRules).toHaveLength(1);
+    expect(r.constraintRules).toHaveLength(0);
   });
 
   it("projectionReason includes target info when target is explicit", () => {
@@ -611,11 +610,9 @@ describe("P3: projectionTarget authoritative routing", () => {
     expect(route.buckets).toEqual(["constraintRules"]);
   });
 
-  it("do_not_touch without target dual-writes to doNotTouch + constraintRules", () => {
+  it("do_not_touch without target routes to doNotTouch only", () => {
     const route = resolveProjectionRoute("do_not_touch", null);
-    expect(route.buckets).toContain("doNotTouch");
-    expect(route.buckets).toContain("constraintRules");
-    expect(route.buckets.length).toBe(2);
+    expect(route.buckets).toEqual(["doNotTouch"]);
   });
 
   it("do_not_touch with explicit context_snapshot target routes to context_snapshot bucket only", () => {

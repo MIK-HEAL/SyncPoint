@@ -40,16 +40,6 @@ export function findProjectSyncpointDir(from: string = process.cwd()): string | 
 let sqlite: Database.Database | null = null;
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 const DRIZZLE_MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../drizzle");
-const DRIZZLE_JOURNAL_PATH = path.join(DRIZZLE_MIGRATIONS_DIR, "meta", "_journal.json");
-
-type DrizzleJournalEntry = {
-  when: number;
-  tag: string;
-};
-
-type DrizzleMigrationJournal = {
-  entries?: DrizzleJournalEntry[];
-};
 
 const PEER_CONTRACT_NORMALIZATION_SQL_PATH = path.join(
   DRIZZLE_MIGRATIONS_DIR,
@@ -61,15 +51,9 @@ const AGENT_REGISTRY_ENTRY_SQL_PATH = path.join(
   "0002_agent_registry_entry.sql",
 );
 
-function isColumnNullable(db: Database.Database, tableName: string, columnName: string): boolean {
-  if (!hasTable(db, tableName)) return false;
-  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string; notnull: number }>;
-  const col = columns.find(c => c.name === columnName);
-  return col ? col.notnull === 0 : false;
-}
 
 function ensureDrizzleMigrationAssets(): void {
-  if (!fs.existsSync(DRIZZLE_MIGRATIONS_DIR) || !fs.existsSync(DRIZZLE_JOURNAL_PATH)) {
+  if (!fs.existsSync(DRIZZLE_MIGRATIONS_DIR)) {
     throw new Error("Drizzle migrations not found. Run `pnpm --filter syncpoint-server db:generate` first.");
   }
 }
@@ -88,38 +72,6 @@ function hasIndex(db: Database.Database, indexName: string): boolean {
   return Boolean(db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?").get(indexName));
 }
 
-function hasLegacySchema(db: Database.Database): boolean {
-  return hasTable(db, "agent") || hasTable(db, "task") || hasTable(db, "project_memory");
-}
-
-function getMigrationRowCount(db: Database.Database): number {
-  if (!hasTable(db, "__drizzle_migrations")) return 0;
-  const row = db.prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations").get() as { count: number } | undefined;
-  return row?.count ?? 0;
-}
-
-function readDrizzleBaselineEntry(): DrizzleJournalEntry | null {
-  const journal = JSON.parse(fs.readFileSync(DRIZZLE_JOURNAL_PATH, "utf-8")) as DrizzleMigrationJournal;
-  return journal.entries?.[0] ?? null;
-}
-
-function bootstrapLegacyDrizzleJournal(db: Database.Database): void {
-  if (!hasLegacySchema(db)) return;
-  if (getMigrationRowCount(db) > 0) return;
-
-  const baseline = readDrizzleBaselineEntry();
-  if (!baseline) return;
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
-      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-      hash TEXT NOT NULL,
-      created_at NUMERIC
-    );
-  `);
-
-  db.prepare("INSERT INTO \"__drizzle_migrations\" (\"hash\", \"created_at\") VALUES (?, ?)").run(baseline.tag, baseline.when);
-}
 
 function runPeerContractNormalizationMigration(db: Database.Database): void {
   if (!hasColumn(db, "peer_contract", "participants")) return;
@@ -128,7 +80,7 @@ function runPeerContractNormalizationMigration(db: Database.Database): void {
     "peer_contract_participant",
     "peer_contract_responsibility",
     "peer_contract_interface_spec",
-    "peer_contract_file_boundary",
+    "peer_contract_resource_boundary",
     "peer_contract_dependency",
   ];
   const partiallyExistingChildTables = childTables.filter(tableName => hasTable(db, tableName));
@@ -144,91 +96,6 @@ function runPeerContractNormalizationMigration(db: Database.Database): void {
   db.exec(fs.readFileSync(PEER_CONTRACT_NORMALIZATION_SQL_PATH, "utf-8"));
 }
 
-/**
- * Normalize JSON text columns from empty-string defaults to proper JSON values.
- * Drizzle mode:json auto-parses/stringifies, but legacy rows with "" will fail JSON.parse.
- * This migration converts:
- *   - sync_gate.policy_json: "" → default GatePolicy JSON
- *   - agent_manifest.escalation_preference_json: "{}" → full default EscalationPreference JSON
- *   - agent_registry_entry.manifest_json: "" → NULL (also drops NOT NULL)
- *   - operation.check_result: "" → NULL (also drops NOT NULL)
- *   - negotiation_session.config_json: "{}" → full default NegotiationConfig JSON
- */
-function runJsonDefaultsMigration(db: Database.Database): void {
-  // ── Value normalization (NOT NULL stays, just value changes) ──
-  const valueMigrations: Array<{ table: string; column: string; from: string; to: string }> = [
-    { table: "sync_gate", column: "policy_json", from: "", to: '{"kind":"all_required","timeoutAction":"escalate"}' },
-    { table: "agent_manifest", column: "escalation_preference_json", from: "{}", to: '{"optIn":"when_available","priority":50,"maxConcurrentEscalations":3}' },
-    { table: "negotiation_session", column: "config_json", from: "{}", to: '{"maxRounds":3,"roundDeadlineMinutes":15,"negotiationDeadlineMinutes":45}' },
-  ];
-  for (const { table, column, from, to } of valueMigrations) {
-    if (!hasTable(db, table)) continue;
-    db.exec(`UPDATE \`${table}\` SET \`${column}\` = '${to}' WHERE \`${column}\` = '${from}';`);
-  }
-
-  // ── Nullable column migrations (NOT NULL → nullable, "" → NULL) ──
-  // SQLite doesn't support ALTER COLUMN; must recreate tables.
-  // Foreign keys must be off during table recreation to avoid blocking DROP TABLE.
-
-  // operation.check_result: TEXT DEFAULT '' NOT NULL → TEXT DEFAULT NULL
-  if (hasTable(db, "operation") && !isColumnNullable(db, "operation", "check_result")) {
-    db.pragma("foreign_keys = OFF");
-    db.exec(`
-      CREATE TABLE \`_operation_new\` (
-        \`id\` text PRIMARY KEY NOT NULL,
-        \`type\` text NOT NULL,
-        \`actor_id\` text NOT NULL,
-        \`task_id\` text NOT NULL,
-        \`session_id\` text DEFAULT '' NOT NULL,
-        \`title\` text NOT NULL,
-        \`summary\` text DEFAULT '' NOT NULL,
-        \`payload_ref\` text DEFAULT '' NOT NULL,
-        \`status\` text DEFAULT 'DRAFT' NOT NULL,
-        \`check_result\` text DEFAULT NULL,
-        \`decision_summary\` text DEFAULT '' NOT NULL,
-        \`created_at\` text NOT NULL,
-        \`updated_at\` text NOT NULL
-      );
-      INSERT INTO \`_operation_new\` SELECT
-        \`id\`, \`type\`, \`actor_id\`, \`task_id\`, \`session_id\`, \`title\`, \`summary\`,
-        \`payload_ref\`, \`status\`,
-        CASE WHEN \`check_result\` = '' THEN NULL ELSE \`check_result\` END,
-        \`decision_summary\`, \`created_at\`, \`updated_at\`
-      FROM \`operation\`;
-      DROP TABLE \`operation\`;
-      ALTER TABLE \`_operation_new\` RENAME TO \`operation\`;
-    `);
-    db.pragma("foreign_keys = ON");
-  }
-
-  // agent_registry_entry.manifest_json: TEXT DEFAULT '' NOT NULL → TEXT DEFAULT NULL
-  if (hasTable(db, "agent_registry_entry") && !isColumnNullable(db, "agent_registry_entry", "manifest_json")) {
-    db.pragma("foreign_keys = OFF");
-    db.exec(`
-      CREATE TABLE \`_agent_registry_entry_new\` (
-        \`manifest_path\` text PRIMARY KEY NOT NULL,
-        \`agent_id\` text,
-        \`source_format\` text DEFAULT '' NOT NULL,
-        \`content_hash\` text DEFAULT '' NOT NULL,
-        \`manifest_json\` text DEFAULT NULL,
-        \`status\` text DEFAULT 'pending' NOT NULL,
-        \`error_message\` text DEFAULT '' NOT NULL,
-        \`last_sync_at\` text NOT NULL,
-        \`created_at\` text NOT NULL,
-        \`updated_at\` text NOT NULL
-      );
-      INSERT INTO \`_agent_registry_entry_new\` SELECT
-        \`manifest_path\`, \`agent_id\`, \`source_format\`, \`content_hash\`,
-        CASE WHEN \`manifest_json\` = '' THEN NULL ELSE \`manifest_json\` END,
-        \`status\`, \`error_message\`, \`last_sync_at\`, \`created_at\`, \`updated_at\`
-      FROM \`agent_registry_entry\`;
-      DROP TABLE \`agent_registry_entry\`;
-      ALTER TABLE \`_agent_registry_entry_new\` RENAME TO \`agent_registry_entry\`;
-      CREATE UNIQUE INDEX IF NOT EXISTS \`uq_agent_registry_entry_agent\` ON \`agent_registry_entry\` (\`agent_id\`);
-    `);
-    db.pragma("foreign_keys = ON");
-  }
-}
 
 function runFkIndexesMigration(db: Database.Database): void {
   // Each index is created only if its target table exists.
@@ -239,8 +106,6 @@ function runFkIndexesMigration(db: Database.Database): void {
     { table: "sync_gate_related_claim", index: "idx_sgrc_gate", column: "gate_id" },
     { table: "operation_resource", index: "idx_opr_op", column: "operation_id" },
     { table: "write_permit_resource", index: "idx_wpr_permit", column: "permit_id" },
-    { table: "file_claim", index: "idx_fc_agent", column: "agent_id" },
-    { table: "file_claim", index: "idx_fc_task", column: "task_id" },
   ];
   for (const { table, index, column } of fkIndexes) {
     if (hasTable(db, table) && !hasIndex(db, index)) {
@@ -392,12 +257,10 @@ export function closeDb(): void {
 
 export function runMigrations(db: Database.Database): void {
   ensureDrizzleMigrationAssets();
-  bootstrapLegacyDrizzleJournal(db);
   migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });
   runPeerContractNormalizationMigration(db);
   runAgentRegistryEntryMigration(db);
   runFkIndexesMigration(db);
-  runJsonDefaultsMigration(db);
   runResourceScopeMigration(db);
   ensureRuntimeOnlyTables(db);
 }

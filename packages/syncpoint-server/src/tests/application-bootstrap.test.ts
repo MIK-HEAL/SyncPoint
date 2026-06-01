@@ -11,7 +11,6 @@ import {
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const applicationDir = path.resolve(testDir, "../application");
 const mainPath = path.resolve(testDir, "../main.ts");
-const legacyPluginInitPath = path.join(applicationDir, "_plugin-init.ts");
 
 const serviceEntryFiles = [
   "constraint-evaluation-service.ts",
@@ -48,7 +47,7 @@ describe("application bootstrap", () => {
     expect(second).toEqual(first);
   });
 
-  it("removes legacy _plugin-init imports from core consumer entry files", () => {
+  it("core consumer entry files do not import _plugin-init", () => {
     for (const fileName of serviceEntryFiles) {
       const source = fs.readFileSync(path.join(applicationDir, fileName), "utf8");
       expect(source).not.toContain('_plugin-init');
@@ -62,9 +61,9 @@ describe("application bootstrap", () => {
     const mainSource = fs.readFileSync(mainPath, "utf8");
     expect(mainSource).toContain('import { ensureApplicationBootstrap } from "./application/bootstrap.js";');
     expect(mainSource).toContain("ensureApplicationBootstrap();");
+  });
 
-    const legacySource = fs.readFileSync(legacyPluginInitPath, "utf8");
-    expect(legacySource).not.toContain("registerCodePlugin");
-    expect(legacySource).not.toContain("registerGenericAgentPlugin");
+  it("_plugin-init.ts has been removed", () => {
+    expect(fs.existsSync(path.join(applicationDir, "_plugin-init.ts"))).toBe(false);
   });
 });

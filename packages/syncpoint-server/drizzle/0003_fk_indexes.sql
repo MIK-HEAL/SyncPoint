@@ -5,6 +5,4 @@ CREATE INDEX IF NOT EXISTS `idx_rcr_claim` ON `resource_claim_resource` (`claim_
 CREATE INDEX IF NOT EXISTS `idx_sgr_gate` ON `sync_gate_resource` (`gate_id`);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS `idx_sgrc_gate` ON `sync_gate_related_claim` (`gate_id`);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS `idx_opr_op` ON `operation_resource` (`operation_id`);--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `idx_wpr_permit` ON `write_permit_resource` (`permit_id`);--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `idx_fc_agent` ON `file_claim` (`agent_id`);--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS `idx_fc_task` ON `file_claim` (`task_id`);
+CREATE INDEX IF NOT EXISTS `idx_wpr_permit` ON `write_permit_resource` (`permit_id`);

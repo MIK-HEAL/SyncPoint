@@ -43,7 +43,7 @@ beforeAll(async () => {
     scope: "UI components",
     responsibilities: ["Build React components"],
     interfaceSpec: ["ComponentProps interface"],
-    fileBoundaries: ["src/components/*"],
+    resourceBoundaries: ["src/components/*"],
   }, "POST") as any;
   await e2e.rpc("contract.updateStatus", { id: contract.id, status: "REVIEWING" }, "POST");
   await e2e.rpc("contract.updateStatus", { id: contract.id, status: "APPROVED" }, "POST");

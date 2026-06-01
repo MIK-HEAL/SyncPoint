@@ -67,7 +67,7 @@ export function formatReviewPrompt(
     lines.push(`- **Scope**: ${contract.scope}`);
     lines.push(`- **Responsibilities**: ${contract.responsibilities.join(", ")}`);
     lines.push(`- **Interface**: ${contract.interfaceSpec.join(", ")}`);
-    lines.push(`- **Resource Boundaries**: ${contract.fileBoundaries.join(", ")}`);
+    lines.push(`- **Resource Boundaries**: ${contract.resourceBoundaries.join(", ")}`);
     lines.push("");
   }
 

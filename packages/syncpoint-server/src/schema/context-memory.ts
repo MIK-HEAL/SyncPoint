@@ -10,7 +10,7 @@ export const checkpoints = sqliteTable("checkpoint", {
   summary: text("summary").notNull(),
   progress: text("progress").notNull().default(""),
   currentUnderstanding: text("current_understanding").notNull().default(""),
-  changedFiles: text("changed_files").notNull().default(""), // @deprecated — use workingResources on context snapshot. Rename to changedResources in future migration.
+  changedResources: text("changed_resources").notNull().default(""),
   risks: text("risks").notNull().default(""),
   blockers: text("blockers").notNull().default(""),
   nextSteps: text("next_steps").notNull().default(""),
@@ -86,14 +86,14 @@ export const peerContractInterfaceSpecs = sqliteTable("peer_contract_interface_s
   contractPositionUnique: uniqueIndex("uq_peer_contract_interface_spec_position").on(table.contractId, table.position),
 }));
 
-export const peerContractFileBoundaries = sqliteTable("peer_contract_file_boundary", {
+export const peerContractResourceBoundaries = sqliteTable("peer_contract_resource_boundary", {
   id: text("id").primaryKey(),
   contractId: text("contract_id").notNull().references(() => peerContracts.id),
   position: integer("position").notNull(),
-  boundary: text("boundary").notNull(), // @deprecated — rename to resourceBoundaries in future migration.
+  resourceBoundary: text("resource_boundary").notNull(),
 }, (table) => ({
-  contractIndex: index("idx_peer_contract_file_boundary_contract").on(table.contractId),
-  contractPositionUnique: uniqueIndex("uq_peer_contract_file_boundary_position").on(table.contractId, table.position),
+  contractIndex: index("idx_peer_contract_resource_boundary_contract").on(table.contractId),
+  contractPositionUnique: uniqueIndex("uq_peer_contract_resource_boundary_position").on(table.contractId, table.position),
 }));
 
 export const peerContractDependencies = sqliteTable("peer_contract_dependency", {
@@ -106,7 +106,7 @@ export const peerContractDependencies = sqliteTable("peer_contract_dependency", 
   contractPositionUnique: uniqueIndex("uq_peer_contract_dependency_position").on(table.contractId, table.position),
 }));
 
-// ── ContextSnapshot (replaces context_capsule wide table) ──
+// ── ContextSnapshot ──
 
 export const contextSnapshots = sqliteTable("context_snapshot", {
   id: text("id").primaryKey(),

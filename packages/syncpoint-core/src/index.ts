@@ -221,7 +221,6 @@ export type {
 export {
   evaluateConstraints,
   buildConstraintManifest,
-  parseRuntimeSpec,
   resolveRuntimeSpec,
   registerConstraintEvaluator,
   getConstraintEvaluator,

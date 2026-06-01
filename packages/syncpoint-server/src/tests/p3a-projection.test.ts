@@ -26,7 +26,8 @@ describe("P3A: Projection — kind→bucket mapping", () => {
     await createAndApprove({ category: "convention", title: "P3A conv", content: "A convention", kind: "soft_convention" });
     await createAndApprove({ category: "risk", title: "P3A risk", content: "A risk", kind: "risk" });
     await createAndApprove({ category: "gotcha", title: "P3A dnt", content: "Dont touch", kind: "do_not_touch" });
-    await createAndApprove({ category: "decision", title: "P3A hc", content: "Hard constraint", kind: "hard_constraint", projectionTarget: "protocol_gate" });
+    await createAndApprove({ category: "decision", title: "P3A hc", content: "Hard constraint", kind: "hard_constraint" });
+    await createAndApprove({ category: "decision", title: "P3A hc pg", content: "Protocol gate HC", kind: "hard_constraint", projectionTarget: "protocol_gate" });
     await createAndApprove({ category: "decision", title: "P3A pr", content: "Protocol rule", kind: "protocol_rule", projectionTarget: "protocol_gate" });
 
     const r = (await ctx.rpc("projectMemory.projection", { taskId: "task-1" }, "GET")) as any;

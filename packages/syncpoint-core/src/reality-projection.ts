@@ -429,14 +429,6 @@ export function resolveProjectionRoute(kind: string, projectionTarget: string | 
   // Default routing by kind
   const defaultBucket = kindToBucket(kind);
 
-  // do_not_touch dual-writes: contextPatch.doNotTouch + constraintRules
-  if (kind === "do_not_touch") {
-    return {
-      buckets: ["doNotTouch", "constraintRules"],
-      reason: "do_not_touch → doNotTouch + constraintRules (default dual-write)",
-    };
-  }
-
   return {
     buckets: [defaultBucket],
     reason: projectionReasonForKind(kind),

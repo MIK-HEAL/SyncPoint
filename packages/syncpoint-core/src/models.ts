@@ -75,7 +75,7 @@ export const CheckpointSchema = z.object({
   summary: z.string().min(1),
   progress: z.string().default(""),
   currentUnderstanding: z.string().default(""),
-  changedFiles: z.array(z.string()).default([]),
+  changedResources: z.array(z.string()).default([]),
   risks: z.string().default(""),
   blockers: z.string().default(""),
   nextSteps: z.string().default(""),
@@ -91,7 +91,7 @@ export const CheckpointCreateSchema = z.object({
   summary: z.string().min(1),
   progress: z.string().default(""),
   currentUnderstanding: z.string().default(""),
-  changedFiles: z.array(z.string()).default([]),
+  changedResources: z.array(z.string()).default([]),
   risks: z.string().default(""),
   blockers: z.string().default(""),
   nextSteps: z.string().default(""),
@@ -156,8 +156,8 @@ export const PeerContractSchema = z.object({
   scope: z.string().default(""),
   responsibilities: z.array(z.string()).default([]),  // JSON {agentId: string}
   interfaceSpec: z.array(z.string()).default([]),     // JSON: API endpoints, schemas
-  fileBoundaries: z.array(z.string()).default([]),    // JSON {agentId: [patterns]}
-  dependencies: z.array(z.string()).default([]),      // JSON
+  resourceBoundaries: z.array(z.string()).default([]),
+  dependencies: z.array(z.string()).default([]),
   testPlan: z.string().default(""),
   risks: z.string().default(""),
   status: z.nativeEnum(ContractStatus).default(ContractStatus.DRAFT),
@@ -174,7 +174,7 @@ export const PeerContractCreateSchema = z.object({
   scope: z.string().default(""),
   responsibilities: z.array(z.string()).default([]),
   interfaceSpec: z.array(z.string()).default([]),
-  fileBoundaries: z.array(z.string()).default([]),
+  resourceBoundaries: z.array(z.string()).default([]),
   dependencies: z.array(z.string()).default([]),
   testPlan: z.string().default(""),
   risks: z.string().default(""),

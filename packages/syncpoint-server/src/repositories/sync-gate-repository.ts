@@ -146,15 +146,6 @@ export function updateSyncGateStatus(id: string, status: SyncGateStatus, decisio
   return getSyncGate(id);
 }
 
-export function updateSyncGateAckedAgents(id: string, _ackedAgentIds: string): SyncGate {
-  // ackedAgentIds is now derived from sync_gate_ack rows.
-  // Callers should use createGateAck instead. Kept as a no-op for compat
-  // with internal call sites that only need to bump updatedAt.
-  const db = _getDb();
-  db.update(s.syncGates).set({ updatedAt: now() }).where(eq(s.syncGates.id, id)).run();
-  return getSyncGate(id);
-}
-
 export function updateSyncGateDescription(id: string, description: string): SyncGate {
   const db = _getDb();
   db.update(s.syncGates).set({

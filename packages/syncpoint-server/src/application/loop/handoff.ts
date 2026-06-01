@@ -33,7 +33,7 @@ export function loopHandoff(input: LoopHandoffInput): LoopHandoffResult {
     summary: `Handoff to ${toAgent.name}: ${input.context}`,
     progress: "",
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
     risks: "",
     blockers: "",
     nextSteps: `Handoff to ${toAgent.name}`,

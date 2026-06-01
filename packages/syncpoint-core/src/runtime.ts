@@ -53,7 +53,7 @@ export type RuntimeCreate = z.infer<typeof RuntimeCreateSchema>;
 export interface BoundIdentity {
   agentId: string;
   runtimeId: string | null;
-  source: "env-agent" | "env-runtime" | "parameter";
+  source: "env-agent" | "env-runtime";
 }
 
 export interface IdentityEnv {
@@ -67,7 +67,6 @@ export interface IdentityEnv {
  * Priority:
  *   1. SYNCPOINT_AGENT_ID env → bound agent (reject mismatched param)
  *   2. SYNCPOINT_RUNTIME_ID env → look up agent from runtime (caller supplies resolver)
- *   3. Fallback to inputAgentId parameter (legacy mode)
  *
  * Returns null if no identity can be resolved.
  * Throws if inputAgentId conflicts with bound identity.
@@ -97,11 +96,6 @@ export function resolveIdentity(
       }
       return { agentId: resolved, runtimeId: envRuntimeId, source: "env-runtime" };
     }
-  }
-
-  // Case 3: legacy — use parameter
-  if (inputAgentId) {
-    return { agentId: inputAgentId, runtimeId: envRuntimeId ?? null, source: "parameter" };
   }
 
   return null;

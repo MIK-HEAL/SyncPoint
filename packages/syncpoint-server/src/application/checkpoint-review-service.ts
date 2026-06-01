@@ -77,7 +77,7 @@ export function stxCreate(input: SyncTxCreateInput): SyncTxStatusResult {
 
   logEvent(
     EventType.SYNC_TX_CREATED,
-    "sync_transaction",
+    "checkpoint_review",
     tx.id,
     JSON.stringify({
       sessionId: input.sessionId,
@@ -93,7 +93,7 @@ export function stxCreate(input: SyncTxCreateInput): SyncTxStatusResult {
 
   logEvent(
     EventType.SYNC_TX_SUBMITTED,
-    "sync_transaction",
+    "checkpoint_review",
     tx.id,
     JSON.stringify({ requiredApproverIds: input.requiredApproverIds }),
   );
@@ -126,7 +126,7 @@ export function stxApprove(txId: string, agentId: string, summary?: string): Syn
 
   logEvent(
     EventType.SYNC_TX_APPROVED,
-    "sync_transaction",
+    "checkpoint_review",
     tx.id,
     JSON.stringify({ agentId, summary: summary ?? "" }),
   );
@@ -169,7 +169,7 @@ export function stxReject(txId: string, agentId: string, reason?: string): SyncT
 
   logEvent(
     EventType.SYNC_TX_REJECTED,
-    "sync_transaction",
+    "checkpoint_review",
     tx.id,
     JSON.stringify({ agentId, reason: reason ?? "" }),
   );
@@ -200,7 +200,7 @@ export function stxResolve(txId: string, decisionSummary?: string): SyncTxStatus
 
   logEvent(
     EventType.SYNC_TX_RESOLVED,
-    "sync_transaction",
+    "checkpoint_review",
     tx.id,
     JSON.stringify({ decisionSummary: decisionSummary ?? "" }),
   );
@@ -231,7 +231,7 @@ export function stxCancel(txId: string, reason?: string): CheckpointReview {
 
   logEvent(
     EventType.SYNC_TX_CANCELLED,
-    "sync_transaction",
+    "checkpoint_review",
     tx.id,
     JSON.stringify({ reason: reason ?? "" }),
   );

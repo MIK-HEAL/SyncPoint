@@ -7,7 +7,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import { pmAdd, pmApprove } from "./project-memory-service.js";
 import { prepareContext, enforcePreparedContext, getContextPolicyInfo } from "./context-policy-service.js";
 
@@ -34,7 +34,7 @@ beforeAll(() => {
     summary: "Initial work done",
     progress: "50%",
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
     risks: "None",
     blockers: "",
     nextSteps: "Continue",
@@ -135,7 +135,7 @@ describe("prepareContext", () => {
       summary: "Ready to work",
       progress: "10%",
       currentUnderstanding: "",
-      changedFiles: [],
+      changedResources: [],
       risks: "",
       blockers: "",
       nextSteps: "Wait for approval",
@@ -167,7 +167,7 @@ describe("prepareContext", () => {
       scope: "Contract-gated scope",
       responsibilities: [],
       interfaceSpec: [],
-      fileBoundaries: [],
+      resourceBoundaries: [],
       dependencies: [],
       testPlan: "",
       risks: "",
@@ -202,7 +202,7 @@ describe("prepareContext", () => {
       summary: "Sender work done",
       progress: "70%",
       currentUnderstanding: "",
-      changedFiles: [],
+      changedResources: [],
       risks: "",
       blockers: "",
       nextSteps: "Receiver continues",

@@ -26,7 +26,7 @@ import { collectPinnedMemories } from "./memory-repository.js";
 import { collectProjectMemories } from "./project-memory-repository.js";
 import { hydrateContractRows } from "./contract-repository-internals.js";
 
-function parseChangedFiles(raw: string | null | undefined): string[] {
+function parseChangedResources(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -39,7 +39,7 @@ function parseChangedFiles(raw: string | null | undefined): string[] {
 function hydrateCheckpointRow(row: typeof s.checkpoints.$inferSelect): Checkpoint {
   return {
     ...row,
-    changedFiles: parseChangedFiles(row.changedFiles),
+    changedResources: parseChangedResources(row.changedResources),
   } as Checkpoint;
 }
 
@@ -165,7 +165,7 @@ function buildResumePrompt(
     if (contract.scope) lines.push(`**Scope**: ${contract.scope}`);
     if (contract.responsibilities.length) lines.push(`**Responsibilities**: ${contract.responsibilities.join(", ")}`);
     if (contract.interfaceSpec.length) lines.push(`**Interface**: ${contract.interfaceSpec.join(", ")}`);
-    if (contract.fileBoundaries.length) lines.push(`**File Boundaries**: ${contract.fileBoundaries.join(", ")}`);
+    if (contract.resourceBoundaries.length) lines.push(`**Resource Boundaries**: ${contract.resourceBoundaries.join(", ")}`);
     lines.push("");
   }
 
@@ -271,7 +271,7 @@ export function getResumeContext(taskId: string, agentId: string): ResumeContext
       scope: approvedContract.scope,
       responsibilities: approvedContract.responsibilities,
       interfaceSpec: approvedContract.interfaceSpec,
-      fileBoundaries: approvedContract.fileBoundaries,
+      resourceBoundaries: approvedContract.resourceBoundaries,
       status: approvedContract.status,
     } : null,
     latestSnapshot: snapshot ? {

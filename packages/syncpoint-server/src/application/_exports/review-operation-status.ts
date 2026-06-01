@@ -32,14 +32,12 @@ export type {
 } from "../operation-service.js";
 
 export {
-  buildOverview,
   buildSnapshot,
   buildScopeFilter,
   classifyBlockers,
 } from "../sync-status-service.js";
 
 export type {
-  OverviewInput,
   SnapshotInput,
   UnifiedBlocker,
 } from "../sync-status-service.js";
@@ -49,7 +47,6 @@ export {
   prepareResumeProjectionContext,
   checkAgentBlock,
   evaluateExecutionReadiness,
-  collectStatusOverviewState,
   collectStatusSnapshotState,
 } from "../collaboration-coordinator.js";
 

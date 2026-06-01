@@ -7,7 +7,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import {
   orchCreateSession,
   orchAssignRole,
@@ -73,7 +73,7 @@ beforeAll(() => {
     summary: "Auth module done",
     progress: "100%",
     currentUnderstanding: "",
-    changedFiles: ["auth.ts"],
+    changedResources: ["auth.ts"],
     risks: "",
     blockers: "",
     nextSteps: "Review",

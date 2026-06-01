@@ -21,9 +21,9 @@
       "import": "./dist/index.js"
     },
     "./repositories": {
-      "source": "./src/repositories.ts",
-      "types": "./dist/repositories.d.ts",
-      "import": "./dist/repositories.js"
+      "source": "./src/repositories/index.ts",
+      "types": "./dist/repositories/index.d.ts",
+      "import": "./dist/repositories/index.js"
     },
     "./application": {
       "source": "./src/application/index.ts",

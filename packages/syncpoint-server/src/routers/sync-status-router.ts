@@ -5,27 +5,16 @@
  * sync-status-service.ts.  This router only handles input validation
  * and delegates to the service layer.
  *
- * Two endpoints:
- *   overview  — legacy compact summary (backward-compatible)
+ * Endpoint:
  *   snapshot  — comprehensive sync map for the VS Code Sync View
  */
 import { z } from "zod";
-import { buildOverview, buildSnapshot } from "../application/sync-status-service.js";
+import { buildSnapshot } from "../application/sync-status-service.js";
 import { t, publicProcedure } from "./_trpc.js";
 
 // ── router ───────────────────────────────────────────
 
 export const syncStatusRouter = t.router({
-
-  /**
-   * Legacy overview — kept for backward compatibility.
-   */
-  overview: publicProcedure
-    .input(z.object({
-      sessionId: z.string().optional(),
-      taskId: z.string().optional(),
-    }).optional())
-    .query(({ input }) => buildOverview(input ?? undefined)),
 
   /**
    * P9 Snapshot — comprehensive sync map for the Editor Sync View.

@@ -81,24 +81,6 @@ export function clearConstraintEvaluatorRegistry(): void {
   _ruleEvaluators.clear();
 }
 
-/**
- * Parse a runtime spec from memory content.
- * Supports embedded JSON: `<!-- runtime-spec: {"rule":"resource_forbidden"} -->`
- * Returns null if no spec found.
- */
-export function parseRuntimeSpec(content: string): ConstraintRuleSpec | null {
-  const match = content.match(/<!--\s*runtime-spec:\s*(\{[^}]+\})\s*-->/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[1]);
-    if (parsed && typeof parsed.rule === "string") {
-      return { rule: parsed.rule as ConstraintRuleType, message: parsed.message };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Parse validator config into a partial spec override.
@@ -121,9 +103,8 @@ function parseValidatorConfig(
  * Build a runtime spec from a ProjectedMemoryItem's structural fields.
  *
  * Resolution order:
- *   1. Explicit `validatorType` field (from Project Memory schema) — the designed path
- *   2. Embedded `<!-- runtime-spec: {...} -->` in content — compatibility/convenience
- *   3. No inference from scope alone — hard_constraint without validator stays advisory
+ *   1. Explicit `validatorType` field (from Project Memory schema) — the only path
+ *   2. No inference from scope alone — hard_constraint without validator stays advisory
  */
 export function resolveRuntimeSpec(item: ProjectedMemoryItem): ConstraintRuleSpec | null {
   // 1. Explicit validatorType from schema
@@ -136,11 +117,7 @@ export function resolveRuntimeSpec(item: ProjectedMemoryItem): ConstraintRuleSpe
     };
   }
 
-  // 2. Embedded spec in content (backward compat / convenience)
-  const embedded = parseRuntimeSpec(item.content);
-  if (embedded) return embedded;
-
-  // 3. No inference from scope — preserves "hard_constraint without validator = advisory"
+  // 2. No inference from scope — preserves "hard_constraint without validator = advisory"
   return null;
 }
 
@@ -345,7 +322,10 @@ function evaluateDoNotTouchScopeOverlap(
   const resources = input.touchedResources;
   if (!resources?.length) return;
 
-  const doNotTouchRules = input.projection.constraintRules.filter(isDoNotTouch);
+  const doNotTouchRules = [
+    ...input.projection.constraintRules.filter(isDoNotTouch),
+    ...input.projection.contextPatch.doNotTouch,
+  ];
 
   for (const item of doNotTouchRules) {
     const overlaps = findAllScopeOverlaps(resources, item.scope);
@@ -459,7 +439,6 @@ function evaluateHardConstraintTyped(
 /** Check if item is a do_not_touch (handled by its own evaluator). */
 function isDoNotTouch(cr: ProjectedMemoryItem): boolean {
   return cr.kind === "do_not_touch"
-    || cr.source.projectionReason.includes("dual-write")
     || cr.source.projectionReason.includes("P4 enforcement");
 }
 

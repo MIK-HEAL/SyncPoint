@@ -23,7 +23,7 @@ describe("Memory Switch Engine", () => {
     await ctx.rpc("task.assign", { taskId, agentId });
     const cp = (await ctx.rpc("checkpoint.create", { taskId, agentId, summary: "Started auth work", progress: "50%", risks: "", blockers: "" })) as any;
     checkpointId = cp.id;
-    const c = (await ctx.rpc("contract.create", { taskId, title: "Auth contract", scope: "auth module", responsibilities: ["backend: API"], interfaceSpec: ["POST /login"], fileBoundaries: ["src/auth/*"] })) as any;
+    const c = (await ctx.rpc("contract.create", { taskId, title: "Auth contract", scope: "auth module", responsibilities: ["backend: API"], interfaceSpec: ["POST /login"], resourceBoundaries: ["src/auth/*"] })) as any;
     contractId = c.id;
     await ctx.rpc("contract.updateStatus", { id: contractId, status: "REVIEWING" });
     await ctx.rpc("contract.updateStatus", { id: contractId, status: "APPROVED" });
@@ -58,7 +58,7 @@ describe("Memory Switch Engine", () => {
     expect(rc.approvedContract.title).toBe("Auth contract");
     expect(rc.approvedContract.scope).toBe("auth module");
     expect(rc.approvedContract.interfaceSpec).toContain("POST /login");
-    expect(rc.approvedContract.fileBoundaries).toContain("src/auth/*");
+    expect(rc.approvedContract.resourceBoundaries).toContain("src/auth/*");
 
     // Snapshot
     expect(rc.latestSnapshot).not.toBeNull();

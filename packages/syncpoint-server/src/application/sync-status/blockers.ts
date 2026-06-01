@@ -87,7 +87,7 @@ export function classifyBlockers(opts: {
   for (const tx of opts.activeTransactions) {
     const approverIds = tx.requiredApproverIds;
     blockers.push({
-      type: "sync_transaction",
+      type: "checkpoint_review",
       id: tx.id,
       reason: "checkpoint_approval",
       description: `Tx by ${opts.agentName(tx.requestingAgentId)} — ${tx.status}`,

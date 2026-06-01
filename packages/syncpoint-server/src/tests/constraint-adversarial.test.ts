@@ -14,7 +14,7 @@ import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb, closeDb } from "../../src/db.js";
-import * as repo from "../../src/repositories.js";
+import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import { loopResume } from "../application/loop-service.js";
 import {
@@ -70,7 +70,7 @@ beforeAll(() => {
     nextSteps: "",
     needSync: false,
     currentUnderstanding: "",
-    changedFiles: [],
+    changedResources: [],
   });
   repo.createContextSnapshot({
     taskId,

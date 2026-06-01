@@ -6,6 +6,25 @@ import { runMigrations } from "../../src/db.js";
 import type { SyncPointDb } from "../../src/db.js";
 import { __setDb } from "../../src/repositories/_shared.js";
 import { getContract } from "../../src/repositories/contract-repository.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+function seedDrizzleBaseline(db: Database.Database): void {
+  const drizzleDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../drizzle");
+  const journalPath = path.join(drizzleDir, "meta", "_journal.json");
+  const journal = JSON.parse(fs.readFileSync(journalPath, "utf-8"));
+  const baseline = journal.entries?.[0];
+  if (!baseline) return;
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      hash TEXT NOT NULL,
+      created_at NUMERIC
+    );
+  `);
+  db.prepare('INSERT INTO "__drizzle_migrations" ("hash", "created_at") VALUES (?, ?)').run(baseline.tag, baseline.when);
+}
 
 describe("peer_contract normalization migration", () => {
   let sqlite: Database.Database | null = null;
@@ -40,7 +59,7 @@ describe("peer_contract normalization migration", () => {
         scope TEXT NOT NULL DEFAULT '',
         responsibilities TEXT NOT NULL DEFAULT '',
         interface_spec TEXT NOT NULL DEFAULT '',
-        file_boundaries TEXT NOT NULL DEFAULT '',
+        resource_boundaries TEXT NOT NULL DEFAULT '',
         dependencies TEXT NOT NULL DEFAULT '',
         test_plan TEXT NOT NULL DEFAULT '',
         risks TEXT NOT NULL DEFAULT '',
@@ -51,7 +70,7 @@ describe("peer_contract normalization migration", () => {
       INSERT INTO task (id, title, description, status, created_at, updated_at)
       VALUES ('t1', 'Task 1', '', 'OPEN', '2024-02-01T00:00:00Z', '2024-02-01T00:00:00Z');
       INSERT INTO peer_contract (
-        id, task_id, title, participants, scope, responsibilities, interface_spec, file_boundaries, dependencies, test_plan, risks, status, created_at, updated_at
+        id, task_id, title, participants, scope, responsibilities, interface_spec, resource_boundaries, dependencies, test_plan, risks, status, created_at, updated_at
       ) VALUES (
         'c1',
         't1',
@@ -69,7 +88,7 @@ describe("peer_contract normalization migration", () => {
         '2024-02-01T00:00:00Z'
       );
       INSERT INTO peer_contract (
-        id, task_id, title, participants, scope, responsibilities, interface_spec, file_boundaries, dependencies, test_plan, risks, status, created_at, updated_at
+        id, task_id, title, participants, scope, responsibilities, interface_spec, resource_boundaries, dependencies, test_plan, risks, status, created_at, updated_at
       ) VALUES (
         'c2',
         't1',
@@ -88,6 +107,7 @@ describe("peer_contract normalization migration", () => {
       );
     `);
 
+    seedDrizzleBaseline(sqlite);
     runMigrations(sqlite);
     runMigrations(sqlite);
 
@@ -95,7 +115,7 @@ describe("peer_contract normalization migration", () => {
     expect(columnNames).not.toContain("participants");
     expect(columnNames).not.toContain("responsibilities");
     expect(columnNames).not.toContain("interface_spec");
-    expect(columnNames).not.toContain("file_boundaries");
+    expect(columnNames).not.toContain("resource_boundaries");
     expect(columnNames).not.toContain("dependencies");
 
     const participantRows = sqlite.prepare(
@@ -132,7 +152,7 @@ describe("peer_contract normalization migration", () => {
       scope: "Auth scope",
       responsibilities: ["backend", "review"],
       interfaceSpec: ["POST /auth/login"],
-      fileBoundaries: ["src/auth/"],
+      resourceBoundaries: ["src/auth/"],
       dependencies: ["token-service", "db"],
       testPlan: "Integration test",
       risks: "Token mismatch",
@@ -149,7 +169,7 @@ describe("peer_contract normalization migration", () => {
       scope: "",
       responsibilities: [],
       interfaceSpec: [],
-      fileBoundaries: [],
+      resourceBoundaries: [],
       dependencies: [],
       testPlan: "",
       risks: "",

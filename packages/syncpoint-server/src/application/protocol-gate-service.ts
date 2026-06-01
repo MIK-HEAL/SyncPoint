@@ -59,8 +59,8 @@ export function assembleProtocolGate(
     if (approved.scope) {
       rules.push({ source: "peer-contract", severity: "hard", summary: `Scope: ${approved.scope}`, entityId: approved.id });
     }
-    if (approved.fileBoundaries.length) {
-      rules.push({ source: "peer-contract", severity: "hard", summary: `Resource boundaries: ${approved.fileBoundaries.join(", ")}`, entityId: approved.id });
+    if (approved.resourceBoundaries.length) {
+      rules.push({ source: "peer-contract", severity: "hard", summary: `Resource boundaries: ${approved.resourceBoundaries.join(", ")}`, entityId: approved.id });
     }
     if (approved.responsibilities.length) {
       rules.push({ source: "peer-contract", severity: "soft", summary: `Responsibilities: ${approved.responsibilities.join(", ")}`, entityId: approved.id });

@@ -65,26 +65,18 @@ describe("resolveIdentity", () => {
     ).toThrow(IdentityConflictError);
   });
 
-  it("falls back to parameter when runtime lookup returns null", () => {
+  it("returns null when runtime lookup returns null and no agentId env", () => {
     const lookup = () => null;
     const result = resolveIdentity(
       { SYNCPOINT_RUNTIME_ID: "rt-1" },
-      "agent-param",
+      undefined,
       lookup,
     );
-    expect(result).toEqual({
-      agentId: "agent-param",
-      runtimeId: "rt-1",
-      source: "parameter",
-    });
+    expect(result).toBeNull();
   });
 
-  it("falls back to inputAgentId with no env", () => {
+  it("returns null with no env and no parameter (legacy fallback removed)", () => {
     const result = resolveIdentity({}, "agent-legacy");
-    expect(result).toEqual({
-      agentId: "agent-legacy",
-      runtimeId: null,
-      source: "parameter",
-    });
+    expect(result).toBeNull();
   });
 });

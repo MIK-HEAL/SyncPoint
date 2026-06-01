@@ -12,7 +12,7 @@ export const contractRouter = t.router({
       scope: z.string().default(""),
       responsibilities: z.array(z.string()).default([]),
       interfaceSpec: z.array(z.string()).default([]),
-      fileBoundaries: z.array(z.string()).default([]),
+      resourceBoundaries: z.array(z.string()).default([]),
       dependencies: z.array(z.string()).default([]),
       testPlan: z.string().default(""),
       risks: z.string().default(""),

@@ -26,7 +26,7 @@ export interface AuditFileChangeResult {
   reusedGate: boolean;
 }
 
-export function fileAuditListActiveFileClaims(input: {
+export function auditListActiveResourceClaims(input: {
   taskId?: string;
   sessionId?: string;
 }): ResourceClaim[] {
@@ -39,7 +39,7 @@ export function fileAuditListActiveFileClaims(input: {
 
 export function auditFileChange(input: AuditFileChangeInput): AuditFileChangeResult {
   const changedResource: ResourceRef = { type: "file", locator: input.locator, metadata: "" };
-  const activeClaims = fileAuditListActiveFileClaims({
+  const activeClaims = auditListActiveResourceClaims({
     taskId: input.taskId,
     sessionId: input.sessionId,
   });
