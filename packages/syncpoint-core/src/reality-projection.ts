@@ -403,7 +403,7 @@ export interface ProjectionRoute {
 /**
  * Resolve where a memory should be routed.
  * If projectionTarget is set, it overrides the default kindToBucket mapping.
- * Returns one or more buckets (do_not_touch without target still dual-writes).
+ * Returns one or more buckets (multi-bucket routing when no explicit target).
  */
 export function resolveProjectionRoute(kind: string, projectionTarget: string | null): ProjectionRoute {
   // Explicit target overrides default routing
