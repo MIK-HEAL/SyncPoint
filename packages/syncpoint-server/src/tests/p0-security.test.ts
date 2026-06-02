@@ -215,6 +215,11 @@ describe("P0: authorize() role enforcement", () => {
     const adminCtx: TRPCContext = { callerId: "admin-1", callerRole: "admin", callerToken: null };
     expect(() => authorize(adminCtx, "releaseResource", "agent-2")).not.toThrow();
   });
+
+  it("undefined operation is rejected (default-deny)", () => {
+    const adminCtx: TRPCContext = { callerId: "admin-1", callerRole: "admin", callerToken: null };
+    expect(() => authorize(adminCtx, "someUnknownOperation")).toThrow("not authorized");
+  });
 });
 
 describe("P0: Read operations remain public", () => {

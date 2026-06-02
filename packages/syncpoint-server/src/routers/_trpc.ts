@@ -176,7 +176,13 @@ const OPERATION_PERMISSIONS: Record<string, { role?: string[]; ownResourceOnly?:
  */
 export function authorize(ctx: TRPCContext, operation: string, resourceOwnerId?: string): void {
   const perm = OPERATION_PERMISSIONS[operation];
-  if (!perm) return; // No rule defined → allow (open policy)
+  if (!perm) {
+    // Default-deny: operations without explicit permission rules are forbidden
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `Operation '${operation}' is not authorized. No permission rule defined.`,
+    });
+  }
 
   // Role check
   if (perm.role && perm.role.length > 0) {
