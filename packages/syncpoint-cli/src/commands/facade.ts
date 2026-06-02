@@ -322,6 +322,8 @@ export function registerFacadeCommands(program: Command): void {
     .description("Run garbage collection on context snapshots")
     .option("--keep-last-n <n>", "Keep the last N snapshots per task+agent", "50")
     .option("--max-age-days <d>", "Delete snapshots older than D days", "30")
+    .option("--max-size-mb <mb>", "Delete oldest snapshots until total size is under this limit (MB)", "100")
+    .option("--keep-checkpoints", "Only keep snapshots linked to approved/rejected checkpoint reviews", false)
     .option("--dry-run", "Show what would be deleted without deleting", false)
     .option("--json", "Machine-readable JSON output", false)
     .action((opts) => {
@@ -329,10 +331,12 @@ export function registerFacadeCommands(program: Command): void {
         const config = {
           keepLastN: parseInt(opts.keepLastN, 10) || 50,
           maxAgeDays: parseInt(opts.maxAgeDays, 10) || 30,
+          maxTotalMb: parseInt(opts.maxSizeMb, 10) || 100,
+          keepCheckpoints: opts.keepCheckpoints === true,
         };
         if (opts.dryRun) {
           console.log("Dry run — no snapshots will be deleted.");
-          console.log(`Config: keepLastN=${config.keepLastN}, maxAgeDays=${config.maxAgeDays}`);
+          console.log(`Config: keepLastN=${config.keepLastN}, maxAgeDays=${config.maxAgeDays}, maxTotalMb=${config.maxTotalMb}, keepCheckpoints=${config.keepCheckpoints}`);
           return;
         }
         const result = repo.runSnapshotGc(config);

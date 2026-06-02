@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
-import { auditFileChange, auditListActiveResourceClaims } from "syncpoint-server/application";
+import { auditFileChange, auditListActiveResourceClaims, rcUpdateLineRangesForFile, rcHasLineRangeClaims } from "syncpoint-server/application";
 import type { AuditFileChangeResult } from "syncpoint-server/application";
 import { FileAuditDecisionKind } from "syncpoint-core";
 import { resolveAgent } from "./connect.js";
@@ -12,6 +12,8 @@ interface FileBaseline {
   exists: boolean;
   mtimeMs: number;
   hash: string;
+  /** Cached source content for line-range drift tracking. */
+  source?: string;
 }
 
 interface WatchOptions {
@@ -150,15 +152,31 @@ function buildBaseline(root: string, taskId: string, sessionId?: string): Map<st
   const baseline = new Map<string, FileBaseline>();
   const claims = auditListActiveResourceClaims({ taskId, sessionId });
   const locators = new Set<string>();
+  /** Locators that have line_range–scoped claims and need source caching. */
+  const lineRangeLocators = new Set<string>();
 
   for (const claim of claims) {
     for (const resource of claim.resources) {
-      if (resource.type === "file") locators.add(normalizeLocator(resource.locator));
+      if (resource.type === "file") {
+        const normalized = normalizeLocator(resource.locator);
+        locators.add(normalized);
+        if (resource.scope === "line_range" && resource.lineRange) {
+          lineRangeLocators.add(normalized);
+        }
+      }
     }
   }
 
   for (const locator of locators) {
-    baseline.set(locator, readBaseline(root, locator));
+    const baselineEntry = readBaseline(root, locator);
+    // Cache source content for files with line_range claims
+    if (lineRangeLocators.has(locator) && baselineEntry.exists) {
+      const filePath = path.resolve(root, locator);
+      try {
+        baselineEntry.source = fs.readFileSync(filePath, "utf-8");
+      } catch { /* if we can't read source, drift tracking won't apply */ }
+    }
+    baseline.set(locator, baselineEntry);
   }
 
   return baseline;
@@ -174,6 +192,45 @@ function processChange(
   const current = readBaseline(root, locator);
   const previous = baseline.get(locator);
   if (previous && baselinesEqual(previous, current)) return;
+
+  // ── Line-range drift tracking ──
+  // If we have cached old source and the file has line_range claims,
+  // compute the line-number drift and update active claims automatically.
+  if (previous?.source && current.exists) {
+    try {
+      const newSource = fs.readFileSync(path.resolve(root, locator), "utf-8");
+      if (newSource !== previous.source) {
+        const driftResult = rcUpdateLineRangesForFile(locator, previous.source, newSource);
+        if (driftResult.updatedRanges > 0 || driftResult.deletedRanges > 0) {
+          if (opts.json) {
+            console.log(JSON.stringify({
+              type: "line_range_drift",
+              timestamp: new Date().toISOString(),
+              locator,
+              updatedRanges: driftResult.updatedRanges,
+              deletedRanges: driftResult.deletedRanges,
+              claimIds: driftResult.claimIds,
+            }));
+          } else {
+            console.log(`[drift] ${locator}: ${driftResult.updatedRanges} range(s) remapped, ${driftResult.deletedRanges} deleted (${driftResult.updatedClaims} claim(s))`);
+          }
+        }
+        // Cache the new source for future drift computations
+        current.source = newSource;
+      } else {
+        // Content unchanged — preserve previous source cache
+        current.source = previous.source;
+      }
+    } catch {
+      // If drift tracking fails (e.g. file unreadable), proceed with audit
+    }
+  } else if (current.exists && rcHasLineRangeClaims(locator)) {
+    // First time seeing this file with line_range claims — cache its source
+    try {
+      current.source = fs.readFileSync(path.resolve(root, locator), "utf-8");
+    } catch { /* will cache on next change */ }
+  }
+
   baseline.set(locator, current);
 
   const result = auditFileChange({

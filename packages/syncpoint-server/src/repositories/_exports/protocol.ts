@@ -4,6 +4,8 @@ export {
   releaseResourceClaim,
   listResourceClaims,
   listActiveResourceClaims,
+  updateResourceLineRange,
+  findActiveLineRangeClaimsForLocator,
 } from "../resource-claim-repository.js";
 
 export {

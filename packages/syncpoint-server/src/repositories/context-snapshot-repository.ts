@@ -169,15 +169,26 @@ function applyDelta(base: ContextSnapshotPayload, delta: Partial<ContextSnapshot
 // ── Garbage Collection ──────────────────────────────
 
 export interface SnapshotGcConfig {
+  /** Keep only the last N snapshots per task+agent. 0 = disabled. */
   keepLastN?: number;
+  /** Delete snapshots older than this many days. 0 = disabled. */
   maxAgeDays?: number;
+  /** Delete oldest snapshots until total payload size is under this limit (MB). 0 = disabled. */
   maxTotalMb?: number;
+  /**
+   * When true, only keep snapshots whose checkpoint is linked to an
+   * approved or rejected CheckpointReview. Snapshots without a checkpoint
+   * or with a non-terminal review are candidates for deletion (subject to
+   * keepLastN and maxAgeDays floors).
+   */
+  keepCheckpoints?: boolean;
 }
 
 const DEFAULT_GC_CONFIG: Required<SnapshotGcConfig> = {
   keepLastN: 50,
   maxAgeDays: 30,
   maxTotalMb: 100,
+  keepCheckpoints: false,
 };
 
 export interface GcResult {
@@ -185,34 +196,78 @@ export interface GcResult {
   freedBytes: number;
 }
 
+/** IDs of snapshots that must never be deleted (one full snapshot per task+agent). */
+function protectedSnapshotIds(rawDb: ReturnType<typeof getRawDb>): Set<string> {
+  const rows = rawDb.prepare(
+    "SELECT id FROM context_snapshot WHERE is_delta = 0 " +
+    "AND id IN (SELECT MIN(id) FROM context_snapshot WHERE is_delta = 0 GROUP BY task_id, agent_id)"
+  ).all() as Array<{ id: string }>;
+  return new Set(rows.map(r => r.id));
+}
+
 /**
  * Run garbage collection on context snapshots.
- * Deletes snapshots that exceed the configured limits.
- * Always keeps at least one full snapshot per task+agent.
+ *
+ * Strategies are applied in order:
+ * 1. maxAgeDays — delete snapshots older than cutoff.
+ * 2. maxTotalMb — delete oldest snapshots until total size is under limit.
+ * 3. keepLastN — keep only the most recent N per task+agent.
+ * 4. keepCheckpoints — delete snapshots not linked to approved/rejected reviews.
+ *
+ * Always preserves at least one full snapshot per task+agent pair.
  */
 export function runSnapshotGc(config: SnapshotGcConfig = {}): GcResult {
   const cfg = { ...DEFAULT_GC_CONFIG, ...config };
   const rawDb = getRawDb();
+  const protected_ = protectedSnapshotIds(rawDb);
   let deletedCount = 0;
   let freedBytes = 0;
 
-  // 1. Delete snapshots older than maxAgeDays
+  const deleteSnapshot = (id: string, size: number): void => {
+    rawDb.prepare("DELETE FROM context_snapshot_resource WHERE snapshot_id = ?").run(id);
+    rawDb.prepare("DELETE FROM context_snapshot WHERE id = ?").run(id);
+    deletedCount++;
+    freedBytes += size;
+  };
+
+  const isProtected = (id: string): boolean => protected_.has(id);
+
+  // ── 1. maxAgeDays ──
   if (cfg.maxAgeDays > 0) {
     const cutoff = new Date(Date.now() - cfg.maxAgeDays * 86_400_000).toISOString();
     const oldRows = rawDb.prepare(
-      "SELECT id FROM context_snapshot WHERE created_at < ? AND id NOT IN " +
-      "(SELECT id FROM context_snapshot WHERE is_delta = 0 GROUP BY task_id, agent_id HAVING MIN(created_at))"
-    ).all(cutoff) as Array<{ id: string }>;
+      "SELECT id, LENGTH(payload_json) as sz FROM context_snapshot WHERE created_at < ? ORDER BY created_at ASC"
+    ).all(cutoff) as Array<{ id: string; sz: number }>;
     for (const row of oldRows) {
-      const size = rawDb.prepare("SELECT LENGTH(payload_json) as sz FROM context_snapshot WHERE id = ?").get(row.id) as { sz: number } | undefined;
-      rawDb.prepare("DELETE FROM context_snapshot_resource WHERE snapshot_id = ?").run(row.id);
-      rawDb.prepare("DELETE FROM context_snapshot WHERE id = ?").run(row.id);
-      deletedCount++;
-      freedBytes += size?.sz ?? 0;
+      if (isProtected(row.id)) continue;
+      deleteSnapshot(row.id, row.sz);
     }
   }
 
-  // 2. Keep only last N snapshots per task+agent
+  // ── 2. maxTotalMb — size-based eviction ──
+  if (cfg.maxTotalMb > 0) {
+    const maxBytes = cfg.maxTotalMb * 1024 * 1024;
+    const totalRow = rawDb.prepare(
+      "SELECT COALESCE(SUM(LENGTH(payload_json)), 0) as total_sz FROM context_snapshot"
+    ).get() as { total_sz: number };
+    let currentTotal = totalRow.total_sz;
+
+    if (currentTotal > maxBytes) {
+      // Delete oldest non-protected snapshots until under limit
+      const candidates = rawDb.prepare(
+        "SELECT id, LENGTH(payload_json) as sz FROM context_snapshot ORDER BY created_at ASC"
+      ).all() as Array<{ id: string; sz: number }>;
+
+      for (const row of candidates) {
+        if (currentTotal <= maxBytes) break;
+        if (isProtected(row.id)) continue;
+        deleteSnapshot(row.id, row.sz);
+        currentTotal -= row.sz;
+      }
+    }
+  }
+
+  // ── 3. keepLastN — per task+agent ──
   if (cfg.keepLastN > 0) {
     const taskAgents = rawDb.prepare(
       "SELECT DISTINCT task_id, agent_id FROM context_snapshot"
@@ -223,11 +278,38 @@ export function runSnapshotGc(config: SnapshotGcConfig = {}): GcResult {
       ).all(ta.task_id, ta.agent_id) as Array<{ id: string; sz: number }>;
       for (let i = cfg.keepLastN; i < rows.length; i++) {
         const row = rows[i]!;
-        rawDb.prepare("DELETE FROM context_snapshot_resource WHERE snapshot_id = ?").run(row.id);
-        rawDb.prepare("DELETE FROM context_snapshot WHERE id = ?").run(row.id);
-        deletedCount++;
-        freedBytes += row.sz;
+        if (isProtected(row.id)) continue;
+        deleteSnapshot(row.id, row.sz);
       }
+    }
+  }
+
+  // ── 4. keepCheckpoints — only snapshots linked to approved/rejected reviews ──
+  if (cfg.keepCheckpoints) {
+    // Find snapshots whose checkpointId is NOT linked to an approved or rejected review.
+    // Snapshots with empty checkpointId are also candidates (no review at all).
+    const unreviewedRows = rawDb.prepare(
+      "SELECT cs.id, LENGTH(cs.payload_json) as sz FROM context_snapshot cs " +
+      "WHERE cs.checkpoint_id IS NOT NULL AND cs.checkpoint_id != '' " +
+      "AND cs.checkpoint_id NOT IN (" +
+      "  SELECT cr.checkpoint_id FROM checkpoint_review cr " +
+      "  WHERE cr.status IN ('APPROVED', 'REJECTED')" +
+      ") " +
+      "ORDER BY cs.created_at ASC"
+    ).all() as Array<{ id: string; sz: number }>;
+
+    // Also include snapshots with no checkpoint link at all
+    const orphanRows = rawDb.prepare(
+      "SELECT cs.id, LENGTH(cs.payload_json) as sz FROM context_snapshot cs " +
+      "WHERE cs.checkpoint_id IS NULL OR cs.checkpoint_id = '' " +
+      "ORDER BY cs.created_at ASC"
+    ).all() as Array<{ id: string; sz: number }>;
+
+    const allCandidates = [...unreviewedRows, ...orphanRows];
+
+    for (const row of allCandidates) {
+      if (isProtected(row.id)) continue;
+      deleteSnapshot(row.id, row.sz);
     }
   }
 

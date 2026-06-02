@@ -692,6 +692,18 @@ export type {
   ParsedFunction,
 } from "./function-parser.js";
 
+// Line Range Drift Tracking
+export {
+  computeLineDrift,
+  remapLineRanges,
+  rangeStillExists,
+} from "./line-range-drift.js";
+
+export type {
+  LineMapping,
+  DriftResult,
+} from "./line-range-drift.js";
+
 // Path Normalization
 export {
   normalizeResourcePath,

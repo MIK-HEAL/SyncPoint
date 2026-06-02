@@ -3,12 +3,15 @@ export {
   rcRelease,
   rcList,
   rcDetectConflicts,
+  rcUpdateLineRangesForFile,
+  rcHasLineRangeClaims,
 } from "../resource-claim-service.js";
 
 export type {
   ClaimResourcesInput,
   ClaimResourcesResult,
   ListResourceClaimsInput,
+  LineRangeDriftUpdateResult,
 } from "../resource-claim-service.js";
 
 export {

@@ -57,18 +57,75 @@ function setSecurityHeaders(res: http.ServerResponse): void {
 // ── SSE management ──────────────────────────────────────
 
 const SSE_HEARTBEAT_MS = 30_000;
+/** Number of consecutive heartbeat failures before connection is evicted. */
+const SSE_MAX_MISSED_BEATS = 2;
 const MAX_SSE_CONNECTIONS = 200;
-const activeSseConnections = new Set<http.ServerResponse>();
+
+interface SseConnectionState {
+  res: http.ServerResponse;
+  heartbeat: NodeJS.Timeout;
+  /** Consecutive heartbeat write or drain failures. */
+  consecutiveFailures: number;
+  /** Timestamp (ms) of the last successful write to this connection. */
+  lastSuccessfulWrite: number;
+  /** True when the last res.write() returned false and we are waiting for drain. */
+  awaitingDrain: boolean;
+  /** Timestamp (ms) when this connection was established. */
+  createdAt: number;
+}
+
+const activeSseConnections = new Map<http.ServerResponse, SseConnectionState>();
 const bus = SyncPointEventBus.getInstance();
+
+/** Maximum time (ms) without a successful write before eviction. */
+const SSE_EVICTION_TTL_MS = SSE_MAX_MISSED_BEATS * SSE_HEARTBEAT_MS;
+
+/**
+ * Attempt a write to an SSE connection. Returns true if successful.
+ * Updates the connection's failure counter on error.
+ */
+function sseWrite(state: SseConnectionState, data: string): boolean {
+  try {
+    const ok = state.res.write(data);
+    if (ok) {
+      state.lastSuccessfulWrite = Date.now();
+      state.consecutiveFailures = 0;
+      state.awaitingDrain = false;
+    } else {
+      // Kernel buffer full — client not consuming fast enough.
+      // Mark as awaiting drain; if drain doesn't fire within the
+      // heartbeat window the next heartbeat tick will count it as a miss.
+      state.awaitingDrain = true;
+    }
+    return true;
+  } catch {
+    state.consecutiveFailures++;
+    return false;
+  }
+}
+
+/**
+ * Evict a dead SSE connection: clear heartbeat, remove from tracking,
+ * update metrics, and end the response.
+ */
+function evictSseConnection(state: SseConnectionState, reason: string): void {
+  clearInterval(state.heartbeat);
+  activeSseConnections.delete(state.res);
+  bus.connectionClosed();
+  logger.info("SSE connection evicted", {
+    reason,
+    activeConnections: activeSseConnections.size,
+    connectionAgeMs: Date.now() - state.createdAt,
+    consecutiveFailures: state.consecutiveFailures,
+  });
+  try { state.res.end(); } catch { /* ignore */ }
+}
 
 function broadcastSse(data: SyncPointEventData): void {
   const payload = `id: ${data.seq}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of activeSseConnections) {
-    try {
-      res.write(payload);
-    } catch {
-      activeSseConnections.delete(res);
-      bus.connectionClosed();
+  for (const state of activeSseConnections.values()) {
+    if (!sseWrite(state, payload)) {
+      evictSseConnection(state, "broadcast_write_error");
     }
   }
 }
@@ -151,9 +208,22 @@ export function startServer(port = DEFAULT_PORT): http.Server {
 
       // Send current sequence number so client knows where it starts
       const currentSeq = bus.currentSeq;
-      res.write(`id: ${currentSeq}\ndata: {"type":"connected","seq":${currentSeq}}\n\n`);
+      const now = Date.now();
 
-      activeSseConnections.add(res);
+      // Per-connection state with TTL tracking
+      const connState: SseConnectionState = {
+        res,
+        heartbeat: null as unknown as NodeJS.Timeout, // set below
+        consecutiveFailures: 0,
+        lastSuccessfulWrite: now,
+        awaitingDrain: false,
+        createdAt: now,
+      };
+
+      // Initial write
+      sseWrite(connState, `id: ${currentSeq}\ndata: {"type":"connected","seq":${currentSeq}}\n\n`);
+
+      activeSseConnections.set(res, connState);
       bus.connectionOpened();
       if (isReconnect) bus.reconnectDetected();
       logger.info("SSE client connected", { activeConnections: activeSseConnections.size, currentSeq, isReconnect, lastEventSeq });
@@ -162,33 +232,65 @@ export function startServer(port = DEFAULT_PORT): http.Server {
       if (isReconnect) {
         const missed = bus.replayAfter(lastEventSeq);
         for (const event of missed) {
-          try {
-            res.write(`id: ${event.seq}\ndata: ${JSON.stringify(event)}\n\n`);
-          } catch {
-            activeSseConnections.delete(res);
-            bus.connectionClosed();
-            break;
+          if (!sseWrite(connState, `id: ${event.seq}\ndata: ${JSON.stringify(event)}\n\n`)) {
+            evictSseConnection(connState, "replay_write_error");
+            return;
           }
         }
       }
 
-      // Heartbeat: send keepalive comment every 30s to detect dead connections
+      // Heartbeat: send keepalive every 30s.
+      // Tracks consecutive failures: if 2 heartbeats fail (via write error
+      // or persistent backpressure), the connection is evicted.
       const heartbeat = setInterval(() => {
-        try {
-          res.write(": heartbeat\n\n");
-        } catch {
-          clearInterval(heartbeat);
-          activeSseConnections.delete(res);
-          bus.connectionClosed();
+        // Check TTL: if no successful write within the eviction window, evict
+        const timeSinceLastWrite = Date.now() - connState.lastSuccessfulWrite;
+        if (timeSinceLastWrite > SSE_EVICTION_TTL_MS) {
+          evictSseConnection(connState, "heartbeat_ttl_expired");
+          return;
+        }
+
+        // If still awaiting drain from the previous write, count as a miss
+        if (connState.awaitingDrain) {
+          connState.consecutiveFailures++;
+        }
+
+        // Attempt heartbeat write
+        if (!sseWrite(connState, ": heartbeat\n\n")) {
+          connState.consecutiveFailures++;
+        }
+
+        // After the attempt: check if we've hit the eviction threshold
+        if (connState.consecutiveFailures >= SSE_MAX_MISSED_BEATS) {
+          evictSseConnection(connState, "heartbeat_missed");
+          return;
+        }
+
+        // Also check socket health directly
+        const sock = (connState.res as any).socket;
+        if (sock && sock.destroyed) {
+          evictSseConnection(connState, "socket_destroyed");
         }
       }, SSE_HEARTBEAT_MS);
+      connState.heartbeat = heartbeat;
+
+      // Listen for drain event: when the kernel buffer drains after backpressure,
+      // reset the backpressure flag so the next heartbeat doesn't count a miss.
+      res.on("drain", () => {
+        connState.awaitingDrain = false;
+        connState.lastSuccessfulWrite = Date.now();
+        connState.consecutiveFailures = 0;
+      });
 
       // Cleanup on disconnect
       const cleanup = () => {
-        clearInterval(heartbeat);
-        activeSseConnections.delete(res);
-        bus.connectionClosed();
-        logger.info("SSE client disconnected", { activeConnections: activeSseConnections.size });
+        const state = activeSseConnections.get(res);
+        if (state) {
+          clearInterval(state.heartbeat);
+          activeSseConnections.delete(res);
+          bus.connectionClosed();
+          logger.info("SSE client disconnected", { activeConnections: activeSseConnections.size });
+        }
       };
       req.on("close", cleanup);
       res.on("close", cleanup);
@@ -266,9 +368,10 @@ export function startServer(port = DEFAULT_PORT): http.Server {
     logger.info("Shutting down SyncPoint server...");
     stopMessageTimeoutChecker();
     wakeEngineStop();
-    // Close all SSE connections
-    for (const res of activeSseConnections) {
-      try { res.end(); } catch { /* ignore */ }
+    // Close all SSE connections (now a Map of res → state)
+    for (const state of activeSseConnections.values()) {
+      clearInterval(state.heartbeat);
+      try { state.res.end(); } catch { /* ignore */ }
     }
     activeSseConnections.clear();
     bus.off("event", sseForward);

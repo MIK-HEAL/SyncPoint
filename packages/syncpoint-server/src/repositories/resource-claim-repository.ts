@@ -130,3 +130,57 @@ export function listActiveResourceClaims(opts?: {
     .all()
     .map(row => rowToResourceClaim(row, loadResources(db, row.id)));
 }
+
+/**
+ * Update the line range (lineStart, lineEnd) for a specific resource
+ * within a claim. Used by line-range drift tracking when source files
+ * are edited and line numbers shift.
+ */
+export function updateResourceLineRange(
+  claimId: string,
+  locator: string,
+  newStart: number,
+  newEnd: number,
+): void {
+  const db = _getDb();
+  db.update(s.resourceClaimResources)
+    .set({ lineStart: newStart, lineEnd: newEnd })
+    .where(
+      and(
+        eq(s.resourceClaimResources.claimId, claimId),
+        eq(s.resourceClaimResources.locator, locator),
+        eq(s.resourceClaimResources.scope, "line_range"),
+      ),
+    )
+    .run();
+}
+
+/**
+ * Find all active resource claims that have a line_range–scoped resource
+ * for the given file locator. Used to determine which claims need their
+ * line ranges remapped after a file edit.
+ */
+export function findActiveLineRangeClaimsForLocator(locator: string): ResourceClaim[] {
+  const db = _getDb();
+  const rows = db.select({ claimId: s.resourceClaimResources.claimId })
+    .from(s.resourceClaimResources)
+    .where(
+      and(
+        eq(s.resourceClaimResources.locator, locator),
+        eq(s.resourceClaimResources.scope, "line_range"),
+      ),
+    )
+    .all();
+
+  const claimIds = [...new Set(rows.map(r => r.claimId))];
+  return claimIds
+    .map(id => {
+      try {
+        const claim = getResourceClaim(id);
+        return claim.status === ResourceClaimStatus.ACTIVE ? claim : null;
+      } catch {
+        return null;
+      }
+    })
+    .filter((c): c is ResourceClaim => c !== null);
+}
