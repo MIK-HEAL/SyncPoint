@@ -134,6 +134,35 @@ function runAgentRegistryEntryMigration(db: Database.Database): void {
   }
 }
 
+function runQueryPathIndexesMigration(db: Database.Database): void {
+  // Indexes for common query paths beyond FK indexes.
+  // Each index is created only if its target table exists and the index doesn't already exist.
+  const queryIndexes: Array<{ table: string; index: string; columns: string }> = [
+    // resource_claim query paths
+    { table: "resource_claim", index: "idx_claims_actor_status", columns: "actor_id, status" },
+    { table: "resource_claim", index: "idx_claims_session", columns: "session_id" },
+    { table: "resource_claim", index: "idx_claims_task", columns: "task_id" },
+    // sync_gate query paths
+    { table: "sync_gate", index: "idx_gates_status_created", columns: "status, created_at" },
+    { table: "sync_gate", index: "idx_gates_task", columns: "task_id" },
+    // checkpoint query paths
+    { table: "checkpoint", index: "idx_checkpoints_task_created", columns: "task_id, created_at" },
+    // checkpoint_review query paths
+    { table: "checkpoint_review", index: "idx_reviews_task_created", columns: "task_id, created_at" },
+    { table: "checkpoint_review", index: "idx_reviews_status", columns: "status" },
+    { table: "checkpoint_review", index: "idx_reviews_req_agent", columns: "requesting_agent_id" },
+    // event query paths
+    { table: "event", index: "idx_events_entity", columns: "entity_type, entity_id" },
+    { table: "event", index: "idx_events_type", columns: "event_type" },
+    { table: "event", index: "idx_events_created", columns: "created_at" },
+  ];
+  for (const { table, index, columns } of queryIndexes) {
+    if (hasTable(db, table) && !hasIndex(db, index)) {
+      db.exec(`CREATE INDEX \`${index}\` ON \`${table}\` (${columns});`);
+    }
+  }
+}
+
 function runAgentMessageMigration(db: Database.Database): void {
   if (hasTable(db, "agent_message")) return;
   if (!fs.existsSync(AGENT_MESSAGE_SQL_PATH)) {
@@ -147,6 +176,26 @@ function runAgentMessageMigration(db: Database.Database): void {
  * to all resource join tables. SQLite supports ALTER TABLE ADD COLUMN
  * for nullable columns, so this is a simple additive migration.
  */
+function runStateTransitionLogMigration(db: Database.Database): void {
+  if (hasTable(db, "state_transition_log")) return;
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS state_transition_log (
+      id TEXT PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      from_state TEXT NOT NULL,
+      to_state TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_stlog_entity ON state_transition_log (entity_type, entity_id);
+    CREATE INDEX IF NOT EXISTS idx_stlog_agent ON state_transition_log (agent_id);
+    CREATE INDEX IF NOT EXISTS idx_stlog_created ON state_transition_log (created_at);
+  `);
+}
+
 function runResourceScopeMigration(db: Database.Database): void {
   const tables: Array<{ table: string; hasBaseHash: boolean }> = [
     { table: "resource_claim_resource", hasBaseHash: false },
@@ -185,11 +234,70 @@ function ensureRuntimeOnlyTables(db: Database.Database): void {
   db.exec(schema.PROJECT_MEMORY_FTS_SQL);
 }
 
-function applyPragmas(db: Database.Database): void {
-  // Keep the default journal mode for v0.1 first-run reliability.
-  // Some local/synced filesystems reject WAL with disk I/O errors and leave
-  // the current connection unable to write afterward.
+function detectNetworkFilesystem(dbPath: string): boolean {
+  // Common network/synced filesystem mount points and path patterns
+  const networkPrefixes = [
+    "/mnt/", "/media/", "/Volumes/",
+    "/net/", "/nfs/", "/smb/", "/cifs/",
+  ];
+  // Windows UNC paths and network drives
+  if (process.platform === "win32") {
+    if (dbPath.startsWith("\\\\")) return true;
+    // Common cloud-sync directories on Windows
+    const cloudSyncPatterns = [
+      "OneDrive", "Dropbox", "Google Drive", "Box", "iCloudDrive",
+    ];
+    if (cloudSyncPatterns.some(p => dbPath.includes(p))) return true;
+  }
+  if (networkPrefixes.some(p => dbPath.startsWith(p))) return true;
+  return false;
+}
+
+let _walEnabled: boolean | null = null;
+
+/**
+ * Returns true if WAL mode was successfully enabled on the current database.
+ */
+export function isWalEnabled(): boolean {
+  return _walEnabled === true;
+}
+
+function applyPragmas(db: Database.Database, dbPath: string): void {
   db.pragma("foreign_keys = ON");
+
+  // Skip WAL on known network/synced filesystems to avoid disk I/O errors
+  if (detectNetworkFilesystem(dbPath)) {
+    _walEnabled = false;
+    return;
+  }
+
+  // Attempt to enable WAL mode. On some filesystems (network drives,
+  // certain Linux kernel configs) this can fail with disk I/O errors.
+  // Gracefully fall back to DELETE journal mode if WAL fails.
+  try {
+    db.pragma("journal_mode = WAL");
+    const currentMode = db.pragma("journal_mode", { simple: true });
+    if (currentMode === "wal") {
+      _walEnabled = true;
+      // WAL mode is safe with NORMAL synchronous (fsync only at checkpoint)
+      db.pragma("synchronous = NORMAL");
+      // Auto-checkpoint every 1000 pages (~4MB) to keep WAL file manageable
+      db.pragma("wal_autocheckpoint = 1000");
+      // Wait up to 5s on lock contention instead of immediately failing
+      db.pragma("busy_timeout = 5000");
+      // Use memory-mapped I/O for better read performance
+      db.pragma("mmap_size = 268435456"); // 256MB
+      // Store temp tables in memory
+      db.pragma("temp_store = MEMORY");
+      // Increase page cache for better performance
+      db.pragma("cache_size = -64000"); // 64MB
+    } else {
+      _walEnabled = false;
+    }
+  } catch {
+    // WAL failed — fall back to DELETE mode silently
+    _walEnabled = false;
+  }
 }
 
 /**
@@ -238,7 +346,7 @@ export function initSyncpointDir(baseDir: string = process.cwd()): string {
   // Create the DB to ensure schema exists
   const dbPath = path.join(dir, DEFAULT_DB_NAME);
   const db = new Database(dbPath);
-  applyPragmas(db);
+  applyPragmas(db, dbPath);
   runMigrations(db);
   db.close();
   return dir;
@@ -248,8 +356,9 @@ export type SyncPointDb = ReturnType<typeof drizzle<typeof schema>>;
 
 export function getDb(): SyncPointDb {
   if (_db) return _db;
-  sqlite = new Database(getDbPath());
-  applyPragmas(sqlite);
+  const dbPath = getDbPath();
+  sqlite = new Database(dbPath);
+  applyPragmas(sqlite, dbPath);
   _db = drizzle(sqlite, { schema });
   runMigrations(sqlite);
   return _db;
@@ -265,6 +374,54 @@ export function closeDb(): void {
     sqlite.close();
     sqlite = null;
     _db = null;
+    _walEnabled = null;
+  }
+}
+
+/**
+ * Run a database integrity check. Returns true if the database passes.
+ */
+export function checkDbIntegrity(): { ok: boolean; details: string } {
+  if (!sqlite) {
+    return { ok: false, details: "Database not initialized" };
+  }
+  try {
+    const result = sqlite.pragma("integrity_check", { simple: true });
+    const ok = result === "ok";
+    return { ok, details: ok ? "ok" : String(result) };
+  } catch (err) {
+    return { ok: false, details: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Create a backup of the current database to the specified path.
+ * Uses VACUUM INTO for a clean, defragmented copy (SQLite 3.27.0+).
+ */
+export function backupDb(destPath: string): { ok: boolean; error?: string } {
+  if (!sqlite) {
+    return { ok: false, error: "Database not initialized" };
+  }
+  try {
+    sqlite.exec(`VACUUM INTO '${destPath.replace(/'/g, "''")}'`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Return the current WAL file size in bytes, or null if WAL is not enabled.
+ */
+export function getWalSize(): number | null {
+  if (!sqlite || !_walEnabled) return null;
+  try {
+    const dbPath = getDbPath();
+    const walPath = dbPath + "-wal";
+    const stat = fs.statSync(walPath);
+    return stat.size;
+  } catch {
+    return null;
   }
 }
 
@@ -275,6 +432,8 @@ export function runMigrations(db: Database.Database): void {
   runAgentRegistryEntryMigration(db);
   runAgentMessageMigration(db);
   runFkIndexesMigration(db);
+  runQueryPathIndexesMigration(db);
+  runStateTransitionLogMigration(db);
   runResourceScopeMigration(db);
   ensureRuntimeOnlyTables(db);
 }

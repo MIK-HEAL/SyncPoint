@@ -6,10 +6,10 @@ import {
   updatePinnedMemory,
   deletePinnedMemory,
 } from "../repositories/_exports/context-memory.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const pinnedMemoryRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       key: z.string().min(1),
       content: z.string().min(1),
@@ -29,11 +29,11 @@ export const pinnedMemoryRouter = t.router({
     }).default({}))
     .query(({ input }) => listPinnedMemories(input.scope, input.taskId)),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(z.object({ id: z.string(), content: z.string().min(1) }))
     .mutation(({ input }) => updatePinnedMemory(input.id, input.content)),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => { deletePinnedMemory(input.id); return { ok: true }; }),
 });

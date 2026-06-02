@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { createHandoff, acceptHandoff, rejectHandoff } from "../repositories/_exports/context-memory.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const handoffRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       fromAgentId: z.string(),
       toAgentId: z.string(),
@@ -12,11 +12,11 @@ export const handoffRouter = t.router({
     }))
     .mutation(({ input }) => createHandoff(input)),
 
-  accept: publicProcedure
+  accept: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => acceptHandoff(input.id)),
 
-  reject: publicProcedure
+  reject: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => rejectHandoff(input.id)),
 });

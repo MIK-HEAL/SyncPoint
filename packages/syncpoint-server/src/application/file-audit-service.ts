@@ -4,12 +4,14 @@ import {
   SyncGateReason,
   evaluateFileAuditChange,
   gateMatchesResource,
+  normalizeResourcePath,
 } from "syncpoint-core";
 import type { FileAuditDecision, FileAuditGateContext, ResourceClaim, ResourceRef, SyncGate } from "syncpoint-core";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { rcList } from "./resource-claim-service.js";
 import { sgCheckAgent, sgListActive, sgRequest } from "./sync-gate-service.js";
+import { getProjectRoot } from "./path-resolver.js";
 
 export interface AuditFileChangeInput {
   actorId: string;
@@ -38,7 +40,10 @@ export function auditListActiveResourceClaims(input: {
 }
 
 export function auditFileChange(input: AuditFileChangeInput): AuditFileChangeResult {
-  const changedResource: ResourceRef = { type: "file", locator: input.locator, metadata: "" };
+  // Normalize locator to match normalized claim locators
+  const root = getProjectRoot();
+  const normalizedLocator = normalizeResourcePath(input.locator, { projectRoot: root });
+  const changedResource: ResourceRef = { type: "file", locator: normalizedLocator, metadata: "" };
   const activeClaims = auditListActiveResourceClaims({
     taskId: input.taskId,
     sessionId: input.sessionId,
@@ -154,9 +159,13 @@ function appendAuditNote(gateId: string, note: string): void {
 }
 
 function toAuditGateContext(gate: SyncGate): FileAuditGateContext {
+  const root = getProjectRoot();
   return {
     id: gate.id,
-    relatedFiles: gate.relatedFiles,
-    relatedResources: gate.relatedResources,
+    relatedFiles: gate.relatedFiles.map(f => normalizeResourcePath(f, { projectRoot: root })),
+    relatedResources: gate.relatedResources.map(r => ({
+      ...r,
+      locator: r.type === "file" ? normalizeResourcePath(r.locator, { projectRoot: root }) : r.locator,
+    })),
   };
 }

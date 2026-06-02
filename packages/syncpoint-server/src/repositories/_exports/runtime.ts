@@ -39,3 +39,11 @@ export {
 } from "../agent-message-repository.js";
 
 export type { ListMessagesFilter } from "../agent-message-repository.js";
+
+export {
+  insertTransitionLog,
+  getEntityTransitionHistory as getTransitionHistory,
+  findIntermediateStateEntitiesFromLog,
+} from "../state-transition-repository.js";
+
+export type { StateTransitionRow } from "../state-transition-repository.js";

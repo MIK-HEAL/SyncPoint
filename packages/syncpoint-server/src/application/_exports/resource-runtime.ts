@@ -146,3 +146,30 @@ export {
   refreshGuardLocks,
   isGuardActive,
 } from "../file-permission-guard.js";
+
+export {
+  resolveResourcePath,
+  resolveResourcePaths,
+  getProjectRoot,
+  setPathAliases,
+  isPathWithinProject,
+  resetPathResolverCache,
+} from "../path-resolver.js";
+
+export {
+  executeAtomicTransition,
+  getEntityTransitionHistory,
+  findIntermediateStateEntities,
+  getCompensationDefinition,
+  listCompensationDefinitions,
+  getRecoveryState,
+  registerCompensation,
+  unregisterCompensation,
+  clearCompensationRegistry,
+  StateTransitionError,
+} from "../state-transition-service.js";
+
+export type {
+  StateTransitionRecord,
+  CompensationDefinition,
+} from "../state-transition-service.js";

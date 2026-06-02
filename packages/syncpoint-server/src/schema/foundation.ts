@@ -1,4 +1,4 @@
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, index } from "drizzle-orm/sqlite-core";
 
 // ── Agent ──────────────────────────────────────────────
 
@@ -36,4 +36,8 @@ export const events = sqliteTable("event", {
   entityId: text("entity_id").notNull(),
   detail: text("detail").notNull().default(""),
   createdAt: text("created_at").notNull(),
-});
+}, (table) => ({
+  entityIdx: index("idx_events_entity").on(table.entityType, table.entityId),
+  eventTypeIdx: index("idx_events_type").on(table.eventType),
+  createdAtIdx: index("idx_events_created").on(table.createdAt),
+}));

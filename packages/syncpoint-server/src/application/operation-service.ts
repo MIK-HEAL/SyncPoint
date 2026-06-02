@@ -18,12 +18,14 @@ import {
   validateOperationTransition,
   runOperationValidation,
   evaluateConstraints,
+  normalizeResourcePath,
   EventType,
 } from "syncpoint-core";
 import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef, ConstraintViolation } from "syncpoint-core";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { buildProjection } from "./reality-projection-service.js";
+import { getProjectRoot } from "./path-resolver.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -49,6 +51,14 @@ export interface OperationStatusResult {
  * Create a draft operation.
  */
 export function opCreate(input: OperationCreateInput): Operation {
+  // Normalize file target resources to absolute paths for consistent
+  // comparison with normalized claim locators
+  const root = getProjectRoot();
+  const normalizedResources = input.targetResources?.map(r => ({
+    ...r,
+    locator: r.type === "file" ? normalizeResourcePath(r.locator, { projectRoot: root }) : r.locator,
+  })) ?? [];
+
   const operation = protocolRepo.createOperation({
     type: input.type,
     actorId: input.actorId,
@@ -56,7 +66,7 @@ export function opCreate(input: OperationCreateInput): Operation {
     sessionId: input.sessionId,
     title: input.title,
     summary: input.summary ?? "",
-    targetResources: input.targetResources ?? [],
+    targetResources: normalizedResources,
     payloadRef: input.payloadRef ?? "",
   });
 
@@ -291,6 +301,7 @@ function runConstraintCheck(
       workingResources: touchedResources.map(r => r.locator),
     });
 
+    // touchedResources are already normalized by opCreate
     const decision = evaluateConstraints({
       action,
       projection,

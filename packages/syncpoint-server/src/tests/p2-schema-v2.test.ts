@@ -28,7 +28,7 @@ describe("P2: V2 fields on create", () => {
     expect(m.projectionTarget).toBe("protocol_gate");
     expect(m.severity).toBe("blocking");
     expect(m.validityStatus).toBe("fresh");
-    expect(m.appliesTo).toEqual({ files: ["src/**/*.ts"] });
+    expect(m.appliesTo.files?.[0]).toContain("src/**/*.ts");
   });
 
   it("defaults kind from category when not provided", async () => {
@@ -239,7 +239,7 @@ describe("P2: Export preserves V2 metadata", () => {
     expect(result.content).toContain("Kind: hard_constraint");
     expect(result.content).toContain("Severity: blocking");
     expect(result.content).toContain("Projection: protocol_gate");
-    expect(result.content).toContain("Files: src/main.ts");
+    expect(result.content).toContain("src/main.ts");
     expect(result.content).toContain("Modules: core");
   });
 });

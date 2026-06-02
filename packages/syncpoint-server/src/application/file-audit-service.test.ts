@@ -8,6 +8,7 @@ import { EventType, RelationshipMode, ResourceClaimMode, SyncGateReason } from "
 import { rcClaim } from "./resource-claim-service.js";
 import { sgRequest } from "./sync-gate-service.js";
 import { auditFileChange } from "./file-audit-service.js";
+import { resetPathResolverCache } from "./path-resolver.js";
 
 let tmpDir: string;
 let agentA: string;
@@ -19,6 +20,8 @@ let sessionId: string;
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-file-audit-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
+  process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   getDb();
 
@@ -38,6 +41,8 @@ beforeEach(() => {
 afterEach(() => {
   closeDb();
   delete process.env.SYNCPOINT_DB_DIR;
+  delete process.env.SYNCPOINT_PROJECT_ROOT;
+  resetPathResolverCache();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

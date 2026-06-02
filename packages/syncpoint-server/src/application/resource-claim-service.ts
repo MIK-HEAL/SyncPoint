@@ -18,6 +18,7 @@ import type { ResourceClaim, ResourceClaimCreate, ResourceConflict, ResourceRef 
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { sgRequest, sgReconcileForClaims } from "./sync-gate-service.js";
+import { resolveResourcePath } from "./path-resolver.js";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -50,11 +51,17 @@ export interface ListResourceClaimsInput {
  * Claim resources for a task. Returns the claim and any conflicts detected.
  */
 export function rcClaim(input: ClaimResourcesInput): ClaimResourcesResult {
+  // Normalize resource locators before storing
+  const normalizedResources: ResourceRef[] = input.resources.map(r => ({
+    ...r,
+    locator: r.type === "file" ? resolveResourcePath(r.locator) : r.locator,
+  }));
+
   const create: ResourceClaimCreate = {
     actorId: input.actorId,
     taskId: input.taskId,
     sessionId: input.sessionId,
-    resources: input.resources,
+    resources: normalizedResources,
     mode: input.mode as any,
   };
 

@@ -33,7 +33,8 @@ const URI_RE = /^([a-z][a-z0-9_-]*):\/\/(.+)$/;
 export function parseLocator(locator: string): ParsedLocator {
   const uriMatch = locator.match(URI_RE);
   if (uriMatch) {
-    const [, scheme, rest] = uriMatch;
+    const scheme = uriMatch[1]!;
+    const rest = uriMatch[2]!;
     const hashIdx = rest.indexOf("#");
     if (hashIdx >= 0) {
       return { scheme, path: rest.slice(0, hashIdx), fragment: rest.slice(hashIdx + 1) };

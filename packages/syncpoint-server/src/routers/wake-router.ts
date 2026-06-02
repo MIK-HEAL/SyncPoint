@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 import {
   wakeList,
   wakeGet,
@@ -33,23 +33,23 @@ export const wakeRouter = t.router({
     .input(z.object({ agentId: z.string() }))
     .query(({ input }) => wakeNext(input.agentId)),
 
-  ack: publicProcedure
+  ack: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => wakeAck(input.id)),
 
-  start: publicProcedure
+  start: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(({ input }) => wakeStart(input.id)),
 
-  done: publicProcedure
+  done: protectedProcedure
     .input(z.object({ id: z.string(), resultSummary: z.string().optional() }))
     .mutation(({ input }) => wakeDone(input.id, input.resultSummary)),
 
-  fail: publicProcedure
+  fail: protectedProcedure
     .input(z.object({ id: z.string(), resultSummary: z.string().optional() }))
     .mutation(({ input }) => wakeFail(input.id, input.resultSummary)),
 
-  skip: publicProcedure
+  skip: protectedProcedure
     .input(z.object({ id: z.string(), resultSummary: z.string().optional() }))
     .mutation(({ input }) => wakeSkip(input.id, input.resultSummary)),
 

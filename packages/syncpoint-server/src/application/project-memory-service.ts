@@ -11,6 +11,7 @@ import {
   isValidProjection,
   defaultKindFromCategory,
   isConstraintRuleKnown,
+  normalizeResourcePath,
 } from "syncpoint-core";
 import type {
   AppliesTo,
@@ -21,6 +22,7 @@ import type {
 } from "syncpoint-core";
 import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
 import { isProjectLocal, getSyncpointDir } from "../db.js";
+import { getProjectRoot } from "./path-resolver.js";
 
 // ── Types ────────────────────────────────────────────
 
@@ -69,6 +71,25 @@ function requireCallerIdentity(callerBy: string | undefined): asserts callerBy i
   if (!callerBy || callerBy.trim().length === 0) {
     throw new CallerIdentityError();
   }
+}
+
+// ── appliesTo normalization ──────────────────────────
+
+/**
+ * Normalize `appliesTo.files` patterns to absolute paths so they match
+ * normalized claim locators during constraint evaluation.
+ * Other scope fields (e.g. "modules") are left as-is.
+ */
+function normalizeAppliesToFiles<T extends ProjectMemoryAddInput | ProjectMemoryCreate>(input: T): T {
+  if (!input.appliesTo?.files?.length) return input;
+  const root = getProjectRoot();
+  return {
+    ...input,
+    appliesTo: {
+      ...input.appliesTo,
+      files: input.appliesTo.files.map(f => normalizeResourcePath(f, { projectRoot: root })),
+    },
+  };
 }
 
 // ── Export path containment ──────────────────────────
@@ -187,7 +208,10 @@ export function pmAdd(input: ProjectMemoryAddInput): ProjectMemory {
   }
   // P4: blocking hard_constraint requires validatorType
   requireValidatorForBlockingConstraint(kind, input.severity, input.validatorType);
-  return contextMemoryRepo.createProjectMemory(input);
+  // Normalize appliesTo file patterns to absolute paths so they match
+  // normalized claim locators during constraint evaluation
+  const normalizedInput = normalizeAppliesToFiles(input);
+  return contextMemoryRepo.createProjectMemory(normalizedInput);
 }
 
 /**
@@ -232,7 +256,11 @@ export function pmUpdate(id: string, fields: {
   const finalSeverity = (fields.severity ?? existing.severity) as string;
   const finalValidatorType = (fields.validatorType ?? existing.validatorType) as string | undefined;
   requireValidatorForBlockingConstraint(finalKind, finalSeverity, finalValidatorType);
-  return contextMemoryRepo.updateProjectMemory(id, fields);
+  // Normalize appliesTo file patterns if provided
+  const normalizedFields = fields.appliesTo?.files?.length
+    ? { ...fields, appliesTo: normalizeAppliesToFiles({ appliesTo: fields.appliesTo } as any).appliesTo }
+    : fields;
+  return contextMemoryRepo.updateProjectMemory(id, normalizedFields);
 }
 
 export function pmApprove(id: string, updatedBy: string): ProjectMemory {

@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod";
+import { normalizeResourcePath } from "./path-normalize.js";
 
 // ── ResourceRef ────────────────────────────────────
 
@@ -127,8 +128,9 @@ export function clearResourceMatcherRegistry(): void {
 /**
  * Check if two resource refs overlap.
  * 1. Different types never overlap.
- * 2. Delegates to a registered ResourceMatcher for locator-level overlap.
- * 3. If locators overlap, applies scope refinement:
+ * 2. For file-type resources, normalizes locators before comparison.
+ * 3. Delegates to a registered ResourceMatcher for locator-level overlap.
+ * 4. If locators overlap, applies scope refinement:
  *    - Either scope "file" (default) → overlap (full-file claim covers everything)
  *    - Both scope "function" → overlap only if same functionName
  *    - Both scope "line_range" → overlap if line ranges intersect
@@ -141,11 +143,15 @@ export function resourceLocatorsOverlap(
   // Different resource types never overlap
   if (a.type !== b.type) return false;
 
+  // Normalize file-type locators for consistent comparison
+  const locA = a.type === "file" ? normalizeResourcePath(a.locator) : a.locator;
+  const locB = b.type === "file" ? normalizeResourcePath(b.locator) : b.locator;
+
   // Locator-level overlap check (delegates to matcher or exact match)
   const matcher = _matchers.get(a.type);
   const locatorsOverlap = matcher
-    ? matcher.locatorsOverlap(a.locator, b.locator)
-    : a.locator === b.locator;
+    ? matcher.locatorsOverlap(locA, locB)
+    : locA === locB;
 
   if (!locatorsOverlap) return false;
 
@@ -192,8 +198,8 @@ export function detectResourceClaimConflicts(claims: ResourceClaim[]): ResourceC
 
   for (let i = 0; i < active.length; i++) {
     for (let j = i + 1; j < active.length; j++) {
-      const a = active[i];
-      const b = active[j];
+      const a = active[i]!;
+      const b = active[j]!;
 
       // Same actor on same task — not a conflict
       if (a.actorId === b.actorId && a.taskId === b.taskId) continue;

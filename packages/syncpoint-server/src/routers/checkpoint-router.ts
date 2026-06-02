@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { DiaryEntryType } from "syncpoint-core";
 import { createCheckpoint, listCheckpoints, createDiaryEntry, listDiaryEntries } from "../repositories/_exports/context-memory.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const checkpointRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       taskId: z.string(),
       agentId: z.string(),
@@ -25,7 +25,7 @@ export const checkpointRouter = t.router({
 });
 
 export const diaryRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       agentId: z.string(),
       taskId: z.string(),

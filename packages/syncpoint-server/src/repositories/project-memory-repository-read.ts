@@ -34,7 +34,7 @@ export function checkMemoryDuplicate(category: string, title: string, content: s
     .all()
     .filter(row => row.status !== ProjectMemoryStatus.DEPRECATED);
   if (existing.length > 0) {
-    return { isDuplicate: true, existingId: existing[0].id, fingerprint: fp };
+    return { isDuplicate: true, existingId: existing[0]!.id, fingerprint: fp };
   }
   return { isDuplicate: false, fingerprint: fp };
 }
@@ -43,7 +43,7 @@ export function getProjectMemory(id: string): ProjectMemory {
   const db = _getDb();
   const row = db.select().from(s.projectMemories).where(eq(s.projectMemories.id, id)).get();
   if (!row) throw new Error(`project_memory not found: ${id}`);
-  return hydrateProjectMemories([row])[0];
+  return hydrateProjectMemories([row])[0]!;
 }
 
 export function listProjectMemories(filters?: {

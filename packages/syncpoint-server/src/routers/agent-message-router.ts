@@ -13,11 +13,11 @@ import {
   msgSend, msgRead, msgReply, msgList, msgThread,
 } from "../application/agent-message-service.js";
 import { AgentMessageKind, AgentMessageRequestStatus } from "syncpoint-core";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const agentMessageRouter = t.router({
 
-  send: publicProcedure
+  send: protectedProcedure
     .input(z.object({
       fromAgent: z.string().min(1),
       toAgent: z.string().min(1),
@@ -41,14 +41,14 @@ export const agentMessageRouter = t.router({
     }))
     .query(({ input }) => msgList(input)),
 
-  read: publicProcedure
+  read: protectedProcedure
     .input(z.object({
       messageId: z.string(),
       agentId: z.string(),
     }))
     .mutation(({ input }) => msgRead(input.messageId, input.agentId)),
 
-  reply: publicProcedure
+  reply: protectedProcedure
     .input(z.object({
       messageId: z.string(),
       agentId: z.string(),

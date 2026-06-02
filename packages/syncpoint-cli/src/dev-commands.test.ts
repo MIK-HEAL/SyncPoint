@@ -38,7 +38,7 @@ describe("dev command registration", () => {
 
     const dev = program.commands.find(c => c.name() === "dev");
     expect(dev).toBeDefined();
-    expect(dev?.commands.map(c => c.name())).toEqual(["status", "tail", "reset"]);
+    expect(dev?.commands.map(c => c.name())).toEqual(["status", "tail", "reset", "integrity", "recover"]);
   });
 });
 

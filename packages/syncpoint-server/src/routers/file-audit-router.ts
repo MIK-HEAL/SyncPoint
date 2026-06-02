@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { auditFileChange } from "../application/file-audit-service.js";
-import { publicProcedure, t } from "./_trpc.js";
+import { protectedProcedure, t } from "./_trpc.js";
 
 export const fileAuditRouter = t.router({
-  audit: publicProcedure
+  audit: protectedProcedure
     .input(z.object({
       actorId: z.string(),
       taskId: z.string(),

@@ -12,7 +12,7 @@ import {
   migrateRuntimeAgentsToDeclaredManifests,
   validateAgentDeclarations,
 } from "../application/agent-registration-service.js";
-import { publicProcedure, t } from "./_trpc.js";
+import { publicProcedure, protectedProcedure, t } from "./_trpc.js";
 
 const manifestFormatInput = z.enum(["yaml", "json"]);
 
@@ -32,7 +32,7 @@ export const agentRegistrationRouter = t.router({
     .input(z.object({ templateId: z.string().min(1) }))
     .query(({ input }) => getAgentTeamTemplate(input.templateId)),
 
-  initTeam: publicProcedure
+  initTeam: protectedProcedure
     .input(z.object({
       templateId: z.string().min(1).optional(),
       namePrefix: z.string().min(1).optional(),
@@ -43,7 +43,7 @@ export const agentRegistrationRouter = t.router({
     }).optional())
     .mutation(({ input }) => initAgentTeam(input ?? {})),
 
-  importDeclarations: publicProcedure
+  importDeclarations: protectedProcedure
     .input(z.object({
       sourcePath: z.string().min(1),
       format: manifestFormatInput.optional(),
@@ -58,7 +58,7 @@ export const agentRegistrationRouter = t.router({
     .input(validationInput)
     .query(({ input }) => validateAgentDeclarations(input)),
 
-  migrate: publicProcedure
+  migrate: protectedProcedure
     .input(z.object({
       agentIds: z.array(z.string().min(1)).optional(),
       format: manifestFormatInput.optional(),
@@ -67,7 +67,7 @@ export const agentRegistrationRouter = t.router({
     }).optional())
     .mutation(({ input }) => migrateRuntimeAgentsToDeclaredManifests(input ?? {})),
 
-  exportCards: publicProcedure
+  exportCards: protectedProcedure
     .input(z.object({
       agentIds: z.array(z.string().min(1)).optional(),
       includeRemoved: z.boolean().optional(),

@@ -22,6 +22,7 @@ import { rcClaim } from "../application/resource-claim-service.js";
 import { opCreate, opSubmit } from "../application/operation-service.js";
 import { sgRequest } from "../application/sync-gate-service.js";
 import { appRouter } from "../../src/router.js";
+import { resetPathResolverCache } from "../application/path-resolver.js";
 
 let tmpDir: string;
 let archId: string;
@@ -30,11 +31,13 @@ let reviewerId: string;
 let sessionId: string;
 let taskId: string;
 
-const caller = appRouter.createCaller({ callerId: null });
+const caller = appRouter.createCaller({ callerId: "test-caller", callerRole: null, callerToken: null });
 
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-p9-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
+  process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   getDb();
 
@@ -61,6 +64,8 @@ beforeAll(() => {
 afterAll(() => {
   closeDb();
   delete process.env.SYNCPOINT_DB_DIR;
+  delete process.env.SYNCPOINT_PROJECT_ROOT;
+  resetPathResolverCache();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -104,7 +109,7 @@ describe("syncStatus.snapshot", () => {
     const snap = await caller.syncStatus.snapshot();
     expect(snap.resourceOwnership.activeClaims.length).toBeGreaterThanOrEqual(1);
     const claim = snap.resourceOwnership.activeClaims.find((c: any) =>
-      c.resources?.some((r: any) => r.locator === "src/snapshot.ts")
+      c.resources?.some((r: any) => r.locator.includes("src/snapshot.ts"))
     );
     expect(claim).toBeTruthy();
     expect(claim!.actorName).toBe("exec-p9");
@@ -176,7 +181,7 @@ describe("syncStatus.snapshot sessionId scoping", () => {
   it("scoped snapshot excludes claims from other sessions", async () => {
     const scoped = await caller.syncStatus.snapshot({ sessionId });
     const otherClaim = scoped.resourceOwnership.activeClaims.find((c: any) =>
-      c.resources?.some((r: any) => r.locator === "src/other.ts")
+      c.resources?.some((r: any) => r.locator.includes("src/other.ts"))
     );
     expect(otherClaim).toBeUndefined();
   });
@@ -204,10 +209,10 @@ describe("syncStatus.snapshot sessionId scoping", () => {
     const global = await caller.syncStatus.snapshot();
     expect(global.sessions.length).toBe(2);
     expect(global.resourceOwnership.activeClaims.some((c: any) =>
-      c.resources?.some((r: any) => r.locator === "src/other.ts")
+      c.resources?.some((r: any) => r.locator.includes("src/other.ts"))
     )).toBe(true);
     expect(global.resourceOwnership.activeClaims.some((c: any) =>
-      c.resources?.some((r: any) => r.locator === "src/snapshot.ts")
+      c.resources?.some((r: any) => r.locator.includes("src/snapshot.ts"))
     )).toBe(true);
   });
 });

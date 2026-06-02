@@ -68,7 +68,14 @@ export function processOrchestrationEvent(
   entityId: string,
   detail?: string,
 ): void {
-  processEvent({ eventType, entityType, entityId, detail });
+  processEvent({
+    seq: 0, // Internal event, not broadcast via SSE
+    eventType,
+    entityType,
+    entityId,
+    detail,
+    timestamp: new Date().toISOString(),
+  });
 }
 
 function processEvent(data: SyncPointEventData): void {

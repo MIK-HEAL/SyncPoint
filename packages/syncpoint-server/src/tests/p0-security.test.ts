@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
 import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { authorize, type TRPCContext } from "../../src/routers/_trpc.ts";
 
 let ctx: E2EContext;
 
@@ -144,6 +145,75 @@ describe("P0: Authenticated callers succeed and audit fields are derived", () =>
     const approved = (await ctx.rpc("projectMemory.approve", { id: m.id }, undefined, "approver-1")) as any;
     expect(approved.updatedBy).toBe("approver-1");
     expect(approved.status).toBe("approved");
+  });
+});
+
+describe("P0: Agent Token validation", () => {
+  it("invalid token is rejected with UNAUTHORIZED", async () => {
+    // Set a shared secret so token validation is enforced
+    process.env.SYNCPOINT_SHARED_SECRET = "test-secret-123";
+    try {
+      // Provide caller-id but with a wrong token
+      const result = ctx.rpc("projectMemory.create", {
+        category: "overview",
+        title: "Token Test",
+        content: "Should fail with bad token.",
+      }, undefined, { callerId: "agent-1", agentToken: "wrong-token" });
+      await expect(result).rejects.toThrow("Invalid agent token");
+    } finally {
+      delete process.env.SYNCPOINT_SHARED_SECRET;
+    }
+  });
+
+  it("valid token with caller-id succeeds", async () => {
+    process.env.SYNCPOINT_SHARED_SECRET = "test-secret-123";
+    try {
+      const m = await ctx.rpc("projectMemory.create", {
+        category: "overview",
+        title: "Valid Token",
+        content: "Should succeed with valid token.",
+      }, undefined, { callerId: "agent-1", agentToken: "test-secret-123" }) as any;
+      expect(m.createdBy).toBe("agent-1");
+    } finally {
+      delete process.env.SYNCPOINT_SHARED_SECRET;
+    }
+  });
+
+  it("no token with caller-id succeeds when no shared secret configured", async () => {
+    // Without SYNCPOINT_SHARED_SECRET, any non-empty token is accepted
+    const m = await ctx.rpc("projectMemory.create", {
+      category: "overview",
+      title: "No Token No Secret",
+      content: "Should succeed.",
+    }, undefined, "agent-no-token") as any;
+    expect(m.createdBy).toBe("agent-no-token");
+  });
+});
+
+describe("P0: authorize() role enforcement", () => {
+  it("agent cannot createConstraint", () => {
+    const agentCtx: TRPCContext = { callerId: "agent-1", callerRole: "agent", callerToken: null };
+    expect(() => authorize(agentCtx, "createConstraint")).toThrow("not authorized");
+  });
+
+  it("admin can createConstraint", () => {
+    const adminCtx: TRPCContext = { callerId: "admin-1", callerRole: "admin", callerToken: null };
+    expect(() => authorize(adminCtx, "createConstraint")).not.toThrow();
+  });
+
+  it("non-owner agent cannot releaseResource owned by another", () => {
+    const agentCtx: TRPCContext = { callerId: "agent-1", callerRole: "agent", callerToken: null };
+    expect(() => authorize(agentCtx, "releaseResource", "agent-2")).toThrow("Only the resource owner");
+  });
+
+  it("owner can releaseResource owned by themselves", () => {
+    const agentCtx: TRPCContext = { callerId: "agent-1", callerRole: "agent", callerToken: null };
+    expect(() => authorize(agentCtx, "releaseResource", "agent-1")).not.toThrow();
+  });
+
+  it("admin can releaseResource owned by anyone", () => {
+    const adminCtx: TRPCContext = { callerId: "admin-1", callerRole: "admin", callerToken: null };
+    expect(() => authorize(adminCtx, "releaseResource", "agent-2")).not.toThrow();
   });
 });
 

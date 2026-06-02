@@ -19,6 +19,7 @@ import { pmAdd, pmApprove } from "../application/project-memory-service.js";
 import { rcClaim } from "../application/resource-claim-service.js";
 import { buildScopeFilter, buildSnapshot } from "../application/sync-status-service.js";
 import { sgRequest } from "../application/sync-gate-service.js";
+import { resetPathResolverCache } from "../application/path-resolver.js";
 
 let tmpDir: string;
 let sessionId: string;
@@ -35,6 +36,8 @@ let operationId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-sync-status-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
+  process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   ensureApplicationBootstrap();
   getDb();
@@ -174,6 +177,8 @@ beforeAll(() => {
 afterAll(() => {
   closeDb();
   delete process.env.SYNCPOINT_DB_DIR;
+  delete process.env.SYNCPOINT_PROJECT_ROOT;
+  resetPathResolverCache();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -215,7 +220,7 @@ describe("sync-status-service", () => {
     const snapshot = buildSnapshot({ sessionId });
 
     expect(snapshot.resourceOwnership.activeClaims.some(claim =>
-      claim.resources.some(resource => resource.locator === "src/feature/op-safe.ts")
+      claim.resources.some(resource => resource.locator.includes("src/feature/op-safe.ts"))
     )).toBe(true);
     expect(snapshot.resourceOwnership.conflicts.some(conflict =>
       conflict.isHardConflict && conflict.overlappingLocator.includes("src/feature/conflict.ts")

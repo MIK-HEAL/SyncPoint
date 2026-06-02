@@ -661,6 +661,47 @@ export type {
   EscalationRoutingInput,
 } from "./agent-manifest.js";
 
+// Structured Errors
+export {
+  SyncPointError,
+  ResourceConflictError,
+  ResourceNotFoundError,
+  ConstraintViolationError,
+  UnauthorizedError,
+  ForbiddenError,
+  InvalidStateTransitionError,
+  ValidationError,
+  DatabaseError,
+  OperationTimeoutError,
+  InternalError,
+} from "./errors.js";
+
+// Path Normalization
+export {
+  normalizeResourcePath,
+  arePathsEquivalent,
+  toResourceLocatorKey,
+} from "./path-normalize.js";
+
+export type { NormalizePathOptions } from "./path-normalize.js";
+
+// Unified Config
+export {
+  SyncPointConfigSchema,
+  DatabaseConfig,
+  ServerConfig,
+  GuardConfig,
+  SseConfig,
+  CheckpointConfig,
+  AuthConfig,
+  LogConfig,
+  DEFAULT_CONFIG,
+  mergeConfig,
+  configFromEnv,
+} from "./config.js";
+
+export type { SyncPointConfig } from "./config.js";
+
 // Agent Message
 export {
   AgentMessageKind,

@@ -46,7 +46,7 @@ export function logEvent(
     detail,
     createdAt: now(),
   }).run();
-  bus.emit("event", { eventType, entityType, entityId, detail });
+  bus.emitEvent(eventType, entityType, entityId, detail);
 }
 
 // ── Error ────────────────────────────────────────────

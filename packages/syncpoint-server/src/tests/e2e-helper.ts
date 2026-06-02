@@ -13,7 +13,7 @@ export interface E2EContext {
   server: http.Server;
   tmpDir: string;
   /** tRPC helper bound to this server. callerId defaults to 'e2e-test-user'. */
-  rpc: (procedure: string, input?: unknown, method?: "GET" | "POST", callerId?: string) => Promise<unknown>;
+  rpc: (procedure: string, input?: unknown, method?: "GET" | "POST", callerIdOrOpts?: string | import("./helpers.ts").TrpcFetchOptions) => Promise<unknown>;
   cleanup: () => Promise<void>;
 }
 

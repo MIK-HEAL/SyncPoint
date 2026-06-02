@@ -92,12 +92,18 @@ export async function getRandomPort(): Promise<number> {
 
 // ── tRPC test client helper ─────────────────────────────
 
+export interface TrpcFetchOptions {
+  callerId?: string;
+  agentToken?: string;
+  agentRole?: string;
+}
+
 export async function trpcFetch(
   baseUrl: string,
   procedure: string,
   input?: unknown,
   method: "GET" | "POST" = input !== undefined ? "POST" : "GET",
-  callerId?: string,
+  callerIdOrOpts?: string | TrpcFetchOptions,
 ): Promise<unknown> {
   const url =
     method === "GET" && input !== undefined
@@ -105,12 +111,21 @@ export async function trpcFetch(
       : `${baseUrl}/trpc/${procedure}`;
   const headers: Record<string, string> = {};
   if (method === "POST") headers["Content-Type"] = "application/json";
-  if (callerId) headers["x-caller-id"] = callerId;
-  const opts: RequestInit =
+
+  // Support both old string callerId and new options object
+  const opts: TrpcFetchOptions =
+    typeof callerIdOrOpts === "string"
+      ? { callerId: callerIdOrOpts }
+      : callerIdOrOpts ?? {};
+  if (opts.callerId) headers["x-caller-id"] = opts.callerId;
+  if (opts.agentToken) headers["x-agent-token"] = opts.agentToken;
+  if (opts.agentRole) headers["x-agent-role"] = opts.agentRole;
+
+  const reqOpts: RequestInit =
     method === "POST"
       ? { method: "POST", headers, body: JSON.stringify(input) }
       : { headers };
-  const r = await fetch(url, opts);
+  const r = await fetch(url, reqOpts);
   const text = await r.text();
   let json: any;
   try {

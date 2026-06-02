@@ -179,7 +179,7 @@ export function buildAdapterInstruction(
   event: AdapterLifecycleEvent = "resume",
   projection?: RealityProjection | null,
 ): AdapterInstruction {
-  const config = ADAPTER_CONFIGS[provider] ?? ADAPTER_CONFIGS["cursor"];
+  const config = ADAPTER_CONFIGS[provider] ?? ADAPTER_CONFIGS["cursor"]!;
 
   const files: Record<string, string> = {};
 

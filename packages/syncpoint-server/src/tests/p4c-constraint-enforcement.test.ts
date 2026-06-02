@@ -17,6 +17,7 @@ import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../applica
 import { rcClaim } from "../application/resource-claim-service.js";
 import { pmAdd, pmApprove } from "../application/project-memory-service.js";
 import { MemoryKind, TaskStatus, WakeRequestStatus } from "syncpoint-core";
+import { resetPathResolverCache } from "../application/path-resolver.js";
 
 let tmpDir: string;
 let agent1Id: string;
@@ -27,6 +28,8 @@ let sessionId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-p4c-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
+  process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   ensureApplicationBootstrap();
   getDb();
@@ -91,6 +94,8 @@ afterAll(() => {
   wakeEngineStop();
   closeDb();
   delete process.env.SYNCPOINT_DB_DIR;
+  delete process.env.SYNCPOINT_PROJECT_ROOT;
+  resetPathResolverCache();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

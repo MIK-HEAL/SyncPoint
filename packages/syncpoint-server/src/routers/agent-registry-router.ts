@@ -6,7 +6,7 @@ import {
   syncDeclaredAgentFile,
   syncDeclaredAgents,
 } from "../application/agent-registry-service.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const agentRegistryRouter = t.router({
   manifestDirectory: publicProcedure
@@ -16,14 +16,14 @@ export const agentRegistryRouter = t.router({
     .input(z.object({ includeRemoved: z.boolean().optional() }).optional())
     .query(({ input }) => listDeclaredAgents({ includeRemoved: input?.includeRemoved })),
 
-  sync: publicProcedure
+  sync: protectedProcedure
     .mutation(() => syncDeclaredAgents()),
 
-  syncFile: publicProcedure
+  syncFile: protectedProcedure
     .input(z.object({ filePath: z.string().min(1) }))
     .mutation(({ input }) => syncDeclaredAgentFile(input.filePath)),
 
-  removeFile: publicProcedure
+  removeFile: protectedProcedure
     .input(z.object({ filePath: z.string().min(1) }))
     .mutation(({ input }) => removeDeclaredAgentFile(input.filePath)),
 });

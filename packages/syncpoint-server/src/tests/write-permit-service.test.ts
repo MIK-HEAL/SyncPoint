@@ -12,6 +12,7 @@ import { __setDb } from "../repositories/_shared.js";
 import * as schema from "../schema.js";
 import { rcClaim } from "../application/resource-claim-service.js";
 import { writeApply, writePrepare } from "../application/write-permit-service.js";
+import { resetPathResolverCache } from "../application/path-resolver.js";
 
 let sqlite: Database.Database;
 let db: SyncPointDb;
@@ -33,6 +34,7 @@ beforeEach(() => {
   previousRoot = process.env.SYNCPOINT_PROJECT_ROOT;
   root = mkdtempSync(path.join(os.tmpdir(), "syncpoint-write-"));
   process.env.SYNCPOINT_PROJECT_ROOT = root;
+  resetPathResolverCache();
   agentA = repo.createAgent({ name: `alice-${Date.now()}`, provider: "other", role: "backend" }).id;
   agentB = repo.createAgent({ name: `bob-${Date.now()}`, provider: "other", role: "backend" }).id;
   taskId = repo.createTask({ title: "write permit", description: "" }).id;
@@ -44,6 +46,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
   if (previousRoot === undefined) delete process.env.SYNCPOINT_PROJECT_ROOT;
   else process.env.SYNCPOINT_PROJECT_ROOT = previousRoot;
+  resetPathResolverCache();
 });
 
 describe("write permit service", () => {

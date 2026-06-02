@@ -16,7 +16,9 @@ export const checkpoints = sqliteTable("checkpoint", {
   nextSteps: text("next_steps").notNull().default(""),
   needSync: integer("need_sync", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at").notNull(),
-});
+}, (table) => ({
+  taskCreatedIdx: index("idx_checkpoints_task_created").on(table.taskId, table.createdAt),
+}));
 
 // ── DiaryEntry ─────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import {
   WritePermitStatus,
   evaluateConstraints,
   evaluateWriteDecision,
+  normalizeResourcePath,
   type ResourceRef,
   type WriteDecision,
   type WritePermit,
@@ -73,7 +74,7 @@ const DEFAULT_EDITOR_TTL_SECONDS = 30;
 const DEFAULT_BATCH_TTL_SECONDS = 300;
 
 export function writeCheck(input: WriteCheckInput): WriteCheckResult {
-  return writeCheckAtRoot(input, resolveRootDir());
+  return writeCheckAtRoot(normalizeWriteInput(input), resolveRootDir());
 }
 
 function writeCheckAtRoot(input: WriteCheckInput, root: string): WriteCheckResult {
@@ -113,15 +114,16 @@ function writeCheckAtRoot(input: WriteCheckInput, root: string): WriteCheckResul
 
 export function writePrepare(input: WritePrepareInput): WritePrepareResult {
   const root = resolveRootDir();
-  const result = writeCheckAtRoot(input, root);
+  const normalized = normalizeWriteInput(input);
+  const result = writeCheckAtRoot(normalized, root);
   const ttl = input.ttlSeconds ?? (input.intent === WriteIntent.BULK ? DEFAULT_BATCH_TTL_SECONDS : DEFAULT_EDITOR_TTL_SECONDS);
   const permit = createWritePermit({
-    actorId: input.actorId,
-    taskId: input.taskId,
-    sessionId: input.sessionId,
-    resources: input.resources,
+    actorId: normalized.actorId,
+    taskId: normalized.taskId,
+    sessionId: normalized.sessionId,
+    resources: normalized.resources,
     intent: input.intent,
-    operationId: input.operationId,
+    operationId: normalized.operationId,
     guardedRoot: root,
     baseHashes: result.baseHashes,
     expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
@@ -134,16 +136,42 @@ export function writePrepare(input: WritePrepareInput): WritePrepareResult {
     result.decision.permitted ? EventType.WRITE_PERMIT_ISSUED : EventType.WRITE_PERMIT_DENIED,
     "write_permit",
     permit.id,
-    JSON.stringify({ actorId: input.actorId, taskId: input.taskId, resources: input.resources, decision: result.decision }),
+    JSON.stringify({ actorId: normalized.actorId, taskId: normalized.taskId, resources: normalized.resources, decision: result.decision }),
   );
 
   return { ...result, permit };
 }
 
+function normalizeWriteInput<T extends WriteCheckInput>(input: T): T {
+  // Normalize file locators to match the format stored by rcClaim (via resolveResourcePath).
+  // This ensures overlap comparison between write-permit resources and stored claims works.
+  const root = resolveRootDir();
+  return {
+    ...input,
+    resources: input.resources.map(r => ({
+      ...r,
+      locator: r.type === "file" ? normalizeFileLocator(r.locator, root) : r.locator,
+    })),
+  };
+}
+
+function normalizeFileLocator(locator: string, root: string): string {
+  return normalizeResourcePath(locator, { projectRoot: root });
+}
+
+
 export function writeApply(input: WriteApplyInput): WriteApplyResult {
   let permit = getWritePermit(input.permitId);
   const root = resolveRootDir();
-  const denial = validatePermitForApply(permit, input.mutations, root);
+  // Normalize mutation locators to match the permit's normalized locators
+  const normalizedMutations = input.mutations.map(m => ({
+    ...m,
+    resource: {
+      ...m.resource,
+      locator: m.resource.type === "file" ? normalizeFileLocator(m.resource.locator, root) : m.resource.locator,
+    },
+  }));
+  const denial = validatePermitForApply(permit, normalizedMutations, root);
   if (denial) {
     const decision = { permitted: false, reason: WriteDecisionReason.BLOCKED, blockers: [denial], warnings: [] };
     permit = updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision });
@@ -158,7 +186,7 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
     throw new Error(`Write permit no longer valid: ${revalidated.blockers.map(blocker => blocker.message).join("; ")}`);
   }
 
-  const preparedMutations = preflightMutations(permit, input.mutations, root);
+  const preparedMutations = preflightMutations(permit, normalizedMutations, root);
   if ("denial" in preparedMutations) {
     const decision = {
       permitted: false,
@@ -321,6 +349,14 @@ function readResourceHash(root: string, resource: ResourceRef): { sha256?: strin
   return { exists: true, sha256: hash };
 }
 
+function resolveNativeLocator(root: string, locator: string): string {
+  // If locator is already a normalized absolute path (POSIX-style on Windows),
+  // convert it to native first so path.resolve works correctly.
+  const native = path.resolve(locator);
+  if (path.isAbsolute(native)) return native;
+  return path.resolve(root, locator);
+}
+
 function resolveRootDir(): string {
   const envRoot = process.env.SYNCPOINT_PROJECT_ROOT;
   if (envRoot) return canonicalRoot(envRoot);
@@ -337,7 +373,7 @@ function canonicalRoot(root: string): string {
 }
 
 function safeResolve(root: string, locator: string): string {
-  const target = path.resolve(root, locator);
+  const target = resolveNativeLocator(root, locator);
   if (!isInsideOrSame(root, target)) {
     throw new Error(`Refusing to write outside guarded root: ${locator}`);
   }

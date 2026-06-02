@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, protectedProcedure } from "./_trpc.js";
 import {
   stxCreate,
   stxApprove,
@@ -15,7 +15,7 @@ import {
 } from "../application/checkpoint-review-service.js";
 
 export const checkpointReviewRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       sessionId: z.string(),
       taskId: z.string(),
@@ -25,7 +25,7 @@ export const checkpointReviewRouter = t.router({
     }))
     .mutation(({ input }) => stxCreate(input)),
 
-  approve: publicProcedure
+  approve: protectedProcedure
     .input(z.object({
       txId: z.string(),
       agentId: z.string(),
@@ -33,7 +33,7 @@ export const checkpointReviewRouter = t.router({
     }))
     .mutation(({ input }) => stxApprove(input.txId, input.agentId, input.summary)),
 
-  reject: publicProcedure
+  reject: protectedProcedure
     .input(z.object({
       txId: z.string(),
       agentId: z.string(),
@@ -41,25 +41,25 @@ export const checkpointReviewRouter = t.router({
     }))
     .mutation(({ input }) => stxReject(input.txId, input.agentId, input.reason)),
 
-  resolve: publicProcedure
+  resolve: protectedProcedure
     .input(z.object({
       txId: z.string(),
       decisionSummary: z.string().optional(),
     }))
     .mutation(({ input }) => stxResolve(input.txId, input.decisionSummary)),
 
-  cancel: publicProcedure
+  cancel: protectedProcedure
     .input(z.object({
       txId: z.string(),
       reason: z.string().optional(),
     }))
     .mutation(({ input }) => stxCancel(input.txId, input.reason)),
 
-  status: publicProcedure
+  status: protectedProcedure
     .input(z.object({ txId: z.string() }))
     .query(({ input }) => stxStatus(input.txId)),
 
-  list: publicProcedure
+  list: protectedProcedure
     .input(z.object({
       sessionId: z.string().optional(),
       taskId: z.string().optional(),

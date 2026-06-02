@@ -11,10 +11,10 @@ import {
   loopHandoff,
   loopStatus,
 } from "../application/index.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const loopRouter = t.router({
-  boot: publicProcedure
+  boot: protectedProcedure
     .input(z.object({
       agentId: z.string(),
       taskId: z.string(),
@@ -26,7 +26,7 @@ export const loopRouter = t.router({
       return rest;
     }),
 
-  resume: publicProcedure
+  resume: protectedProcedure
     .input(z.object({
       agentId: z.string(),
       taskId: z.string(),
@@ -41,7 +41,7 @@ export const loopRouter = t.router({
       return rest;
     }),
 
-  checkpoint: publicProcedure
+  checkpoint: protectedProcedure
     .input(z.object({
       agentId: z.string(),
       taskId: z.string(),
@@ -65,7 +65,7 @@ export const loopRouter = t.router({
       return rest;
     }),
 
-  handoff: publicProcedure
+  handoff: protectedProcedure
     .input(z.object({
       taskId: z.string(),
       fromAgentId: z.string(),

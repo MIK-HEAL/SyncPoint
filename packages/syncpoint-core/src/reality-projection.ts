@@ -323,8 +323,8 @@ function detectConflicts(items: ProjectedMemoryItem[], parsedScopes: Map<string,
 
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
-      const a = items[i];
-      const b = items[j];
+      const a = items[i]!;
+      const b = items[j]!;
       const scopeA = parsedScopes.get(a.source.sourceMemoryId);
       const scopeB = parsedScopes.get(b.source.sourceMemoryId);
       if (!scopeA || !scopeB) continue;

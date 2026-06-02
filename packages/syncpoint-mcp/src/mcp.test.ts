@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { getDb, closeDb, initSyncpointDir } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
-import { pmAdd, pmApprove } from "syncpoint-server/application";
+import { pmAdd, pmApprove, rcClaim, resetPathResolverCache } from "syncpoint-server/application";
 import { ResourceClaimMode } from "syncpoint-core";
 import { createSyncPointMcpServer } from "./server.js";
 
@@ -26,6 +26,7 @@ beforeAll(async () => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-mcp-test-"));
   previousProjectRoot = process.env.SYNCPOINT_PROJECT_ROOT;
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   getDb();
@@ -104,6 +105,7 @@ beforeAll(async () => {
     delete process.env.SYNCPOINT_DB_DIR;
     if (previousProjectRoot === undefined) delete process.env.SYNCPOINT_PROJECT_ROOT;
     else process.env.SYNCPOINT_PROJECT_ROOT = previousProjectRoot;
+    resetPathResolverCache();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   };
 });
@@ -293,7 +295,7 @@ describe("tools", () => {
     expect(created.tags).toEqual(["mcp", "transport"]);
     expect(created.kind).toBe("hard_constraint");
     expect(created.projectionTarget).toBe("protocol_gate");
-    expect(created.appliesTo).toEqual({ files: ["packages/syncpoint-mcp/src/**/*.ts"] });
+    expect(created.appliesTo.files?.[0]).toContain("packages/syncpoint-mcp/src/**/*.ts");
     expect(created.severity).toBe("blocking");
     expect(created.validityStatus).toBe("fresh");
     expect(created.validatorType).toBe("custom");
@@ -367,7 +369,7 @@ describe("tools", () => {
     const tasks = repo.listTasks();
     const locator = "mcp-write.txt";
     fs.writeFileSync(path.join(tmpDir, locator), "old");
-    repo.createResourceClaim({
+    rcClaim({
       actorId: agents[0].id,
       taskId: tasks[0].id,
       resources: [{ type: "file", locator, metadata: "" }],

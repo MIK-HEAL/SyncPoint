@@ -13,11 +13,11 @@ import { z } from "zod";
 import {
   negStart, negMessage, negReconcile, negResolve, negEscalate, negStatus,
 } from "../application/negotiation-service.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const negotiationRouter = t.router({
 
-  start: publicProcedure
+  start: protectedProcedure
     .input(z.object({
       gateId: z.string(),
       participantIds: z.array(z.string()).min(2),
@@ -29,7 +29,7 @@ export const negotiationRouter = t.router({
     }))
     .mutation(({ input }) => negStart(input.gateId, input.participantIds, input.config)),
 
-  message: publicProcedure
+  message: protectedProcedure
     .input(z.object({
       sessionId: z.string(),
       agentId: z.string(),
@@ -38,11 +38,11 @@ export const negotiationRouter = t.router({
     }))
     .mutation(({ input }) => negMessage(input.sessionId, input.agentId, input.kind, input.content)),
 
-  reconcile: publicProcedure
+  reconcile: protectedProcedure
     .input(z.object({ sessionId: z.string() }))
     .mutation(({ input }) => negReconcile(input.sessionId)),
 
-  resolve: publicProcedure
+  resolve: protectedProcedure
     .input(z.object({
       sessionId: z.string(),
       agentId: z.string(),
@@ -50,7 +50,7 @@ export const negotiationRouter = t.router({
     }))
     .mutation(({ input }) => negResolve(input.sessionId, input.agentId, input.summary)),
 
-  escalate: publicProcedure
+  escalate: protectedProcedure
     .input(z.object({ sessionId: z.string() }))
     .mutation(({ input }) => negEscalate(input.sessionId)),
 

@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import { constraintCheck } from "../application/constraint-evaluation-service.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, protectedProcedure } from "./_trpc.js";
 
 const ConstraintCheckActionSchema = z.enum([
   "resume",
@@ -22,7 +22,7 @@ export const constraintRouter = t.router({
    * P4D: Evaluate constraint runtime for a given action context.
    * Returns blockers/warnings with projected refs only (no raw PM content).
    */
-  check: publicProcedure
+  check: protectedProcedure
     .input(z.object({
       action: ConstraintCheckActionSchema,
       taskId: z.string().optional(),

@@ -96,6 +96,26 @@ export const agentMessages = sqliteTable("agent_message", {
   threadRootIdx: index("idx_am_thread_root").on(table.threadRootId),
 }));
 
+// ── State Transition Log ────────────────────────────
+// Atomic audit trail for every state transition across all entities.
+// Enables crash recovery, debugging, and compliance auditing.
+
+export const stateTransitionLog = sqliteTable("state_transition_log", {
+  id: text("id").primaryKey(),
+  entityType: text("entity_type").notNull(),     // "resource_claim" | "sync_gate" | "checkpoint_review" | ...
+  entityId: text("entity_id").notNull(),
+  fromState: text("from_state").notNull(),
+  toState: text("to_state").notNull(),
+  operation: text("operation").notNull(),         // "claim" | "release" | "approve" | "reject" | ...
+  agentId: text("agent_id").notNull(),
+  payloadJson: text("payload_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  entityIdx: index("idx_stlog_entity").on(table.entityType, table.entityId),
+  agentIdx: index("idx_stlog_agent").on(table.agentId),
+  createdIdx: index("idx_stlog_created").on(table.createdAt),
+}));
+
 // ── Negotiation Message ─────────────────────────────
 
 export const negotiationMessages = sqliteTable("negotiation_message", {

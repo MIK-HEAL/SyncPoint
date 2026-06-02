@@ -31,7 +31,7 @@ afterEach(() => {
 
 describe("agentRegistration router", () => {
   it("lists built-in templates and validates inline content", async () => {
-    const caller = appRouter.createCaller({ callerId: null });
+    const caller = appRouter.createCaller({ callerId: "test-caller", callerRole: null, callerToken: null });
 
     const templates = await caller.agentRegistration.listTemplates();
     expect(templates.templates.some(template => template.id === "delivery-pod")).toBe(true);
@@ -52,7 +52,7 @@ agent:
   });
 
   it("materializes team templates and exports cards through tRPC", async () => {
-    const caller = appRouter.createCaller({ callerId: null });
+    const caller = appRouter.createCaller({ callerId: "test-caller", callerRole: null, callerToken: null });
 
     const initResult = await caller.agentRegistration.initTeam({
       templateId: "lean-pair",

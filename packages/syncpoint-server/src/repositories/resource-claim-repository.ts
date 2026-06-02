@@ -45,7 +45,7 @@ export function createResourceClaim(data: ResourceClaimCreate): ResourceClaim {
   if (data.resources.length === 0) {
     throw new Error("resource_claim requires at least one resource");
   }
-  const resourceType = data.resources[0].type;
+  const resourceType = data.resources[0]!.type;
   if (data.resources.some(resource => resource.type !== resourceType)) {
     throw new Error("resource_claim resources must all have the same type");
   }

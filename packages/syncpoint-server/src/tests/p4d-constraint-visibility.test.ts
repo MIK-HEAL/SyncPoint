@@ -27,6 +27,7 @@ import { buildSnapshot } from "../application/sync-status-service.js";
 import { wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
 import { appRouter } from "../../src/router.js";
 import { MemoryKind, TaskStatus } from "syncpoint-core";
+import { resetPathResolverCache } from "../application/path-resolver.js";
 
 let tmpDir: string;
 let agent1Id: string;
@@ -36,11 +37,13 @@ let taskId: string;
 let sessionId: string;
 let memoryId: string;
 
-const caller = appRouter.createCaller({ callerId: null });
+const caller = appRouter.createCaller({ callerId: "test-caller", callerRole: null, callerToken: null });
 
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-p4d-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
+  process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   ensureApplicationBootstrap();
   getDb();
@@ -134,6 +137,8 @@ afterAll(() => {
   wakeEngineStop();
   closeDb();
   delete process.env.SYNCPOINT_DB_DIR;
+  delete process.env.SYNCPOINT_PROJECT_ROOT;
+  resetPathResolverCache();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

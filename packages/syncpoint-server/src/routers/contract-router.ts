@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { ContractStatus } from "syncpoint-core";
 import { createContract, getContract, getContractForTask, updateContractStatus } from "../repositories/_exports/context-memory.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const contractRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       taskId: z.string(),
       title: z.string().default(""),
@@ -27,7 +27,7 @@ export const contractRouter = t.router({
     .input(z.object({ taskId: z.string() }))
     .query(({ input }) => getContractForTask(input.taskId)),
 
-  updateStatus: publicProcedure
+  updateStatus: protectedProcedure
     .input(z.object({ id: z.string(), status: z.nativeEnum(ContractStatus) }))
     .mutation(({ input }) => updateContractStatus(input.id, input.status)),
 });

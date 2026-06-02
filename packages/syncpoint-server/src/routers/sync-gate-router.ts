@@ -15,7 +15,7 @@ import {
   sgStatusDetailed, sgVote, sgAck, sgResolve, sgCancel,
   sgList, sgListActive,
 } from "../application/sync-gate-service.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const syncGateRouter = t.router({
 
@@ -26,7 +26,7 @@ export const syncGateRouter = t.router({
     }))
     .query(({ input }) => sgStatusDetailed(input.gateId, input.agentId)),
 
-  vote: publicProcedure
+  vote: protectedProcedure
     .input(z.object({
       gateId: z.string(),
       agentId: z.string(),
@@ -35,7 +35,7 @@ export const syncGateRouter = t.router({
     }))
     .mutation(({ input }) => sgVote(input.gateId, input.agentId, input.vote, input.summary)),
 
-  ack: publicProcedure
+  ack: protectedProcedure
     .input(z.object({
       gateId: z.string(),
       agentId: z.string(),
@@ -43,14 +43,14 @@ export const syncGateRouter = t.router({
     }))
     .mutation(({ input }) => sgAck(input.gateId, input.agentId, input.summary)),
 
-  resolve: publicProcedure
+  resolve: protectedProcedure
     .input(z.object({
       gateId: z.string(),
       summary: z.string().optional().default(""),
     }))
     .mutation(({ input }) => sgResolve(input.gateId, input.summary)),
 
-  cancel: publicProcedure
+  cancel: protectedProcedure
     .input(z.object({
       gateId: z.string(),
       reason: z.string().optional().default(""),

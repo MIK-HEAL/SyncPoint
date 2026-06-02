@@ -40,19 +40,19 @@ export function extractTouchedFiles(patchText: string): string[] {
     // diff --git a/path b/path
     const gitMatch = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
     if (gitMatch) {
-      files.add(gitMatch[2]);
+      files.add(gitMatch[2]!);
       continue;
     }
     // +++ b/path (new file)
     const plusMatch = line.match(/^\+\+\+ b\/(.+)$/);
     if (plusMatch && plusMatch[1] !== "/dev/null") {
-      files.add(plusMatch[1]);
+      files.add(plusMatch[1]!);
       continue;
     }
     // --- a/path (old file)
     const minusMatch = line.match(/^--- a\/(.+)$/);
     if (minusMatch && minusMatch[1] !== "/dev/null") {
-      files.add(minusMatch[1]);
+      files.add(minusMatch[1]!);
       continue;
     }
   }

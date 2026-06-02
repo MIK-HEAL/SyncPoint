@@ -4,7 +4,9 @@
  * no claim covers the locator.
  */
 import type { ResourceRef } from "syncpoint-core";
+import { normalizeResourcePath } from "syncpoint-core";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
+import { getProjectRoot } from "./path-resolver.js";
 
 /**
  * Convert freeform locator strings (e.g. from snapshot workingResources)
@@ -18,6 +20,12 @@ export function resolveResourceRefs(
 ): ResourceRef[] {
   if (locators.length === 0) return [];
 
+  // Normalize locators to match claim locator format (absolute paths)
+  const root = getProjectRoot();
+  const normalizedLocators = locators.map(loc =>
+    normalizeResourcePath(loc, { projectRoot: root }),
+  );
+
   // Build a locator→type map from the agent's active claims
   const claims = protocolRepo.listResourceClaims({ actorId: agentId, status: "ACTIVE" });
   const typeByLocator = new Map<string, string>();
@@ -27,7 +35,7 @@ export function resolveResourceRefs(
     }
   }
 
-  return locators.map(loc => ({
+  return normalizedLocators.map(loc => ({
     type: typeByLocator.get(loc) ?? "file",
     locator: loc,
     metadata: "",

@@ -36,6 +36,25 @@ describe("resourceLocatorsOverlap", () => {
     expect(resourceLocatorsOverlap(a, b)).toBe(false);
   });
 
+  it("file-type locators are normalized before comparison", () => {
+    // These are semantically the same file but with different representations
+    const a: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "./src/auth.ts", metadata: "" };
+    expect(resourceLocatorsOverlap(a, b)).toBe(true);
+  });
+
+  it("file-type locators with different case on case-insensitive platform overlap", () => {
+    const a: ResourceRef = { type: "file", locator: "src/Auth.ts", metadata: "" };
+    const b: ResourceRef = { type: "file", locator: "src/auth.ts", metadata: "" };
+    // On Windows (case-insensitive), these should overlap
+    // On Linux (case-sensitive), they won't unless SYNCPOINT_CASE_SENSITIVE is set
+    const result = resourceLocatorsOverlap(a, b);
+    if (process.platform === "win32") {
+      expect(result).toBe(true);
+    }
+    // On case-sensitive platforms, different case = different file
+  });
+
   it("registered matcher is used for overlap", () => {
     registerResourceMatcher({
       type: "custom",

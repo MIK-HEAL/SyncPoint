@@ -18,6 +18,7 @@ import { __clearGuardSessionsForTest, guardCreateSession, guardRevokeSession, gu
 import { rcClaim, rcDetectConflicts, rcList, rcRelease } from "./resource-claim-service.js";
 import { sgStatus } from "./sync-gate-service.js";
 import { writePrepare } from "./write-permit-service.js";
+import { resetPathResolverCache } from "./path-resolver.js";
 
 let tmpDir: string;
 let agentA: string;
@@ -46,6 +47,7 @@ beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-rc-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   ensureApplicationBootstrap();
   getDb();
@@ -84,6 +86,7 @@ afterEach(() => {
   closeDb();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
+  resetPathResolverCache();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

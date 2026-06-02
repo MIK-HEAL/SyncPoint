@@ -8,6 +8,7 @@ import { RelationshipMode, ResourceClaimMode, SyncGateReason, WriteIntent } from
 import { rcClaim } from "./resource-claim-service.js";
 import { writePrepare, writeApply } from "./write-permit-service.js";
 import { reconcileBackingStore, __clearReconciliationStateForTest } from "./backing-store-reconciliation-service.js";
+import { resetPathResolverCache } from "./path-resolver.js";
 
 let tmpDir: string;
 let agentA: string;
@@ -18,6 +19,7 @@ beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-reconcile-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
+  resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   getDb();
 
@@ -38,6 +40,7 @@ afterEach(() => {
   closeDb();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
+  resetPathResolverCache();
   fs.rmSync(tmpDir, { recursive: true, force: true });
   __clearReconciliationStateForTest();
 });

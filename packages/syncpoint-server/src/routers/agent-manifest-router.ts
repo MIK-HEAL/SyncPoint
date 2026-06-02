@@ -6,11 +6,11 @@ import {
   manifestUpsert, manifestGet, manifestList, manifestDelete,
   routeGateEscalation,
 } from "../application/escalation-routing-service.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const agentManifestRouter = t.router({
 
-  upsert: publicProcedure
+  upsert: protectedProcedure
     .input(z.object({
       agentId: z.string(),
       capabilities: z.array(z.object({
@@ -36,11 +36,11 @@ export const agentManifestRouter = t.router({
   list: publicProcedure
     .query(() => manifestList()),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(z.object({ agentId: z.string() }))
     .mutation(({ input }) => { manifestDelete(input.agentId); return { ok: true }; }),
 
-  routeEscalation: publicProcedure
+  routeEscalation: protectedProcedure
     .input(z.object({ gateId: z.string() }))
     .query(({ input }) => routeGateEscalation(input.gateId)),
 });

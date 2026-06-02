@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createContextSnapshot, listContextSnapshots, getLatestContextSnapshot } from "../repositories/_exports/context-memory.js";
-import { t, publicProcedure } from "./_trpc.js";
+import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 const ContextSnapshotPayloadSchema = z.object({
   goal: z.string().optional(),
@@ -25,7 +25,7 @@ const ContextSnapshotPayloadSchema = z.object({
 });
 
 export const contextSnapshotRouter = t.router({
-  create: publicProcedure
+  create: protectedProcedure
     .input(z.object({
       taskId: z.string(),
       agentId: z.string(),

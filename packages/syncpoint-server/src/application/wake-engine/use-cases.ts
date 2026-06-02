@@ -92,7 +92,7 @@ export function wakeNext(agentId: string): WakeRequest | null {
   const queued = all.filter(w => w.status === WakeRequestStatus.QUEUED);
   if (queued.length === 0) return null;
 
-  const wr = queued[0];
+  const wr = queued[0]!;
   if (wr.taskId) {
     try {
       const decision = collaborationCoordinator.execution.evaluateReadiness({

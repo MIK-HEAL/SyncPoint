@@ -12,6 +12,7 @@
 import {
   buildRealityProjection,
   computeProjectionLookupKey,
+  normalizeResourcePath,
   type RealityProjection,
   type ProjectionContext,
   type MemoryProjectionInput,
@@ -21,6 +22,7 @@ import {
   getMemoryVersion,
 } from "../repositories/_exports/context-memory.js";
 import "./_scope-matchers.js";
+import { getProjectRoot } from "./path-resolver.js";
 
 // ── Projection Cache ──────────────────────────────────────
 
@@ -103,6 +105,18 @@ export function buildProjection(ctx: Omit<ProjectionContext, "memoryVersion">): 
   const memoryVersion = getMemoryVersion();
   const collected = collectProjectMemories(ctx.taskId);
 
+  // Normalize workingResources to absolute paths so they match
+  // normalized appliesTo scope patterns during projection building
+  const root = getProjectRoot();
+  const normalizedCtx = {
+    ...ctx,
+    workingResources: ctx.workingResources?.map(r => normalizeResourcePath(r, { projectRoot: root })),
+    workingResourceRefs: ctx.workingResourceRefs?.map(r => ({
+      ...r,
+      locator: r.type === "file" ? normalizeResourcePath(r.locator, { projectRoot: root }) : r.locator,
+    })),
+  };
+
   // CollectedMemory extends ProjectionInput — direct assignment, no mapping needed
   const inputs: MemoryProjectionInput[] = collected;
 
@@ -114,7 +128,7 @@ export function buildProjection(ctx: Omit<ProjectionContext, "memoryVersion">): 
     .map(m => m.fingerprint)
     .filter(Boolean);
 
-  const fullCtx: ProjectionContext = { ...ctx, memoryVersion };
+  const fullCtx: ProjectionContext = { ...normalizedCtx, memoryVersion };
 
   // Lookup key excludes memoryVersion → same key across version bumps
   const lookupKey = computeProjectionLookupKey(fullCtx, relevantFingerprints);

@@ -14,7 +14,11 @@ export const resourceClaims = sqliteTable("resource_claim", {
   status: text("status").notNull().default("ACTIVE"),
   createdAt: text("created_at").notNull(),
   releasedAt: text("released_at").notNull().default(""),
-});
+}, (table) => ({
+  actorStatusIdx: index("idx_claims_actor_status").on(table.actorId, table.status),
+  sessionIdx: index("idx_claims_session").on(table.sessionId),
+  taskIdx: index("idx_claims_task").on(table.taskId),
+}));
 
 /** Join table: individual resources for a claim (replaces resourcesJson) */
 export const resourceClaimResources = sqliteTable("resource_claim_resource", {
@@ -46,7 +50,10 @@ export const syncGates = sqliteTable("sync_gate", {
   policyJson: text("policy_json", { mode: "json" }).$type<import("syncpoint-core").GatePolicy>().notNull().default({ kind: GatePolicyKind.ALL_REQUIRED, timeoutAction: GateTimeoutAction.ESCALATE }),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
-});
+}, (table) => ({
+  statusCreatedIdx: index("idx_gates_status_created").on(table.status, table.createdAt),
+  taskIdx: index("idx_gates_task").on(table.taskId),
+}));
 
 /** Join table: which agents are required to ack this gate */
 export const syncGateRequiredAgents = sqliteTable("sync_gate_required_agent", {
@@ -123,7 +130,11 @@ export const checkpointReviews = sqliteTable("checkpoint_review", {
   decisionSummary: text("decision_summary").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
-});
+}, (table) => ({
+  taskCreatedIdx: index("idx_reviews_task_created").on(table.taskId, table.createdAt),
+  statusIdx: index("idx_reviews_status").on(table.status),
+  requestingAgentIdx: index("idx_reviews_req_agent").on(table.requestingAgentId),
+}));
 
 /** Join table: approvers for a checkpoint review (replaces CSV fields) */
 export const checkpointReviewApprovers = sqliteTable("checkpoint_review_approver", {
