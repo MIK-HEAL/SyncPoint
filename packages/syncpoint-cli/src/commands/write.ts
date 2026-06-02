@@ -77,7 +77,7 @@ export function registerWriteCommands(program: Command): void {
     .option("--delete", "Delete the target file", false)
     .option("--json", "Output JSON", false)
     .action((locator: string, opts: ApplyOptions) => {
-      const resource = { type: "file", locator, metadata: "" };
+      const resource = { type: "file", scope: "file" as const, locator, metadata: "" };
       const permitId = opts.permit ?? prepareForApply(resource, opts);
       const result = writeApply({
         permitId,
@@ -103,7 +103,7 @@ function writeInput(locators: string[], opts: WriteOptions) {
     actorId,
     taskId: opts.task,
     sessionId: opts.session,
-    resources: locators.map(locator => ({ type: opts.type ?? "file", locator, metadata: "" })),
+    resources: locators.map(locator => ({ type: opts.type ?? "file", scope: "file" as const, locator, metadata: "" })),
     intent: opts.intent ?? WriteIntent.MODIFY,
     operationId: opts.operation,
   };

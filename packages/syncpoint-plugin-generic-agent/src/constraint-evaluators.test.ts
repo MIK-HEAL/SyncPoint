@@ -26,7 +26,7 @@ import { resourcesScopeMatcher } from "./scope-matchers.js";
 // ── Helpers ──────────────────────────────────────────
 
 function toRefs(...locators: string[]): ResourceRef[] {
-  return locators.map(l => ({ type: "artifact", locator: l, metadata: "" }));
+  return locators.map(l => ({ type: "artifact", locator: l, metadata: "", scope: "file" as const }));
 }
 
 function makeSource(id: string): ProjectionSource {
@@ -170,7 +170,7 @@ describe("resource_forbidden evaluator", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "" }],
+      touchedResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "", scope: "file" as const }],
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers[0].message).toBe("Brand assets are frozen during launch");
@@ -190,7 +190,7 @@ describe("resource_forbidden evaluator", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: [{ type: "binary_asset", locator: "binary://assets/hero-banner.png", metadata: "" }],
+      touchedResources: [{ type: "binary_asset", locator: "binary://assets/hero-banner.png", metadata: "", scope: "file" as const }],
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers[0].rule).toBe("resource_forbidden");
@@ -225,7 +225,7 @@ describe("E2E: projection + resource_forbidden", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection,
-      touchedResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "" }],
+      touchedResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "", scope: "file" as const }],
     });
 
     expect(decision.permitted).toBe(false);

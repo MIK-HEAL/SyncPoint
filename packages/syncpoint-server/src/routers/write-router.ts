@@ -5,6 +5,7 @@ import { publicProcedure, protectedProcedure, t } from "./_trpc.js";
 
 const resourceRefInput = z.object({
   type: z.string().default("file"),
+  scope: z.enum(["file", "function", "line_range"]).default("file"),
   locator: z.string(),
   metadata: z.string().optional().default(""),
 });

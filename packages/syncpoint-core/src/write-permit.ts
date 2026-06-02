@@ -195,7 +195,7 @@ function gateOverlapsResource(gate: SyncGate, resource: ResourceRef): boolean {
   const related = gate.relatedResources ?? [];
   if (related.some(candidate => resourceLocatorsOverlap(candidate, resource))) return true;
   if (resource.type !== "file") return false;
-  return parseRelatedFileLocators(gate.relatedFiles).some(locator => resourceLocatorsOverlap({ type: "file", locator, metadata: "" }, resource));
+  return parseRelatedFileLocators(gate.relatedFiles).some(locator => resourceLocatorsOverlap({ type: "file", scope: "file", locator, metadata: "" }, resource));
 }
 
 function parseRelatedFileLocators(value: string[] | string): string[] {

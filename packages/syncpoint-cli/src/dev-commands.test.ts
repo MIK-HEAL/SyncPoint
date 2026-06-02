@@ -64,7 +64,7 @@ describe("dev status data", () => {
 
     const agents = repo.listAgents();
     expect(agents.length).toBeGreaterThan(0);
-    expect(agents[0].name).toBe("dev-test");
+    expect(agents[0]!.name).toBe("dev-test");
   });
 });
 
@@ -79,7 +79,7 @@ describe("dev tail recent events", () => {
     ).all() as Array<{ event_type: string }>;
 
     expect(rows.length).toBeGreaterThan(0);
-    expect(rows[0].event_type).toBe("AGENT_REGISTERED");
+    expect(rows[0]!.event_type).toBe("AGENT_REGISTERED");
   });
 });
 
@@ -93,7 +93,7 @@ describe("dev reset", () => {
     repo.createResourceClaim({
       actorId: agent.id,
       taskId: task.id,
-      resources: [{ type: "file", locator: "src/test.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/test.ts", metadata: "", scope: "file" as const }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -104,6 +104,10 @@ describe("dev reset", () => {
     // Reset
     const raw = getRawDb();
     const tables = [
+      "context_snapshot_resource",
+      "context_snapshot",
+      "checkpoint_review_approver",
+      "checkpoint_review",
       "resource_claim_resource",
       "resource_claim",
       "sync_gate_required_agent",
@@ -116,6 +120,11 @@ describe("dev reset", () => {
       "operation",
       "write_permit_resource",
       "write_permit",
+      "negotiation_message",
+      "negotiation_participant",
+      "negotiation_session",
+      "agent_message",
+      "state_transition_log",
       "event",
     ];
     let deleted = 0;

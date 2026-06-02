@@ -29,11 +29,11 @@ let sessionA: string;
 let sessionB: string;
 
 function fileResource(locator: string) {
-  return { type: "file", locator, metadata: "" };
+  return { type: "file", locator, metadata: "", scope: "file" as const };
 }
 
 function imageResource(locator: string) {
-  return { type: "image", locator, metadata: "" };
+  return { type: "image", locator, metadata: "", scope: "file" as const };
 }
 
 function seedFile(locator: string, content = "original") {

@@ -13,7 +13,7 @@ import { parseClaimPaths } from "./file-resource.js";
 function makeClaim(id: string, actorId: string, paths: string, mode = "exclusive"): ResourceClaim {
   return {
     id, actorId, taskId: "t1", sessionId: "s1",
-    resources: parseClaimPaths(paths).map(p => ({ type: "file", locator: p, metadata: "" })),
+    resources: parseClaimPaths(paths).map(p => ({ type: "file", locator: p, metadata: "", scope: "file" as const })),
     mode: mode === "exclusive" ? ResourceClaimMode.EXCLUSIVE : ResourceClaimMode.SHARED,
     status: ResourceClaimStatus.ACTIVE,
     createdAt: "", releasedAt: "",

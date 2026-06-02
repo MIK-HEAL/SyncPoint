@@ -23,7 +23,7 @@ let taskId: string;
 let previousRoot: string | undefined;
 
 function fileResource(locator: string) {
-  return { type: "file", locator, metadata: "" };
+  return { type: "file", locator, metadata: "", scope: "file" as const };
 }
 
 beforeEach(() => {

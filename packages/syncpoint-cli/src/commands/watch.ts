@@ -6,6 +6,7 @@ import { auditFileChange, auditListActiveResourceClaims } from "syncpoint-server
 import type { AuditFileChangeResult } from "syncpoint-server/application";
 import { FileAuditDecisionKind } from "syncpoint-core";
 import { resolveAgent } from "./connect.js";
+// @parcel/watcher types imported dynamically to avoid hard dep on type declarations
 
 interface FileBaseline {
   exists: boolean;
@@ -19,10 +20,13 @@ interface WatchOptions {
   session?: string;
   auditOnly?: boolean;
   json?: boolean;
+  debounce?: string;
+  maxWatchers?: string;
 }
 
 const IGNORED_SEGMENTS = new Set([".git", "node_modules", ".syncpoint"]);
-const DEBOUNCE_MS = 300;
+const DEFAULT_DEBOUNCE_MS = 300;
+const DEFAULT_MAX_WATCHERS = 5000;
 
 export function registerWatchCommands(program: Command): void {
   program
@@ -33,39 +37,107 @@ export function registerWatchCommands(program: Command): void {
     .requiredOption("--task <taskId>", "Task ID")
     .option("--session <sessionId>", "Session ID")
     .option("--audit-only", "Log audit events but do not create SyncGates", false)
+    .option("--debounce <ms>", "Debounce interval in milliseconds", String(DEFAULT_DEBOUNCE_MS))
+    .option("--max-watchers <n>", "Maximum number of watched files before alert", String(DEFAULT_MAX_WATCHERS))
     .option("--json", "Emit newline-delimited JSON events", false)
     .action(async (dir: string, opts: WatchOptions) => {
       const root = path.resolve(dir);
       const agent = resolveAgent(opts.agent);
       const agentId = agent?.id ?? opts.agent;
+      const debounceMs = parseInt(opts.debounce ?? String(DEFAULT_DEBOUNCE_MS), 10) || DEFAULT_DEBOUNCE_MS;
+      const maxWatchers = parseInt(opts.maxWatchers ?? String(DEFAULT_MAX_WATCHERS), 10) || DEFAULT_MAX_WATCHERS;
       const baseline = buildBaseline(root, opts.task, opts.session);
       const pending = new Map<string, NodeJS.Timeout>();
+      let fileCount = 0;
 
-      printStartup({ root, agentId, opts, baselineCount: baseline.size });
+      printStartup({ root, agentId, opts, baselineCount: baseline.size, debounceMs, maxWatchers });
 
-      const watcher = fs.watch(root, { recursive: true }, (_eventType, filename) => {
-        const locator = normalizeWatchedLocator(root, filename);
-        if (!locator || shouldIgnore(locator)) return;
+      // Use @parcel/watcher for cross-platform reliability
+      let watcher: { unsubscribe: () => Promise<void> };
+      try {
+        const { subscribe } = await import("@parcel/watcher");
+        watcher = await subscribe(root, async (err: Error | null, events: Array<{ type: string; path: string }>) => {
+          if (err) {
+            if (opts.json) {
+              console.log(JSON.stringify({ type: "watch_error", message: err.message }));
+            } else {
+              console.error(`Watch error: ${err.message}`);
+            }
+            return;
+          }
 
-        const existing = pending.get(locator);
-        if (existing) clearTimeout(existing);
-        pending.set(locator, setTimeout(() => {
-          pending.delete(locator);
-          processChange(root, locator, baseline, agentId, opts);
-        }, DEBOUNCE_MS));
-      });
+          for (const event of events) {
+            const locator = normalizeWatchedLocator(root, event.path);
+            if (!locator || shouldIgnore(locator)) continue;
 
-      watcher.on("error", error => {
+            fileCount++;
+            if (fileCount > maxWatchers) {
+              if (opts.json) {
+                console.log(JSON.stringify({ type: "watcher_limit", fileCount, maxWatchers }));
+              } else {
+                console.warn(`WARNING: Watched file count (${fileCount}) exceeds max (${maxWatchers}). Consider narrowing watch scope.`);
+              }
+            }
+
+            const existing = pending.get(locator);
+            if (existing) clearTimeout(existing);
+            pending.set(locator, setTimeout(() => {
+              pending.delete(locator);
+              processChange(root, locator, baseline, agentId, opts);
+            }, debounceMs));
+          }
+        });
+      } catch (importErr) {
+        // Fallback to fs.watch if @parcel/watcher is not available
         if (opts.json) {
-          console.log(JSON.stringify({ type: "watch_error", message: error.message }));
-          return;
+          console.log(JSON.stringify({ type: "watcher_fallback", message: "@parcel/watcher unavailable, using fs.watch" }));
+        } else {
+          console.warn("@parcel/watcher unavailable, falling back to fs.watch (less reliable on some platforms)");
         }
-        console.error(`Watch error: ${error.message}`);
-      });
+
+        const fsWatcher = fs.watch(root, { recursive: true }, (_eventType, filename: string | Buffer | null) => {
+          const locator = normalizeWatchedLocator(root, filename?.toString() ?? "");
+          if (!locator || shouldIgnore(locator)) return;
+
+          fileCount++;
+          if (fileCount > maxWatchers) {
+            if (opts.json) {
+              console.log(JSON.stringify({ type: "watcher_limit", fileCount, maxWatchers }));
+            } else {
+              console.warn(`WARNING: Watched file count (${fileCount}) exceeds max (${maxWatchers}).`);
+            }
+          }
+
+          const existing = pending.get(locator);
+          if (existing) clearTimeout(existing);
+          pending.set(locator, setTimeout(() => {
+            pending.delete(locator);
+            processChange(root, locator, baseline, agentId, opts);
+          }, debounceMs));
+        });
+
+        fsWatcher.on("error", error => {
+          if (opts.json) {
+            console.log(JSON.stringify({ type: "watch_error", message: error.message }));
+          } else {
+            console.error(`Watch error: ${error.message}`);
+          }
+        });
+
+        await new Promise<void>(resolve => {
+          process.once("SIGINT", () => {
+            fsWatcher.close();
+            for (const timer of pending.values()) clearTimeout(timer);
+            if (!opts.json) console.log("\nStopped SyncPoint file audit watcher.");
+            resolve();
+          });
+        });
+        return;
+      }
 
       await new Promise<void>(resolve => {
-        process.once("SIGINT", () => {
-          watcher.close();
+        process.once("SIGINT", async () => {
+          await watcher.unsubscribe();
           for (const timer of pending.values()) clearTimeout(timer);
           if (!opts.json) console.log("\nStopped SyncPoint file audit watcher.");
           resolve();
@@ -120,6 +192,8 @@ function printStartup(input: {
   agentId: string;
   opts: WatchOptions;
   baselineCount: number;
+  debounceMs: number;
+  maxWatchers: number;
 }): void {
   if (input.opts.json) {
     console.log(JSON.stringify({
@@ -130,6 +204,8 @@ function printStartup(input: {
       sessionId: input.opts.session ?? "",
       auditOnly: input.opts.auditOnly === true,
       baselineCount: input.baselineCount,
+      debounceMs: input.debounceMs,
+      maxWatchers: input.maxWatchers,
       capability: "post_write_audit_only",
     }));
     return;
@@ -140,7 +216,9 @@ function printStartup(input: {
   console.log(`Task: ${input.opts.task}`);
   if (input.opts.session) console.log(`Session: ${input.opts.session}`);
   console.log(`Baseline: ${input.baselineCount} active claimed file(s) in scope`);
-  console.log("Capability: post-write audit only; fs.watch cannot pre-block native writes.");
+  console.log(`Debounce: ${input.debounceMs}ms`);
+  console.log(`Max watchers: ${input.maxWatchers}`);
+  console.log("Capability: post-write audit only; watcher cannot pre-block native writes.");
 }
 
 function printAuditResult(locator: string, result: AuditFileChangeResult, json: boolean): void {
@@ -177,11 +255,9 @@ function printAuditResult(locator: string, result: AuditFileChangeResult, json: 
   console.log(`[${payload.timestamp}] ${result.eventType}: ${locator}`);
 }
 
-function normalizeWatchedLocator(root: string, filename: string | Buffer | null): string | undefined {
-  if (!filename) return undefined;
-  const raw = filename.toString();
-  if (!raw) return undefined;
-  const absolute = path.isAbsolute(raw) ? raw : path.join(root, raw);
+function normalizeWatchedLocator(root: string, filePath: string): string | undefined {
+  if (!filePath) return undefined;
+  const absolute = path.isAbsolute(filePath) ? filePath : path.join(root, filePath);
   const relative = path.relative(root, absolute);
   if (!relative || relative.startsWith("..")) return undefined;
   return normalizeLocator(relative);

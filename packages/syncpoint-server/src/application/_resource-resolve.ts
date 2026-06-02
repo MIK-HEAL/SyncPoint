@@ -37,6 +37,7 @@ export function resolveResourceRefs(
 
   return normalizedLocators.map(loc => ({
     type: typeByLocator.get(loc) ?? "file",
+    scope: "file" as const,
     locator: loc,
     metadata: "",
   }));

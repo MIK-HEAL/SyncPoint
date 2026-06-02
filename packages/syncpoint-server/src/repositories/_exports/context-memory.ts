@@ -26,6 +26,14 @@ export {
   createContextSnapshot,
   listContextSnapshots,
   getLatestContextSnapshot,
+  resolveSnapshotPayload,
+  runSnapshotGc,
+  checkSnapshotVersion,
+} from "../context-snapshot-repository.js";
+
+export type {
+  SnapshotGcConfig,
+  GcResult,
 } from "../context-snapshot-repository.js";
 
 export {

@@ -38,7 +38,8 @@
   "dependencies": {
     "syncpoint-core": "workspace:*",
     "syncpoint-server": "workspace:*",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "@parcel/watcher": "^2.5.1"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

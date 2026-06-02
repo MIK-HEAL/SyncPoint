@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { guardCreateSession, guardRevokeSession, guardStatus, guardValidateToken, reconcileBackingStore } from "syncpoint-server/application";
+import { guardCreateSession, guardRevokeSession, guardStatus, guardValidateToken, reconcileBackingStore, unlockAllGuards, recoverGuardState } from "syncpoint-server/application";
 import type { GuardMode, GuardProxyAdapter } from "syncpoint-server/application";
 import { resolveAgent } from "./connect.js";
 
@@ -94,6 +94,49 @@ export function registerGuardCommands(program: Command): void {
     .option("--json", "Output JSON", false)
     .action((sessionId: string, opts: GuardStatusOptions) => {
       print(guardRevokeSession(sessionId), opts.json === true);
+    });
+
+  guard
+    .command("unlock")
+    .description("Emergency: unlock all guarded files and restore original permissions")
+    .option("--all", "Unlock all guards across all project roots", false)
+    .option("--root <path>", "Project root to recover guard state from")
+    .option("--json", "Output JSON", false)
+    .action((opts: { all?: boolean; root?: string; json?: boolean }) => {
+      try {
+        // First try to recover from persisted guard state (crash recovery)
+        if (opts.root) {
+          const recovery = recoverGuardState(opts.root);
+          if (recovery.recovered.length > 0) {
+            if (opts.json) {
+              console.log(JSON.stringify({ source: "crash_recovery", ...recovery }));
+              return;
+            }
+            console.log(`Crash recovery: restored ${recovery.recovered.length} file(s)`);
+            if (recovery.errors.length > 0) console.error(`Errors: ${recovery.errors.join(", ")}`);
+            return;
+          }
+        }
+
+        // Then unlock all active guards
+        if (opts.all) {
+          const result = unlockAllGuards(opts.root);
+          if (opts.json) {
+            console.log(JSON.stringify(result));
+            return;
+          }
+          console.log(`Unlocked ${result.unlocked.length} file(s)`);
+          if (result.errors.length > 0) console.error(`Errors: ${result.errors.join(", ")}`);
+          return;
+        }
+
+        console.error("Specify --all to unlock all guards, or --root <path> for crash recovery.");
+        process.exitCode = 1;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Error: ${msg}`);
+        process.exitCode = 1;
+      }
     });
 
   guard

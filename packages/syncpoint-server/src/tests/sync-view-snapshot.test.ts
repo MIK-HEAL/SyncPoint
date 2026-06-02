@@ -104,7 +104,7 @@ describe("syncStatus.snapshot", () => {
       actorId: execId,
       taskId,
       sessionId,
-      resources: [{ type: "file", locator: "src/snapshot.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/snapshot.ts", metadata: "", scope: "file" as const }],
     });
     const snap = await caller.syncStatus.snapshot();
     expect(snap.resourceOwnership.activeClaims.length).toBeGreaterThanOrEqual(1);
@@ -163,7 +163,7 @@ describe("syncStatus.snapshot sessionId scoping", () => {
     orchAdvanceSession(otherSessionId);
 
     // Claim in session 2
-    rcClaim({ actorId: otherExecId, taskId: otherTaskId, sessionId: otherSessionId, resources: [{ type: "file", locator: "src/other.ts", metadata: "" }] });
+    rcClaim({ actorId: otherExecId, taskId: otherTaskId, sessionId: otherSessionId, resources: [{ type: "file", locator: "src/other.ts", metadata: "", scope: "file" as const }] });
     // Gate in session 2
     sgRequest({
       taskId: otherTaskId, sessionId: otherSessionId, reason: "manual_sync",

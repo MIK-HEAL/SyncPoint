@@ -156,7 +156,7 @@ describe("P4C: orchStartAssignment constraint enforcement", () => {
       sessionId,
       actorId: agent2Id,
       taskId: task2.id,
-      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });

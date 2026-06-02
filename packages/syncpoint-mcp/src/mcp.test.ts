@@ -372,7 +372,7 @@ describe("tools", () => {
     rcClaim({
       actorId: agents[0].id,
       taskId: tasks[0].id,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", locator, metadata: "", scope: "file" as const }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 

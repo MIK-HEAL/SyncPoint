@@ -121,15 +121,32 @@ export function registerFacadeCommands(program: Command): void {
     .requiredOption("--agent <nameOrId>", "Agent name or ID")
     .requiredOption("--task <taskId>", "Task ID")
     .option("--type <type>", "Resource type (file, binary_asset, db_table, ...)", "file")
+    .option("--scope <scope>", "Claim granularity: file, function, or line_range", "file")
+    .option("--function <name>", "Function name when --scope function")
+    .option("--lines <start>-<end>", "Line range when --scope line_range (e.g. 10-30)")
     .option("--session <sessionId>", "Session ID")
     .option("--mode <mode>", "Claim mode: exclusive or shared", "exclusive")
     .option("--json", "Machine-readable JSON output")
     .action((locators, opts) => {
       const agentId = requireAgentId(opts.agent);
+      let lineRange: { start: number; end: number } | undefined;
+      if (opts.scope === "line_range" && opts.lines) {
+        const parts = String(opts.lines).split("-").map(Number);
+        if (parts.length === 2 && parts[0]! > 0 && parts[1]! >= parts[0]!) {
+          lineRange = { start: parts[0]!, end: parts[1]! };
+        } else {
+          console.error(`Invalid --lines format: ${opts.lines}. Expected <start>-<end> (e.g. 10-30).`);
+          process.exitCode = 1;
+          return;
+        }
+      }
       const resources = locators.split(",").map((p: string) => ({
         type: opts.type as string,
         locator: p.trim(),
         metadata: "",
+        ...(opts.scope && opts.scope !== "file" ? { scope: opts.scope } : {}),
+        ...(opts.scope === "function" && opts.function ? { functionName: opts.function } : {}),
+        ...(lineRange ? { lineRange } : {}),
       }));
       const result = rcClaim({
         actorId: agentId,
@@ -144,7 +161,8 @@ export function registerFacadeCommands(program: Command): void {
         return;
       }
 
-      console.log(`Claimed: ${locators} (${opts.type}, ${opts.mode})`);
+      const scopeDesc = opts.scope !== "file" ? `, scope=${opts.scope}${opts.function ? `:${opts.function}` : ""}${lineRange ? `:${lineRange.start}-${lineRange.end}` : ""}` : "";
+      console.log(`Claimed: ${locators} (${opts.type}, ${opts.mode}${scopeDesc})`);
       if (result.conflicts.length > 0) {
         console.log("");
         console.log("Conflicts detected:");
@@ -291,6 +309,38 @@ export function registerFacadeCommands(program: Command): void {
         if (result.needSync) {
           console.log("  Task flagged for sync.");
         }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Error: ${msg}`);
+        process.exitCode = 1;
+      }
+    });
+
+  // ── syncpoint snapshot gc ────────────────────────────
+  program
+    .command("snapshot-gc")
+    .description("Run garbage collection on context snapshots")
+    .option("--keep-last-n <n>", "Keep the last N snapshots per task+agent", "50")
+    .option("--max-age-days <d>", "Delete snapshots older than D days", "30")
+    .option("--dry-run", "Show what would be deleted without deleting", false)
+    .option("--json", "Machine-readable JSON output", false)
+    .action((opts) => {
+      try {
+        const config = {
+          keepLastN: parseInt(opts.keepLastN, 10) || 50,
+          maxAgeDays: parseInt(opts.maxAgeDays, 10) || 30,
+        };
+        if (opts.dryRun) {
+          console.log("Dry run — no snapshots will be deleted.");
+          console.log(`Config: keepLastN=${config.keepLastN}, maxAgeDays=${config.maxAgeDays}`);
+          return;
+        }
+        const result = repo.runSnapshotGc(config);
+        if (opts.json) {
+          console.log(JSON.stringify(result));
+          return;
+        }
+        console.log(`GC complete: deleted ${result.deletedCount} snapshot(s), freed ~${(result.freedBytes / 1024).toFixed(1)}KB`);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`Error: ${msg}`);

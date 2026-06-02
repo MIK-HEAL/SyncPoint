@@ -8,7 +8,7 @@ import {
 } from "./file-audit.js";
 
 function resource(locator: string): ResourceRef {
-  return { type: "file", locator, metadata: "" };
+  return { type: "file", locator, metadata: "", scope: "file" as const };
 }
 
 function claim(overrides: Partial<ResourceClaim> & { id: string; actorId: string; taskId: string; locator: string }): ResourceClaim {

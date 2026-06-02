@@ -13,6 +13,7 @@ import { getDb, closeDb, getDbPath, isWalEnabled } from "./db.js";
 import { SyncPointEventBus } from "./event-bus.js";
 import type { SyncPointEventData } from "./event-bus.js";
 import { ensureApplicationBootstrap } from "./application/bootstrap.js";
+import { recoverEventBusSeq } from "./repositories/_shared.js";
 import { syncDeclaredAgents } from "./application/agent-registry-service.js";
 import { wakeEngineStart, wakeEngineStop } from "./application/wake-engine-service.js";
 import { startMessageTimeoutChecker, stopMessageTimeoutChecker } from "./application/agent-message-timeout.js";
@@ -58,14 +59,16 @@ function setSecurityHeaders(res: http.ServerResponse): void {
 const SSE_HEARTBEAT_MS = 30_000;
 const MAX_SSE_CONNECTIONS = 200;
 const activeSseConnections = new Set<http.ServerResponse>();
+const bus = SyncPointEventBus.getInstance();
 
 function broadcastSse(data: SyncPointEventData): void {
-  const payload = `data: ${JSON.stringify(data)}\n\n`;
+  const payload = `id: ${data.seq}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of activeSseConnections) {
     try {
       res.write(payload);
     } catch {
       activeSseConnections.delete(res);
+      bus.connectionClosed();
     }
   }
 }
@@ -82,7 +85,8 @@ export function startServer(port = DEFAULT_PORT): http.Server {
   getDb();
   syncDeclaredAgents();
 
-  const bus = SyncPointEventBus.getInstance();
+  // Recover event bus sequence from persisted events (server restart continuity)
+  recoverEventBusSeq();
 
   // Subscribe event bus to SSE broadcast
   const sseForward = (data: SyncPointEventData) => broadcastSse(data);
@@ -141,12 +145,32 @@ export function startServer(port = DEFAULT_PORT): http.Server {
         "X-Accel-Buffering": "no", // Disable nginx buffering
       });
 
+      // Reconnect support: client sends Last-Event-Seq header
+      const lastEventSeq = parseInt(req.headers["last-event-seq"] as string ?? "", 10);
+      const isReconnect = !isNaN(lastEventSeq) && lastEventSeq > 0;
+
       // Send current sequence number so client knows where it starts
       const currentSeq = bus.currentSeq;
-      res.write(`data: {"type":"connected","seq":${currentSeq}}\n\n`);
+      res.write(`id: ${currentSeq}\ndata: {"type":"connected","seq":${currentSeq}}\n\n`);
 
       activeSseConnections.add(res);
-      logger.info("SSE client connected", { activeConnections: activeSseConnections.size, currentSeq });
+      bus.connectionOpened();
+      if (isReconnect) bus.reconnectDetected();
+      logger.info("SSE client connected", { activeConnections: activeSseConnections.size, currentSeq, isReconnect, lastEventSeq });
+
+      // Replay missed events on reconnect
+      if (isReconnect) {
+        const missed = bus.replayAfter(lastEventSeq);
+        for (const event of missed) {
+          try {
+            res.write(`id: ${event.seq}\ndata: ${JSON.stringify(event)}\n\n`);
+          } catch {
+            activeSseConnections.delete(res);
+            bus.connectionClosed();
+            break;
+          }
+        }
+      }
 
       // Heartbeat: send keepalive comment every 30s to detect dead connections
       const heartbeat = setInterval(() => {
@@ -155,6 +179,7 @@ export function startServer(port = DEFAULT_PORT): http.Server {
         } catch {
           clearInterval(heartbeat);
           activeSseConnections.delete(res);
+          bus.connectionClosed();
         }
       }, SSE_HEARTBEAT_MS);
 
@@ -162,11 +187,37 @@ export function startServer(port = DEFAULT_PORT): http.Server {
       const cleanup = () => {
         clearInterval(heartbeat);
         activeSseConnections.delete(res);
+        bus.connectionClosed();
         logger.info("SSE client disconnected", { activeConnections: activeSseConnections.size });
       };
       req.on("close", cleanup);
       res.on("close", cleanup);
       res.on("finish", cleanup);
+      return;
+    }
+
+    // ── Metrics endpoint (Prometheus-compatible) ──
+    if (req.url === "/metrics" && req.method === "GET") {
+      const m = bus.getMetrics();
+      const body = [
+        `# HELP syncpoint_sse_active_connections Number of active SSE connections`,
+        `# TYPE syncpoint_sse_active_connections gauge`,
+        `syncpoint_sse_active_connections ${m.activeConnections}`,
+        `# HELP syncpoint_sse_total_connections Total SSE connections since server start`,
+        `# TYPE syncpoint_sse_total_connections counter`,
+        `syncpoint_sse_total_connections ${m.totalConnections}`,
+        `# HELP syncpoint_sse_events_pushed Total events pushed to SSE clients`,
+        `# TYPE syncpoint_sse_events_pushed counter`,
+        `syncpoint_sse_events_pushed ${m.eventsPushed}`,
+        `# HELP syncpoint_sse_reconnects Total SSE reconnections detected`,
+        `# TYPE syncpoint_sse_reconnects counter`,
+        `syncpoint_sse_reconnects ${m.reconnects}`,
+        `# HELP syncpoint_sse_reconnect_replays Total events replayed on reconnect`,
+        `# TYPE syncpoint_sse_reconnect_replays counter`,
+        `syncpoint_sse_reconnect_replays ${m.reconnectReplays}`,
+      ].join("\n") + "\n";
+      res.writeHead(200, { "Content-Type": "text/plain; version=0.0.4" });
+      res.end(body);
       return;
     }
 
@@ -205,6 +256,7 @@ export function startServer(port = DEFAULT_PORT): http.Server {
     console.log(`  tRPC API:   http://127.0.0.1:${port}/trpc/...`);
     console.log(`  SSE events:  http://127.0.0.1:${port}/events`);
     console.log(`  Health:      http://127.0.0.1:${port}/health`);
+    console.log(`  Metrics:     http://127.0.0.1:${port}/metrics`);
     console.log(`  Wake Engine: active`);
   });
 

@@ -44,13 +44,13 @@ describe("terminal states", () => {
   it("COMPLETED session returns session-completed", () => {
     const actions = computeNextActions(makeSnap({ sessionStatus: SessionStatus.COMPLETED }));
     expect(actions).toHaveLength(1);
-    expect(actions[0].action).toBe("session-completed");
+    expect(actions[0]!.action).toBe("session-completed");
   });
 
   it("CANCELLED session returns no-action", () => {
     const actions = computeNextActions(makeSnap({ sessionStatus: SessionStatus.CANCELLED }));
     expect(actions).toHaveLength(1);
-    expect(actions[0].action).toBe("no-action");
+    expect(actions[0]!.action).toBe("no-action");
   });
 });
 
@@ -59,19 +59,19 @@ describe("terminal states", () => {
 describe("PLANNING phase", () => {
   it("architect with no assignments → plan-tasks", () => {
     const actions = computeNextActions(makeSnap());
-    expect(actions[0].action).toBe("plan-tasks");
+    expect(actions[0]!.action).toBe("plan-tasks");
   });
 
   it("architect with assignments → advance-session", () => {
     const actions = computeNextActions(makeSnap({
       assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-2", status: TaskAssignmentStatus.PROPOSED }],
     }));
-    expect(actions[0].action).toBe("advance-session");
+    expect(actions[0]!.action).toBe("advance-session");
   });
 
   it("non-architect in PLANNING → wait", () => {
     const actions = computeNextActions(makeSnap({ agentRoles: ["executor"] }));
-    expect(actions[0].action).toBe("wait");
+    expect(actions[0]!.action).toBe("wait");
   });
 });
 
@@ -84,7 +84,7 @@ describe("EXECUTING phase", () => {
       agentRoles: ["executor"],
       assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.PROPOSED }],
     }));
-    expect(actions[0].action).toBe("accept-assignment");
+    expect(actions[0]!.action).toBe("accept-assignment");
   });
 
   it("executor with ACCEPTED assignment → start-work", () => {
@@ -93,7 +93,7 @@ describe("EXECUTING phase", () => {
       agentRoles: ["executor"],
       assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.ACCEPTED }],
     }));
-    expect(actions[0].action).toBe("start-work");
+    expect(actions[0]!.action).toBe("start-work");
   });
 
   it("executor with IN_PROGRESS assignment → checkpoint or complete", () => {
@@ -115,7 +115,7 @@ describe("EXECUTING phase", () => {
       reviews: [{ id: "rr-1", taskId: "t-1", reviewerAgentId: "agent-2", status: ReviewRequestStatus.DECIDED }],
       openChanges: { "rr-1": 2 },
     }));
-    expect(actions[0].action).toBe("address-changes");
+    expect(actions[0]!.action).toBe("address-changes");
   });
 
   it("architect with all tasks completed → request-review", () => {
@@ -124,7 +124,7 @@ describe("EXECUTING phase", () => {
       agentRoles: ["architect"],
       assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-2", status: TaskAssignmentStatus.COMPLETED }],
     }));
-    expect(actions[0].action).toBe("request-review");
+    expect(actions[0]!.action).toBe("request-review");
   });
 
   it("architect with reviews already requested → advance-session", () => {
@@ -134,7 +134,7 @@ describe("EXECUTING phase", () => {
       assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-2", status: TaskAssignmentStatus.COMPLETED }],
       reviews: [{ id: "rr-1", taskId: "t-1", reviewerAgentId: "agent-3", status: ReviewRequestStatus.PENDING }],
     }));
-    expect(actions[0].action).toBe("advance-session");
+    expect(actions[0]!.action).toBe("advance-session");
   });
 });
 
@@ -147,7 +147,7 @@ describe("REVIEWING phase", () => {
       agentRoles: ["reviewer"],
       reviews: [{ id: "rr-1", taskId: "t-1", reviewerAgentId: "agent-1", status: ReviewRequestStatus.PENDING }],
     }));
-    expect(actions[0].action).toBe("start-review");
+    expect(actions[0]!.action).toBe("start-review");
   });
 
   it("reviewer with IN_PROGRESS review and no gate → add-checklist + add-evidence", () => {
@@ -168,7 +168,7 @@ describe("REVIEWING phase", () => {
       reviews: [{ id: "rr-1", taskId: "t-1", reviewerAgentId: "agent-1", status: ReviewRequestStatus.IN_PROGRESS }],
       gates: { "rr-1": makeGate(ApprovalGateStatus.PASSED) },
     }));
-    expect(actions[0].action).toBe("approve-review");
+    expect(actions[0]!.action).toBe("approve-review");
   });
 
   it("reviewer with BLOCKED gate → add-checklist + add-evidence + block-review", () => {
@@ -190,7 +190,7 @@ describe("REVIEWING phase", () => {
       agentRoles: ["architect"],
       reviews: [{ id: "rr-1", taskId: "t-1", reviewerAgentId: "agent-2", status: ReviewRequestStatus.DECIDED }],
     }));
-    expect(actions[0].action).toBe("advance-session");
+    expect(actions[0]!.action).toBe("advance-session");
   });
 });
 
@@ -216,7 +216,7 @@ describe("no relevant actions", () => {
       sessionStatus: SessionStatus.REVIEWING,
       agentRoles: ["executor"],
     }));
-    expect(actions[0].action).toBe("wait");
+    expect(actions[0]!.action).toBe("wait");
   });
 });
 
@@ -230,7 +230,7 @@ describe("priority ordering", () => {
       assignments: [{ id: "ta-1", taskId: "t-1", assigneeAgentId: "agent-1", status: TaskAssignmentStatus.IN_PROGRESS }],
     }));
     for (let i = 1; i < actions.length; i++) {
-      expect(actions[i].priority).toBeGreaterThanOrEqual(actions[i - 1].priority);
+      expect(actions[i]!.priority).toBeGreaterThanOrEqual(actions[i - 1]!.priority);
     }
   });
 });

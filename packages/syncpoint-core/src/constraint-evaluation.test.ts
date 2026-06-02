@@ -17,7 +17,7 @@ import type { ResourceRef } from "./resource.js";
 
 /** Convert locator strings to ResourceRef[] for testing. */
 function toRefs(...locators: string[]): ResourceRef[] {
-  return locators.map(loc => ({ type: "test", locator: loc, metadata: "" }));
+  return locators.map(loc => ({ type: "test", locator: loc, metadata: "", scope: "file" as const }));
 }
 
 // ── Test scope matcher (prefix/glob, generic test helper) ─────
@@ -128,9 +128,9 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].rule).toBe("do_not_touch_scope_overlap");
-    expect(decision.blockers[0].sourceMemoryId).toBe("pm_1");
-    expect(decision.blockers[0].evidence).toContain("src/auth/session.ts");
+    expect(decision.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
+    expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_1");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/session.ts");
   });
 
   it("do_not_touch + no overlap => permitted", () => {
@@ -173,7 +173,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
       touchedResources: toRefs("packages/db/schema/users.sql"),
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].evidence).toContain("packages/db/schema/users.sql");
+    expect(decision.blockers[0]!.evidence).toContain("packages/db/schema/users.sql");
   });
 
   // ── do_not_touch resource-type filtering ─────────────────
@@ -194,7 +194,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: [{ type: "binary_asset", locator: "src/auth/logo.png", metadata: "" }],
+      touchedResources: [{ type: "binary_asset", locator: "src/auth/logo.png", metadata: "", scope: "file" as const }],
     });
     expect(decision.permitted).toBe(true);
     expect(decision.blockers).toHaveLength(0);
@@ -214,11 +214,11 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: [{ type: "file", locator: "src/auth/session.ts", metadata: "" }],
+      touchedResources: [{ type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const }],
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].evidence).toContain("src/auth/session.ts");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/session.ts");
   });
 
   it("do_not_touch with mixed resource types only blocks matching types", () => {
@@ -235,14 +235,14 @@ describe("Constraint Runtime — evaluateConstraints", () => {
       action: "operation_submit",
       projection: proj,
       touchedResources: [
-        { type: "file", locator: "src/auth/session.ts", metadata: "" },
-        { type: "binary_asset", locator: "src/auth/logo.png", metadata: "" },
+        { type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const },
+        { type: "binary_asset", locator: "src/auth/logo.png", metadata: "", scope: "file" as const },
       ],
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
     // Only the file resource appears in evidence, not the binary_asset
-    expect(decision.blockers[0].evidence).toEqual(["src/auth/session.ts"]);
+    expect(decision.blockers[0]!.evidence).toEqual(["src/auth/session.ts"]);
   });
 
   // ── hard_constraint advisory ───────────────────────────
@@ -260,8 +260,8 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     expect(decision.permitted).toBe(true);
     expect(decision.blockers).toHaveLength(0);
     expect(decision.warnings).toHaveLength(1);
-    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
-    expect(decision.warnings[0].sourceMemoryId).toBe("pm_3");
+    expect(decision.warnings[0]!.rule).toBe("hard_constraint_advisory");
+    expect(decision.warnings[0]!.sourceMemoryId).toBe("pm_3");
   });
 
   it("hard_constraint existence alone does NOT block (multiple)", () => {
@@ -290,7 +290,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].rule).toBe("projection_invalid");
+    expect(decision.blockers[0]!.rule).toBe("projection_invalid");
   });
 
   it("fresh projection => permitted", () => {
@@ -325,9 +325,9 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].rule).toBe("projection_conflict");
-    expect(decision.blockers[0].evidence).toContain("pm_x");
-    expect(decision.blockers[0].evidence).toContain("pm_y");
+    expect(decision.blockers[0]!.rule).toBe("projection_conflict");
+    expect(decision.blockers[0]!.evidence).toContain("pm_x");
+    expect(decision.blockers[0]!.evidence).toContain("pm_y");
   });
 
   // ── violation traceability ─────────────────────────────
@@ -345,8 +345,8 @@ describe("Constraint Runtime — evaluateConstraints", () => {
       touchedResources: toRefs("src/api/routes.ts"),
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].sourceMemoryId).toBe("pm_42");
-    expect(decision.blockers[0].projectionId).toBe("prj_abc123");
+    expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_42");
+    expect(decision.blockers[0]!.projectionId).toBe("prj_abc123");
   });
 
   // ── protocol gate passthrough ──────────────────────────
@@ -359,7 +359,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(2);
-    expect(decision.blockers[0].rule).toBe("protocol_gate_blocked");
+    expect(decision.blockers[0]!.rule).toBe("protocol_gate_blocked");
     expect(decision.blockers[1].rule).toBe("protocol_gate_blocked");
   });
 
@@ -372,7 +372,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
       snapshotValid: false,
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("snapshot_locked_invalid");
+    expect(decision.blockers[0]!.rule).toBe("snapshot_locked_invalid");
   });
 
   it("snapshotValid = true => permitted", () => {
@@ -456,8 +456,8 @@ describe("Projection routing — do_not_touch and constraintRules", () => {
     ], { ...ctx, workingResources: ["src/auth/session.ts"] });
 
     expect(projection.contextPatch.doNotTouch).toHaveLength(1);
-    expect(projection.contextPatch.doNotTouch[0].title).toBe("Auth Core");
-    expect(projection.contextPatch.doNotTouch[0].scope?.files).toEqual(["src/auth/"]);
+    expect(projection.contextPatch.doNotTouch[0]!.title).toBe("Auth Core");
+    expect(projection.contextPatch.doNotTouch[0]!.scope?.files).toEqual(["src/auth/"]);
 
     // No dual-write: not in constraintRules
     expect(projection.constraintRules.some(
@@ -476,7 +476,7 @@ describe("Projection routing — do_not_touch and constraintRules", () => {
     ], ctx);
 
     expect(projection.constraintRules).toHaveLength(1);
-    expect(projection.constraintRules[0].title).toBe("Use strict TS");
+    expect(projection.constraintRules[0]!.title).toBe("Use strict TS");
     expect(projection.contextPatch.doNotTouch).toHaveLength(0);
   });
 
@@ -512,8 +512,8 @@ describe("Projection routing — do_not_touch and constraintRules", () => {
     ], { ...ctx, workingResources: ["src/utils/helpers.ts"] });
 
     expect(projection.contextPatch.verifiedFacts).toHaveLength(1);
-    expect(projection.contextPatch.verifiedFacts[0].scope?.files).toEqual(["src/utils/"]);
-    expect(projection.contextPatch.verifiedFacts[0].scope?.modules).toEqual(["utils"]);
+    expect(projection.contextPatch.verifiedFacts[0]!.scope?.files).toEqual(["src/utils/"]);
+    expect(projection.contextPatch.verifiedFacts[0]!.scope?.modules).toEqual(["utils"]);
   });
 
   it("ProjectedMemoryItem without appliesTo has no scope", () => {
@@ -526,7 +526,7 @@ describe("Projection routing — do_not_touch and constraintRules", () => {
       }),
     ], ctx);
 
-    expect(projection.contextPatch.verifiedFacts[0].scope).toBeUndefined();
+    expect(projection.contextPatch.verifiedFacts[0]!.scope).toBeUndefined();
   });
 });
 
@@ -574,9 +574,9 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
     });
 
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("do_not_touch_scope_overlap");
-    expect(decision.blockers[0].sourceMemoryId).toBe("pm_protect");
-    expect(decision.blockers[0].evidence).toContain("src/auth/login.ts");
+    expect(decision.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
+    expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_protect");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/login.ts");
   });
 
   it("hard_constraint alone permits with advisory warning", () => {
@@ -616,7 +616,7 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
     // Should route to constraintRules only (not doNotTouch)
     expect(projection.contextPatch.doNotTouch).toHaveLength(0);
     expect(projection.constraintRules).toHaveLength(1);
-    expect(projection.constraintRules[0].kind).toBe("do_not_touch");
+    expect(projection.constraintRules[0]!.kind).toBe("do_not_touch");
 
     const decision = evaluateConstraints({
       action: "operation_submit",
@@ -625,8 +625,8 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
     });
 
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("do_not_touch_scope_overlap");
-    expect(decision.blockers[0].sourceMemoryId).toBe("pm_explicit_rt");
+    expect(decision.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
+    expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_explicit_rt");
     // Should NOT appear as hard_constraint_advisory warning
     expect(decision.warnings.some(w => w.sourceMemoryId === "pm_explicit_rt")).toBe(false);
   });
@@ -726,8 +726,8 @@ describe("PR4: Typed hard constraint evaluation", () => {
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].rule).toBe("hard_constraint_test_forbidden");
-    expect(decision.blockers[0].evidence).toContain("src/auth/login.ts");
+    expect(decision.blockers[0]!.rule).toBe("hard_constraint_test_forbidden");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/login.ts");
     // Should NOT also appear as advisory
     expect(decision.warnings.some(w => w.sourceMemoryId === "pm_typed_1")).toBe(false);
   });
@@ -766,8 +766,8 @@ describe("PR4: Typed hard constraint evaluation", () => {
       touchedResources: toRefs("config/app.json"),
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("hard_constraint_test_forbidden");
-    expect(decision.blockers[0].message).toBe("Config locked");
+    expect(decision.blockers[0]!.rule).toBe("hard_constraint_test_forbidden");
+    expect(decision.blockers[0]!.message).toBe("Config locked");
   });
 
   it("hard_constraint with file scope but NO validatorType stays advisory", () => {
@@ -785,7 +785,7 @@ describe("PR4: Typed hard constraint evaluation", () => {
     expect(decision.permitted).toBe(true);
     expect(decision.blockers).toHaveLength(0);
     expect(decision.warnings).toHaveLength(1);
-    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
+    expect(decision.warnings[0]!.rule).toBe("hard_constraint_advisory");
   });
 
   // ── test_forbidden with modules scope ────────────────
@@ -802,8 +802,8 @@ describe("PR4: Typed hard constraint evaluation", () => {
       touchedResources: toRefs("payments/gateway.ts"),
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("hard_constraint_test_forbidden");
-    expect(decision.blockers[0].evidence).toContain("payments/gateway.ts");
+    expect(decision.blockers[0]!.rule).toBe("hard_constraint_test_forbidden");
+    expect(decision.blockers[0]!.evidence).toContain("payments/gateway.ts");
   });
 
   it("test_forbidden permits when no module scope overlap", () => {
@@ -837,7 +837,7 @@ describe("PR4: Typed hard constraint evaluation", () => {
       projection: proj,
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("hard_constraint_require_review");
+    expect(decision.blockers[0]!.rule).toBe("hard_constraint_require_review");
   });
 
   it("require_review does not block resume action", () => {
@@ -906,8 +906,8 @@ describe("PR4: Typed hard constraint evaluation", () => {
     expect(decision.blockers).toHaveLength(0);
     // Custom is NOT claimed → falls through to advisory
     expect(decision.warnings).toHaveLength(1);
-    expect(decision.warnings[0].sourceMemoryId).toBe("pm_custom");
-    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
+    expect(decision.warnings[0]!.sourceMemoryId).toBe("pm_custom");
+    expect(decision.warnings[0]!.rule).toBe("hard_constraint_advisory");
   });
 
   // ── fallback advisory ─────────────────────────────────
@@ -924,8 +924,8 @@ describe("PR4: Typed hard constraint evaluation", () => {
     });
     expect(decision.permitted).toBe(true);
     expect(decision.warnings).toHaveLength(1);
-    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
-    expect(decision.warnings[0].sourceMemoryId).toBe("pm_plain");
+    expect(decision.warnings[0]!.rule).toBe("hard_constraint_advisory");
+    expect(decision.warnings[0]!.sourceMemoryId).toBe("pm_plain");
   });
 
   // ── mixed typed + untyped ─────────────────────────────
@@ -944,10 +944,10 @@ describe("PR4: Typed hard constraint evaluation", () => {
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].sourceMemoryId).toBe("pm_typed");
+    expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_typed");
     expect(decision.warnings).toHaveLength(1);
-    expect(decision.warnings[0].sourceMemoryId).toBe("pm_untyped");
-    expect(decision.warnings[0].rule).toBe("hard_constraint_advisory");
+    expect(decision.warnings[0]!.sourceMemoryId).toBe("pm_untyped");
+    expect(decision.warnings[0]!.rule).toBe("hard_constraint_advisory");
   });
 });
 

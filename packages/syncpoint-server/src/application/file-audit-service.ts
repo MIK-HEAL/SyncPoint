@@ -43,7 +43,7 @@ export function auditFileChange(input: AuditFileChangeInput): AuditFileChangeRes
   // Normalize locator to match normalized claim locators
   const root = getProjectRoot();
   const normalizedLocator = normalizeResourcePath(input.locator, { projectRoot: root });
-  const changedResource: ResourceRef = { type: "file", locator: normalizedLocator, metadata: "" };
+  const changedResource: ResourceRef = { type: "file", scope: "file", locator: normalizedLocator, metadata: "" };
   const activeClaims = auditListActiveResourceClaims({
     taskId: input.taskId,
     sessionId: input.sessionId,

@@ -33,6 +33,7 @@ export function registerSyncGateTools(server: McpServer): void {
         relatedFiles: z.array(z.string()).optional(),
         relatedResources: z.array(z.object({
           type: z.string(),
+          scope: z.enum(["file", "function", "line_range"]).optional().default("file"),
           locator: z.string(),
           metadata: z.string().optional().default(""),
         })).optional(),

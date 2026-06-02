@@ -187,7 +187,7 @@ describe("buildRealityProjection — resource-type-aware appliesTo filtering", (
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
     const r = buildRealityProjection([mem], makeCtx({
       workingResources: ["src/auth/logo.png"],
-      workingResourceRefs: [{ type: "binary_asset", locator: "src/auth/logo.png", metadata: "" }],
+      workingResourceRefs: [{ type: "binary_asset", locator: "src/auth/logo.png", metadata: "", scope: "file" as const }],
     }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(0);
   });
@@ -196,7 +196,7 @@ describe("buildRealityProjection — resource-type-aware appliesTo filtering", (
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
     const r = buildRealityProjection([mem], makeCtx({
       workingResources: ["src/auth/session.ts"],
-      workingResourceRefs: [{ type: "file", locator: "src/auth/session.ts", metadata: "" }],
+      workingResourceRefs: [{ type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const }],
     }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
@@ -206,8 +206,8 @@ describe("buildRealityProjection — resource-type-aware appliesTo filtering", (
     const r = buildRealityProjection([mem], makeCtx({
       workingResources: ["src/auth/session.ts", "src/auth/logo.png"],
       workingResourceRefs: [
-        { type: "file", locator: "src/auth/session.ts", metadata: "" },
-        { type: "binary_asset", locator: "src/auth/logo.png", metadata: "" },
+        { type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const },
+        { type: "binary_asset", locator: "src/auth/logo.png", metadata: "", scope: "file" as const },
       ],
     }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
@@ -218,7 +218,7 @@ describe("buildRealityProjection — resource-type-aware appliesTo filtering", (
     const r = buildRealityProjection([mem], makeCtx({
       currentModules: ["core"],
       workingResources: ["src/unrelated.ts"],
-      workingResourceRefs: [{ type: "file", locator: "src/unrelated.ts", metadata: "" }],
+      workingResourceRefs: [{ type: "file", locator: "src/unrelated.ts", metadata: "", scope: "file" as const }],
     }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });

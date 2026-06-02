@@ -10,7 +10,7 @@ import {
   isValidProjection,
   MemoryKind,
   ProjectionTarget,
-} from "./project-memory.ts";
+} from "./project-memory.js";
 
 describe("computeMemoryFingerprint", () => {
   it("produces deterministic hash for same input", () => {

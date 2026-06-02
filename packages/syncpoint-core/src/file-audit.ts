@@ -84,7 +84,7 @@ export function gateMatchesResource(gate: FileAuditGateContext, resource: Resour
   }
 
   return parseRelatedFileLocators(gate.relatedFiles ?? [])
-    .some(locator => resourceLocatorsOverlap({ type: "file", locator, metadata: "" }, resource));
+    .some(locator => resourceLocatorsOverlap({ type: "file", scope: "file", locator, metadata: "" }, resource));
 }
 
 export function parseRelatedFileLocators(value: string[] | string): string[] {

@@ -271,7 +271,7 @@ describe("peer-contract playbook claim → start-work", () => {
       actorId: pcExecId,
       taskId: pcTaskId,
       sessionId: pcSessionId,
-      resources: [{ type: "file", locator: "src/feature.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/feature.ts", metadata: "", scope: "file" as const }],
     });
 
     const result = pbGetNextAction({ sessionId: pcSessionId, agentId: pcExecId });

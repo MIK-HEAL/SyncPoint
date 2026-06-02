@@ -62,7 +62,7 @@ describe("file permission guard", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -95,7 +95,7 @@ describe("file permission guard", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -111,13 +111,13 @@ describe("file permission guard", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       intent: WriteIntent.MODIFY,
     });
 
     const result = writeApply({
       permitId: permit.id,
-      mutations: [{ resource: { type: "file", locator, metadata: "" }, content: "modified via SyncPoint" }],
+      mutations: [{ resource: { type: "file", scope: "file", locator, metadata: "" }, content: "modified via SyncPoint" }],
     });
 
     expect(result.applied).toHaveLength(1);
@@ -143,7 +143,7 @@ describe("file permission guard", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -180,7 +180,7 @@ describe("file permission guard", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 

@@ -27,7 +27,7 @@ export const ResourceRefSchema = z.object({
   type: z.string().min(1),
   id: z.string().optional(),
   locator: z.string().min(1),
-  scope: ResourceScope.optional(),
+  scope: ResourceScope.default("file"),
   functionName: z.string().optional(),
   lineRange: LineRangeSchema.optional(),
   metadata: z.string().default(""),
@@ -161,12 +161,12 @@ export function resourceLocatorsOverlap(
 
 /**
  * Determine if two ResourceRefs with overlapping locators also overlap at scope level.
- * If either ref claims the whole file (scope "file" or unset), they overlap.
+ * If either ref claims the whole file (scope "file"), they overlap.
  * Otherwise, check function/line_range granularity.
  */
 function scopesOverlap(a: ResourceRef, b: ResourceRef): boolean {
-  const sa = a.scope ?? "file";
-  const sb = b.scope ?? "file";
+  const sa = a.scope;
+  const sb = b.scope;
 
   // Either side claims the whole file → overlap
   if (sa === "file" || sb === "file") return true;

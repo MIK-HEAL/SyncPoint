@@ -7,6 +7,8 @@
  *   - Heartbeat detection
  *   - SSE connection management
  *   - Last-Event-Seq support for reconnection replay
+ *   - Event ring buffer for replay after reconnect
+ *   - Prometheus-compatible metrics
  */
 
 import { EventEmitter } from "node:events";
@@ -21,9 +23,28 @@ export interface SyncPointEventData {
   timestamp: string;
 }
 
+/** SSE connection metrics snapshot. */
+export interface SseMetrics {
+  activeConnections: number;
+  totalConnections: number;
+  eventsPushed: number;
+  reconnects: number;
+  reconnectReplays: number;
+}
+
+const RING_BUFFER_SIZE = 1000;
+
 class SyncPointEventBus extends EventEmitter {
   private static instance: SyncPointEventBus;
   private _seq = 0;
+  private _ring: SyncPointEventData[] = [];
+  private _metrics: SseMetrics = {
+    activeConnections: 0,
+    totalConnections: 0,
+    eventsPushed: 0,
+    reconnects: 0,
+    reconnectReplays: 0,
+  };
 
   private constructor() {
     super();
@@ -53,6 +74,14 @@ class SyncPointEventBus extends EventEmitter {
       detail,
       timestamp: new Date().toISOString(),
     };
+
+    // Store in ring buffer for replay
+    if (this._ring.length >= RING_BUFFER_SIZE) {
+      this._ring.shift();
+    }
+    this._ring.push(data);
+
+    this._metrics.eventsPushed++;
     this.emit("event", data);
   }
 
@@ -64,6 +93,62 @@ class SyncPointEventBus extends EventEmitter {
   /** Reset sequence counter (for testing). */
   resetSequence(): void {
     this._seq = 0;
+    this._ring = [];
+  }
+
+  /**
+   * Recover sequence counter from persisted state (e.g. after server restart).
+   * Sets _seq to the given value so subsequent events continue from there.
+   */
+  recoverSeq(maxSeq: number): void {
+    if (maxSeq > this._seq) {
+      this._seq = maxSeq;
+    }
+  }
+
+  /**
+   * Replay events after a given sequence number.
+   * Returns events with seq > lastSeq from the ring buffer.
+   */
+  replayAfter(lastSeq: number): SyncPointEventData[] {
+    if (lastSeq <= 0) return [];
+    const events = this._ring.filter(e => e.seq > lastSeq);
+    this._metrics.reconnectReplays += events.length;
+    return events;
+  }
+
+  // ── Connection metrics ──────────────────────────────
+
+  /** Increment active connection count. */
+  connectionOpened(): void {
+    this._metrics.activeConnections++;
+    this._metrics.totalConnections++;
+  }
+
+  /** Decrement active connection count. */
+  connectionClosed(): void {
+    this._metrics.activeConnections = Math.max(0, this._metrics.activeConnections - 1);
+  }
+
+  /** Increment reconnect counter. */
+  reconnectDetected(): void {
+    this._metrics.reconnects++;
+  }
+
+  /** Get current metrics snapshot. */
+  getMetrics(): SseMetrics {
+    return { ...this._metrics };
+  }
+
+  /** Reset metrics (for testing). */
+  resetMetrics(): void {
+    this._metrics = {
+      activeConnections: 0,
+      totalConnections: 0,
+      eventsPushed: 0,
+      reconnects: 0,
+      reconnectReplays: 0,
+    };
   }
 }
 

@@ -26,9 +26,13 @@ export function registerResourceTools(server: McpServer): void {
         locators: z.string().describe("Comma-separated resource locators, e.g. 'src/auth.ts, src/api/*' or 'assets/hero.png'"),
         type: z.string().optional().describe("Resource type (default: 'file'). Use 'binary_asset', 'db_table', etc. for non-code resources"),
         mode: z.enum(["exclusive", "shared"]).optional().describe("exclusive = only this agent may modify; shared = aware of overlap"),
+        scope: z.enum(["file", "function", "line_range"]).optional().describe("Claim granularity: 'file' (whole file, default), 'function' (specific function), 'line_range' (specific lines). Reduces false conflicts when agents edit different parts of the same file."),
+        functionName: z.string().optional().describe("Function name when scope='function'. E.g. 'login', 'handleSubmit'. Two agents claiming different functions in the same file will NOT conflict."),
+        lineStart: z.number().optional().describe("Start line (1-indexed) when scope='line_range'"),
+        lineEnd: z.number().optional().describe("End line (1-indexed, inclusive) when scope='line_range'"),
       },
     },
-    async ({ agentId, taskId, sessionId, locators, type, mode }) => {
+    async ({ agentId, taskId, sessionId, locators, type, mode, scope, functionName, lineStart, lineEnd }) => {
       try {
         const resolved = resolveBoundAgentId(agentId);
         if (!resolved) return fail(new Error("agentId required (no bound identity)"));
@@ -36,7 +40,10 @@ export function registerResourceTools(server: McpServer): void {
         const resources = locators.split(",").map((p: string) => ({
           type: resourceType,
           locator: p.trim(),
+          scope: scope || "file",
           metadata: "",
+          ...(scope === "function" && functionName ? { functionName } : {}),
+          ...(scope === "line_range" && lineStart != null && lineEnd != null ? { lineRange: { start: lineStart, end: lineEnd } } : {}),
         }));
         const result = rcClaim({ actorId: resolved, taskId, sessionId, resources, mode });
         if (result.conflicts.length > 0) {

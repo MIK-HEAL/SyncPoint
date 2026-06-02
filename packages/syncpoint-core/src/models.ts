@@ -184,6 +184,8 @@ export type PeerContractCreate = z.infer<typeof PeerContractCreateSchema>;
 
 // ── ContextSnapshotPayload ──────────────────────────
 
+export const SNAPSHOT_VERSION = 1;
+
 export const ContextSnapshotPayloadSchema = z.object({
   goal: z.string().optional(),
   currentPhase: z.string().optional(),
@@ -218,6 +220,10 @@ export const ContextSnapshotSchema = z.object({
   kind: z.enum(["resume", "handoff", "review", "system"]).default("resume"),
   summary: z.string().default(""),
   payload: ContextSnapshotPayloadSchema,
+  version: z.number().default(SNAPSHOT_VERSION),
+  contentHash: z.string().default(""),
+  isDelta: z.boolean().default(false),
+  baseSnapshotId: z.string().default(""),
   validationStatus: z.string().default(""),
   staleReason: z.string().default(""),
   createdAt: isoDate,
@@ -232,6 +238,8 @@ export const ContextSnapshotCreateSchema = z.object({
   kind: z.enum(["resume", "handoff", "review", "system"]).default("resume"),
   summary: z.string().default(""),
   payload: ContextSnapshotPayloadSchema,
+  isDelta: z.boolean().default(false),
+  baseSnapshotId: z.string().default(""),
 });
 
 export type ContextSnapshotCreate = z.input<typeof ContextSnapshotCreateSchema>;

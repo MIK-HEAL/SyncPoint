@@ -79,7 +79,7 @@ describe("Case A: ownership conflict blocks operation", () => {
     rcClaim({
       actorId: agentA,
       taskId,
-      resources: [{ type: "artifact", locator: "artifact://design/homepage", metadata: "" }],
+      resources: [{ type: "artifact", locator: "artifact://design/homepage", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -91,7 +91,7 @@ describe("Case A: ownership conflict blocks operation", () => {
       taskId,
       title: "Redesign homepage hero section",
       summary: "Updated hero layout",
-      targetResources: [{ type: "artifact", locator: "artifact://design/homepage", metadata: "" }],
+      targetResources: [{ type: "artifact", locator: "artifact://design/homepage", metadata: "", scope: "file" as const }],
       payloadRef: "s3://bucket/hero-v2.png",
     });
 
@@ -146,7 +146,7 @@ describe("Case B: Constraint Runtime blocks on resource_forbidden", () => {
     rcClaim({
       actorId: agentC,
       taskId,
-      resources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "" }],
+      resources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -158,7 +158,7 @@ describe("Case B: Constraint Runtime blocks on resource_forbidden", () => {
       taskId,
       title: "Update brand logo colors",
       summary: "Refresh brand palette",
-      targetResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "" }],
+      targetResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "", scope: "file" as const }],
       payloadRef: "s3://bucket/logo-v2.svg",
     });
 
@@ -191,7 +191,7 @@ describe("Case B: Constraint Runtime blocks on resource_forbidden", () => {
       taskId,
       title: "Force-apply brand logo change",
       summary: "Trying to bypass check",
-      targetResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "" }],
+      targetResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "", scope: "file" as const }],
       payloadRef: "s3://bucket/logo-v3.svg",
     });
 

@@ -7,8 +7,8 @@ import {
   getAdapterConfig,
   listAdapterProviders,
   ADAPTER_CONFIGS,
-} from "./adapter.ts";
-import { QualityCheckStatus } from "./memory.ts";
+} from "./adapter.js";
+import { QualityCheckStatus } from "./memory.js";
 import type { ResumeContext } from "./memory.ts";
 
 function makeCtx(overrides?: Partial<ResumeContext>): ResumeContext {
@@ -89,13 +89,13 @@ describe("Agent Adapter Protocol", () => {
     });
 
     it("cursor config uses .cursorrules", () => {
-      expect(ADAPTER_CONFIGS["cursor"].rulesFile).toBe(".cursorrules");
-      expect(ADAPTER_CONFIGS["cursor"].rulesFormat).toBe("cursorrules");
+      expect(ADAPTER_CONFIGS["cursor"]!.rulesFile).toBe(".cursorrules");
+      expect(ADAPTER_CONFIGS["cursor"]!.rulesFormat).toBe("cursorrules");
     });
 
     it("claude-code config uses AGENTS.md", () => {
-      expect(ADAPTER_CONFIGS["claude-code"].rulesFile).toBe("AGENTS.md");
-      expect(ADAPTER_CONFIGS["claude-code"].rulesFormat).toBe("agents-md");
+      expect(ADAPTER_CONFIGS["claude-code"]!.rulesFile).toBe("AGENTS.md");
+      expect(ADAPTER_CONFIGS["claude-code"]!.rulesFormat).toBe("agents-md");
     });
   });
 

@@ -9,7 +9,7 @@
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
 import { SyncGateStatus, GatePolicySchema, DEFAULT_GATE_POLICY } from "syncpoint-core";
-import type { SyncGate, SyncGateCreate, GateAck, GateAckCreate, GateVote, GateVoteCreate, ResourceRef } from "syncpoint-core";
+import type { SyncGate, SyncGateCreate, GateAck, GateAckCreate, GateVote, GateVoteCreate, ResourceRef, ResourceScope } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
@@ -28,7 +28,7 @@ function hydrateGate(db: ReturnType<typeof _getDb>, row: any): SyncGate {
   const relatedResources = resRows.map(r => ({
     type: r.resourceType,
     locator: r.locator,
-    ...(r.scope && r.scope !== "file" ? { scope: r.scope as any } : {}),
+    scope: (r.scope || "file") as ResourceScope,
     ...(r.functionName ? { functionName: r.functionName } : {}),
     ...(r.lineStart != null && r.lineEnd != null ? { lineRange: { start: r.lineStart, end: r.lineEnd } } : {}),
     metadata: r.metadata,
@@ -105,7 +105,7 @@ export function createSyncGate(data: SyncGateCreate): SyncGate {
     resourceMap.set(`${ref.type}::${ref.locator}::${ref.metadata ?? ""}`, { ...ref, metadata: ref.metadata ?? "" });
   }
   for (const locator of data.relatedFiles ?? []) {
-    resourceMap.set(`file::${locator}::`, { type: "file", locator, metadata: "" });
+    resourceMap.set(`file::${locator}::`, { type: "file", scope: "file" as const, locator, metadata: "" });
   }
   for (const ref of resourceMap.values()) {
     db.insert(s.syncGateResources).values({
@@ -113,7 +113,7 @@ export function createSyncGate(data: SyncGateCreate): SyncGate {
       gateId: id,
       resourceType: ref.type,
       locator: ref.locator,
-      scope: ref.scope ?? "file",
+      scope: ref.scope,
       functionName: ref.functionName ?? null,
       lineStart: ref.lineRange?.start ?? null,
       lineEnd: ref.lineRange?.end ?? null,

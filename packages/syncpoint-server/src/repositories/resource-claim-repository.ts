@@ -5,7 +5,7 @@
 import { eq, and } from "drizzle-orm";
 import * as s from "../schema.js";
 import { ResourceClaimStatus } from "syncpoint-core";
-import type { ResourceClaim, ResourceClaimCreate, ResourceRef } from "syncpoint-core";
+import type { ResourceClaim, ResourceClaimCreate, ResourceRef, ResourceScope } from "syncpoint-core";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
@@ -17,7 +17,7 @@ function loadResources(db: ReturnType<typeof _getDb>, claimId: string): Resource
     .map(r => ({
       type: r.resourceType,
       locator: r.locator,
-      ...(r.scope && r.scope !== "file" ? { scope: r.scope as any } : {}),
+      scope: (r.scope || "file") as ResourceScope,
       ...(r.functionName ? { functionName: r.functionName } : {}),
       ...(r.lineStart != null && r.lineEnd != null ? { lineRange: { start: r.lineStart, end: r.lineEnd } } : {}),
       metadata: r.metadata,
@@ -69,7 +69,7 @@ export function createResourceClaim(data: ResourceClaimCreate): ResourceClaim {
       claimId: id,
       resourceType: ref.type,
       locator: ref.locator,
-      scope: ref.scope ?? "file",
+      scope: ref.scope,
       functionName: ref.functionName ?? null,
       lineStart: ref.lineRange?.start ?? null,
       lineEnd: ref.lineRange?.end ?? null,

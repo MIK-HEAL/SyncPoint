@@ -35,7 +35,7 @@ import { registerCodePlugin, _resetCodePlugin } from "./index.js";
 // ── Helpers ──────────────────────────────────────────────
 
 function toRefs(...locators: string[]): ResourceRef[] {
-  return locators.map(loc => ({ type: "file", locator: loc, metadata: "" }));
+  return locators.map(loc => ({ type: "file", locator: loc, metadata: "", scope: "file" as const }));
 }
 
 function toTypedRef(type: string, locator: string): ResourceRef {

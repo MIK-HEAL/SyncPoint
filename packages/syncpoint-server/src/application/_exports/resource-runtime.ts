@@ -143,8 +143,10 @@ export type {
 export {
   lockClaimedFiles,
   unlockClaimedFiles,
+  unlockAllGuards,
   refreshGuardLocks,
   isGuardActive,
+  recoverGuardState,
 } from "../file-permission-guard.js";
 
 export {

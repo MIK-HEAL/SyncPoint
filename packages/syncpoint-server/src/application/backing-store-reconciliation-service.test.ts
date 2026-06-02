@@ -56,7 +56,7 @@ describe("backing store reconciliation", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -68,10 +68,10 @@ describe("backing store reconciliation", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       intent: WriteIntent.MODIFY,
     });
-    writeApply({ permitId: permit.id, mutations: [{ resource: { type: "file", locator, metadata: "" }, content: "modified" }] });
+    writeApply({ permitId: permit.id, mutations: [{ resource: { type: "file", scope: "file", locator, metadata: "" }, content: "modified" }] });
 
     // Reconcile — should see no bypass
     const result = reconcileBackingStore({ taskId: taskA, sessionId });
@@ -89,7 +89,7 @@ describe("backing store reconciliation", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -121,7 +121,7 @@ describe("backing store reconciliation", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator, metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator, metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 

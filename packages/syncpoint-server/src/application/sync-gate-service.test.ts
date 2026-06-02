@@ -496,7 +496,7 @@ describe("SyncGate resource conflict auto-resolve on claim release", () => {
       sessionId: sess.session.id,
       taskId: claimTask.id,
       actorId: agent1Id,
-      resources: [{ type: "file", locator: "src/shared/config.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/shared/config.ts", metadata: "", scope: "file" as const }],
     });
 
     // Agent 2 claims overlapping resource → creates conflict gate
@@ -504,7 +504,7 @@ describe("SyncGate resource conflict auto-resolve on claim release", () => {
       sessionId: sess.session.id,
       taskId: claimTask.id,
       actorId: agent2Id,
-      resources: [{ type: "file", locator: "src/shared/config.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/shared/config.ts", metadata: "", scope: "file" as const }],
     });
 
     expect(claim2.gateId).toBeTruthy();

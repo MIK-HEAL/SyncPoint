@@ -174,7 +174,7 @@ describe("Adversarial: operation apply blocked by late-added constraint", () => 
       actorId: executorId,
       type: "file_write",
       title: "Write to api handler",
-      targetResources: [{ type: "file", locator: "src/api/handler.ts", metadata: "" }],
+      targetResources: [{ type: "file", locator: "src/api/handler.ts", metadata: "", scope: "file" as const }],
     });
     opId = op.id;
     opSubmit(opId);

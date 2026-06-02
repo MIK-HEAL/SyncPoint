@@ -118,6 +118,10 @@ export const contextSnapshots = sqliteTable("context_snapshot", {
   kind: text("kind").notNull().default("checkpoint"),
   summary: text("summary").notNull().default(""),
   payloadJson: text("payload_json", { mode: "json" }).$type<import("syncpoint-core").ContextSnapshotPayload>().notNull().default({}),
+  version: integer("version").notNull().default(1),
+  contentHash: text("content_hash").notNull().default(""),
+  isDelta: integer("is_delta", { mode: "boolean" }).notNull().default(false),
+  baseSnapshotId: text("base_snapshot_id").notNull().default(""),
   createdAt: text("created_at").notNull(),
 });
 

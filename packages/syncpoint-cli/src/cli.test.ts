@@ -79,8 +79,8 @@ describe("CLI sync vote (sgVote)", () => {
     const detail = sgStatusDetailed(gid);
     expect(detail.voteCounts.approve).toBe(1);
     expect(detail.votes.length).toBe(1);
-    expect(detail.votes[0].vote).toBe("approve");
-    expect(detail.votes[0].summary).toBe("CLI test vote");
+    expect(detail.votes[0]!.vote).toBe("approve");
+    expect(detail.votes[0]!.summary).toBe("CLI test vote");
   });
 });
 

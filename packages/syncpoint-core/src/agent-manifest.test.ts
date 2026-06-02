@@ -87,8 +87,8 @@ describe("escalation routing scoring", () => {
     ];
     const input = makeInput({ escalationAgentIds: ["e1"] });
     const result = routeEscalation(input, manifests, noCounts);
-    expect(result[0].agentId).toBe("e1");
-    expect(result[0].score).toBeGreaterThan(result[1].score);
+    expect(result[0]!.agentId).toBe("e1");
+    expect(result[0]!.score).toBeGreaterThan(result[1]!.score);
   });
 
   it("human-capable agents boosted when requiresHuman", () => {
@@ -98,7 +98,7 @@ describe("escalation routing scoring", () => {
     ];
     const input = makeInput({ requiresHuman: true });
     const result = routeEscalation(input, manifests, noCounts);
-    expect(result[0].agentId).toBe("e2");
+    expect(result[0]!.agentId).toBe("e2");
   });
 
   it("domain match boosts score", () => {
@@ -108,7 +108,7 @@ describe("escalation routing scoring", () => {
     ];
     const input = makeInput({ relatedDomains: ["frontend"] });
     const result = routeEscalation(input, manifests, noCounts);
-    expect(result[0].agentId).toBe("e2");
+    expect(result[0]!.agentId).toBe("e2");
   });
 
   it("resource type match boosts score", () => {
@@ -118,7 +118,7 @@ describe("escalation routing scoring", () => {
     ];
     const input = makeInput({ relatedResourceTypes: ["binary_asset"] });
     const result = routeEscalation(input, manifests, noCounts);
-    expect(result[0].agentId).toBe("e2");
+    expect(result[0]!.agentId).toBe("e2");
   });
 
   it("busy agents penalized", () => {
@@ -127,7 +127,7 @@ describe("escalation routing scoring", () => {
       makeManifest("e2", { availability: AgentAvailability.ONLINE }),
     ];
     const result = routeEscalation(makeInput(), manifests, noCounts);
-    expect(result[0].agentId).toBe("e2");
+    expect(result[0]!.agentId).toBe("e2");
   });
 
   it("agents with active escalations penalized", () => {
@@ -137,7 +137,7 @@ describe("escalation routing scoring", () => {
     ];
     const counts = new Map([["e1", 2]]);
     const result = routeEscalation(makeInput(), manifests, counts);
-    expect(result[0].agentId).toBe("e2");
+    expect(result[0]!.agentId).toBe("e2");
   });
 
   it("higher priority agents rank first (all else equal)", () => {
@@ -146,7 +146,7 @@ describe("escalation routing scoring", () => {
       makeManifest("e2", { escalationPreference: { optIn: EscalationOptIn.WHEN_AVAILABLE, priority: 80, maxConcurrentEscalations: 3 } }),
     ];
     const result = routeEscalation(makeInput(), manifests, noCounts);
-    expect(result[0].agentId).toBe("e2");
+    expect(result[0]!.agentId).toBe("e2");
   });
 });
 
@@ -175,7 +175,7 @@ describe("escalation routing edge cases", () => {
     ];
     const result = routeEscalation(makeInput(), manifests, noCounts);
     for (let i = 1; i < result.length; i++) {
-      expect(result[i - 1].score).toBeGreaterThanOrEqual(result[i].score);
+      expect(result[i - 1]!.score).toBeGreaterThanOrEqual(result[i]!.score);
     }
   });
 });

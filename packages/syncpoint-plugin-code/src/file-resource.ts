@@ -57,6 +57,7 @@ export function pathsOverlap(a: string, b: string): boolean {
 export function filePathsToResourceRefs(paths: string): ResourceRef[] {
   return parseClaimPaths(paths).map(p => ({
     type: "file",
+    scope: "file" as const,
     locator: p,
     metadata: "",
   }));

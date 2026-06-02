@@ -41,11 +41,11 @@ team:
 
     expect(template.name).toBe("Delivery Squad");
     expect(manifests).toHaveLength(2);
-    expect(manifests[0].fileStem).toBe("alpha-architect");
-    expect(manifests[0].manifest.name).toBe("alpha-architect");
-    expect(manifests[0].manifest.provider).toBe("claude-code");
-    expect(manifests[0].manifest.tags).toEqual(["lead", "sync"]);
-    expect(manifests[1].manifest.capabilities).toEqual([
+    expect(manifests[0]!.fileStem).toBe("alpha-architect");
+    expect(manifests[0]!.manifest.name).toBe("alpha-architect");
+    expect(manifests[0]!.manifest.provider).toBe("claude-code");
+    expect(manifests[0]!.manifest.tags).toEqual(["lead", "sync"]);
+    expect(manifests[1]!.manifest.capabilities).toEqual([
       { domain: "code-review", skills: ["typescript"], resourceTypes: ["file"] },
     ]);
   });

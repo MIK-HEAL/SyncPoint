@@ -28,7 +28,7 @@ function makeOp(overrides?: Partial<Operation>): Operation {
     sessionId: "s1",
     title: "Update artifact",
     summary: "",
-    targetResources: [{ type: "artifact", locator: "artifact://landing-page", metadata: "" }],
+    targetResources: [{ type: "artifact", locator: "artifact://landing-page", metadata: "", scope: "file" as const }],
     payloadRef: "ref-123",
     status: OperationStatus.SUBMITTED,
     checkResult: null,
@@ -99,7 +99,7 @@ describe("generic_claim_coverage", () => {
   it("passes when claim covers target via prefix overlap", () => {
     const ctx: OperationValidationContext = {
       operation: makeOp({
-        targetResources: [{ type: "artifact", locator: "artifact://ui/header", metadata: "" }],
+        targetResources: [{ type: "artifact", locator: "artifact://ui/header", metadata: "", scope: "file" as const }],
       }),
       actorClaims: [makeClaim("c1", "agent-a", "artifact://ui")],
       allActiveClaims: [makeClaim("c1", "agent-a", "artifact://ui")],
@@ -203,7 +203,7 @@ describe("validator scope isolation", () => {
     const ctx: OperationValidationContext = {
       operation: makeOp({
         type: "code_patch",
-        targetResources: [{ type: "file", locator: "src/main.ts", metadata: "" }],
+        targetResources: [{ type: "file", locator: "src/main.ts", metadata: "", scope: "file" as const }],
       }),
       actorClaims: [],
       allActiveClaims: [],
@@ -217,7 +217,7 @@ describe("validator scope isolation", () => {
     const ctx: OperationValidationContext = {
       operation: makeOp({
         type: "image_edit",
-        targetResources: [{ type: "image", locator: "image://hero", metadata: "" }],
+        targetResources: [{ type: "image", locator: "image://hero", metadata: "", scope: "file" as const }],
       }),
       actorClaims: [],
       allActiveClaims: [],

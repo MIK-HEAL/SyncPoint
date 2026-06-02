@@ -66,7 +66,7 @@ describe("auditFileChange", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator: "src/auth.ts", metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -97,7 +97,7 @@ describe("auditFileChange", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator: "src/auth.ts", metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -143,7 +143,7 @@ describe("auditFileChange", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator: "src/auth.ts", metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 

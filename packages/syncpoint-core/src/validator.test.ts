@@ -24,7 +24,7 @@ function makeOperation(type: string, targetResources?: ResourceRef[]): Operation
     sessionId: "s1",
     title: "test op",
     summary: "",
-    targetResources: targetResources ?? [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+    targetResources: targetResources ?? [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
     payloadRef: "",
     status: OperationStatus.SUBMITTED,
     checkResult: null,
@@ -117,7 +117,7 @@ describe("Validator registry", () => {
 
     const ctx: OperationValidationContext = {
       operation: makeOperation("image_edit", [
-        { type: "image", locator: "assets/logo.png", metadata: "" },
+        { type: "image", locator: "assets/logo.png", metadata: "", scope: "file" as const },
       ]),
       actorClaims: [],
       allActiveClaims: [],

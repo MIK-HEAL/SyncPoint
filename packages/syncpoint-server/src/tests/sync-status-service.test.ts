@@ -108,7 +108,7 @@ beforeAll(() => {
     taskId,
     sessionId,
     mode: "exclusive",
-    resources: [{ type: "file", locator: "src/feature/op-safe.ts", metadata: "" }],
+    resources: [{ type: "file", locator: "src/feature/op-safe.ts", metadata: "", scope: "file" as const }],
   });
   rcClaim({
     actorId: execId,
@@ -116,7 +116,7 @@ beforeAll(() => {
     sessionId,
     mode: "exclusive",
     autoGate: false,
-    resources: [{ type: "file", locator: "src/feature/conflict.ts", metadata: "" }],
+    resources: [{ type: "file", locator: "src/feature/conflict.ts", metadata: "", scope: "file" as const }],
   });
 
   const secondaryTask = repo.createTask({ title: "Sync status side task", description: "conflict seed" });
@@ -126,7 +126,7 @@ beforeAll(() => {
     sessionId,
     mode: "exclusive",
     autoGate: false,
-    resources: [{ type: "file", locator: "src/feature/conflict.ts", metadata: "" }],
+    resources: [{ type: "file", locator: "src/feature/conflict.ts", metadata: "", scope: "file" as const }],
   });
 
   sgRequest({
@@ -169,7 +169,7 @@ beforeAll(() => {
     taskId,
     sessionId,
     title: "Update feature module",
-    targetResources: [{ type: "file", locator: "src/feature/op-safe.ts", metadata: "" }],
+    targetResources: [{ type: "file", locator: "src/feature/op-safe.ts", metadata: "", scope: "file" as const }],
   });
   operationId = opSubmit(operation.id).operation.id;
 });

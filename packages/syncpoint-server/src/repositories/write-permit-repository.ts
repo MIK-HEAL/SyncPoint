@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { WriteDecision, WritePermit, WritePermitCreate, WriteResourceHash, ResourceRef } from "syncpoint-core";
+import type { WriteDecision, WritePermit, WritePermitCreate, WriteResourceHash, ResourceRef, ResourceScope } from "syncpoint-core";
 import * as s from "../schema.js";
 import { _getDb, createId, now } from "./_shared.js";
 
@@ -15,7 +15,7 @@ function loadPermitResources(db: ReturnType<typeof _getDb>, permitId: string): {
     const ref: ResourceRef = {
       type: r.resourceType,
       locator: r.locator,
-      ...(r.scope && r.scope !== "file" ? { scope: r.scope as any } : {}),
+      scope: (r.scope || "file") as ResourceScope,
       ...(r.functionName ? { functionName: r.functionName } : {}),
       ...(r.lineStart != null && r.lineEnd != null ? { lineRange: { start: r.lineStart, end: r.lineEnd } } : {}),
       metadata: r.metadata,
@@ -88,7 +88,7 @@ export function createWritePermit(data: WritePermitCreate): WritePermit {
       resourceType: ref.type,
       locator: ref.locator,
       baseHash: bh?.sha256 ?? "",
-      scope: ref.scope ?? "file",
+      scope: ref.scope,
       functionName: ref.functionName ?? null,
       lineStart: ref.lineRange?.start ?? null,
       lineEnd: ref.lineRange?.end ?? null,

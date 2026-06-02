@@ -125,7 +125,7 @@ function handleBypass(
   claims: ReturnType<typeof rcList>,
   input: ReconcileInput,
 ): ReconcileFileResult {
-  const resource: ResourceRef = { type: "file", locator, metadata: "" };
+  const resource: ResourceRef = { type: "file", scope: "file", locator, metadata: "" };
   const affectedClaims = claims.filter(claim =>
     claim.resources.some(r => r.type === "file" && r.locator === locator),
   );

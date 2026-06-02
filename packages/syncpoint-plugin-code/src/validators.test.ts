@@ -26,7 +26,7 @@ function makeOp(overrides?: Partial<Operation>): Operation {
     sessionId: "s1",
     title: "test",
     summary: "",
-    targetResources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+    targetResources: [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
     payloadRef: "",
     status: OperationStatus.SUBMITTED,
     checkResult: null,
@@ -119,7 +119,7 @@ describe("registerCodePlugin", () => {
     registerCodePlugin();
 
     const ctx: OperationValidationContext = {
-      operation: makeOp({ type: "image_edit", targetResources: [{ type: "image", locator: "logo.png", metadata: "" }] }),
+      operation: makeOp({ type: "image_edit", targetResources: [{ type: "image", locator: "logo.png", metadata: "", scope: "file" as const }] }),
       actorClaims: [],
       allActiveClaims: [],
     };

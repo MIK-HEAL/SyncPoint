@@ -42,6 +42,7 @@ export {
   ContextSnapshotSchema,
   ContextSnapshotCreateSchema,
   ContextSnapshotPayloadSchema,
+  SNAPSHOT_VERSION,
   EventSchema,
   StatusResponseSchema,
 } from "./models.js";
@@ -675,6 +676,21 @@ export {
   OperationTimeoutError,
   InternalError,
 } from "./errors.js";
+
+// Function Parsing (scope refinement)
+export {
+  parseFunctions,
+  findFunctionAtLine,
+  registerFunctionParseStrategy,
+  getFunctionParseStrategy,
+  getStrategyForExtension,
+  clearFunctionParseStrategies,
+} from "./function-parser.js";
+
+export type {
+  FunctionParseStrategy,
+  ParsedFunction,
+} from "./function-parser.js";
 
 // Path Normalization
 export {

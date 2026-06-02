@@ -253,7 +253,7 @@ describe("P4D: constraintCheck start_assignment", () => {
       sessionId,
       actorId: agent2Id,
       taskId: task2.id,
-      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -279,7 +279,7 @@ describe("P4D: constraintCheck operation_submit", () => {
       taskId,
       sessionId,
       title: "P4D test operation",
-      targetResources: [{ type: "file", locator: "src/core/index.ts", metadata: "" }],
+      targetResources: [{ type: "file", locator: "src/core/index.ts", metadata: "", scope: "file" as const }],
     });
     operationId = op.id;
   });

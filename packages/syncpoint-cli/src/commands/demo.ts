@@ -249,7 +249,7 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
     actorId: agentA.id,
     taskId: task.id,
     sessionId: sessionResult.session.id,
-    resources: [{ type: "file", locator: "src/shared-config.ts", metadata: "" }],
+    resources: [{ type: "file", scope: "file" as const, locator: "src/shared-config.ts", metadata: "" }],
     mode: "exclusive",
   });
 
@@ -289,7 +289,7 @@ function runDisasterDemo(opts: { project: string; keep: boolean; json: boolean; 
     actorId: agentB.id,
     taskId: taskB.id,
     sessionId: sessionResult.session.id,
-    resources: [{ type: "file", locator: "src/shared-config.ts", metadata: "" }],
+    resources: [{ type: "file", scope: "file" as const, locator: "src/shared-config.ts", metadata: "" }],
     mode: "exclusive",
   });
 
@@ -418,8 +418,8 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
     taskId: task.id,
     sessionId: sessionResult.session.id,
     resources: [
-      { type: "binary_asset", locator: "assets/hero-banner.png", metadata: "1920x600 PNG" },
-      { type: "binary_asset", locator: "assets/campaign-logo.svg", metadata: "vector logo" },
+      { type: "binary_asset", scope: "file" as const, locator: "assets/hero-banner.png", metadata: "1920x600 PNG" },
+      { type: "binary_asset", scope: "file" as const, locator: "assets/campaign-logo.svg", metadata: "vector logo" },
     ],
     mode: "exclusive",
   });
@@ -449,7 +449,7 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
     taskId: taskOpt.id,
     sessionId: sessionResult.session.id,
     resources: [
-      { type: "binary_asset", locator: "assets/hero-banner.png", metadata: "optimize to WebP" },
+      { type: "binary_asset", scope: "file" as const, locator: "assets/hero-banner.png", metadata: "optimize to WebP" },
     ],
     mode: "exclusive",
   });
@@ -535,7 +535,7 @@ function runResourceDemo(opts: { project: string; json: boolean }): void {
     title: "Replace hero banner with new campaign design",
     summary: "New 1920x600 hero banner for launch campaign",
     targetResources: [
-      { type: "binary_asset", locator: "assets/hero-banner.png", metadata: "1920x600 PNG" },
+      { type: "binary_asset", scope: "file" as const, locator: "assets/hero-banner.png", metadata: "1920x600 PNG" },
     ],
     payloadRef: "binary://assets/hero-banner-v2.png",
   });

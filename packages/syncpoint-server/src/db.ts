@@ -200,6 +200,7 @@ function runResourceScopeMigration(db: Database.Database): void {
   const tables: Array<{ table: string; hasBaseHash: boolean }> = [
     { table: "resource_claim_resource", hasBaseHash: false },
     { table: "sync_gate_resource", hasBaseHash: false },
+
     { table: "operation_resource", hasBaseHash: false },
     { table: "write_permit_resource", hasBaseHash: true },
     { table: "context_snapshot_resource", hasBaseHash: false },
@@ -219,6 +220,38 @@ function runResourceScopeMigration(db: Database.Database): void {
     if (!columns.includes("line_end")) {
       db.exec(`ALTER TABLE \`${table}\` ADD COLUMN \`line_end\` integer;`);
     }
+  }
+}
+
+/**
+ * Add incremental storage columns to context_snapshot table.
+ */
+function runContextSnapshotIncrementalMigration(db: Database.Database): void {
+  if (!hasTable(db, "context_snapshot")) return;
+  const columns = (db.prepare("PRAGMA table_info(context_snapshot)").all() as Array<{ name: string }>).map(c => c.name);
+  if (!columns.includes("version")) {
+    db.exec(`ALTER TABLE context_snapshot ADD COLUMN version integer NOT NULL DEFAULT 1;`);
+  }
+  if (!columns.includes("content_hash")) {
+    db.exec(`ALTER TABLE context_snapshot ADD COLUMN content_hash text NOT NULL DEFAULT '';`);
+  }
+  if (!columns.includes("is_delta")) {
+    db.exec(`ALTER TABLE context_snapshot ADD COLUMN is_delta integer NOT NULL DEFAULT 0;`);
+  }
+  if (!columns.includes("base_snapshot_id")) {
+    db.exec(`ALTER TABLE context_snapshot ADD COLUMN base_snapshot_id text NOT NULL DEFAULT '';`);
+  }
+}
+
+/**
+ * Add seq column to event table for event persistence and replay.
+ */
+function runEventSeqMigration(db: Database.Database): void {
+  if (!hasTable(db, "event")) return;
+  const columns = (db.prepare("PRAGMA table_info(event)").all() as Array<{ name: string }>).map(c => c.name);
+  if (!columns.includes("seq")) {
+    db.exec(`ALTER TABLE event ADD COLUMN seq integer NOT NULL DEFAULT 0;`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_events_seq ON event (seq);`);
   }
 }
 
@@ -435,5 +468,7 @@ export function runMigrations(db: Database.Database): void {
   runQueryPathIndexesMigration(db);
   runStateTransitionLogMigration(db);
   runResourceScopeMigration(db);
+  runContextSnapshotIncrementalMigration(db);
+  runEventSeqMigration(db);
   ensureRuntimeOnlyTables(db);
 }

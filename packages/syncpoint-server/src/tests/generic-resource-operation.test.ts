@@ -51,8 +51,8 @@ describe("ResourceClaim service", () => {
       actorId: agentId,
       taskId,
       resources: [
-        { type: "file", locator: "src/auth.ts", metadata: "" },
-        { type: "file", locator: "src/login.ts", metadata: "" },
+        { type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const },
+        { type: "file", locator: "src/login.ts", metadata: "", scope: "file" as const },
       ],
       mode: "exclusive",
       autoGate: false,
@@ -74,7 +74,7 @@ describe("ResourceClaim service", () => {
     rcClaim({
       actorId: agent2,
       taskId,
-      resources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -87,7 +87,7 @@ describe("ResourceClaim service", () => {
     const result = rcClaim({
       actorId: agentId,
       taskId,
-      resources: [{ type: "image", locator: "assets/logo.png", metadata: "" }],
+      resources: [{ type: "image", locator: "assets/logo.png", metadata: "", scope: "file" as const }],
       autoGate: false,
     });
     const released = rcRelease(result.claim.id);
@@ -98,7 +98,7 @@ describe("ResourceClaim service", () => {
     rcClaim({
       actorId: agentId,
       taskId,
-      resources: [{ type: "image", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "image", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -113,8 +113,8 @@ describe("ResourceClaim service", () => {
       actorId: agentId,
       taskId,
       resources: [
-        { type: "file", locator: "src/mixed.ts", metadata: "" },
-        { type: "image", locator: "assets/mixed.png", metadata: "" },
+        { type: "file", locator: "src/mixed.ts", metadata: "", scope: "file" as const },
+        { type: "image", locator: "assets/mixed.png", metadata: "", scope: "file" as const },
       ],
       autoGate: false,
     })).toThrow(/same type/i);
@@ -131,7 +131,7 @@ describe("Operation service", () => {
       taskId,
       title: "fix auth bug",
       summary: "patch summary",
-      targetResources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+      targetResources: [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
     });
     expect(op.id).toBeTruthy();
     expect(op.status).toBe("DRAFT");

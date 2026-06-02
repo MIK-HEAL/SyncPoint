@@ -40,7 +40,7 @@ export function registerGuardTools(server: McpServer): void {
           actorId: resolved,
           taskId,
           sessionId,
-          resources: locators.map(locator => ({ type: type ?? "file", locator, metadata: "" })),
+          resources: locators.map(locator => ({ type: type ?? "file", scope: "file" as const, locator, metadata: "" })),
           intent: (intent ?? "modify") as WriteIntent,
           operationId,
         }));
@@ -72,7 +72,7 @@ export function registerGuardTools(server: McpServer): void {
           actorId: resolved,
           taskId,
           sessionId,
-          resources: locators.map(locator => ({ type: type ?? "file", locator, metadata: "" })),
+          resources: locators.map(locator => ({ type: type ?? "file", scope: "file" as const, locator, metadata: "" })),
           intent: (intent ?? "modify") as WriteIntent,
           operationId,
           ttlSeconds,
@@ -101,7 +101,7 @@ export function registerGuardTools(server: McpServer): void {
         return ok(writeApply({
           permitId,
           mutations: mutations.map(mutation => ({
-            resource: { type: "file", locator: mutation.locator, metadata: "" },
+            resource: { type: "file", scope: "file" as const, locator: mutation.locator, metadata: "" },
             content: mutation.content,
             contentBase64: mutation.contentBase64,
             delete: mutation.delete,

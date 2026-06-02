@@ -20,8 +20,8 @@ import {
   TaskAssignmentCreateSchema,
   ReviewRequestCreateSchema,
   ReviewDecisionCreateSchema,
-} from "./orchestration.ts";
-import { InvalidTransition } from "./states.ts";
+} from "./orchestration.js";
+import { InvalidTransition } from "./states.js";
 
 describe("OrchestratorRole", () => {
   it("should have 4 roles", () => {
