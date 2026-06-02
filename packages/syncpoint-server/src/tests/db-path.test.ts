@@ -22,7 +22,7 @@ describe("DB path resolution", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sp-dbpath-env-"));
     process.env.SYNCPOINT_DB_DIR = tmp;
     // Fresh import to pick up env
-    const { getDbPath } = await import("../db.ts");
+    const { getDbPath } = await import("../db.js");
     const dbPath = getDbPath();
     expect(dbPath).toBe(path.join(tmp, "syncpoint.db"));
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -30,7 +30,7 @@ describe("DB path resolution", () => {
 
   it("syncpoint init creates .syncpoint/ with DB", async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sp-dbpath-init-"));
-    const { initSyncpointDir } = await import("../db.ts");
+    const { initSyncpointDir } = await import("../db.js");
     const dir = initSyncpointDir(tmp);
     expect(dir).toBe(path.join(tmp, ".syncpoint"));
     expect(fs.existsSync(path.join(dir, "syncpoint.db"))).toBe(true);
@@ -49,7 +49,7 @@ describe("DB path resolution", () => {
     const origCwd = process.cwd();
     process.chdir(subDir);
     try {
-      const { getDbPath } = await import("../db.ts");
+      const { getDbPath } = await import("../db.js");
       const dbPath = getDbPath();
       expect(dbPath).toBe(path.join(spDir, "syncpoint.db"));
     } finally {
@@ -64,7 +64,7 @@ describe("DB path resolution", () => {
     const origCwd = process.cwd();
     process.chdir(tmp);
     try {
-      const { getDbPath } = await import("../db.ts");
+      const { getDbPath } = await import("../db.js");
       const dbPath = getDbPath();
       expect(dbPath).toBe(path.join(os.homedir(), ".syncpoint", "syncpoint.db"));
     } finally {

@@ -3,7 +3,7 @@
  * projection guard, export metadata, and normalized defaults.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 
@@ -21,14 +21,14 @@ describe("P2: V2 fields on create", () => {
       projectionTarget: "protocol_gate",
       severity: "blocking",
       validatorType: "custom",
-      appliesTo: { files: ["src/**/*.ts"] },
+      appliesTo: { files: ["src/**/*.js"] },
       validity: { status: "fresh" },
     })) as any;
     expect(m.kind).toBe("hard_constraint");
     expect(m.projectionTarget).toBe("protocol_gate");
     expect(m.severity).toBe("blocking");
     expect(m.validityStatus).toBe("fresh");
-    expect(m.appliesTo.files?.[0]).toContain("src/**/*.ts");
+    expect(m.appliesTo.files?.[0]).toContain("src/**/*.js");
   });
 
   it("defaults kind from category when not provided", async () => {
@@ -228,7 +228,7 @@ describe("P2: Export preserves V2 metadata", () => {
       projectionTarget: "protocol_gate",
       severity: "blocking",
       validatorType: "file_forbidden",
-      appliesTo: { files: ["src/main.ts"], modules: ["core"] },
+      appliesTo: { files: ["src/main.js"], modules: ["core"] },
     })) as any;
     await ctx.rpc("projectMemory.approve", { id: m.id, updatedBy: "test-user" });
 
@@ -239,7 +239,7 @@ describe("P2: Export preserves V2 metadata", () => {
     expect(result.content).toContain("Kind: hard_constraint");
     expect(result.content).toContain("Severity: blocking");
     expect(result.content).toContain("Projection: protocol_gate");
-    expect(result.content).toContain("src/main.ts");
+    expect(result.content).toContain("src/main.js");
     expect(result.content).toContain("Modules: core");
   });
 });

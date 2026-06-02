@@ -88,7 +88,7 @@ beforeAll(() => {
     payload: {
       goal: "Cover sync status service",
       currentPhase: "implementation",
-      workingResources: ["src/core/index.ts"],
+      workingResources: ["src/core/index.js"],
     },
   });
 
@@ -108,7 +108,7 @@ beforeAll(() => {
     taskId,
     sessionId,
     mode: "exclusive",
-    resources: [{ type: "file", locator: "src/feature/op-safe.ts", metadata: "", scope: "file" as const }],
+    resources: [{ type: "file", locator: "src/feature/op-safe.js", metadata: "", scope: "file" as const }],
   });
   rcClaim({
     actorId: execId,
@@ -116,7 +116,7 @@ beforeAll(() => {
     sessionId,
     mode: "exclusive",
     autoGate: false,
-    resources: [{ type: "file", locator: "src/feature/conflict.ts", metadata: "", scope: "file" as const }],
+    resources: [{ type: "file", locator: "src/feature/conflict.js", metadata: "", scope: "file" as const }],
   });
 
   const secondaryTask = repo.createTask({ title: "Sync status side task", description: "conflict seed" });
@@ -126,7 +126,7 @@ beforeAll(() => {
     sessionId,
     mode: "exclusive",
     autoGate: false,
-    resources: [{ type: "file", locator: "src/feature/conflict.ts", metadata: "", scope: "file" as const }],
+    resources: [{ type: "file", locator: "src/feature/conflict.js", metadata: "", scope: "file" as const }],
   });
 
   sgRequest({
@@ -169,7 +169,7 @@ beforeAll(() => {
     taskId,
     sessionId,
     title: "Update feature module",
-    targetResources: [{ type: "file", locator: "src/feature/op-safe.ts", metadata: "", scope: "file" as const }],
+    targetResources: [{ type: "file", locator: "src/feature/op-safe.js", metadata: "", scope: "file" as const }],
   });
   operationId = opSubmit(operation.id).operation.id;
 });
@@ -220,10 +220,10 @@ describe("sync-status-service", () => {
     const snapshot = buildSnapshot({ sessionId });
 
     expect(snapshot.resourceOwnership.activeClaims.some(claim =>
-      claim.resources.some(resource => resource.locator.includes("src/feature/op-safe.ts"))
+      claim.resources.some(resource => resource.locator.includes("src/feature/op-safe.js"))
     )).toBe(true);
     expect(snapshot.resourceOwnership.conflicts.some(conflict =>
-      conflict.isHardConflict && conflict.overlappingLocator.includes("src/feature/conflict.ts")
+      conflict.isHardConflict && conflict.overlappingLocator.includes("src/feature/conflict.js")
     )).toBe(true);
     expect(snapshot.resourceOwnership.stats.hardConflicts).toBeGreaterThanOrEqual(1);
     expect(snapshot.resourceOwnership.stats.totalClaims).toBeGreaterThanOrEqual(3);

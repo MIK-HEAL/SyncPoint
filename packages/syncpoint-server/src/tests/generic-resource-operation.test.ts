@@ -51,8 +51,8 @@ describe("ResourceClaim service", () => {
       actorId: agentId,
       taskId,
       resources: [
-        { type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const },
-        { type: "file", locator: "src/login.ts", metadata: "", scope: "file" as const },
+        { type: "file", locator: "src/auth.js", metadata: "", scope: "file" as const },
+        { type: "file", locator: "src/login.js", metadata: "", scope: "file" as const },
       ],
       mode: "exclusive",
       autoGate: false,
@@ -74,13 +74,13 @@ describe("ResourceClaim service", () => {
     rcClaim({
       actorId: agent2,
       taskId,
-      resources: [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/auth.js", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
     const conflicts = rcDetectConflicts({ resourceType: "file" });
     expect(conflicts.length).toBeGreaterThanOrEqual(1);
-    expect(conflicts[0].isHardConflict).toBe(true);
+    expect(conflicts[0]!.isHardConflict).toBe(true);
   });
 
   it("rcRelease releases a claim", () => {
@@ -98,11 +98,11 @@ describe("ResourceClaim service", () => {
     rcClaim({
       actorId: agentId,
       taskId,
-      resources: [{ type: "image", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "image", locator: "src/auth.js", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
-    // image type "src/auth.ts" should NOT conflict with file type "src/auth.ts"
+    // image type "src/auth.js" should NOT conflict with file type "src/auth.js"
     const conflicts = rcDetectConflicts({ resourceType: "image" });
     const crossTypeConflicts = conflicts.filter(c => c.resourceType !== "image");
     expect(crossTypeConflicts).toHaveLength(0);
@@ -113,7 +113,7 @@ describe("ResourceClaim service", () => {
       actorId: agentId,
       taskId,
       resources: [
-        { type: "file", locator: "src/mixed.ts", metadata: "", scope: "file" as const },
+        { type: "file", locator: "src/mixed.js", metadata: "", scope: "file" as const },
         { type: "image", locator: "assets/mixed.png", metadata: "", scope: "file" as const },
       ],
       autoGate: false,
@@ -131,7 +131,7 @@ describe("Operation service", () => {
       taskId,
       title: "fix auth bug",
       summary: "patch summary",
-      targetResources: [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
+      targetResources: [{ type: "file", locator: "src/auth.js", metadata: "", scope: "file" as const }],
     });
     expect(op.id).toBeTruthy();
     expect(op.status).toBe("DRAFT");
@@ -203,7 +203,7 @@ describe("Operation service", () => {
     });
 
     db.update(schema.operations).set({
-      checkResultJson: "{",
+      checkResultJson: "{}" as any,
     }).where(eq(schema.operations.id, op.id)).run();
 
     const loaded = repo.getOperation(op.id);

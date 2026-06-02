@@ -162,7 +162,7 @@ describe("Wake Engine — full session lifecycle", () => {
 
   it("REVIEW_APPROVED → wakes architect to advance-session", () => {
     const reviews = repo.listReviewRequests(sessionId);
-    const rr = reviews[0];
+    const rr = reviews[0]!;
     orchStartReview(rr.id);
     orchSubmitReview({
       reviewRequestId: rr.id,

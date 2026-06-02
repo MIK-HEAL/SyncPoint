@@ -12,7 +12,7 @@ let spDir: string;
 const TSX = process.platform === "win32"
   ? path.resolve("node_modules/.bin/tsx.cmd")
   : path.resolve("node_modules/.bin/tsx");
-const CLI = path.resolve("../syncpoint-cli/src/main.ts");
+const CLI = path.resolve("../syncpoint-cli/src/main.js");
 
 function cli(args: string): string {
   return execSync(`"${TSX}" "${CLI}" ${args}`, {

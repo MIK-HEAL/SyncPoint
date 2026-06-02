@@ -96,7 +96,7 @@ describe("resource claim service", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
       autoGate: false,
     });
@@ -134,13 +134,13 @@ describe("resource claim service", () => {
       actorId: agentB,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
     expect(result.conflicts).toHaveLength(1);
-    expect(result.conflicts[0].isHardConflict).toBe(true);
-    expect(result.conflicts[0].overlappingLocator).toContain("src");
+    expect(result.conflicts[0]!.isHardConflict).toBe(true);
+    expect(result.conflicts[0]!.overlappingLocator).toContain("src");
     expect(result.gateId).toBeTruthy();
     expect(sgStatus(result.gateId!).gate.status).toBe(SyncGateStatus.SYNC_REQUESTED);
   });
@@ -159,7 +159,7 @@ describe("resource claim service", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
       autoGate: false,
     });
@@ -174,7 +174,7 @@ describe("resource claim service", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.SHARED,
       autoGate: false,
     });
@@ -183,12 +183,12 @@ describe("resource claim service", () => {
       actorId: agentB,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.SHARED,
     });
 
     expect(result.conflicts).toHaveLength(1);
-    expect(result.conflicts[0].isHardConflict).toBe(false);
+    expect(result.conflicts[0]!.isHardConflict).toBe(false);
     expect(result.gateId).toBeUndefined();
   });
 
@@ -197,7 +197,7 @@ describe("resource claim service", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
       autoGate: false,
     });
@@ -206,7 +206,7 @@ describe("resource claim service", () => {
       actorId: agentB,
       taskId: taskA,
       sessionId: sessionB,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
       autoGate: false,
     });
@@ -222,7 +222,7 @@ describe("resource claim service", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
       autoGate: false,
     });
@@ -230,7 +230,7 @@ describe("resource claim service", () => {
       actorId: agentB,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -245,13 +245,13 @@ describe("resource claim service", () => {
   });
 
   it("drives write-permit authorization from active claims", () => {
-    seedFile("src/auth.ts");
+    seedFile("src/auth.js");
 
     rcClaim({
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
       autoGate: false,
     });
@@ -260,14 +260,14 @@ describe("resource claim service", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       intent: WriteIntent.MODIFY,
     });
     const otherDecision = writePrepare({
       actorId: agentB,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/auth.ts")],
+      resources: [fileResource("src/auth.js")],
       intent: WriteIntent.MODIFY,
     });
 
@@ -278,13 +278,13 @@ describe("resource claim service", () => {
   });
 
   it("supplies claimed files to strict guard sessions", () => {
-    const filePath = seedFile("src/guarded.ts");
+    const filePath = seedFile("src/guarded.js");
 
     rcClaim({
       actorId: agentA,
       taskId: taskA,
       sessionId: sessionA,
-      resources: [fileResource("src/guarded.ts")],
+      resources: [fileResource("src/guarded.js")],
       mode: ResourceClaimMode.EXCLUSIVE,
       autoGate: false,
     });

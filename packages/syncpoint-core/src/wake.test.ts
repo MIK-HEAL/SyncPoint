@@ -25,8 +25,8 @@ describe("computeWakeTargets", () => {
   it("SESSION_CREATED wakes architect to plan-tasks", () => {
     const targets = computeWakeTargets(makeCtx());
     expect(targets).toHaveLength(1);
-    expect(targets[0].targetRole).toBe("architect");
-    expect(targets[0].action).toBe("plan-tasks");
+    expect(targets[0]!.targetRole).toBe("architect");
+    expect(targets[0]!.action).toBe("plan-tasks");
   });
 
   it("ASSIGNMENT_COMPLETED wakes architect to request-review", () => {
@@ -35,8 +35,8 @@ describe("computeWakeTargets", () => {
       sessionStatus: "EXECUTING",
     }));
     expect(targets).toHaveLength(1);
-    expect(targets[0].targetRole).toBe("architect");
-    expect(targets[0].action).toBe("request-review");
+    expect(targets[0]!.targetRole).toBe("architect");
+    expect(targets[0]!.action).toBe("request-review");
   });
 
   it("REVIEW_REQUESTED wakes reviewer to start-review", () => {
@@ -45,8 +45,8 @@ describe("computeWakeTargets", () => {
       sessionStatus: "REVIEWING",
     }));
     expect(targets).toHaveLength(1);
-    expect(targets[0].targetRole).toBe("reviewer");
-    expect(targets[0].action).toBe("start-review");
+    expect(targets[0]!.targetRole).toBe("reviewer");
+    expect(targets[0]!.action).toBe("start-review");
   });
 
   it("REVIEW_APPROVED wakes architect to advance-session", () => {
@@ -55,8 +55,8 @@ describe("computeWakeTargets", () => {
       sessionStatus: "REVIEWING",
     }));
     expect(targets).toHaveLength(1);
-    expect(targets[0].targetRole).toBe("architect");
-    expect(targets[0].action).toBe("advance-session");
+    expect(targets[0]!.targetRole).toBe("architect");
+    expect(targets[0]!.action).toBe("advance-session");
   });
 
   it("REVIEW_BLOCKED wakes executor to address-changes", () => {
@@ -65,8 +65,8 @@ describe("computeWakeTargets", () => {
       sessionStatus: "EXECUTING",
     }));
     expect(targets).toHaveLength(1);
-    expect(targets[0].targetRole).toBe("executor");
-    expect(targets[0].action).toBe("address-changes");
+    expect(targets[0]!.targetRole).toBe("executor");
+    expect(targets[0]!.action).toBe("address-changes");
   });
 
   it("SESSION_ADVANCED to EXECUTING wakes executor to accept-assignment", () => {
@@ -75,8 +75,8 @@ describe("computeWakeTargets", () => {
       sessionStatus: "EXECUTING",
     }));
     expect(targets).toHaveLength(1);
-    expect(targets[0].targetRole).toBe("executor");
-    expect(targets[0].action).toBe("accept-assignment");
+    expect(targets[0]!.targetRole).toBe("executor");
+    expect(targets[0]!.action).toBe("accept-assignment");
   });
 
   it("SESSION_ADVANCED to REVIEWING does NOT wake executor", () => {
@@ -220,7 +220,7 @@ describe("computeWakeTargets with relationshipMode", () => {
       }),
     );
     expect(targets.length).toBeGreaterThan(0);
-    expect(targets[0].action).toBe("start-review");
+    expect(targets[0]!.action).toBe("start-review");
   });
 
   it("manager-delegate mode blocks custom sync-checkpoint rule", () => {
@@ -253,7 +253,7 @@ describe("computeWakeTargets with relationshipMode", () => {
       }),
     );
     expect(targets.length).toBeGreaterThan(0);
-    expect(targets[0].action).toBe("start-review");
+    expect(targets[0]!.action).toBe("start-review");
   });
 
   it("peer-contract mode allows claim-resources custom rule", () => {
@@ -275,7 +275,7 @@ describe("computeWakeTargets with relationshipMode", () => {
       customRules,
     );
     expect(targets.length).toBeGreaterThan(0);
-    expect(targets[0].action).toBe("claim-resources");
+    expect(targets[0]!.action).toBe("claim-resources");
   });
 
   it("without mode, all default rules apply", () => {

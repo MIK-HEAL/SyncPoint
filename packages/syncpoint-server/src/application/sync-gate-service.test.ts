@@ -56,8 +56,8 @@ describe("SyncGate full lifecycle", () => {
       requestedByAgentId: agent1Id,
       requiredAgentIds: [agent2Id, agent3Id],
       reason: "resource_conflict",
-      description: "Both agents claim src/auth.ts",
-      relatedFiles: ["src/auth.ts"],
+      description: "Both agents claim src/auth.js",
+      relatedFiles: ["src/auth.js"],
     });
 
     expect(result.gate.status).toBe(SyncGateStatus.SYNC_REQUESTED);
@@ -225,7 +225,7 @@ describe("sgList multi-filter regression", () => {
   it("sgList filters by sessionId + status correctly", () => {
     const gates = sgList({ sessionId: "sess-filter-test", status: SyncGateStatus.SYNC_REQUESTED });
     expect(gates).toHaveLength(1);
-    expect(gates[0].id).toBe(sessionGateId);
+    expect(gates[0]!.id).toBe(sessionGateId);
   });
 
   it("sgList filters by all three fields", () => {
@@ -496,7 +496,7 @@ describe("SyncGate resource conflict auto-resolve on claim release", () => {
       sessionId: sess.session.id,
       taskId: claimTask.id,
       actorId: agent1Id,
-      resources: [{ type: "file", locator: "src/shared/config.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/shared/config.js", metadata: "", scope: "file" as const }],
     });
 
     // Agent 2 claims overlapping resource → creates conflict gate
@@ -504,7 +504,7 @@ describe("SyncGate resource conflict auto-resolve on claim release", () => {
       sessionId: sess.session.id,
       taskId: claimTask.id,
       actorId: agent2Id,
-      resources: [{ type: "file", locator: "src/shared/config.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/shared/config.js", metadata: "", scope: "file" as const }],
     });
 
     expect(claim2.gateId).toBeTruthy();
@@ -686,7 +686,7 @@ describe("DB vote upsert guarantees single row per agent", () => {
     const votes = repo.listGateVotes(gid);
     const agent2Votes = votes.filter((v: any) => v.agentId === agent2Id);
     expect(agent2Votes.length).toBe(1);
-    expect(agent2Votes[0].vote).toBe("abstain"); // last vote wins
+    expect(agent2Votes[0]!.vote).toBe("abstain"); // last vote wins
   });
 });
 

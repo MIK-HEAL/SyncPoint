@@ -5,7 +5,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { getRandomPort, trpcFetch } from "./helpers.ts";
+import { getRandomPort, trpcFetch } from "./helpers.js";
 
 export interface E2EContext {
   baseUrl: string;
@@ -27,8 +27,8 @@ export async function startE2E(): Promise<E2EContext> {
   process.env.SYNCPOINT_DB_DIR = spDir;
 
   // Dynamic import to pick up the env var
-  const { startServer } = await import("../main.ts");
-  const { closeDb } = await import("../db.ts");
+  const { startServer } = await import("../main.js");
+  const { closeDb } = await import("../db.js");
 
   const server = startServer(port);
   const baseUrl = `http://127.0.0.1:${port}`;

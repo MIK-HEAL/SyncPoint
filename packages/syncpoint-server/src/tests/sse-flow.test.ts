@@ -2,7 +2,7 @@
  * E2E: SSE event stream delivers real-time events.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 
@@ -54,6 +54,6 @@ describe("SSE flow", () => {
 
     // Should have received the "connected" event plus at least one real event
     expect(events.length).toBeGreaterThanOrEqual(2);
-    expect(events[0].type).toBe("connected");
+    expect(events[0]!.type).toBe("connected");
   });
 });

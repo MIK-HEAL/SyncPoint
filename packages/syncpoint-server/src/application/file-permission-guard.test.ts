@@ -53,7 +53,7 @@ afterEach(() => {
 
 describe("file permission guard", () => {
   it("strict guard session makes claimed files read-only and blocks direct writes", () => {
-    const locator = "src/guarded.ts";
+    const locator = "src/guarded.js";
     const filePath = path.join(tmpDir, locator);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "original");
@@ -86,7 +86,7 @@ describe("file permission guard", () => {
   });
 
   it("writeApply still succeeds through temporary unlock", () => {
-    const locator = "src/writable.ts";
+    const locator = "src/writable.js";
     const filePath = path.join(tmpDir, locator);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "original");
@@ -130,7 +130,7 @@ describe("file permission guard", () => {
   });
 
   it("revoking guard session restores file permissions", () => {
-    const locator = "src/restored.ts";
+    const locator = "src/restored.js";
     const filePath = path.join(tmpDir, locator);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "original");
@@ -171,7 +171,7 @@ describe("file permission guard", () => {
   });
 
   it("observe mode does NOT lock files", () => {
-    const locator = "src/observed.ts";
+    const locator = "src/observed.js";
     const filePath = path.join(tmpDir, locator);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "original");

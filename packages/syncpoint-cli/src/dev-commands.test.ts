@@ -93,7 +93,7 @@ describe("dev reset", () => {
     repo.createResourceClaim({
       actorId: agent.id,
       taskId: task.id,
-      resources: [{ type: "file", locator: "src/test.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/test.js", metadata: "", scope: "file" as const }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 

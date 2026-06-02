@@ -93,8 +93,8 @@ describe("resource_forbidden evaluator", () => {
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].rule).toBe("resource_forbidden");
-    expect(decision.blockers[0].evidence).toContain("artifact://landing-page");
+    expect(decision.blockers[0]!.rule).toBe("resource_forbidden");
+    expect(decision.blockers[0]!.evidence).toContain("artifact://landing-page");
   });
 
   it("blocks on prefix overlap", () => {
@@ -114,7 +114,7 @@ describe("resource_forbidden evaluator", () => {
       touchedResources: toRefs("artifact://ui/header"),
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].evidence).toContain("artifact://ui/header");
+    expect(decision.blockers[0]!.evidence).toContain("artifact://ui/header");
   });
 
   it("permits when no overlap", () => {
@@ -173,7 +173,7 @@ describe("resource_forbidden evaluator", () => {
       touchedResources: [{ type: "binary_asset", locator: "binary://brand-logo.png", metadata: "", scope: "file" as const }],
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].message).toBe("Brand assets are frozen during launch");
+    expect(decision.blockers[0]!.message).toBe("Brand assets are frozen during launch");
   });
 
   it("blocks on binary asset path", () => {
@@ -193,7 +193,7 @@ describe("resource_forbidden evaluator", () => {
       touchedResources: [{ type: "binary_asset", locator: "binary://assets/hero-banner.png", metadata: "", scope: "file" as const }],
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("resource_forbidden");
+    expect(decision.blockers[0]!.rule).toBe("resource_forbidden");
   });
 });
 
@@ -229,6 +229,6 @@ describe("E2E: projection + resource_forbidden", () => {
     });
 
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("do_not_touch_scope_overlap");
+    expect(decision.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
   });
 });

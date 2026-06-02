@@ -2,7 +2,7 @@
  * E2E: Memory Switch Engine — resume context, quality checks, pinned memory.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 
@@ -34,7 +34,7 @@ describe("Memory Switch Engine", () => {
         goal: "Implement auth API",
         currentPhase: "implementation",
         confirmedDecisions: ["JWT auth"],
-        workingResources: ["src/auth/login.ts"],
+        workingResources: ["src/auth/login.js"],
         completedWork: "Schema defined",
         remainingWork: "Implement handler",
         nextSteps: ["Write login endpoint"],

@@ -13,10 +13,10 @@ describe("Guarded Editor", () => {
   });
 
   it("maps workspace file URIs to syncpoint guarded URIs", () => {
-    const uri = guardedUriForFile((vscode as any).Uri.file("/test/src/auth.ts"));
+    const uri = guardedUriForFile((vscode as any).Uri.file("/test/src/auth.js"));
 
     expect(uri?.scheme).toBe("syncpoint");
-    expect(uri?.path).toBe("/src/auth.ts");
+    expect(uri?.path).toBe("/src/auth.js");
   });
 
   it("writes syncpoint documents through write.prepare and write.applyWrite", async () => {
@@ -35,18 +35,18 @@ describe("Guarded Editor", () => {
     registerGuardedEditor({ client: clientWithWrite(prepare, applyWrite) });
     const provider = (vscode as any).__getRegisteredFileSystemProvider("syncpoint");
 
-    await provider.writeFile((vscode as any).Uri.parse("syncpoint:/src/auth.ts"), Buffer.from("new"));
+    await provider.writeFile((vscode as any).Uri.parse("syncpoint:/src/auth.js"), Buffer.from("new"));
 
     expect(prepare).toHaveBeenCalledWith({
       actorId: "agent-a",
       taskId: "task-1",
       sessionId: "session-1",
-      resources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", locator: "src/auth.js", metadata: "" }],
       intent: "modify",
     });
     expect(applyWrite).toHaveBeenCalledWith({
       permitId: "permit-1",
-      mutations: [{ resource: { type: "file", locator: "src/auth.ts", metadata: "" }, contentBase64: Buffer.from("new").toString("base64") }],
+      mutations: [{ resource: { type: "file", locator: "src/auth.js", metadata: "" }, contentBase64: Buffer.from("new").toString("base64") }],
     });
   });
 
@@ -66,7 +66,7 @@ describe("Guarded Editor", () => {
     registerGuardedEditor({ client: clientWithWrite(prepare, applyWrite) });
     const provider = (vscode as any).__getRegisteredFileSystemProvider("syncpoint");
 
-    await expect(provider.writeFile((vscode as any).Uri.parse("syncpoint:/src/auth.ts"), Buffer.from("new"))).rejects.toThrow(/No permissions/);
+    await expect(provider.writeFile((vscode as any).Uri.parse("syncpoint:/src/auth.js"), Buffer.from("new"))).rejects.toThrow(/No permissions/);
 
     expect(applyWrite).not.toHaveBeenCalled();
     expect(showErrorMessage).toHaveBeenCalledWith(expect.stringContaining("blocked by gate"));

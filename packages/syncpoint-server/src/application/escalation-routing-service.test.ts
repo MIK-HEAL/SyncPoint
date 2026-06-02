@@ -51,7 +51,7 @@ describe("manifestUpsert / manifestGet", () => {
     });
     expect(m.agentId).toBe(e1);
     expect(m.capabilities).toHaveLength(1);
-    expect(m.capabilities[0].domain).toBe("code-review");
+    expect(m.capabilities[0]!.domain).toBe("code-review");
     expect(m.tags).toContain("reviewer");
   });
 
@@ -144,7 +144,7 @@ describe("routeGateEscalation", () => {
 
     const candidates = routeGateEscalation(gate.gate.id);
     if (candidates.length > 0) {
-      expect(candidates[0].agentId).toBe(e1);
+      expect(candidates[0]!.agentId).toBe(e1);
     }
   });
 

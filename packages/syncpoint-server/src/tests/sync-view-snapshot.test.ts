@@ -96,7 +96,7 @@ describe("syncStatus.snapshot", () => {
     const exec = snap.agents.find(a => a.id === execId);
     expect(exec).toBeTruthy();
     expect(exec!.activeAssignments.length).toBeGreaterThanOrEqual(1);
-    expect(exec!.activeAssignments[0].taskTitle).toBe("Snapshot feature");
+    expect(exec!.activeAssignments[0]!.taskTitle).toBe("Snapshot feature");
   });
 
   it("resource claims appear in resourceOwnership", async () => {
@@ -104,12 +104,12 @@ describe("syncStatus.snapshot", () => {
       actorId: execId,
       taskId,
       sessionId,
-      resources: [{ type: "file", locator: "src/snapshot.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/snapshot.js", metadata: "", scope: "file" as const }],
     });
     const snap = await caller.syncStatus.snapshot();
     expect(snap.resourceOwnership.activeClaims.length).toBeGreaterThanOrEqual(1);
     const claim = snap.resourceOwnership.activeClaims.find((c: any) =>
-      c.resources?.some((r: any) => r.locator.includes("src/snapshot.ts"))
+      c.resources?.some((r: any) => r.locator.includes("src/snapshot.js"))
     );
     expect(claim).toBeTruthy();
     expect(claim!.actorName).toBe("exec-p9");
@@ -163,7 +163,7 @@ describe("syncStatus.snapshot sessionId scoping", () => {
     orchAdvanceSession(otherSessionId);
 
     // Claim in session 2
-    rcClaim({ actorId: otherExecId, taskId: otherTaskId, sessionId: otherSessionId, resources: [{ type: "file", locator: "src/other.ts", metadata: "", scope: "file" as const }] });
+    rcClaim({ actorId: otherExecId, taskId: otherTaskId, sessionId: otherSessionId, resources: [{ type: "file", locator: "src/other.js", metadata: "", scope: "file" as const }] });
     // Gate in session 2
     sgRequest({
       taskId: otherTaskId, sessionId: otherSessionId, reason: "manual_sync",
@@ -175,13 +175,13 @@ describe("syncStatus.snapshot sessionId scoping", () => {
   it("scoped snapshot only shows the requested session", async () => {
     const scoped = await caller.syncStatus.snapshot({ sessionId });
     expect(scoped.sessions.length).toBe(1);
-    expect(scoped.sessions[0].id).toBe(sessionId);
+    expect(scoped.sessions[0]!.id).toBe(sessionId);
   });
 
   it("scoped snapshot excludes claims from other sessions", async () => {
     const scoped = await caller.syncStatus.snapshot({ sessionId });
     const otherClaim = scoped.resourceOwnership.activeClaims.find((c: any) =>
-      c.resources?.some((r: any) => r.locator.includes("src/other.ts"))
+      c.resources?.some((r: any) => r.locator.includes("src/other.js"))
     );
     expect(otherClaim).toBeUndefined();
   });
@@ -209,10 +209,10 @@ describe("syncStatus.snapshot sessionId scoping", () => {
     const global = await caller.syncStatus.snapshot();
     expect(global.sessions.length).toBe(2);
     expect(global.resourceOwnership.activeClaims.some((c: any) =>
-      c.resources?.some((r: any) => r.locator.includes("src/other.ts"))
+      c.resources?.some((r: any) => r.locator.includes("src/other.js"))
     )).toBe(true);
     expect(global.resourceOwnership.activeClaims.some((c: any) =>
-      c.resources?.some((r: any) => r.locator.includes("src/snapshot.ts"))
+      c.resources?.some((r: any) => r.locator.includes("src/snapshot.js"))
     )).toBe(true);
   });
 });

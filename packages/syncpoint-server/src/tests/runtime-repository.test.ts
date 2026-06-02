@@ -40,7 +40,8 @@ describe("runtime repository", () => {
   it("creates a runtime", () => {
     const rt = createRuntime({
       name: "architect-window",
-      kind: "local-mcp",
+      kind: "local-mcp" as any,
+      agentId: null,
       provider: "copilot",
       host: "dev-machine",
       workspaceRoot: "/home/user/project",
@@ -96,8 +97,12 @@ describe("runtime repository", () => {
   it("creates runtime with agent binding", () => {
     const rt2 = createRuntime({
       name: "worker-window",
+      kind: "local-mcp" as any,
+      provider: "copilot",
+      host: "dev-machine",
+      workspaceRoot: "/home/user/project",
       agentId: agentId,
-    });
+    } as any);
     expect(rt2.agentId).toBe(agentId);
     expect(getAgentIdForRuntime(rt2.id)).toBe(agentId);
   });

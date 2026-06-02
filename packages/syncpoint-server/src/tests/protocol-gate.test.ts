@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema";
+import * as schema from "../schema.js";
 import { TaskStatus, ContractStatus } from "syncpoint-core";
 
 function readPayload(snapshot: { payload?: Record<string, unknown> }) {
@@ -59,8 +59,8 @@ vi.mock("../db.js", () => ({
   runMigrations: () => {},
 }));
 
-const repo = await import("../repositories/index.ts");
-const { validateSnapshot } = await import("../application/protocol-gate-service.ts");
+const repo = await import("../repositories/index.js");
+const { validateSnapshot } = await import("../application/protocol-gate-service.js");
 
 describe("P12 Snapshot Validation", () => {
   beforeEach(() => { testDb = createTestDb(); });

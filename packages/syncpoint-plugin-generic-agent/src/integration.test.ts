@@ -36,7 +36,7 @@ import {
 // ── Helpers ──────────────────────────────────────────
 
 function ref(type: string, locator: string): ResourceRef {
-  return { type, locator, metadata: "" };
+  return { type, locator, metadata: "", scope: "file" as const };
 }
 
 function makeOp(overrides?: Partial<Operation>): Operation {
@@ -252,8 +252,8 @@ describe("E2E: constraint enforcement", () => {
       touchedResources: [ref("binary_asset", "binary://brand-logo.png")],
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("resource_forbidden");
-    expect(decision.blockers[0].evidence).toContain("binary://brand-logo.png");
+    expect(decision.blockers[0]!.rule).toBe("resource_forbidden");
+    expect(decision.blockers[0]!.evidence).toContain("binary://brand-logo.png");
   });
 
   it("resource_forbidden permits when resource not touched", () => {
@@ -285,7 +285,7 @@ describe("isolation from code plugin", () => {
     const ctx: OperationValidationContext = {
       operation: makeOp({
         type: "code_patch",
-        targetResources: [ref("file", "src/main.ts")],
+        targetResources: [ref("file", "src/main.js")],
       }),
       actorClaims: [],
       allActiveClaims: [],

@@ -95,7 +95,7 @@ describe("listMessages", () => {
     createMessage({ fromAgent: "a1", toAgent: "a3" });
     const list = listMessages({ toAgent: "a2" });
     expect(list).toHaveLength(1);
-    expect(list[0].toAgent).toBe("a2");
+    expect(list[0]!.toAgent).toBe("a2");
   });
 
   it("filters by unreadOnly", () => {
@@ -104,7 +104,7 @@ describe("listMessages", () => {
     markRead(m1.id);
     const unread = listMessages({ unreadOnly: true });
     expect(unread).toHaveLength(1);
-    expect(unread[0].toAgent).toBe("a3");
+    expect(unread[0]!.toAgent).toBe("a3");
   });
 
   it("filters by kind", () => {
@@ -112,7 +112,7 @@ describe("listMessages", () => {
     createMessage({ fromAgent: "a1", toAgent: "a2", kind: AgentMessageKind.REQUEST });
     const requests = listMessages({ kind: AgentMessageKind.REQUEST });
     expect(requests).toHaveLength(1);
-    expect(requests[0].kind).toBe(AgentMessageKind.REQUEST);
+    expect(requests[0]!.kind).toBe(AgentMessageKind.REQUEST);
   });
 
   it("filters by requestStatus", () => {
@@ -142,8 +142,8 @@ describe("listThread", () => {
     });
     const thread = listThread(root.id);
     expect(thread).toHaveLength(2);
-    expect(thread[0].id).toBe(root.id);
-    expect(thread[1].id).toBe(reply.id);
+    expect(thread[0]!.id).toBe(root.id);
+    expect(thread[1]!.id).toBe(reply.id);
   });
 });
 
@@ -207,7 +207,7 @@ describe("listTimedOutRequests", () => {
 
     const timedOut = listTimedOutRequests(nowIso());
     expect(timedOut).toHaveLength(1);
-    expect(timedOut[0].toAgent).toBe("a2");
+    expect(timedOut[0]!.toAgent).toBe("a2");
   });
 
   it("excludes already-expired requests (only PENDING)", () => {

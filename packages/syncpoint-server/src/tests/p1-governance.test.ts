@@ -2,7 +2,7 @@
  * P1 Governance Tests — dedup, supersedes, memoryVersion, canonical collection.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 

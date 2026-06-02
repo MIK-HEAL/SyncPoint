@@ -11,7 +11,7 @@ import {
   validateTaskTransition,
   validateContractTransition,
   InvalidTransition,
-} from "./states.ts";
+} from "./states.js";
 
 describe("AgentStatus transitions", () => {
   it("allows IDLE → RUNNING", () => {

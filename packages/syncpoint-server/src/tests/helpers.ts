@@ -13,8 +13,8 @@ import fs from "node:fs";
 import net from "node:net";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema";
-import { runMigrations as runCurrentMigrations } from "../db";
+import * as schema from "../schema.js";
+import { runMigrations as runCurrentMigrations } from "../db.js";
 
 function runMigrations(db: Database.Database): void {
   runCurrentMigrations(db);

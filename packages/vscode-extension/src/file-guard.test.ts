@@ -31,13 +31,13 @@ describe("File Audit Guard", () => {
       onAudited,
     });
 
-    await (vscode as any).__fireDidSaveTextDocument(document("/test/src/auth.ts"));
+    await (vscode as any).__fireDidSaveTextDocument(document("/test/src/auth.js"));
 
     expect(mutate).toHaveBeenCalledWith({
       actorId: "agent-b",
       taskId: "task-b",
       sessionId: "session-1",
-      locator: "src/auth.ts",
+      locator: "src/auth.js",
       auditOnly: true,
     });
     expect(onAudited).toHaveBeenCalledOnce();
@@ -58,7 +58,7 @@ describe("File Audit Guard", () => {
           actorId: "agent-a",
           actorName: "Agent A",
           mode: "exclusive",
-          resources: [{ type: "file", locator: "src/auth.ts", metadata: "" }],
+          resources: [{ type: "file", locator: "src/auth.js", metadata: "" }],
         }],
       },
       agents: [],
@@ -71,7 +71,7 @@ describe("File Audit Guard", () => {
       },
     });
 
-    await (vscode as any).__fireWillSaveTextDocument(document("/test/src/auth.ts"));
+    await (vscode as any).__fireWillSaveTextDocument(document("/test/src/auth.js"));
 
     expect(query).toHaveBeenCalledWith({ sessionId: "session-1" });
     expect(showWarningMessage).toHaveBeenCalledWith(expect.stringContaining("exclusively claimed by Agent A"));

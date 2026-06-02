@@ -2,9 +2,9 @@
  * Tests for Prompt Template Engine — formatResumePrompt in all formats.
  */
 import { describe, it, expect } from "vitest";
-import { formatResumePrompt } from "./prompt-templates.ts";
-import { QualityCheckStatus } from "./memory.ts";
-import type { ResumeContext, PromptFormat } from "./index.ts";
+import { formatResumePrompt } from "./prompt-templates.js";
+import { QualityCheckStatus } from "./memory.js";
+import type { ResumeContext, PromptFormat } from "./index.js";
 
 function makeContext(overrides?: Partial<ResumeContext>): ResumeContext {
   return {
@@ -33,7 +33,7 @@ function makeContext(overrides?: Partial<ResumeContext>): ResumeContext {
         goal: "Implement auth API",
         currentPhase: "implementation",
         confirmedDecisions: ["JWT auth"],
-        workingResources: ["src/auth/login.ts"],
+        workingResources: ["src/auth/login.js"],
         completedWork: "Schema defined",
         remainingWork: "Implement handler",
         risks: [],

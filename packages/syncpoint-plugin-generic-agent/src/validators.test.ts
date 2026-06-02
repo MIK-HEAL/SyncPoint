@@ -45,7 +45,7 @@ function makeClaim(id: string, actorId: string, locator: string, type = "artifac
     actorId,
     taskId: "t1",
     sessionId: "s1",
-    resources: [{ type, locator, metadata: "" }],
+    resources: [{ type, locator, metadata: "", scope: "file" as const }],
     mode,
     status: ResourceClaimStatus.ACTIVE,
     createdAt: "2024-01-01",
@@ -203,7 +203,7 @@ describe("validator scope isolation", () => {
     const ctx: OperationValidationContext = {
       operation: makeOp({
         type: "code_patch",
-        targetResources: [{ type: "file", locator: "src/main.ts", metadata: "", scope: "file" as const }],
+        targetResources: [{ type: "file", locator: "src/main.js", metadata: "", scope: "file" as const }],
       }),
       actorClaims: [],
       allActiveClaims: [],

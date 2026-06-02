@@ -47,7 +47,7 @@ afterEach(() => {
 
 describe("backing store reconciliation", () => {
   it("does not raise a gate when file is written through writeApply", () => {
-    const locator = "src/reconciled.ts";
+    const locator = "src/reconciled.js";
     const filePath = path.join(tmpDir, locator);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "original");
@@ -80,7 +80,7 @@ describe("backing store reconciliation", () => {
   });
 
   it("raises a BACKING_STORE_BYPASS gate when file is directly written", () => {
-    const locator = "src/bypassed.ts";
+    const locator = "src/bypassed.js";
     const filePath = path.join(tmpDir, locator);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "original");
@@ -106,13 +106,13 @@ describe("backing store reconciliation", () => {
 
     const gates = repo.listActiveSyncGates({ taskId: taskA, sessionId });
     expect(gates).toHaveLength(1);
-    expect(gates[0].reason).toBe(SyncGateReason.BACKING_STORE_BYPASS);
-    expect(gates[0].description).toContain("bypassed.ts");
-    expect(gates[0].description).toContain("outside SyncPoint");
+    expect(gates[0]!.reason).toBe(SyncGateReason.BACKING_STORE_BYPASS);
+    expect(gates[0]!.description).toContain("bypassed.js");
+    expect(gates[0]!.description).toContain("outside SyncPoint");
   });
 
   it("reuses an existing bypass gate for repeated direct writes", () => {
-    const locator = "src/repeated.ts";
+    const locator = "src/repeated.js";
     const filePath = path.join(tmpDir, locator);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, "v1");

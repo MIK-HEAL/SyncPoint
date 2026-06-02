@@ -71,10 +71,10 @@ describe("state_transition_log", () => {
 
     const history = getEntityTransitionHistory("resource_claim", "claim-1");
     expect(history).toHaveLength(1);
-    expect(history[0].operation).toBe("claim");
-    expect(history[0].fromState).toBe("none");
-    expect(history[0].toState).toBe("active");
-    expect(history[0].createdAt).toBeTruthy();
+    expect(history[0]!.operation).toBe("claim");
+    expect(history[0]!.fromState).toBe("none");
+    expect(history[0]!.toState).toBe("active");
+    expect(history[0]!.createdAt).toBeTruthy();
   });
 
   it("rolls back transition and log on failure", () => {
@@ -253,8 +253,8 @@ describe("simulated crash recovery", () => {
     // Verify recovery was logged
     const history = getEntityTransitionHistory("resource_claim", "claim-crash");
     expect(history).toHaveLength(2);
-    expect(history[0].operation).toBe("force_recover");
-    expect(history[0].toState).toBe("released");
+    expect(history[0]!.operation).toBe("force_recover");
+    expect(history[0]!.toState).toBe("released");
   });
 
   it("recovers stuck operation by forcing to cancelled state", () => {

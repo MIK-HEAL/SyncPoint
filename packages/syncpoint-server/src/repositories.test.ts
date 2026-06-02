@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "./schema";
+import * as schema from "./schema.js";
 import { AgentStatus, TaskStatus, ContractStatus, HandoffStatus, InvalidTransition } from "syncpoint-core";
 
 const MIGRATION_SQL = `
@@ -47,7 +47,7 @@ vi.mock("./db.js", () => ({
 }));
 
 // Import after mock is set up — use explicit source path
-const repo = await import("./repositories/index.ts");
+const repo = await import("./repositories/index.js");
 
 describe("Repositories", () => {
   beforeEach(() => {
@@ -132,7 +132,7 @@ describe("Repositories", () => {
         summary: "Auth scaffold done",
         progress: "60%",
         currentUnderstanding: "Need refresh tokens",
-        changedResources: ["src/auth/*.ts"],
+        changedResources: ["src/auth/*.js"],
         risks: "Token expiry",
         blockers: "",
         nextSteps: "Add refresh endpoint",

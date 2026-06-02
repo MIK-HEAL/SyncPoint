@@ -90,7 +90,7 @@ describe("agent/team command execution", () => {
     const migrateOutput = await runCli(["agent", "migrate", "--agent", "cli-reviewer", "--json"]);
     const migratePayload = JSON.parse(migrateOutput);
     expect(migratePayload.items).toHaveLength(1);
-    expect(migratePayload.items[0].agentId).toBe(agent.id);
+    expect(migratePayload.items[0]!.agentId).toBe(agent.id);
 
     const cardOutput = await runCli(["agent", "card", "cli-reviewer", "--json"]);
     const cardPayload = JSON.parse(cardOutput);
@@ -113,8 +113,8 @@ agent:
     const validationOutput = await runCli(["agent", "validate", manifestPath, "--json"]);
     const validationPayload = JSON.parse(validationOutput);
     expect(validationPayload.results).toHaveLength(1);
-    expect(validationPayload.results[0].valid).toBe(true);
-    expect(validationPayload.results[0].name).toBe("cli-validator");
+    expect(validationPayload.results[0]!.valid).toBe(true);
+    expect(validationPayload.results[0]!.name).toBe("cli-validator");
 
     fs.mkdirSync(path.join(projectRoot, ".syncpoint", "agents"), { recursive: true });
     fs.copyFileSync(manifestPath, path.join(projectRoot, ".syncpoint", "agents", "cli-validator.yml"));

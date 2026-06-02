@@ -96,9 +96,9 @@ agent:
       format: "yaml",
     });
     expect(valid.results).toHaveLength(1);
-    expect(valid.results[0].valid).toBe(true);
-    expect(valid.results[0].kind).toBe("manifest");
-    expect(valid.results[0].name).toBe("validator");
+    expect(valid.results[0]!.valid).toBe(true);
+    expect(valid.results[0]!.kind).toBe("manifest");
+    expect(valid.results[0]!.name).toBe("validator");
 
     const invalid = validateAgentDeclarations({
       content: `
@@ -108,9 +108,9 @@ agent:
 `,
       format: "yaml",
     });
-    expect(invalid.results[0].valid).toBe(false);
-    expect(invalid.results[0].kind).toBe("unknown");
-    expect(invalid.results[0].errorMessage).toContain("Not a valid agent manifest");
+    expect(invalid.results[0]!.valid).toBe(false);
+    expect(invalid.results[0]!.kind).toBe("unknown");
+    expect(invalid.results[0]!.errorMessage).toContain("Not a valid agent manifest");
   });
 
   it("migrates runtime agents into declared manifests", () => {
@@ -130,9 +130,9 @@ agent:
     });
 
     expect(result.items).toHaveLength(1);
-    expect(result.items[0].written).toBe(true);
-    expect(result.items[0].manifest.tags).toEqual(["review"]);
-    expect(fs.existsSync(result.items[0].filePath)).toBe(true);
+    expect(result.items[0]!.written).toBe(true);
+    expect(result.items[0]!.manifest.tags).toEqual(["review"]);
+    expect(fs.existsSync(result.items[0]!.filePath)).toBe(true);
   });
 
   it("exports agent cards from declared agents", () => {
@@ -141,8 +141,8 @@ agent:
     const result = exportAgentCards();
 
     expect(result.cards.length).toBeGreaterThan(0);
-    expect(result.cards[0].card.schema).toBe("syncpoint/agent-card/v1");
-    expect(result.cards[0].card.protocols).toContain("a2a-like");
+    expect(result.cards[0]!.card.schema).toBe("syncpoint/agent-card/v1");
+    expect(result.cards[0]!.card.protocols).toContain("a2a-like");
   });
 
   it("initializes a single agent manifest via initAgentManifest", () => {

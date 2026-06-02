@@ -4,7 +4,7 @@
  * and enforces snapshot-locked blocking on projection issues.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 let agentId: string;
@@ -97,7 +97,7 @@ describe("P3B: Kind→bucket in prompt", () => {
     await createAndApprove({
       category: "gotcha",
       title: "P3B legacy db",
-      content: "Do not modify db.ts",
+      content: "Do not modify db.js",
       kind: "do_not_touch",
     });
 

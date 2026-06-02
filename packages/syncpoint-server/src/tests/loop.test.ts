@@ -3,8 +3,8 @@
  * Tests the full lifecycle: boot → checkpoint → resume → handoff → status.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E } from "./e2e-helper.ts";
-import type { E2EContext } from "./e2e-helper.ts";
+import { startE2E } from "./e2e-helper.js";
+import type { E2EContext } from "./e2e-helper.js";
 
 let e2e: E2EContext;
 let agentA: any;
@@ -212,7 +212,7 @@ describe("loop lifecycle — handoff between agents", () => {
       payload: {
         goal: "Build dashboard API",
         currentPhase: "implementation",
-        workingResources: ["src/api/widgets.ts"],
+        workingResources: ["src/api/widgets.js"],
         nextSteps: ["Implement GET /widgets"],
         resumePrompt: "Implement GET /widgets endpoint returning dashboard data",
       },

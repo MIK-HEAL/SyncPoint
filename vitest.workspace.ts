@@ -1,3 +1,4 @@
+// @ts-nocheck — vitest config, processed by vitest not tsc
 import { defineWorkspace } from "vitest/config";
 
 export default defineWorkspace([

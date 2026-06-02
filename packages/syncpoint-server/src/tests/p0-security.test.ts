@@ -7,8 +7,8 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import path from "node:path";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
-import { authorize, type TRPCContext } from "../../src/routers/_trpc.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
+import { authorize, type TRPCContext } from "../../src/routers/_trpc.js";
 
 let ctx: E2EContext;
 
@@ -243,8 +243,8 @@ describe("P0: Read operations remain public", () => {
 
   it("get does not require x-caller-id", async () => {
     const all = (await ctx.rpc("projectMemory.list", {}, "GET", undefined as any)) as any[];
-    const m = (await ctx.rpc("projectMemory.get", { id: all[0].id }, "GET", undefined as any)) as any;
-    expect(m.id).toBe(all[0].id);
+    const m = (await ctx.rpc("projectMemory.get", { id: all[0]!.id }, "GET", undefined as any)) as any;
+    expect(m.id).toBe(all[0]!.id);
   });
 
   it("version does not require x-caller-id", async () => {

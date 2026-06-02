@@ -26,7 +26,7 @@ function makeOp(overrides?: Partial<Operation>): Operation {
     sessionId: "s1",
     title: "test",
     summary: "",
-    targetResources: [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
+    targetResources: [{ type: "file", locator: "src/auth.js", metadata: "", scope: "file" as const }],
     payloadRef: "",
     status: OperationStatus.SUBMITTED,
     checkResult: null,
@@ -43,7 +43,7 @@ function makeClaim(id: string, actorId: string, locator: string, mode = "exclusi
     actorId,
     taskId: "t1",
     sessionId: "s1",
-    resources: [{ type: "file", locator, metadata: "" }],
+    resources: [{ type: "file", locator, metadata: "", scope: "file" as const }],
     mode: mode === "exclusive" ? ResourceClaimMode.EXCLUSIVE : ResourceClaimMode.SHARED,
     status: ResourceClaimStatus.ACTIVE,
     createdAt: "",
@@ -111,8 +111,8 @@ describe("registerCodePlugin", () => {
     registerCodePlugin();
     const matcher = getResourceMatcher("file");
     expect(matcher).toBeDefined();
-    expect(matcher!.locatorsOverlap("src/auth", "src/auth/session.ts")).toBe(true);
-    expect(matcher!.locatorsOverlap("src/auth.ts", "lib/utils.ts")).toBe(false);
+    expect(matcher!.locatorsOverlap("src/auth", "src/auth/session.js")).toBe(true);
+    expect(matcher!.locatorsOverlap("src/auth.js", "lib/utils.js")).toBe(false);
   });
 
   it("does not fire on non-code_patch operations", () => {
@@ -138,7 +138,7 @@ describe("codePatchClaimCoverageValidator", () => {
       allActiveClaims: [makeClaim("c1", "a1", "src/*")],
     };
     const items = codePatchClaimCoverageValidator.validate(ctx);
-    expect(items[0].passed).toBe(true);
+    expect(items[0]!.passed).toBe(true);
   });
 
   it("fails when files are not covered", () => {
@@ -148,8 +148,8 @@ describe("codePatchClaimCoverageValidator", () => {
       allActiveClaims: [makeClaim("c1", "a1", "lib/*")],
     };
     const items = codePatchClaimCoverageValidator.validate(ctx);
-    expect(items[0].passed).toBe(false);
-    expect(items[0].detail).toContain("src/auth.ts");
+    expect(items[0]!.passed).toBe(false);
+    expect(items[0]!.detail).toContain("src/auth.js");
   });
 });
 
@@ -161,7 +161,7 @@ describe("codePatchNoHardConflictValidator", () => {
       allActiveClaims: [makeClaim("c1", "a1", "src/*")],
     };
     const items = codePatchNoHardConflictValidator.validate(ctx);
-    expect(items[0].passed).toBe(true);
+    expect(items[0]!.passed).toBe(true);
   });
 
   it("fails when other agent has exclusive conflict", () => {
@@ -170,11 +170,11 @@ describe("codePatchNoHardConflictValidator", () => {
       actorClaims: [makeClaim("c1", "a1", "src/*")],
       allActiveClaims: [
         makeClaim("c1", "a1", "src/*"),
-        makeClaim("c2", "a2", "src/auth.ts"),
+        makeClaim("c2", "a2", "src/auth.js"),
       ],
     };
     const items = codePatchNoHardConflictValidator.validate(ctx);
-    expect(items[0].passed).toBe(false);
-    expect(items[0].detail).toContain("c2");
+    expect(items[0]!.passed).toBe(false);
+    expect(items[0]!.detail).toContain("c2");
   });
 });

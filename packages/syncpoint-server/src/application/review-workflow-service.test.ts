@@ -73,7 +73,7 @@ beforeAll(() => {
     summary: "Auth module done",
     progress: "100%",
     currentUnderstanding: "",
-    changedResources: ["auth.ts"],
+    changedResources: ["auth.js"],
     risks: "",
     blockers: "",
     nextSteps: "Review",
@@ -218,7 +218,7 @@ describe("Change requests", () => {
   it("request changes blocks gate", () => {
     const cr = rwRequestChanges({
       reviewRequestId,
-      summary: "Add error handling to auth.ts",
+      summary: "Add error handling to auth.js",
       items: "1. Add try-catch\n2. Add input validation",
       requestedBy: reviewerId,
     });
@@ -242,7 +242,7 @@ describe("Change requests", () => {
   it("list change requests", () => {
     const list = rwListChangeRequests(reviewRequestId);
     expect(list.length).toBe(1);
-    expect(list[0].status).toBe(ChangeRequestStatus.ADDRESSED);
+    expect(list[0]!.status).toBe(ChangeRequestStatus.ADDRESSED);
   });
 });
 

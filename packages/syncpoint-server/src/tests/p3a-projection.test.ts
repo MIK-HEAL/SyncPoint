@@ -4,7 +4,7 @@
  *   kind→bucket, appliesTo filter, validity gate, conflict, cacheKey stability.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 
@@ -80,7 +80,7 @@ describe("P3A: Projection — appliesTo filtering", () => {
 
     const r = (await ctx.rpc("projectMemory.projection", {
       taskId: "task-1",
-      workingResources: ["src/main.ts"],
+      workingResources: ["src/main.js"],
     }, "GET")) as any;
 
     const titles = r.contextPatch.verifiedFacts.map((i: any) => i.title);
@@ -98,7 +98,7 @@ describe("P3A: Projection — appliesTo filtering", () => {
 
     const r = (await ctx.rpc("projectMemory.projection", {
       taskId: "task-1",
-      workingResources: ["src/main.ts"],
+      workingResources: ["src/main.js"],
     }, "GET")) as any;
 
     const titles = r.contextPatch.verifiedFacts.map((i: any) => i.title);

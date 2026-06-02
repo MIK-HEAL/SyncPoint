@@ -2,7 +2,7 @@
  * E2E: Agent Message tRPC router — send, list, read, reply, thread.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 
@@ -67,7 +67,7 @@ describe("Agent Message tRPC flow", () => {
       unreadOnly: true,
       limit: 1,
     }, "GET")) as any;
-    messageId = list[0].id;
+    messageId = list[0]!.id;
 
     const updated = (await ctx.rpc("agentMessage.read", {
       messageId,
@@ -116,6 +116,6 @@ describe("Agent Message tRPC flow", () => {
       threadRootId: root.id,
     }, "GET")) as any;
     expect(thread.length).toBe(2);
-    expect(thread[0].id).toBe(root.id);
+    expect(thread[0]!.id).toBe(root.id);
   });
 });

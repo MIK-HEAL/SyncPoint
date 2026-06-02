@@ -7,7 +7,7 @@ import { evaluateWriteDecision, WriteDecisionReason, WriteIntent } from "./write
 const ts = "2026-01-01T00:00:00.000Z";
 
 function resource(locator: string): ResourceRef {
-  return { type: "file", locator, metadata: "" };
+  return { type: "file", locator, metadata: "", scope: "file" as const };
 }
 
 function claim(input: { id: string; actorId: string; taskId?: string; locator: string; mode?: ResourceClaimMode }): ResourceClaim {
@@ -34,8 +34,8 @@ function gate(overrides?: Partial<SyncGate>): SyncGate {
     ackedAgentIds: ["agent-a", "agent-b"],
     reason: SyncGateReason.RESOURCE_CONFLICT,
     description: "resource conflict",
-    relatedFiles: ["src/auth.ts"],
-    relatedResources: [resource("src/auth.ts")],
+    relatedFiles: ["src/auth.js"],
+    relatedResources: [resource("src/auth.js")],
     relatedCheckpointId: "",
     relatedClaimIds: [],
     status: SyncGateStatus.SYNC_ACKED,
@@ -56,7 +56,7 @@ function operation(overrides?: Partial<Operation>): Operation {
     sessionId: "session-1",
     title: "patch",
     summary: "",
-    targetResources: [resource("src/auth.ts")],
+    targetResources: [resource("src/auth.js")],
     payloadRef: "",
     status: OperationStatus.APPROVED,
     checkResult: null,
@@ -73,9 +73,9 @@ describe("evaluateWriteDecision", () => {
       actorId: "agent-a",
       taskId: "task-1",
       sessionId: "session-1",
-      resources: [resource("src/auth.ts")],
+      resources: [resource("src/auth.js")],
       intent: WriteIntent.MODIFY,
-      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.ts" })],
+      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.js" })],
       activeGates: [],
     });
 
@@ -88,9 +88,9 @@ describe("evaluateWriteDecision", () => {
       actorId: "agent-b",
       taskId: "task-1",
       sessionId: "session-1",
-      resources: [resource("src/auth.ts")],
+      resources: [resource("src/auth.js")],
       intent: WriteIntent.MODIFY,
-      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.ts" })],
+      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.js" })],
       activeGates: [],
     });
 
@@ -103,9 +103,9 @@ describe("evaluateWriteDecision", () => {
       actorId: "agent-a",
       taskId: "task-1",
       sessionId: "session-1",
-      resources: [resource("src/auth.ts")],
+      resources: [resource("src/auth.js")],
       intent: WriteIntent.MODIFY,
-      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.ts" })],
+      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.js" })],
       activeGates: [gate()],
     });
 
@@ -118,7 +118,7 @@ describe("evaluateWriteDecision", () => {
       actorId: "agent-a",
       taskId: "task-1",
       sessionId: "session-1",
-      resources: [resource("src/auth.ts")],
+      resources: [resource("src/auth.js")],
       intent: WriteIntent.MODIFY,
       operation: operation(),
       activeClaims: [],
@@ -134,9 +134,9 @@ describe("evaluateWriteDecision", () => {
       actorId: "agent-a",
       taskId: "task-1",
       sessionId: "session-1",
-      resources: [resource("src/auth.ts")],
+      resources: [resource("src/auth.js")],
       intent: WriteIntent.MODIFY,
-      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.ts" })],
+      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", locator: "src/auth.js" })],
       activeGates: [],
       constraintDecision: { permitted: false, runtimeUnavailable: { message: "projection failed" } },
     });

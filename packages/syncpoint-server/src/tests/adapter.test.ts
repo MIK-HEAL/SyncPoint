@@ -2,8 +2,8 @@
  * E2E tests for Agent Adapter Protocol — tRPC routes.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E } from "./e2e-helper.ts";
-import type { E2EContext } from "./e2e-helper.ts";
+import { startE2E } from "./e2e-helper.js";
+import type { E2EContext } from "./e2e-helper.js";
 
 let e2e: E2EContext;
 let taskId: string;

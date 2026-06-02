@@ -29,7 +29,7 @@ describe("evaluateFileAuditChange", () => {
   it("classifies unclaimed file changes as FILE_CHANGED", () => {
     const decision = evaluateFileAuditChange({
       actorId: "agent-b",
-      changedResource: resource("src/auth.ts"),
+      changedResource: resource("src/auth.js"),
       activeClaims: [],
     });
 
@@ -40,8 +40,8 @@ describe("evaluateFileAuditChange", () => {
   it("classifies writes to the current agent's own claim", () => {
     const decision = evaluateFileAuditChange({
       actorId: "agent-a",
-      changedResource: resource("src/auth.ts"),
-      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", taskId: "task-a", locator: "src/auth.ts" })],
+      changedResource: resource("src/auth.js"),
+      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", taskId: "task-a", locator: "src/auth.js" })],
     });
 
     expect(decision.kind).toBe(FileAuditDecisionKind.CLAIMED_WRITE);
@@ -52,8 +52,8 @@ describe("evaluateFileAuditChange", () => {
   it("detects pollution when another agent owns an exclusive claim", () => {
     const decision = evaluateFileAuditChange({
       actorId: "agent-b",
-      changedResource: resource("src/auth.ts"),
-      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", taskId: "task-a", locator: "src/auth.ts" })],
+      changedResource: resource("src/auth.js"),
+      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", taskId: "task-a", locator: "src/auth.js" })],
     });
 
     expect(decision.kind).toBe(FileAuditDecisionKind.FILE_POLLUTION_DETECTED);
@@ -64,9 +64,9 @@ describe("evaluateFileAuditChange", () => {
   it("raises an audit alert when the agent is already blocked on the changed file", () => {
     const decision = evaluateFileAuditChange({
       actorId: "agent-b",
-      changedResource: resource("src/auth.ts"),
-      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", taskId: "task-a", locator: "src/auth.ts" })],
-      blockingGates: [{ id: "gate-1", relatedFiles: ["src/auth.ts"] }],
+      changedResource: resource("src/auth.js"),
+      activeClaims: [claim({ id: "claim-a", actorId: "agent-a", taskId: "task-a", locator: "src/auth.js" })],
+      blockingGates: [{ id: "gate-1", relatedFiles: ["src/auth.js"] }],
     });
 
     expect(decision.kind).toBe(FileAuditDecisionKind.FILE_AUDIT_ALERT);
@@ -77,10 +77,10 @@ describe("evaluateFileAuditChange", () => {
 
 describe("parseRelatedFileLocators", () => {
   it("splits comma-separated and overlap-display locators", () => {
-    expect(parseRelatedFileLocators("src/a.ts ↔ src/b.ts, src/c.ts")).toEqual([
-      "src/a.ts",
-      "src/b.ts",
-      "src/c.ts",
+    expect(parseRelatedFileLocators("src/a.ts ↔ src/b.ts, src/c.js")).toEqual([
+      "src/a.js",
+      "src/b.js",
+      "src/c.js",
     ]);
   });
 });

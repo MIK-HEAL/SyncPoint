@@ -15,7 +15,7 @@ import { describe, it, expect } from "vitest";
 describe("SyncPoint VS Code Extension", () => {
   it("exports activate and deactivate functions", async () => {
     // Dynamic import to avoid vscode module resolution issues outside of VS Code
-    const ext = await import("./extension.ts");
+    const ext = await import("./extension.js");
     expect(typeof ext.activate).toBe("function");
     expect(typeof ext.deactivate).toBe("function");
   });

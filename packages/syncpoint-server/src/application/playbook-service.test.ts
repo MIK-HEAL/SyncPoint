@@ -67,12 +67,12 @@ describe("pbGetNextAction — PLANNING", () => {
   it("architect gets plan-tasks when no assignments", () => {
     const result = pbGetNextAction({ sessionId, agentId: architectId });
     expect(result.sessionStatus).toBe("PLANNING");
-    expect(result.actions[0].action).toBe("plan-tasks");
+    expect(result.actions[0]!.action).toBe("plan-tasks");
   });
 
   it("executor gets wait in PLANNING", () => {
     const result = pbGetNextAction({ sessionId, agentId: executorId });
-    expect(result.actions[0].action).toBe("wait");
+    expect(result.actions[0]!.action).toBe("wait");
   });
 });
 
@@ -85,19 +85,19 @@ describe("pbGetNextAction — EXECUTING", () => {
     const ta = orchPlanTask({ sessionId, taskId, assigneeAgentId: executorId });
     assignmentId = ta.id;
     const result = pbGetNextAction({ sessionId, agentId: architectId });
-    expect(result.actions[0].action).toBe("advance-session");
+    expect(result.actions[0]!.action).toBe("advance-session");
   });
 
   it("executor gets accept-assignment after session advanced", () => {
     orchAdvanceSession(sessionId); // PLANNING → EXECUTING
     const result = pbGetNextAction({ sessionId, agentId: executorId });
-    expect(result.actions[0].action).toBe("accept-assignment");
+    expect(result.actions[0]!.action).toBe("accept-assignment");
   });
 
   it("executor gets start-work after accepting", () => {
     orchAcceptAssignment(assignmentId);
     const result = pbGetNextAction({ sessionId, agentId: executorId });
-    expect(result.actions[0].action).toBe("start-work");
+    expect(result.actions[0]!.action).toBe("start-work");
   });
 
   it("executor gets checkpoint/complete after starting", () => {
@@ -111,7 +111,7 @@ describe("pbGetNextAction — EXECUTING", () => {
   it("architect gets request-review after all completed", () => {
     orchCompleteAssignment(assignmentId);
     const result = pbGetNextAction({ sessionId, agentId: architectId });
-    expect(result.actions[0].action).toBe("request-review");
+    expect(result.actions[0]!.action).toBe("request-review");
   });
 });
 
@@ -124,12 +124,12 @@ describe("pbGetNextAction — REVIEWING", () => {
     orchRequestReview({ sessionId, taskId, reviewerAgentId: reviewerId });
     orchAdvanceSession(sessionId); // EXECUTING → REVIEWING
     const result = pbGetNextAction({ sessionId, agentId: reviewerId });
-    expect(result.actions[0].action).toBe("start-review");
+    expect(result.actions[0]!.action).toBe("start-review");
   });
 
   it("reviewer gets add-checklist/add-evidence after starting review (no gate yet)", () => {
     const status = repo.listReviewRequests(sessionId);
-    reviewRequestId = status[0].id;
+    reviewRequestId = status[0]!.id;
     repo.updateReviewRequestStatus(reviewRequestId, "IN_PROGRESS" as any);
     const result = pbGetNextAction({ sessionId, agentId: reviewerId });
     const kinds = result.actions.map(a => a.action);
@@ -143,7 +143,7 @@ describe("pbGetNextAction — REVIEWING", () => {
     rwAddEvidence({ reviewRequestId, kind: "build", title: "pnpm build", content: "6 packages built" });
 
     const result = pbGetNextAction({ sessionId, agentId: reviewerId });
-    expect(result.actions[0].action).toBe("approve-review");
+    expect(result.actions[0]!.action).toBe("approve-review");
   });
 });
 
@@ -152,7 +152,7 @@ describe("pbGetNextAction — REVIEWING", () => {
 describe("pbCaptureEvidence", () => {
   it("captures test output as evidence", () => {
     const reviews = repo.listReviewRequests(sessionId);
-    const rrId = reviews[0].id;
+    const rrId = reviews[0]!.id;
     const result = pbCaptureEvidence({
       reviewRequestId: rrId,
       command: "pnpm test",
@@ -166,7 +166,7 @@ describe("pbCaptureEvidence", () => {
 
   it("captures build output as evidence", () => {
     const reviews = repo.listReviewRequests(sessionId);
-    const rrId = reviews[0].id;
+    const rrId = reviews[0]!.id;
     const result = pbCaptureEvidence({
       reviewRequestId: rrId,
       command: "pnpm build",
@@ -177,7 +177,7 @@ describe("pbCaptureEvidence", () => {
 
   it("auto-detects lint kind", () => {
     const reviews = repo.listReviewRequests(sessionId);
-    const rrId = reviews[0].id;
+    const rrId = reviews[0]!.id;
     const result = pbCaptureEvidence({
       reviewRequestId: rrId,
       command: "eslint src/",
@@ -188,7 +188,7 @@ describe("pbCaptureEvidence", () => {
 
   it("falls back to manual for unknown commands", () => {
     const reviews = repo.listReviewRequests(sessionId);
-    const rrId = reviews[0].id;
+    const rrId = reviews[0]!.id;
     const result = pbCaptureEvidence({
       reviewRequestId: rrId,
       command: "cat README.md",
@@ -271,7 +271,7 @@ describe("peer-contract playbook claim → start-work", () => {
       actorId: pcExecId,
       taskId: pcTaskId,
       sessionId: pcSessionId,
-      resources: [{ type: "file", locator: "src/feature.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/feature.js", metadata: "", scope: "file" as const }],
     });
 
     const result = pbGetNextAction({ sessionId: pcSessionId, agentId: pcExecId });

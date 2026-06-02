@@ -88,7 +88,7 @@ describe("msgReply", () => {
     expect(response.body).toBe("Done!");
 
     // Original request should now be RESPONDED
-    const refreshed = msgList({ toAgent: "a2", kind: AgentMessageKind.REQUEST })[0];
+    const refreshed = msgList({ toAgent: "a2", kind: AgentMessageKind.REQUEST })[0]!;
     expect(refreshed.requestStatus).toBe(AgentMessageRequestStatus.RESPONDED);
   });
 
@@ -122,8 +122,8 @@ describe("msgThread", () => {
     msgReply(root.id, "a2", "OK");
     const thread = msgThread(root.id);
     expect(thread).toHaveLength(2);
-    expect(thread[0].subject).toBe("Review");
-    expect(thread[1].subject).toBe("Re: Review");
+    expect(thread[0]!.subject).toBe("Review");
+    expect(thread[1]!.subject).toBe("Re: Review");
   });
 });
 
@@ -133,7 +133,7 @@ describe("msgCheckExpired", () => {
     msgSend({ fromAgent: "a1", toAgent: "a2", kind: AgentMessageKind.REQUEST, expiresAt: past });
     const actions = msgCheckExpired(3);
     expect(actions).toHaveLength(1);
-    expect(actions[0].action).toBe("reminder");
+    expect(actions[0]!.action).toBe("reminder");
   });
 
   it("escalates after max retries", () => {
@@ -149,7 +149,7 @@ describe("msgCheckExpired", () => {
     // Now retryCount = 3, should escalate
     const actions = msgCheckExpired(3);
     expect(actions).toHaveLength(1);
-    expect(actions[0].action).toBe("escalate");
+    expect(actions[0]!.action).toBe("escalate");
   });
 
   it("returns empty when no requests are timed out", () => {

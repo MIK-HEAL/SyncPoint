@@ -11,7 +11,7 @@ import {
   clearScopeMatcherRegistry,
   type MemoryProjectionInput,
   type ProjectionContext,
-} from "./reality-projection.ts";
+} from "./reality-projection.js";
 
 // Register prefix/glob scope matchers so appliesTo filtering works like a real plugin
 beforeEach(() => {
@@ -89,7 +89,7 @@ describe("buildRealityProjection — traceability", () => {
   it("every item has sourceMemoryId and projectionReason", () => {
     const mem = makeMem({ kind: "fact", id: "mem-trace" });
     const r = buildRealityProjection([mem], makeCtx());
-    const item = r.contextPatch.verifiedFacts[0];
+    const item = r.contextPatch.verifiedFacts[0]!;
     expect(item.source.sourceMemoryId).toBe("mem-trace");
     expect(item.source.projectionReason).toContain("fact");
   });
@@ -113,7 +113,7 @@ describe("buildRealityProjection — validity gating", () => {
     const r = buildRealityProjection([mem], makeCtx());
     expect(r.contextPatch.verifiedFacts).toHaveLength(0);
     expect(r.skippedStale).toHaveLength(1);
-    expect(r.skippedStale[0].sourceMemoryId).toBe(mem.id);
+    expect(r.skippedStale[0]!.sourceMemoryId).toBe(mem.id);
   });
 
   it("skips stale memories", () => {
@@ -139,19 +139,19 @@ describe("buildRealityProjection — validity gating", () => {
 describe("buildRealityProjection — appliesTo filtering", () => {
   it("includes memory with no appliesTo (project-wide)", () => {
     const mem = makeMem({ appliesTo: "" });
-    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/foo.ts"] }));
+    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/foo.js"] }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("includes memory whose file scope matches working files", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/**"] }) });
-    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
+    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/main.js"] }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
 
   it("excludes memory whose file scope does NOT match working files", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["test/**"] }) });
-    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/main.ts"] }));
+    const r = buildRealityProjection([mem], makeCtx({ workingResources: ["src/main.js"] }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(0);
   });
 
@@ -195,8 +195,8 @@ describe("buildRealityProjection — resource-type-aware appliesTo filtering", (
   it("includes file-scoped memory when file resources are working", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
     const r = buildRealityProjection([mem], makeCtx({
-      workingResources: ["src/auth/session.ts"],
-      workingResourceRefs: [{ type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const }],
+      workingResources: ["src/auth/session.js"],
+      workingResourceRefs: [{ type: "file", locator: "src/auth/session.js", metadata: "", scope: "file" as const }],
     }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
@@ -204,9 +204,9 @@ describe("buildRealityProjection — resource-type-aware appliesTo filtering", (
   it("mixed resources: file-scoped memory included only due to file resource", () => {
     const mem = makeMem({ appliesTo: JSON.stringify({ files: ["src/auth/"] }) });
     const r = buildRealityProjection([mem], makeCtx({
-      workingResources: ["src/auth/session.ts", "src/auth/logo.png"],
+      workingResources: ["src/auth/session.js", "src/auth/logo.png"],
       workingResourceRefs: [
-        { type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const },
+        { type: "file", locator: "src/auth/session.js", metadata: "", scope: "file" as const },
         { type: "binary_asset", locator: "src/auth/logo.png", metadata: "", scope: "file" as const },
       ],
     }));
@@ -217,8 +217,8 @@ describe("buildRealityProjection — resource-type-aware appliesTo filtering", (
     const mem = makeMem({ appliesTo: JSON.stringify({ modules: ["core"] }) });
     const r = buildRealityProjection([mem], makeCtx({
       currentModules: ["core"],
-      workingResources: ["src/unrelated.ts"],
-      workingResourceRefs: [{ type: "file", locator: "src/unrelated.ts", metadata: "", scope: "file" as const }],
+      workingResources: ["src/unrelated.js"],
+      workingResourceRefs: [{ type: "file", locator: "src/unrelated.js", metadata: "", scope: "file" as const }],
     }));
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
   });
@@ -239,31 +239,31 @@ describe("buildRealityProjection — conflict detection", () => {
     const a = makeMem({
       kind: "hard_constraint",
       id: "c1",
-      appliesTo: JSON.stringify({ files: ["src/db.ts"] }),
+      appliesTo: JSON.stringify({ files: ["src/db.js"] }),
     });
     const b = makeMem({
       kind: "hard_constraint",
       id: "c2",
-      appliesTo: JSON.stringify({ files: ["src/db.ts"] }),
+      appliesTo: JSON.stringify({ files: ["src/db.js"] }),
     });
-    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/db.ts"] }));
+    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/db.js"] }));
     expect(r.constraintRules).toHaveLength(2);
     expect(r.conflicts).toHaveLength(1);
-    expect(r.conflicts[0].kind).toBe("scope_collision");
+    expect(r.conflicts[0]!.kind).toBe("scope_collision");
   });
 
   it("no conflict when scopes don't overlap", () => {
     const a = makeMem({
       kind: "hard_constraint",
       id: "c3",
-      appliesTo: JSON.stringify({ files: ["src/a.ts"] }),
+      appliesTo: JSON.stringify({ files: ["src/a.js"] }),
     });
     const b = makeMem({
       kind: "hard_constraint",
       id: "c4",
-      appliesTo: JSON.stringify({ files: ["src/b.ts"] }),
+      appliesTo: JSON.stringify({ files: ["src/b.js"] }),
     });
-    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/a.ts", "src/b.ts"] }));
+    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/a.js", "src/b.js"] }));
     expect(r.conflicts).toHaveLength(0);
   });
 
@@ -278,7 +278,7 @@ describe("buildRealityProjection — conflict detection", () => {
       id: "p2",
       appliesTo: JSON.stringify({ files: ["src/**"] }),
     });
-    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/x.ts"] }));
+    const r = buildRealityProjection([a, b], makeCtx({ workingResources: ["src/x.js"] }));
     expect(r.conflicts.length).toBeGreaterThan(0);
     expect(r.projectionValidity).toBe("needs_revalidation");
   });
@@ -374,16 +374,16 @@ describe("buildRealityProjection — mixed scenario", () => {
       makeMem({ id: "m2", kind: "risk", title: "Memory leak", content: "Watch for leaks", validityStatus: "fresh", severity: "warning" }),
       makeMem({ id: "m3", kind: "hard_constraint", title: "No eval", content: "eval() is banned", validityStatus: "fresh", severity: "blocking" }),
       makeMem({ id: "m4", kind: "protocol_rule", title: "Review gate", content: "All PRs need review", validityStatus: "fresh" }),
-      makeMem({ id: "m5", kind: "do_not_touch", title: "Legacy DB", content: "Do not touch db.ts", validityStatus: "fresh", appliesTo: JSON.stringify({ files: ["src/db.ts"] }) }),
+      makeMem({ id: "m5", kind: "do_not_touch", title: "Legacy DB", content: "Do not touch db.js", validityStatus: "fresh", appliesTo: JSON.stringify({ files: ["src/db.js"] }) }),
       makeMem({ id: "m6", kind: "fact", title: "Stale fact", content: "Outdated", validityStatus: "stale" }),
       makeMem({ id: "m7", kind: "soft_convention", title: "UI only", content: "UI convention", validityStatus: "fresh", appliesTo: JSON.stringify({ modules: ["ui"] }) }),
     ];
-    const ctx = makeCtx({ workingResources: ["src/main.ts"], currentModules: ["core"] });
+    const ctx = makeCtx({ workingResources: ["src/main.js"], currentModules: ["core"] });
     const r = buildRealityProjection(memories, ctx);
 
     // m1 → verifiedFacts
     expect(r.contextPatch.verifiedFacts).toHaveLength(1);
-    expect(r.contextPatch.verifiedFacts[0].source.sourceMemoryId).toBe("m1");
+    expect(r.contextPatch.verifiedFacts[0]!.source.sourceMemoryId).toBe("m1");
     // m2 → risks
     expect(r.contextPatch.risks).toHaveLength(1);
     // m3 → constraintRules
@@ -498,13 +498,13 @@ describe("buildRealityProjection — target routing integration", () => {
   it("projectionReason includes target info when target is explicit", () => {
     const mem = makeMem({ kind: "risk", projectionTarget: "constraint_runtime" });
     const r = buildRealityProjection([mem], makeCtx());
-    expect(r.constraintRules[0].source.projectionReason).toContain("explicit target");
+    expect(r.constraintRules[0]!.source.projectionReason).toContain("explicit target");
   });
 
   it("null projectionTarget uses default kind→bucket reason", () => {
     const mem = makeMem({ kind: "fact", projectionTarget: null });
     const r = buildRealityProjection([mem], makeCtx());
-    expect(r.contextPatch.verifiedFacts[0].source.projectionReason).toContain("fact →");
+    expect(r.contextPatch.verifiedFacts[0]!.source.projectionReason).toContain("fact →");
   });
 });
 
@@ -548,8 +548,8 @@ describe("P1: Cache key hash contract hardening", () => {
 
   it("working file changes DO affect cache key", () => {
     const fps = ["fp1"];
-    const k1 = computeProjectionCacheKey(makeCtx({ workingResources: ["a.ts"] }), fps);
-    const k2 = computeProjectionCacheKey(makeCtx({ workingResources: ["b.ts"] }), fps);
+    const k1 = computeProjectionCacheKey(makeCtx({ workingResources: ["a.js"] }), fps);
+    const k2 = computeProjectionCacheKey(makeCtx({ workingResources: ["b.js"] }), fps);
     expect(k1).not.toBe(k2);
   });
 

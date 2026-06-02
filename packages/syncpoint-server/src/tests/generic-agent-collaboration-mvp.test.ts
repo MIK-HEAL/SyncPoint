@@ -178,7 +178,7 @@ describe("Case B: Constraint Runtime blocks on resource_forbidden", () => {
     // Should have constraintViolations array
     expect(result.checkResult!.constraintViolations).toBeDefined();
     expect(result.checkResult!.constraintViolations!.length).toBeGreaterThanOrEqual(1);
-    const violation = result.checkResult!.constraintViolations![0];
+    const violation = result.checkResult!.constraintViolations![0]!;
     expect(violation.rule).toBe("resource_forbidden");
     expect(violation.evidence).toContain("binary://brand-logo.png");
   });
@@ -196,7 +196,7 @@ describe("Case B: Constraint Runtime blocks on resource_forbidden", () => {
     });
 
     // Force status to APPROVED for test (simulating manual override)
-    repo.updateOperation(op.id, { status: "SUBMITTED" });
+    repo.updateOperation(op.id, { status: "SUBMITTED" as any });
     const approved = opApprove(op.id, agentC, "Force-approved for test");
     expect(approved.status).toBe("APPROVED");
 

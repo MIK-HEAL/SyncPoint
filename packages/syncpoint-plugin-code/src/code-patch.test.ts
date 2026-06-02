@@ -23,14 +23,14 @@ function makeClaim(id: string, actorId: string, paths: string, mode = "exclusive
 describe("extractTouchedFiles", () => {
   it("extracts from unified diff", () => {
     const patch = `diff --git a/src/auth.ts b/src/auth.ts\n--- a/src/auth.ts\n+++ b/src/auth.ts\n@@ -1 +1 @@\n-old\n+new`;
-    expect(extractTouchedFiles(patch)).toEqual(["src/auth.ts"]);
+    expect(extractTouchedFiles(patch)).toEqual(["src/auth.js"]);
   });
   it("returns empty for no diff", () => {
     expect(extractTouchedFiles("no diff here")).toEqual([]);
   });
   it("handles multiple files", () => {
     const patch = `diff --git a/a.ts b/a.ts\n+++ b/a.ts\ndiff --git a/b.ts b/b.ts\n+++ b/b.ts`;
-    expect(extractTouchedFiles(patch)).toEqual(["a.ts", "b.ts"]);
+    expect(extractTouchedFiles(patch)).toEqual(["a.js", "b.js"]);
   });
 });
 
@@ -48,29 +48,29 @@ describe("isValidPatchFormat", () => {
 
 describe("findUncoveredFiles", () => {
   it("no uncovered when fully claimed", () => {
-    const claims = [makeClaim("c1", "a1", "src/auth.ts")];
-    expect(findUncoveredFiles(["src/auth.ts"], claims)).toEqual([]);
+    const claims = [makeClaim("c1", "a1", "src/auth.js")];
+    expect(findUncoveredFiles(["src/auth.js"], claims)).toEqual([]);
   });
   it("reports uncovered files", () => {
-    const claims = [makeClaim("c1", "a1", "src/auth.ts")];
-    expect(findUncoveredFiles(["src/auth.ts", "src/login.ts"], claims))
-      .toEqual(["src/login.ts"]);
+    const claims = [makeClaim("c1", "a1", "src/auth.js")];
+    expect(findUncoveredFiles(["src/auth.js", "src/login.js"], claims))
+      .toEqual(["src/login.js"]);
   });
 });
 
 describe("findConflictingClaims", () => {
   it("finds exclusive conflicts from other agents", () => {
     const all = [
-      makeClaim("c1", "a1", "src/auth.ts", "exclusive"),
-      makeClaim("c2", "a2", "src/auth.ts", "exclusive"),
+      makeClaim("c1", "a1", "src/auth.js", "exclusive"),
+      makeClaim("c2", "a2", "src/auth.js", "exclusive"),
     ];
-    const result = findConflictingClaims(["src/auth.ts"], "a2", all);
+    const result = findConflictingClaims(["src/auth.js"], "a2", all);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("c1");
+    expect(result[0]!.id).toBe("c1");
   });
   it("ignores shared claims", () => {
-    const all = [makeClaim("c1", "a1", "src/auth.ts", "shared")];
-    expect(findConflictingClaims(["src/auth.ts"], "a2", all)).toHaveLength(0);
+    const all = [makeClaim("c1", "a1", "src/auth.js", "shared")];
+    expect(findConflictingClaims(["src/auth.js"], "a2", all)).toHaveLength(0);
   });
 });
 
@@ -79,7 +79,7 @@ describe("runCodePatchChecks", () => {
     const claims = [makeClaim("c1", "a1", "src/*")];
     const result = runCodePatchChecks({
       patchText: "--- a/src/auth.ts\n+++ b/src/auth.ts\n@@ -1 +1 @@\n-a\n+b",
-      touchedFiles: ["src/auth.ts"],
+      touchedFiles: ["src/auth.js"],
       agentId: "a1",
       agentClaims: claims,
       allActiveClaims: claims,
@@ -89,20 +89,20 @@ describe("runCodePatchChecks", () => {
   });
 
   it("reports uncovered files and conflicts", () => {
-    const agentClaims = [makeClaim("c1", "a1", "src/mine.ts")];
+    const agentClaims = [makeClaim("c1", "a1", "src/mine.js")];
     const allClaims = [
       ...agentClaims,
-      makeClaim("c2", "a2", "src/theirs.ts", "exclusive"),
+      makeClaim("c2", "a2", "src/theirs.js", "exclusive"),
     ];
     const result = runCodePatchChecks({
       patchText: "--- a/src/theirs.ts\n+++ b/src/theirs.ts\n@@ -1 +1 @@\n-a\n+b",
-      touchedFiles: ["src/theirs.ts"],
+      touchedFiles: ["src/theirs.js"],
       agentId: "a1",
       agentClaims,
       allActiveClaims: allClaims,
     });
     expect(result.allPassed).toBe(false);
-    expect(result.uncoveredFiles).toEqual(["src/theirs.ts"]);
+    expect(result.uncoveredFiles).toEqual(["src/theirs.js"]);
     expect(result.conflictingClaims).toEqual(["c2"]);
   });
 });

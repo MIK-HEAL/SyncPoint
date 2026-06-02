@@ -80,7 +80,7 @@ beforeAll(() => {
     payload: {
       goal: "test",
       currentPhase: "development",
-      workingResources: ["src/protected/core.ts", "src/protected/db.ts"],
+      workingResources: ["src/protected/core.js", "src/protected/db.js"],
     },
   });
 
@@ -174,7 +174,7 @@ describe("Adversarial: operation apply blocked by late-added constraint", () => 
       actorId: executorId,
       type: "file_write",
       title: "Write to api handler",
-      targetResources: [{ type: "file", locator: "src/api/handler.ts", metadata: "", scope: "file" as const }],
+      targetResources: [{ type: "file", locator: "src/api/handler.js", metadata: "", scope: "file" as const }],
     });
     opId = op.id;
     opSubmit(opId);

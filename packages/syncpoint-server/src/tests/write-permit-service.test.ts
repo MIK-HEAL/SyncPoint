@@ -51,18 +51,18 @@ afterEach(() => {
 
 describe("write permit service", () => {
   it("applies a permit-backed write for the claim owner", () => {
-    writeFileSync(path.join(root, "auth.ts"), "old");
+    writeFileSync(path.join(root, "auth.js"), "old");
     rcClaim({
       actorId: agentA,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       autoGate: false,
     });
 
     const prepared = writePrepare({
       actorId: agentA,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       intent: WriteIntent.MODIFY,
     });
 
@@ -71,25 +71,25 @@ describe("write permit service", () => {
 
     const applied = writeApply({
       permitId: prepared.permit.id,
-      mutations: [{ resource: fileResource("auth.ts"), content: "new" }],
+      mutations: [{ resource: fileResource("auth.js"), content: "new" }],
     });
 
     expect(applied.permit.status).toBe("consumed");
-    expect(readFileSync(path.join(root, "auth.ts"), "utf8")).toBe("new");
+    expect(readFileSync(path.join(root, "auth.js"), "utf8")).toBe("new");
   });
 
   it("denies a write to another actor's exclusive claim", () => {
     rcClaim({
       actorId: agentA,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       autoGate: false,
     });
 
     const prepared = writePrepare({
       actorId: agentB,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       intent: WriteIntent.MODIFY,
     });
 
@@ -102,7 +102,7 @@ describe("write permit service", () => {
     rcClaim({
       actorId: agentA,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       autoGate: false,
     });
     const gate = repo.createSyncGate({
@@ -112,8 +112,8 @@ describe("write permit service", () => {
       requiredAgentIds: [agentA, agentB],
       reason: SyncGateReason.RESOURCE_CONFLICT,
       description: "conflict acknowledged but not resolved",
-      relatedFiles: ["auth.ts"],
-      relatedResources: [fileResource("auth.ts")],
+      relatedFiles: ["auth.js"],
+      relatedResources: [fileResource("auth.js")],
       relatedCheckpointId: "",
       relatedClaimIds: [],
     });
@@ -122,7 +122,7 @@ describe("write permit service", () => {
     const prepared = writePrepare({
       actorId: agentA,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       intent: WriteIntent.MODIFY,
     });
 
@@ -131,24 +131,24 @@ describe("write permit service", () => {
   });
 
   it("revokes a permit when the file hash changes before apply", () => {
-    writeFileSync(path.join(root, "auth.ts"), "old");
+    writeFileSync(path.join(root, "auth.js"), "old");
     rcClaim({
       actorId: agentA,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       autoGate: false,
     });
     const prepared = writePrepare({
       actorId: agentA,
       taskId,
-      resources: [fileResource("auth.ts")],
+      resources: [fileResource("auth.js")],
       intent: WriteIntent.MODIFY,
     });
-    writeFileSync(path.join(root, "auth.ts"), "external change");
+    writeFileSync(path.join(root, "auth.js"), "external change");
 
     expect(() => writeApply({
       permitId: prepared.permit.id,
-      mutations: [{ resource: fileResource("auth.ts"), content: "new" }],
+      mutations: [{ resource: fileResource("auth.js"), content: "new" }],
     })).toThrow(/changed since permit/i);
 
     expect(repo.getWritePermit(prepared.permit.id).status).toBe("revoked");
@@ -160,24 +160,24 @@ describe("write permit service", () => {
       rcClaim({
         actorId: agentA,
         taskId,
-        resources: [fileResource("auth.ts")],
+        resources: [fileResource("auth.js")],
         autoGate: false,
       });
       const prepared = writePrepare({
         actorId: agentA,
         taskId,
-        resources: [fileResource("auth.ts")],
+        resources: [fileResource("auth.js")],
         intent: WriteIntent.MODIFY,
       });
       process.env.SYNCPOINT_PROJECT_ROOT = otherRoot;
 
       expect(() => writeApply({
         permitId: prepared.permit.id,
-        mutations: [{ resource: fileResource("auth.ts"), content: "new" }],
+        mutations: [{ resource: fileResource("auth.js"), content: "new" }],
       })).toThrow(/guarded root/i);
 
       expect(repo.getWritePermit(prepared.permit.id).status).toBe("revoked");
-      expect(readFileIfExists(path.join(otherRoot, "auth.ts"))).not.toBe("new");
+      expect(readFileIfExists(path.join(otherRoot, "auth.js"))).not.toBe("new");
     } finally {
       process.env.SYNCPOINT_PROJECT_ROOT = root;
       rmSync(otherRoot, { recursive: true, force: true });
@@ -185,32 +185,32 @@ describe("write permit service", () => {
   });
 
   it("preflights all bulk mutations before writing any file", () => {
-    writeFileSync(path.join(root, "a.ts"), "a-old");
-    writeFileSync(path.join(root, "b.ts"), "b-old");
+    writeFileSync(path.join(root, "a.js"), "a-old");
+    writeFileSync(path.join(root, "b.js"), "b-old");
     rcClaim({
       actorId: agentA,
       taskId,
-      resources: [fileResource("a.ts"), fileResource("b.ts")],
+      resources: [fileResource("a.js"), fileResource("b.js")],
       autoGate: false,
     });
     const prepared = writePrepare({
       actorId: agentA,
       taskId,
-      resources: [fileResource("a.ts"), fileResource("b.ts")],
+      resources: [fileResource("a.js"), fileResource("b.js")],
       intent: WriteIntent.BULK,
     });
-    writeFileSync(path.join(root, "b.ts"), "external change");
+    writeFileSync(path.join(root, "b.js"), "external change");
 
     expect(() => writeApply({
       permitId: prepared.permit.id,
       mutations: [
-        { resource: fileResource("a.ts"), content: "a-new" },
-        { resource: fileResource("b.ts"), content: "b-new" },
+        { resource: fileResource("a.js"), content: "a-new" },
+        { resource: fileResource("b.js"), content: "b-new" },
       ],
     })).toThrow(/changed since permit/i);
 
-    expect(readFileSync(path.join(root, "a.ts"), "utf8")).toBe("a-old");
-    expect(readFileSync(path.join(root, "b.ts"), "utf8")).toBe("external change");
+    expect(readFileSync(path.join(root, "a.js"), "utf8")).toBe("a-old");
+    expect(readFileSync(path.join(root, "b.js"), "utf8")).toBe("external change");
     expect(repo.getWritePermit(prepared.permit.id).status).toBe("revoked");
   });
 
@@ -220,23 +220,23 @@ describe("write permit service", () => {
       rcClaim({
         actorId: agentA,
         taskId,
-        resources: [fileResource("linked/escape.ts")],
+        resources: [fileResource("linked/escape.js")],
         autoGate: false,
       });
       const prepared = writePrepare({
         actorId: agentA,
         taskId,
-        resources: [fileResource("linked/escape.ts")],
+        resources: [fileResource("linked/escape.js")],
         intent: WriteIntent.MODIFY,
       });
       symlinkSync(outsideRoot, path.join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
 
       expect(() => writeApply({
         permitId: prepared.permit.id,
-        mutations: [{ resource: fileResource("linked/escape.ts"), content: "escaped" }],
+        mutations: [{ resource: fileResource("linked/escape.js"), content: "escaped" }],
       })).toThrow(/outside guarded root/i);
 
-      expect(readFileIfExists(path.join(outsideRoot, "escape.ts"))).toBeNull();
+      expect(readFileIfExists(path.join(outsideRoot, "escape.js"))).toBeNull();
       expect(repo.getWritePermit(prepared.permit.id).status).toBe("revoked");
     } finally {
       rmSync(outsideRoot, { recursive: true, force: true });

@@ -2,7 +2,7 @@
  * E2E: Project Memory Layer — CRUD, lifecycle, and resume context integration.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 

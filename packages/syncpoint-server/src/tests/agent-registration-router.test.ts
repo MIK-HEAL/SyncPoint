@@ -47,8 +47,8 @@ agent:
       format: "yaml",
     });
     expect(validation.results).toHaveLength(1);
-    expect(validation.results[0].valid).toBe(true);
-    expect(validation.results[0].kind).toBe("manifest");
+    expect(validation.results[0]!.valid).toBe(true);
+    expect(validation.results[0]!.kind).toBe("manifest");
   });
 
   it("materializes team templates and exports cards through tRPC", async () => {
@@ -63,6 +63,6 @@ agent:
 
     const cards = await caller.agentRegistration.exportCards();
     expect(cards.cards.length).toBeGreaterThan(1);
-    expect(cards.cards[0].card.schema).toBe("syncpoint/agent-card/v1");
+    expect(cards.cards[0]!.card.schema).toBe("syncpoint/agent-card/v1");
   });
 });

@@ -87,7 +87,7 @@ beforeAll(() => {
     payload: {
       goal: "test p4d",
       currentPhase: "development",
-      workingResources: ["src/core/index.ts", "src/core/utils.ts"],
+      workingResources: ["src/core/index.js", "src/core/utils.js"],
     },
   });
 
@@ -150,12 +150,12 @@ describe("P4D: constraintCheck resume", () => {
     expect(result.permitted).toBe(false);
     expect(result.action).toBe("resume");
     expect(result.blockers.length).toBeGreaterThan(0);
-    expect(result.blockers[0].rule).toBe("do_not_touch_scope_overlap");
+    expect(result.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
   });
 
   it("blockers include sourceMemoryId, projectionId, evidence", () => {
     const result = constraintCheck({ action: "resume", taskId, agentId: agent2Id });
-    const blocker = result.blockers[0];
+    const blocker = result.blockers[0]!;
     expect(blocker.sourceMemoryId).toBeTruthy();
     expect(blocker.projectionId).toBeTruthy();
     expect(blocker.evidence).toBeInstanceOf(Array);
@@ -176,8 +176,8 @@ describe("P4D: constraintCheck resume", () => {
     expect(result.inputs.taskId).toBe(taskId);
     expect(result.inputs.agentId).toBe(agent2Id);
     expect(result.inputs.source).toBe("context_snapshot");
-    expect(result.inputs.workingResources).toContain("src/core/index.ts");
-    expect(result.inputs.touchedResources).toContain("src/core/index.ts");
+    expect(result.inputs.workingResources).toContain("src/core/index.js");
+    expect(result.inputs.touchedResources).toContain("src/core/index.js");
   });
 
   it("result is consistent with loopResume constraint enforcement", () => {
@@ -200,10 +200,10 @@ describe("P4D: constraintCheck resume", () => {
       action: "resume",
       taskId,
       agentId: agent2Id,
-      touchedResources: ["src/safe/file.ts"],
+      touchedResources: ["src/safe/file.js"],
     });
     expect(result.inputs.source).toBe("explicit");
-    expect(result.inputs.touchedResources).toEqual(["src/safe/file.ts"]);
+    expect(result.inputs.touchedResources).toEqual(["src/safe/file.js"]);
     // No overlap with do_not_touch → permitted
     expect(result.permitted).toBe(true);
   });
@@ -253,7 +253,7 @@ describe("P4D: constraintCheck start_assignment", () => {
       sessionId,
       actorId: agent2Id,
       taskId: task2.id,
-      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/core/index.js", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -279,7 +279,7 @@ describe("P4D: constraintCheck operation_submit", () => {
       taskId,
       sessionId,
       title: "P4D test operation",
-      targetResources: [{ type: "file", locator: "src/core/index.ts", metadata: "", scope: "file" as const }],
+      targetResources: [{ type: "file", locator: "src/core/index.js", metadata: "", scope: "file" as const }],
     });
     operationId = op.id;
   });
@@ -298,7 +298,7 @@ describe("P4D: constraintCheck operation_submit", () => {
     // Both should detect constraint violations
     if (opResult.checkResult?.constraintViolations) {
       expect(opResult.checkResult.constraintViolations.length).toBe(checkView.blockers.length);
-      expect(opResult.checkResult.constraintViolations[0].rule).toBe(checkView.blockers[0].rule);
+      expect(opResult.checkResult.constraintViolations[0]!.rule).toBe(checkView.blockers[0]!.rule);
     }
   });
 });
@@ -329,7 +329,7 @@ describe("P4D: tRPC constraint.check", () => {
     });
     expect(result.permitted).toBe(false);
     expect(result.blockers.length).toBeGreaterThan(0);
-    expect(result.blockers[0].rule).toBe("do_not_touch_scope_overlap");
+    expect(result.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
     expect(result.projection.projectionId).toBeTruthy();
   });
 
@@ -380,7 +380,7 @@ describe("P4D: snapshot constraint visibility", () => {
       payload: {
         goal: "test snap",
         currentPhase: "development",
-        workingResources: ["src/core/router.ts"],
+        workingResources: ["src/core/router.js"],
       },
     });
   });

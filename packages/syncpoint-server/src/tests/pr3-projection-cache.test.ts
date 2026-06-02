@@ -3,7 +3,7 @@
  * Tests read-through cache behavior: hit, miss, invalidation, stats, eviction.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { startE2E, type E2EContext } from "./e2e-helper.ts";
+import { startE2E, type E2EContext } from "./e2e-helper.js";
 
 let ctx: E2EContext;
 
@@ -21,12 +21,12 @@ async function createAndApprove(fields: Record<string, unknown>) {
 
 async function getCacheStats(): Promise<any> {
   // Access cache stats via the service — we import dynamically to use the same module state
-  const { getProjectionCacheStats } = await import("../application/reality-projection-service.ts");
+  const { getProjectionCacheStats } = await import("../application/reality-projection-service.js");
   return getProjectionCacheStats();
 }
 
 async function clearCache(): Promise<void> {
-  const { clearProjectionCache } = await import("../application/reality-projection-service.ts");
+  const { clearProjectionCache } = await import("../application/reality-projection-service.js");
   clearProjectionCache();
 }
 
@@ -125,7 +125,7 @@ describe("PR3: Projection Cache", () => {
   });
 
   it("LRU eviction when cache exceeds max size", async () => {
-    const { setProjectionCacheMaxSize } = await import("../application/reality-projection-service.ts");
+    const { setProjectionCacheMaxSize } = await import("../application/reality-projection-service.js");
     setProjectionCacheMaxSize(2);
 
     // Fill cache with 3 entries → should evict oldest

@@ -52,13 +52,13 @@ describe("auditFileChange", () => {
       actorId: agentB,
       taskId: taskB,
       sessionId,
-      locator: "src/unclaimed.ts",
+      locator: "src/unclaimed.js",
     });
 
     expect(result.eventType).toBe(EventType.FILE_CHANGED);
     expect(result.gateId).toBeUndefined();
     expect(repo.listActiveSyncGates({ taskId: taskB, sessionId })).toHaveLength(0);
-    expect(repo.listEvents(5)[0].eventType).toBe(EventType.FILE_CHANGED);
+    expect(repo.listEvents(5)[0]!.eventType).toBe(EventType.FILE_CHANGED);
   });
 
   it("creates a resource conflict gate and logs pollution for another agent's exclusive file claim", () => {
@@ -66,7 +66,7 @@ describe("auditFileChange", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", scope: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator: "src/auth.js", metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -74,7 +74,7 @@ describe("auditFileChange", () => {
       actorId: agentB,
       taskId: taskB,
       sessionId,
-      locator: "src/auth.ts",
+      locator: "src/auth.js",
     });
 
     expect(result.eventType).toBe(EventType.FILE_POLLUTION_DETECTED);
@@ -83,11 +83,11 @@ describe("auditFileChange", () => {
 
     const gates = repo.listActiveSyncGates({ taskId: taskB, sessionId });
     expect(gates).toHaveLength(1);
-    expect(gates[0].reason).toBe(SyncGateReason.RESOURCE_CONFLICT);
-    expect(gates[0].relatedClaimIds).toEqual([claimResult.claim.id]);
-    expect([...gates[0].requiredAgentIds].sort()).toEqual([agentA, agentB].sort());
+    expect(gates[0]!.reason).toBe(SyncGateReason.RESOURCE_CONFLICT);
+    expect(gates[0]!.relatedClaimIds).toEqual([claimResult.claim.id]);
+    expect([...gates[0]!.requiredAgentIds].sort()).toEqual([agentA, agentB].sort());
 
-    const latestEvent = repo.listEvents(5)[0];
+    const latestEvent = repo.listEvents(5)[0]!;
     expect(latestEvent.eventType).toBe(EventType.FILE_POLLUTION_DETECTED);
     expect(latestEvent.entityType).toBe("file_audit");
   });
@@ -97,7 +97,7 @@ describe("auditFileChange", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", scope: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator: "src/auth.js", metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
@@ -105,7 +105,7 @@ describe("auditFileChange", () => {
       actorId: agentB,
       taskId: taskB,
       sessionId,
-      locator: "src/auth.ts",
+      locator: "src/auth.js",
       auditOnly: true,
     });
 
@@ -122,14 +122,14 @@ describe("auditFileChange", () => {
       requiredAgentIds: [agentB],
       reason: SyncGateReason.RESOURCE_CONFLICT,
       description: "Initial blocking gate",
-      relatedFiles: ["src/auth.ts"],
+      relatedFiles: ["src/auth.js"],
     }).gate;
 
     const result = auditFileChange({
       actorId: agentB,
       taskId: taskB,
       sessionId,
-      locator: "src/auth.ts",
+      locator: "src/auth.js",
       auditOnly: true,
     });
 
@@ -143,12 +143,12 @@ describe("auditFileChange", () => {
       actorId: agentA,
       taskId: taskA,
       sessionId,
-      resources: [{ type: "file", scope: "file", locator: "src/auth.ts", metadata: "" }],
+      resources: [{ type: "file", scope: "file", locator: "src/auth.js", metadata: "" }],
       mode: ResourceClaimMode.EXCLUSIVE,
     });
 
-    const first = auditFileChange({ actorId: agentB, taskId: taskB, sessionId, locator: "src/auth.ts" });
-    const second = auditFileChange({ actorId: agentB, taskId: taskB, sessionId, locator: "src/auth.ts" });
+    const first = auditFileChange({ actorId: agentB, taskId: taskB, sessionId, locator: "src/auth.js" });
+    const second = auditFileChange({ actorId: agentB, taskId: taskB, sessionId, locator: "src/auth.js" });
 
     expect(second.gateId).toBe(first.gateId);
     expect(second.reusedGate).toBe(true);

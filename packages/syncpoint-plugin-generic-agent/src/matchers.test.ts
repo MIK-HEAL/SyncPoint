@@ -12,7 +12,7 @@ import type { ResourceRef } from "syncpoint-core";
 import { GENERIC_RESOURCE_MATCHERS } from "./matchers.js";
 
 function ref(type: string, locator: string): ResourceRef {
-  return { type, locator, metadata: "" };
+  return { type, locator, metadata: "", scope: "file" as const };
 }
 
 beforeEach(() => {

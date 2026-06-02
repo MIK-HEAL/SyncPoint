@@ -71,7 +71,7 @@ beforeAll(() => {
     payload: {
       goal: "test",
       currentPhase: "development",
-      workingResources: ["src/core/index.ts", "src/core/utils.ts"],
+      workingResources: ["src/core/index.js", "src/core/utils.js"],
     },
   });
 
@@ -156,7 +156,7 @@ describe("P4C: orchStartAssignment constraint enforcement", () => {
       sessionId,
       actorId: agent2Id,
       taskId: task2.id,
-      resources: [{ type: "file", locator: "src/core/index.ts", metadata: "", scope: "file" as const }],
+      resources: [{ type: "file", locator: "src/core/index.js", metadata: "", scope: "file" as const }],
       mode: "exclusive",
       autoGate: false,
     });
@@ -216,7 +216,7 @@ describe("P4C: wakeStart constraint enforcement", () => {
       payload: {
         goal: "test",
         currentPhase: "development",
-        workingResources: ["src/core/index.ts"],
+        workingResources: ["src/core/index.js"],
       },
     });
 
@@ -275,7 +275,7 @@ describe("P4C: wakeNext constraint enforcement", () => {
       payload: {
         goal: "test",
         currentPhase: "development",
-        workingResources: ["src/core/main.ts"],
+        workingResources: ["src/core/main.js"],
       },
     });
 

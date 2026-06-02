@@ -39,7 +39,7 @@ function toRefs(...locators: string[]): ResourceRef[] {
 }
 
 function toTypedRef(type: string, locator: string): ResourceRef {
-  return { type, locator, metadata: "" };
+  return { type, locator, metadata: "", scope: "file" as const };
 }
 
 function makeSource(id: string): ProjectionSource {
@@ -99,12 +99,12 @@ describe("file_forbidden evaluator", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/auth/login.ts"),
+      touchedResources: toRefs("src/auth/login.js"),
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0].rule).toBe("hard_constraint_file_forbidden");
-    expect(decision.blockers[0].evidence).toContain("src/auth/login.ts");
+    expect(decision.blockers[0]!.rule).toBe("hard_constraint_file_forbidden");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/login.js");
   });
 
   it("permits when no file overlap", () => {
@@ -162,7 +162,7 @@ describe("file_forbidden evaluator", () => {
       touchedResources: toRefs("config/app.json"),
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].message).toBe("Config files are locked for release");
+    expect(decision.blockers[0]!.message).toBe("Config files are locked for release");
   });
 
   it("handles glob patterns in scope", () => {
@@ -221,11 +221,11 @@ describe("module_forbidden evaluator", () => {
     const decision = evaluateConstraints({
       action: "resume",
       projection: proj,
-      touchedResources: toRefs("payments/gateway.ts"),
+      touchedResources: toRefs("payments/gateway.js"),
     });
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("hard_constraint_module_forbidden");
-    expect(decision.blockers[0].evidence).toContain("payments/gateway.ts");
+    expect(decision.blockers[0]!.rule).toBe("hard_constraint_module_forbidden");
+    expect(decision.blockers[0]!.evidence).toContain("payments/gateway.js");
   });
 
   it("permits when resource not under forbidden module", () => {
@@ -241,7 +241,7 @@ describe("module_forbidden evaluator", () => {
     const decision = evaluateConstraints({
       action: "resume",
       projection: proj,
-      touchedResources: toRefs("billing/invoice.ts"),
+      touchedResources: toRefs("billing/invoice.js"),
     });
     expect(decision.permitted).toBe(true);
   });
@@ -332,7 +332,7 @@ describe("E2E: projection + file_forbidden", () => {
     });
 
     expect(decision.permitted).toBe(false);
-    expect(decision.blockers[0].rule).toBe("do_not_touch_scope_overlap");
+    expect(decision.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
   });
 });
 
@@ -340,11 +340,11 @@ describe("E2E: projection + file_forbidden", () => {
 
 describe("prefixFindOverlaps", () => {
   it("does not treat same-prefix siblings as overlap", () => {
-    expect(prefixFindOverlaps(["src/auth"], ["src/auth2.ts"])).toEqual([]);
+    expect(prefixFindOverlaps(["src/auth"], ["src/auth2.js"])).toEqual([]);
   });
 
   it("matches exact paths, child paths, and simple globs", () => {
-    expect(prefixFindOverlaps(["src/auth"], ["src/auth/login.ts"])).toEqual(["src/auth/login.ts"]);
+    expect(prefixFindOverlaps(["src/auth"], ["src/auth/login.js"])).toEqual(["src/auth/login.js"]);
     expect(prefixFindOverlaps(["vendor/**"], ["vendor/lib/utils.js"])).toEqual(["vendor/lib/utils.js"]);
   });
 });

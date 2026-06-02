@@ -9,7 +9,7 @@ import {
   ADAPTER_CONFIGS,
 } from "./adapter.js";
 import { QualityCheckStatus } from "./memory.js";
-import type { ResumeContext } from "./memory.ts";
+import type { ResumeContext } from "./memory.js";
 
 function makeCtx(overrides?: Partial<ResumeContext>): ResumeContext {
   return {
@@ -38,7 +38,7 @@ function makeCtx(overrides?: Partial<ResumeContext>): ResumeContext {
         goal: "Implement auth API",
         currentPhase: "implementation",
         confirmedDecisions: ["JWT auth"],
-        workingResources: ["src/auth/login.ts"],
+        workingResources: ["src/auth/login.js"],
         completedWork: "Schema defined",
         remainingWork: "Implement handler",
         risks: [],

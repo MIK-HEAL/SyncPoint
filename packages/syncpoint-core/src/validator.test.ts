@@ -24,7 +24,7 @@ function makeOperation(type: string, targetResources?: ResourceRef[]): Operation
     sessionId: "s1",
     title: "test op",
     summary: "",
-    targetResources: targetResources ?? [{ type: "file", locator: "src/auth.ts", metadata: "", scope: "file" as const }],
+    targetResources: targetResources ?? [{ type: "file", locator: "src/auth.js", metadata: "", scope: "file" as const }],
     payloadRef: "",
     status: OperationStatus.SUBMITTED,
     checkResult: null,
@@ -91,8 +91,8 @@ describe("Validator registry", () => {
 
     const items = runOperationValidation(ctx);
     expect(items).toHaveLength(2);
-    expect(items[0].check).toBe("format");
-    expect(items[1].check).toBe("coverage");
+    expect(items[0]!.check).toBe("format");
+    expect(items[1]!.check).toBe("coverage");
   });
 
   it("runOperationValidation filters validators by target resource type", () => {

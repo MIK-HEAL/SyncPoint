@@ -124,13 +124,13 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/auth/session.ts"),
+      touchedResources: toRefs("src/auth/session.js"),
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
     expect(decision.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
     expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_1");
-    expect(decision.blockers[0]!.evidence).toContain("src/auth/session.ts");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/session.js");
   });
 
   it("do_not_touch + no overlap => permitted", () => {
@@ -214,11 +214,11 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: [{ type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const }],
+      touchedResources: [{ type: "file", locator: "src/auth/session.js", metadata: "", scope: "file" as const }],
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
-    expect(decision.blockers[0]!.evidence).toContain("src/auth/session.ts");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/session.js");
   });
 
   it("do_not_touch with mixed resource types only blocks matching types", () => {
@@ -235,14 +235,14 @@ describe("Constraint Runtime — evaluateConstraints", () => {
       action: "operation_submit",
       projection: proj,
       touchedResources: [
-        { type: "file", locator: "src/auth/session.ts", metadata: "", scope: "file" as const },
+        { type: "file", locator: "src/auth/session.js", metadata: "", scope: "file" as const },
         { type: "binary_asset", locator: "src/auth/logo.png", metadata: "", scope: "file" as const },
       ],
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
     // Only the file resource appears in evidence, not the binary_asset
-    expect(decision.blockers[0]!.evidence).toEqual(["src/auth/session.ts"]);
+    expect(decision.blockers[0]!.evidence).toEqual(["src/auth/session.js"]);
   });
 
   // ── hard_constraint advisory ───────────────────────────
@@ -274,7 +274,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/foo.ts"),
+      touchedResources: toRefs("src/foo.js"),
     });
     expect(decision.permitted).toBe(true);
     expect(decision.warnings).toHaveLength(2);
@@ -342,7 +342,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/api/routes.ts"),
+      touchedResources: toRefs("src/api/routes.js"),
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_42");
@@ -360,7 +360,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(2);
     expect(decision.blockers[0]!.rule).toBe("protocol_gate_blocked");
-    expect(decision.blockers[1].rule).toBe("protocol_gate_blocked");
+    expect(decision.blockers[1]!.rule).toBe("protocol_gate_blocked");
   });
 
   // ── snapshot locked mode ────────────────────────────────
@@ -402,7 +402,7 @@ describe("Constraint Runtime — evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/core/engine.ts"),
+      touchedResources: toRefs("src/core/engine.js"),
       snapshotValid: false,
       protocolGateBlockers: ["Gate block"],
     });
@@ -453,7 +453,7 @@ describe("Projection routing — do_not_touch and constraintRules", () => {
         content: "Do not touch authentication",
         appliesTo: JSON.stringify({ files: ["src/auth/"] }),
       }),
-    ], { ...ctx, workingResources: ["src/auth/session.ts"] });
+    ], { ...ctx, workingResources: ["src/auth/session.js"] });
 
     expect(projection.contextPatch.doNotTouch).toHaveLength(1);
     expect(projection.contextPatch.doNotTouch[0]!.title).toBe("Auth Core");
@@ -509,7 +509,7 @@ describe("Projection routing — do_not_touch and constraintRules", () => {
         content: "Some fact",
         appliesTo: JSON.stringify({ files: ["src/utils/"], modules: ["utils"] }),
       }),
-    ], { ...ctx, workingResources: ["src/utils/helpers.ts"] });
+    ], { ...ctx, workingResources: ["src/utils/helpers.js"] });
 
     expect(projection.contextPatch.verifiedFacts).toHaveLength(1);
     expect(projection.contextPatch.verifiedFacts[0]!.scope?.files).toEqual(["src/utils/"]);
@@ -565,18 +565,18 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
         fingerprint: "fp_protect",
         appliesTo: JSON.stringify({ files: ["src/auth/"] }),
       }),
-    ], { ...ctx, workingResources: ["src/auth/login.ts"] });
+    ], { ...ctx, workingResources: ["src/auth/login.js"] });
 
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection,
-      touchedResources: toRefs("src/auth/login.ts"),
+      touchedResources: toRefs("src/auth/login.js"),
     });
 
     expect(decision.permitted).toBe(false);
     expect(decision.blockers[0]!.rule).toBe("do_not_touch_scope_overlap");
     expect(decision.blockers[0]!.sourceMemoryId).toBe("pm_protect");
-    expect(decision.blockers[0]!.evidence).toContain("src/auth/login.ts");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/login.js");
   });
 
   it("hard_constraint alone permits with advisory warning", () => {
@@ -611,7 +611,7 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
         appliesTo: JSON.stringify({ files: ["src/config/"] }),
         projectionTarget: "constraint_runtime",
       }),
-    ], { ...ctx, workingResources: ["src/config/app.ts"] });
+    ], { ...ctx, workingResources: ["src/config/app.js"] });
 
     // Should route to constraintRules only (not doNotTouch)
     expect(projection.contextPatch.doNotTouch).toHaveLength(0);
@@ -621,7 +621,7 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection,
-      touchedResources: toRefs("src/config/app.ts"),
+      touchedResources: toRefs("src/config/app.js"),
     });
 
     expect(decision.permitted).toBe(false);
@@ -641,7 +641,7 @@ describe("E2E: buildRealityProjection → evaluateConstraints", () => {
         fingerprint: "fp_db",
         appliesTo: JSON.stringify({ files: ["src/db/"] }),
       }),
-    ], { ...ctx, workingResources: ["src/db/schema.ts"] });
+    ], { ...ctx, workingResources: ["src/db/schema.js"] });
 
     const decision = evaluateConstraints({
       action: "operation_submit",
@@ -722,12 +722,12 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/auth/login.ts"),
+      touchedResources: toRefs("src/auth/login.js"),
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
     expect(decision.blockers[0]!.rule).toBe("hard_constraint_test_forbidden");
-    expect(decision.blockers[0]!.evidence).toContain("src/auth/login.ts");
+    expect(decision.blockers[0]!.evidence).toContain("src/auth/login.js");
     // Should NOT also appear as advisory
     expect(decision.warnings.some(w => w.sourceMemoryId === "pm_typed_1")).toBe(false);
   });
@@ -779,7 +779,7 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/core/engine.ts"),
+      touchedResources: toRefs("src/core/engine.js"),
     });
     // Without validatorType, hard_constraint stays advisory — does NOT block
     expect(decision.permitted).toBe(true);
@@ -799,11 +799,11 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const decision = evaluateConstraints({
       action: "resume",
       projection: proj,
-      touchedResources: toRefs("payments/gateway.ts"),
+      touchedResources: toRefs("payments/gateway.js"),
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers[0]!.rule).toBe("hard_constraint_test_forbidden");
-    expect(decision.blockers[0]!.evidence).toContain("payments/gateway.ts");
+    expect(decision.blockers[0]!.evidence).toContain("payments/gateway.js");
   });
 
   it("test_forbidden permits when no module scope overlap", () => {
@@ -815,7 +815,7 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const decision = evaluateConstraints({
       action: "resume",
       projection: proj,
-      touchedResources: toRefs("billing/invoice.ts"),
+      touchedResources: toRefs("billing/invoice.js"),
     });
     expect(decision.permitted).toBe(true);
   });
@@ -873,16 +873,16 @@ describe("PR4: Typed hard constraint evaluation", () => {
       ],
     });
     // Should block operation_submit with overlap
-    const d1 = evaluateConstraints({ action: "operation_submit", projection: proj, touchedResources: toRefs("src/core/x.ts") });
+    const d1 = evaluateConstraints({ action: "operation_submit", projection: proj, touchedResources: toRefs("src/core/x.js") });
     expect(d1.permitted).toBe(false);
-    expect(d1.blockers[0].rule).toBe("hard_constraint_test_forbidden");
+    expect(d1.blockers[0]!.rule).toBe("hard_constraint_test_forbidden");
 
     // Should NOT block resume even with overlap — action not in allowlist
-    const d2 = evaluateConstraints({ action: "resume", projection: proj, touchedResources: toRefs("src/core/x.ts") });
+    const d2 = evaluateConstraints({ action: "resume", projection: proj, touchedResources: toRefs("src/core/x.js") });
     expect(d2.permitted).toBe(true);
     // Not blocked, not claimed → falls to advisory
     expect(d2.warnings).toHaveLength(1);
-    expect(d2.warnings[0].rule).toBe("hard_constraint_advisory");
+    expect(d2.warnings[0]!.rule).toBe("hard_constraint_advisory");
   });
 
   // ── custom rule (advisory, not silent) ────────────────
@@ -900,7 +900,7 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/anything.ts"),
+      touchedResources: toRefs("src/anything.js"),
     });
     expect(decision.permitted).toBe(true);
     expect(decision.blockers).toHaveLength(0);
@@ -940,7 +940,7 @@ describe("PR4: Typed hard constraint evaluation", () => {
     const decision = evaluateConstraints({
       action: "operation_submit",
       projection: proj,
-      touchedResources: toRefs("src/auth/session.ts"),
+      touchedResources: toRefs("src/auth/session.js"),
     });
     expect(decision.permitted).toBe(false);
     expect(decision.blockers).toHaveLength(1);
@@ -961,7 +961,7 @@ describe("buildConstraintManifest", () => {
     const input: ConstraintInput = {
       action: "resume",
       projection: proj,
-      touchedResources: toRefs("src/core/index.ts"),
+      touchedResources: toRefs("src/core/index.js"),
     };
     const decision = evaluateConstraints(input);
     expect(decision.permitted).toBe(false);
@@ -972,7 +972,7 @@ describe("buildConstraintManifest", () => {
     expect(manifest.action).toBe("resume");
     expect(manifest.permitted).toBe(false);
     expect(manifest.blockerCount).toBeGreaterThan(0);
-    expect(manifest.touchedResources).toContain("src/core/index.ts");
+    expect(manifest.touchedResources).toContain("src/core/index.js");
     expect(manifest.hash).toBeTruthy();
     expect(manifest.evaluatedAt).toBeTruthy();
     expect(manifest.evaluatedRules.length).toBe(manifest.blockerCount + manifest.warningCount);
@@ -986,7 +986,7 @@ describe("buildConstraintManifest", () => {
     const inputSafe: ConstraintInput = {
       action: "resume",
       projection: proj,
-      touchedResources: toRefs("src/other/file.ts"),
+      touchedResources: toRefs("src/other/file.js"),
     };
     const dSafe = evaluateConstraints(inputSafe);
     const mSafe = buildConstraintManifest(inputSafe, dSafe);
@@ -996,7 +996,7 @@ describe("buildConstraintManifest", () => {
     const inputBlocked: ConstraintInput = {
       action: "resume",
       projection: proj,
-      touchedResources: toRefs("src/core/index.ts"),
+      touchedResources: toRefs("src/core/index.js"),
     };
     const dBlocked = evaluateConstraints(inputBlocked);
     const mBlocked = buildConstraintManifest(inputBlocked, dBlocked);

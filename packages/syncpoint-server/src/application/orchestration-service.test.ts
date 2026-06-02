@@ -175,7 +175,7 @@ describe("Session lifecycle", () => {
     expect(status.assignments.length).toBe(1);
     expect(status.reviews.length).toBe(1);
     expect(status.decisions.length).toBe(1);
-    expect(status.decisions[0].verdict).toBe("approved");
+    expect(status.decisions[0]!.verdict).toBe("approved");
   });
 });
 

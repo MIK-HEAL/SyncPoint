@@ -765,7 +765,7 @@ export function activate(context: vscode.ExtensionContext) {
       const text = formatResumePrompt(rc, format.format as PromptFormat);
       const folders = vscode.workspace.workspaceFolders;
       if (!folders?.length) { vscode.window.showWarningMessage("No workspace folder open"); return; }
-      const root = folders[0].uri;
+      const root = folders[0]!.uri;
       const fileUri = vscode.Uri.joinPath(root, format.label);
       await vscode.workspace.fs.writeFile(fileUri, Buffer.from(text, "utf-8"));
       vscode.window.showInformationMessage(`Written: ${format.label}`);
