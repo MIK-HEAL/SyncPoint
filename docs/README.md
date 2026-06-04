@@ -115,7 +115,7 @@ The tour guides are not marketing samples. They are executable stories for the c
 | Tour | Protocol boundary |
 |---|---|
 | [`01-file-shield-tour.md`](tours/01-file-shield-tour.md) | `ResourceClaim` overlap creates a `SyncGate` before unsafe continuation |
-| [`02-transaction-purity-tour.md`](tours/02-transaction-purity-tour.md) | `CheckpointReview` (`SyncTransaction` internals) prevents unapproved checkpoints from becoming base reality |
+| [`02-transaction-purity-tour.md`](tours/02-transaction-purity-tour.md) | `CheckpointReview` prevents unapproved checkpoints from becoming base reality |
 | [`03-constraint-enforcement-tour.md`](tours/03-constraint-enforcement-tour.md) | Constraint Evaluation runtime blocks a `do_not_touch` scope violation |
 | [`04-liveness-and-escalation-tour.md`](tours/04-liveness-and-escalation-tour.md) | liveness policies turn zombie gates into visible decisions |
 
