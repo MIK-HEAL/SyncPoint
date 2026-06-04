@@ -18,6 +18,7 @@ import { registerOperationTools } from "./tools/operation.js";
 import { registerGuardTools } from "./tools/guard.js";
 import { registerRuntimeTools } from "./tools/runtime.js";
 import { registerAgentMessageTools } from "./tools/agent-message.js";
+import { registerConstraintTools } from "./tools/constraint.js";
 
 export function registerTools(server: McpServer): void {
   registerLoopContextTools(server);
@@ -34,4 +35,5 @@ export function registerTools(server: McpServer): void {
   registerGuardTools(server);
   registerRuntimeTools(server);
   registerAgentMessageTools(server);
+  registerConstraintTools(server);
 }

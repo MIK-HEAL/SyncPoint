@@ -14,7 +14,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { Command, Option } from "commander";
 import { RuntimeKind } from "syncpoint-core";
-import { initSyncpointDir, getSyncpointDir, isProjectLocal } from "syncpoint-server";
+import { initSyncpointDir, getSyncpointDir, isProjectLocal, getRawDb } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
 
 // ── Helpers ──────────────────────────────────────────────
@@ -333,6 +333,42 @@ export function registerConnectCommands(program: Command): void {
         checks.push({ check: "mcp-server", status: "warn", detail: `${mcpPath} not found. Run: pnpm --filter syncpoint-mcp build` });
       }
 
+      // Check 6: Database integrity & WAL mode
+      try {
+        const rawDb = getRawDb();
+        if (rawDb) {
+          const integrityResult = rawDb.prepare("PRAGMA integrity_check").get() as any;
+          if (integrityResult?.integrity_check === "ok") {
+            checks.push({ check: "db-integrity", status: "ok", detail: "PRAGMA integrity_check: ok" });
+          } else {
+            checks.push({ check: "db-integrity", status: "fail", detail: `integrity_check: ${JSON.stringify(integrityResult)}` });
+          }
+          const journalMode = rawDb.prepare("PRAGMA journal_mode").get() as any;
+          const mode = journalMode?.journal_mode ?? "unknown";
+          checks.push({ check: "db-wal", status: mode === "wal" ? "ok" : "warn", detail: `journal_mode: ${mode}` });
+        }
+      } catch {
+        checks.push({ check: "db-integrity", status: "warn", detail: "Could not run PRAGMA integrity_check" });
+      }
+
+      // Check 7: Disk usage & orphan records
+      try {
+        if (syncDir) {
+          let totalSize = 0;
+          for (const f of walkDir(syncDir)) { try { totalSize += fs.statSync(f).size; } catch { /* ok */ } }
+          checks.push({ check: "disk-usage", status: totalSize > 500 * 1024 * 1024 ? "warn" : "ok", detail: `.syncpoint size: ${formatBytes(totalSize)}` });
+        }
+        const rawDb = getRawDb();
+        if (rawDb) {
+          const orphanResources = rawDb.prepare(
+            "SELECT COUNT(*) as cnt FROM resource_claim_resource WHERE claim_id NOT IN (SELECT id FROM resource_claim)"
+          ).get() as any;
+          if (orphanResources?.cnt > 0) {
+            checks.push({ check: "orphans", status: "warn", detail: `${orphanResources.cnt} orphan resource_claim_resource rows` });
+          }
+        }
+      } catch { /* best-effort */ }
+
       // Output
       if (opts.json) {
         const allOk = checks.every(c => c.status === "ok");
@@ -383,6 +419,27 @@ export function registerConnectCommands(program: Command): void {
         }
       }
     });
+}
+
+function walkDir(dir: string): string[] {
+  const results: string[] = [];
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...walkDir(full));
+      } else {
+        results.push(full);
+      }
+    }
+  } catch { /* best-effort */ }
+  return results;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function outputConfig(

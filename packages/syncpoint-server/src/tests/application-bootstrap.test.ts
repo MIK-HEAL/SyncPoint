@@ -10,16 +10,16 @@ import {
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const applicationDir = path.resolve(testDir, "../application");
-const mainPath = path.resolve(testDir, "../main.js");
+const mainPath = path.resolve(testDir, "../main.ts");
 
 const serviceEntryFiles = [
-  "constraint-evaluation-service.js",
-  "file-audit-service.js",
-  "loop-service.js",
-  "operation-service.js",
-  "reality-projection-service.js",
-  "resource-claim-service.js",
-  "wake-engine-service.js",
+  "constraint-evaluation-service.ts",
+  "file-audit-service.ts",
+  "loop-service.ts",
+  "operation-service.ts",
+  "reality-projection-service.ts",
+  "resource-claim-service.ts",
+  "wake-engine-service.ts",
 ];
 
 beforeEach(() => {
@@ -55,7 +55,7 @@ describe("application bootstrap", () => {
   });
 
   it("exposes the bootstrap API from the application barrel and server startup", () => {
-    const barrelSource = fs.readFileSync(path.join(applicationDir, "index.js"), "utf8");
+    const barrelSource = fs.readFileSync(path.join(applicationDir, "index.ts"), "utf8");
     expect(barrelSource).toContain('export * from "./bootstrap.js"');
 
     const mainSource = fs.readFileSync(mainPath, "utf8");
@@ -64,6 +64,6 @@ describe("application bootstrap", () => {
   });
 
   it("_plugin-init.ts has been removed", () => {
-    expect(fs.existsSync(path.join(applicationDir, "_plugin-init.js"))).toBe(false);
+    expect(fs.existsSync(path.join(applicationDir, "_plugin-init.ts"))).toBe(false);
   });
 });

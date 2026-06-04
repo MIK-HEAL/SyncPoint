@@ -720,15 +720,19 @@ export {
   ServerConfig,
   GuardConfig,
   SseConfig,
+  ConstraintsConfig,
   CheckpointConfig,
   AuthConfig,
   LogConfig,
   DEFAULT_CONFIG,
   mergeConfig,
+  configFromFile,
   configFromEnv,
+  loadConfig,
+  validateConfig,
 } from "./config.js";
 
-export type { SyncPointConfig } from "./config.js";
+export type { SyncPointConfig, ConfigValidationIssue } from "./config.js";
 
 // Agent Message
 export {

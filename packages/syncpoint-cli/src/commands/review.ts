@@ -17,6 +17,7 @@ import {
   rwBlockReview,
   rwPrepareReviewPacket,
 } from "syncpoint-server/application";
+import { listSessions, listReviewRequests } from "syncpoint-server/repositories";
 import type { ChecklistItemStatus, EvidenceKind } from "syncpoint-core";
 
 export function registerReviewCommands(program: Command): void {
@@ -216,14 +217,111 @@ export function registerReviewCommands(program: Command): void {
   // ── approve ────────────────────────────────────────
   review
     .command("approve")
-    .description("Approve a review (gate must be PASSED)")
-    .requiredOption("--review <id>", "Review request ID")
-    .requiredOption("--summary <text>", "Approval summary")
+    .description("Approve a review (gate must be PASSED). Use --all --task <taskId> for batch approval.")
+    .option("--review <id>", "Review request ID (single approval)")
+    .option("--summary <text>", "Approval summary")
+    .option("--all", "Approve all eligible reviews")
+    .option("--task <taskId>", "Task ID filter for --all")
+    .option("--session <sessionId>", "Session ID filter for --all")
+    .option("--dry-run", "Show what would be approved without actually approving")
     .option("--json", "Output JSON")
     .action((opts) => {
+      // ── Batch approval ──────────────────────────────
+      if (opts.all) {
+        const sessions = listSessions();
+        const allReviewRequests: Array<{ id: string; taskId: string; sessionId: string; status: string }> = [];
+
+        for (const session of sessions) {
+          if (opts.session && session.id !== opts.session) continue;
+          try {
+            const reviews = listReviewRequests(session.id);
+            for (const r of reviews) {
+              if (opts.task && (r as any).taskId !== opts.task) continue;
+              // Only approve PENDING or IN_PROGRESS reviews
+              if ((r as any).status !== "PENDING" && (r as any).status !== "IN_PROGRESS") continue;
+              allReviewRequests.push({
+                id: r.id,
+                taskId: (r as any).taskId ?? "",
+                sessionId: session.id,
+                status: (r as any).status,
+              });
+            }
+          } catch { /* session may not have reviews */ }
+        }
+
+        if (allReviewRequests.length === 0) {
+          const filterDesc = opts.task ? ` for task ${opts.task}` : "";
+          console.log(`No eligible review requests found${filterDesc}.`);
+          return;
+        }
+
+        if (opts.dryRun) {
+          if (opts.json) {
+            console.log(JSON.stringify({ dryRun: true, count: allReviewRequests.length, reviews: allReviewRequests }, null, 2));
+          } else {
+            console.log(`Would approve ${allReviewRequests.length} review(s):`);
+            for (const r of allReviewRequests) {
+              console.log(`  ${r.id} (task: ${r.taskId}, session: ${r.sessionId}) [${r.status}]`);
+            }
+          }
+          return;
+        }
+
+        // Approve each eligible review
+        const approved: string[] = [];
+        const failed: Array<{ id: string; error: string }> = [];
+        for (const r of allReviewRequests) {
+          try {
+            // Evaluate gate first
+            const gate = rwEvaluateGate(r.id);
+            if (gate.status === "BLOCKED") {
+              failed.push({ id: r.id, error: `Gate is BLOCKED: ${gate.reasons.join("; ")}` });
+              continue;
+            }
+            const result = rwApproveReview({
+              reviewRequestId: r.id,
+              summary: opts.summary ?? `Batch approved${opts.task ? ` for task ${opts.task}` : ""}`,
+              decidedBy: "cli",
+            });
+            approved.push(result.approvalRecord.id);
+          } catch (e) {
+            failed.push({ id: r.id, error: (e as Error).message });
+          }
+        }
+
+        if (opts.json) {
+          console.log(JSON.stringify({
+            total: allReviewRequests.length,
+            approved: approved.length,
+            failed: failed.length,
+            approvedIds: approved,
+            failures: failed,
+          }, null, 2));
+        } else {
+          console.log(`Batch approve complete: ${approved.length}/${allReviewRequests.length} approved`);
+          if (approved.length > 0) {
+            console.log(`  ✅ Approved: ${approved.join(", ")}`);
+          }
+          if (failed.length > 0) {
+            console.log(`  ❌ Failed:`);
+            for (const f of failed) {
+              console.log(`     ${f.id}: ${f.error}`);
+            }
+          }
+        }
+        return;
+      }
+
+      // ── Single approval ────────────────────────────
+      if (!opts.review) {
+        console.error("Either --review <id> or --all is required.");
+        console.error("Run 'syncpoint review approve --help' for usage.");
+        process.exitCode = 1;
+        return;
+      }
       const result = rwApproveReview({
         reviewRequestId: opts.review,
-        summary: opts.summary,
+        summary: opts.summary ?? "Approved via CLI",
         decidedBy: "cli",
       });
       if (opts.json) {

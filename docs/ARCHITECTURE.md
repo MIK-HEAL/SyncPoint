@@ -1,4 +1,35 @@
-# SyncPoint — Layer Boundary Principles
+# SyncPoint — Architecture & Layer Boundary Principles
+
+## System Overview
+
+SyncPoint is a local-first synchronization hub for AI coding agents. It coordinates multiple agents working in the same codebase through resource locking, constraint enforcement, checkpoint management, and real-time event streaming.
+
+### Package Dependency Flow
+
+```
+syncpoint-core ← syncpoint-server ← syncpoint-cli
+                                 ← syncpoint-mcp
+                                 ← syncpoint-sdk
+```
+
+### Core Concepts
+
+| Concept | Purpose |
+|---------|---------|
+| **Resource & Claim** | File/function/line_range locking with conflict detection |
+| **Constraint** | Policy rules (do_not_touch, require_review) enforced pre-write |
+| **SyncGate** | Synchronization barrier requiring multi-agent acknowledgment |
+| **Checkpoint** | Saved progress point with summary, risks, and next steps |
+| **ContextSnapshot** | Full/delta agent context capture with integrity hashes |
+| **Event Bus & SSE** | Real-time event streaming with sequence numbers and replay |
+
+### State Machine Quick Reference
+
+- **ResourceClaim**: `ACTIVE` → `RELEASED`
+- **SyncGate**: `NEEDS_SYNC` → `WAITING_APPROVAL` → `APPROVED` → `READY_TO_CONTINUE` (or `CANCELLED`)
+- **CheckpointReview**: `OPEN` → `WAITING_APPROVAL` → `APPROVED`/`REJECTED` → `RESOLVED`
+
+---
 
 Where does new code go? Use this decision tree before creating a new file
 or adding logic to an existing one.

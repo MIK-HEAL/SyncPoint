@@ -8,6 +8,7 @@ import { formatResumePrompt } from "syncpoint-core";
 import { getResumeContext } from "syncpoint-server/repositories";
 import { pmList, prepareContext, orchGetSessionStatus, rwPrepareReviewPacket, pbGetNextAction, wakeNext, wakeList } from "syncpoint-server/application";
 import { formatProjectMemorySummary } from "./format.js";
+import { rcDetectConflicts, rcList } from "syncpoint-server/application";
 
 export function registerPrompts(server: McpServer): void {
   // ── syncpoint_resume ──
@@ -551,6 +552,200 @@ export function registerPrompts(server: McpServer): void {
       if (wake.promptHint) {
         lines.push(`**Tip**: Use the \`${wake.promptHint}\` prompt for detailed role-specific guidance.`);
       }
+
+      return {
+        messages: [
+          { role: "user" as const, content: { type: "text" as const, text: lines.join("\n") } },
+        ],
+      };
+    }
+  );
+
+  // ── syncpoint_conflict_resolution ──
+  server.registerPrompt(
+    "syncpoint_conflict_resolution",
+    {
+      title: "Conflict Resolution Guide",
+      description: "Smart conflict resolution prompt: analyzes active conflicts and generates structured resolution suggestions with options, impact assessment, and related constraints.",
+      argsSchema: {
+        taskId: z.string().describe("Your task ID"),
+        agentId: z.string().describe("Your agent ID"),
+        locator: z.string().optional().describe("Specific resource locator (optional — omit to show all conflicts)"),
+      },
+    },
+    ({ taskId, agentId, locator }) => {
+      const conflicts = rcDetectConflicts();
+      const myClaims = rcList({ actorId: agentId, status: "ACTIVE" });
+
+      let relevantConflicts = conflicts;
+      if (locator) {
+        relevantConflicts = conflicts.filter(c => c.overlappingLocator.includes(locator));
+      }
+
+      const lines: string[] = [];
+      lines.push("# Resource Conflict Resolution");
+      lines.push("");
+      lines.push(`**Your Agent**: ${agentId}`);
+      lines.push(`**Your Task**: ${taskId}`);
+      lines.push("");
+      lines.push(`**Active Conflicts**: ${relevantConflicts.length}`);
+
+      if (relevantConflicts.length === 0) {
+        lines.push("");
+        lines.push("✅ No active conflicts detected. You can proceed with your edits.");
+        return {
+          messages: [
+            { role: "user" as const, content: { type: "text" as const, text: lines.join("\n") } },
+          ],
+        };
+      }
+
+      for (const c of relevantConflicts) {
+        const otherActor = c.claimA.actorId === agentId ? c.claimB.actorId : c.claimA.actorId;
+        const otherTask = c.claimA.actorId === agentId ? c.claimB.taskId : c.claimA.taskId;
+
+        lines.push("");
+        lines.push(`## Conflict: ${c.overlappingLocator}`);
+        lines.push(`- **Type**: ${c.isHardConflict ? "🔒 HARD (exclusive clash)" : "ℹ️ SOFT (overlap)"}`);
+        lines.push(`- **Other Agent**: ${otherActor} (task: ${otherTask})`);
+
+        // Analyze for smart suggestions
+        const claimA = c.claimA;
+        const claimB = c.claimB;
+        const aResources = claimA.resources ?? [];
+        const bResources = claimB.resources ?? [];
+        const aHasFileScope = aResources.some((r: any) => (r.scope ?? "file") === "file");
+        const bHasFileScope = bResources.some((r: any) => (r.scope ?? "file") === "file");
+
+        lines.push("");
+        lines.push("### Suggestions");
+
+        if (aHasFileScope || bHasFileScope) {
+          lines.push("1. **Narrow your scope**: One agent claims the entire file. If you're editing a specific function, use:");
+          lines.push("   - CLI: `syncpoint claim <file> --scope function --function <name> --agent YOUR_ID --task YOUR_TASK`");
+          lines.push("   - MCP: `syncpoint_resource_claim` with `scope: 'function'` and `functionName`");
+          lines.push("2. **Wait for release**: The other agent may finish soon. Check with `syncpoint status`.");
+        } else {
+          lines.push("1. **Check for false conflict**: Are you actually editing the same code? If not, each agent may proceed safely.");
+          lines.push("2. **Coordinate**: Both claims are at sub-file granularity. Verify the overlap is real.");
+        }
+
+        if (c.isHardConflict) {
+          lines.push("3. **Resolve SyncGate**: This conflict created a SyncGate. Use `syncpoint_sync_gate_status` to check it.");
+          lines.push("   - Both agents must acknowledge before either can continue.");
+          lines.push(`   - Contact ${otherActor} to coordinate the resolution.`);
+        }
+      }
+
+      lines.push("");
+      lines.push("---");
+      lines.push("");
+      lines.push("## Related Constraints");
+      lines.push("Check if any active constraints affect the conflicted files:");
+      lines.push("- Use `syncpoint_constraint_check` to verify specific files");
+      lines.push("- Use `syncpoint_preflight` before editing to avoid further conflicts");
+
+      return {
+        messages: [
+          { role: "user" as const, content: { type: "text" as const, text: lines.join("\n") } },
+        ],
+      };
+    }
+  );
+
+  // ── syncpoint_context_aware_check ──
+  server.registerPrompt(
+    "syncpoint_context_aware_check",
+    {
+      title: "Context-Aware Pre-edit Check",
+      description: "Task-context-aware prompt: analyzes your task against all active constraints, claims, and potential conflicts. Warns if you're about to edit restricted or contested files.",
+      argsSchema: {
+        taskId: z.string().describe("Your task ID"),
+        agentId: z.string().describe("Your agent ID"),
+        plannedFiles: z.string().optional().describe("Comma-separated list of files you plan to edit"),
+      },
+    },
+    ({ taskId, agentId, plannedFiles }) => {
+      const ctx = getResumeContext(taskId, agentId);
+      const files = (plannedFiles ?? "").split(",").map(s => s.trim()).filter(Boolean);
+
+      const lines: string[] = [];
+      lines.push("# Context-Aware Safety Check");
+      lines.push("");
+      lines.push(`**Task**: ${ctx.task.title} (${ctx.task.status})`);
+      lines.push(`**Agent**: ${ctx.agent.name}`);
+
+      // Show task context
+      if (ctx.task) {
+        lines.push(`**Goal**: ${(ctx as any).goal ?? ctx.task.title}`);
+        if ((ctx as any).workingResources?.length) {
+          lines.push(`**Expected Resources**: ${(ctx as any).workingResources.join(", ")}`);
+        }
+      }
+
+      lines.push("");
+
+      if (files.length > 0) {
+        lines.push("## Planned File Analysis");
+        for (const file of files) {
+          lines.push(`### ${file}`);
+
+          // Check do_not_touch from environment
+          const doNotTouch = process.env.SYNCPOINT_DO_NOT_TOUCH?.split(",").map(s => s.trim()).filter(Boolean) ?? [];
+          for (const pattern of doNotTouch) {
+            if (file.includes(pattern.replace(/\*/g, ""))) {
+              lines.push(`🚫 DO NOT TOUCH: File matches restricted pattern '${pattern}'.`);
+            }
+          }
+
+          // Check active claims by other agents
+          const activeClaims = rcList({ status: "ACTIVE" });
+          let hasWarning = false;
+          for (const claim of activeClaims) {
+            if (claim.actorId === agentId) continue;
+            for (const resource of claim.resources ?? []) {
+              if (resource.scope === "file" && resource.locator === file) {
+                hasWarning = true;
+                if ((claim as any).mode === "exclusive") {
+                  lines.push(`🔒 Claimed exclusively by ${claim.actorId} (task: ${claim.taskId}) — DO NOT EDIT`);
+                } else {
+                  lines.push(`⚠️  Shared claim by ${claim.actorId} (task: ${claim.taskId}) — coordinate before editing`);
+                }
+              }
+            }
+          }
+
+          if (!hasWarning) {
+            lines.push("✅ No restrictions or conflicts detected for this file.");
+          }
+        }
+      } else {
+        lines.push("## General Context Warnings");
+        lines.push("No specific files provided. Use `--plannedFiles` to check specific files before editing.");
+        lines.push("");
+
+        // Show active constraints
+        const doNotTouch = process.env.SYNCPOINT_DO_NOT_TOUCH?.split(",").map(s => s.trim()).filter(Boolean) ?? [];
+        if (doNotTouch.length > 0) {
+          lines.push(`**Do Not Touch patterns**: ${doNotTouch.join(", ")}`);
+          lines.push("🚫 These patterns must NOT be edited under any circumstances.");
+        }
+
+        // Show active claims by other agents
+        const activeClaims = rcList({ status: "ACTIVE" });
+        const otherClaims = activeClaims.filter(c => c.actorId !== agentId);
+        if (otherClaims.length > 0) {
+          lines.push(`**Active claims by other agents**: ${otherClaims.length}`);
+          for (const claim of otherClaims.slice(0, 5)) {
+            const resources = claim.resources?.map((r: any) => r.locator).join(", ") ?? "";
+            lines.push(`  - ${claim.actorId}: ${resources}`);
+          }
+        }
+      }
+
+      lines.push("");
+      lines.push("---");
+      lines.push("**Recommendation**: Always run `syncpoint_preflight` before editing files in a multi-agent project.");
 
       return {
         messages: [

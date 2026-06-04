@@ -9,10 +9,10 @@ import {
 
 describe("parseClaimPaths", () => {
   it("splits and trims", () => {
-    expect(parseClaimPaths("src/a.ts, src/b.js")).toEqual(["src/a.js", "src/b.js"]);
+    expect(parseClaimPaths("src/a.ts, src/b.js")).toEqual(["src/a.ts", "src/b.js"]);
   });
   it("drops empty strings", () => {
-    expect(parseClaimPaths(",,src/a.ts,,")).toEqual(["src/a.js"]);
+    expect(parseClaimPaths(",,src/a.ts,,")).toEqual(["src/a.ts"]);
   });
 });
 
@@ -39,14 +39,14 @@ describe("filePathsToResourceRefs", () => {
   it("converts to ResourceRef with type=file", () => {
     const refs = filePathsToResourceRefs("src/a.ts, src/b.js");
     expect(refs).toHaveLength(2);
-    expect(refs[0]).toEqual({ type: "file", scope: "file", locator: "src/a.js", metadata: "" });
+    expect(refs[0]).toEqual({ type: "file", scope: "file", locator: "src/a.ts", metadata: "" });
   });
 });
 
 describe("resourceRefsToFilePaths", () => {
   it("extracts file locators", () => {
     const refs: ResourceRef[] = [
-      { type: "file", scope: "file" as const, locator: "src/a.js", metadata: "" },
+      { type: "file", scope: "file" as const, locator: "src/a.ts", metadata: "" },
       { type: "image", scope: "file" as const, locator: "logo.png", metadata: "" },
       { type: "file", scope: "file" as const, locator: "src/b.js", metadata: "" },
     ];

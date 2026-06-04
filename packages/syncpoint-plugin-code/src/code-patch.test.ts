@@ -23,14 +23,14 @@ function makeClaim(id: string, actorId: string, paths: string, mode = "exclusive
 describe("extractTouchedFiles", () => {
   it("extracts from unified diff", () => {
     const patch = `diff --git a/src/auth.ts b/src/auth.ts\n--- a/src/auth.ts\n+++ b/src/auth.ts\n@@ -1 +1 @@\n-old\n+new`;
-    expect(extractTouchedFiles(patch)).toEqual(["src/auth.js"]);
+    expect(extractTouchedFiles(patch)).toEqual(["src/auth.ts"]);
   });
   it("returns empty for no diff", () => {
     expect(extractTouchedFiles("no diff here")).toEqual([]);
   });
   it("handles multiple files", () => {
     const patch = `diff --git a/a.ts b/a.ts\n+++ b/a.ts\ndiff --git a/b.ts b/b.ts\n+++ b/b.ts`;
-    expect(extractTouchedFiles(patch)).toEqual(["a.js", "b.js"]);
+    expect(extractTouchedFiles(patch)).toEqual(["a.ts", "b.ts"]);
   });
 });
 

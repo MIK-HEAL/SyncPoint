@@ -78,8 +78,8 @@ describe("evaluateFileAuditChange", () => {
 describe("parseRelatedFileLocators", () => {
   it("splits comma-separated and overlap-display locators", () => {
     expect(parseRelatedFileLocators("src/a.ts ↔ src/b.ts, src/c.js")).toEqual([
-      "src/a.js",
-      "src/b.js",
+      "src/a.ts",
+      "src/b.ts",
       "src/c.js",
     ]);
   });
