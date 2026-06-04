@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["test/**/*.test.ts"],
     testTimeout: 10_000,
   },
   resolve: {

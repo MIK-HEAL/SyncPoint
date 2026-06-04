@@ -11,6 +11,5 @@
       "syncpoint-adapters": ["../syncpoint-adapters/src/index.ts"]
     }
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src"]
 }

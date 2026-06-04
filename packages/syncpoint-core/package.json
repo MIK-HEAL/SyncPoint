@@ -19,31 +19,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./foundation": {
-      "source": "./src/foundation-api.ts",
-      "types": "./dist/foundation-api.d.ts",
-      "import": "./dist/foundation-api.js"
-    },
-    "./context": {
-      "source": "./src/context-api.ts",
-      "types": "./dist/context-api.d.ts",
-      "import": "./dist/context-api.js"
-    },
-    "./runtime": {
-      "source": "./src/runtime-api.ts",
-      "types": "./dist/runtime-api.d.ts",
-      "import": "./dist/runtime-api.js"
-    },
-    "./protocol": {
-      "source": "./src/protocol-api.ts",
-      "types": "./dist/protocol-api.d.ts",
-      "import": "./dist/protocol-api.js"
-    },
-    "./negotiation": {
-      "source": "./src/negotiation-api.ts",
-      "types": "./dist/negotiation-api.d.ts",
-      "import": "./dist/negotiation-api.js"
-    },
     "./kernel": {
       "source": "./src/_exports/kernel.ts",
       "types": "./dist/_exports/kernel.d.ts",
