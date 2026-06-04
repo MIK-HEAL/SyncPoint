@@ -142,14 +142,14 @@ interface ScopeMatcher {
 | `getScopeMatcher(field)` | Retrieve the registered matcher, or `undefined` |
 | `clearScopeMatcherRegistry()` | Remove all matchers (testing only) |
 
-**Built-in registrations** (`_scope-matchers.ts` in `syncpoint-server`):
+**Built-in registrations** (registered by `syncpoint-plugin-code` via `registerCodePlugin()`):
 
 | Field | Semantics |
 |---|---|
 | `files` | Prefix/glob overlap against working resource locators |
 | `modules` | Prefix/glob overlap against current module context |
 
-**How core uses it**: During `compileProjection()`, each memory's `appliesTo` JSON is parsed (e.g. `{"files": ["src/**"]}`). For each field, the registered `ScopeMatcher.findOverlaps()` checks if any pattern overlaps with the task's working resources or module context. Unmatched memories are excluded from the projected reality.
+**How core uses it**: During `buildRealityProjection()`, each memory's `appliesTo` JSON is parsed (e.g. `{"files": ["src/**"]}`). For each field, the registered `ScopeMatcher.findOverlaps()` checks if any pattern overlaps with the task's working resources or module context. Unmatched memories are excluded from the projected reality.
 
 ### 4. ConstraintRuleEvaluator — typed constraint enforcement
 

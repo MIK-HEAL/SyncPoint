@@ -23,19 +23,26 @@ pnpm build
 SyncPoint/
 ├── docs/                  # Documentation
 ├── packages/
-│   ├── syncpoint-core/    # Shared types, schemas, protocols
+│   ├── syncpoint-core/    # Facade re-exporting kernel, governance, context, adapters
+│   ├── syncpoint-kernel/  # Resource, operation, sync-gate, write-permit, validator
+│   ├── syncpoint-context/ # Memory, reality-projection, context-policy
+│   ├── syncpoint-governance/ # Checkpoint-review, constraint-evaluation, wake
+│   ├── syncpoint-adapters/   # Agent manifests, negotiation, orchestration, runtime
 │   ├── syncpoint-server/  # Business logic, DB, tRPC, SSE
 │   ├── syncpoint-cli/     # CLI commands
 │   ├── syncpoint-mcp/     # MCP server for IDE integration
 │   ├── syncpoint-sdk/     # Client SDK
 │   └── vscode-extension/  # VS Code extension
+├── plugins/
+│   ├── syncpoint-plugin-code/           # Code-domain plugin
+│   └── syncpoint-plugin-generic-agent/  # Generic resource plugin
 └── TASK/                  # Task lists and plans
 ```
 
 ### Package Dependency Order
 
 ```
-core ← server ← cli, mcp, sdk
+kernel ← context ← governance ← adapters ← core ← server ← cli, mcp, sdk
 ```
 
 When making changes, build in dependency order:

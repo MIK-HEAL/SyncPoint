@@ -392,20 +392,25 @@ This is the operator view for answering: **"Who is blocked, why, and what unbloc
 
 ```text
 packages/
-├── syncpoint-core         # protocol types, state machines, reality projection, constraint evaluation
-├── syncpoint-server       # application services, SQLite, tRPC, SSE
-├── syncpoint-cli          # operator CLI for sessions, gates, transactions, operations, constraints
-├── syncpoint-mcp          # MCP adapter for editor AI agents
-├── syncpoint-plugin-code  # code-domain plugin — file resources, code operation validators, compat adapters
-├── syncpoint-plugin-generic-agent  # generic resource plugin — artifact/binary/document claims, validators, constraint evaluators
-├── syncpoint-sdk          # typed client for integrations
-└── vscode-extension       # Sync View for claims, blockers, operations, wakes
+├── syncpoint-core           # facade — re-exports kernel, governance, context, adapters
+├── syncpoint-kernel         # resource, operation, sync-gate, write-permit, validator
+├── syncpoint-context        # memory, reality-projection, context-policy, prompt-templates
+├── syncpoint-governance     # checkpoint-review, constraint-evaluation, review-workflow, wake
+├── syncpoint-adapters       # agent cards/manifests, negotiation, orchestration, runtime
+├── syncpoint-server         # application services, SQLite, tRPC, SSE
+├── syncpoint-cli            # operator CLI
+├── syncpoint-mcp            # MCP adapter for editor AI agents
+├── syncpoint-plugin-code    # code-domain plugin
+├── syncpoint-plugin-generic-agent  # generic resource plugin
+├── syncpoint-sdk            # typed client for integrations
+└── vscode-extension         # Sync View
 ```
 
 The architectural rule:
 
 ```text
-syncpoint-core defines the protocol and pure evaluation logic.
+Domain packages (kernel, context, governance, adapters) define pure logic.
+syncpoint-core re-exports all four as a unified facade.
 syncpoint-server enforces the protocol and manages state.
 CLI, MCP, SDK, and VS Code are transport adapters — no business logic.
 ```

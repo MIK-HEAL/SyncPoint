@@ -344,7 +344,7 @@ protocol_rule         → protocolRules
 
 **Goal**: The architectural core — compile long-term memory into task-scoped reality.
 
-**P3A — Core Compiler** (`syncpoint-core/src/projection.ts`):
+**P3A — Core Compiler** (`syncpoint-context/src/reality-projection.ts`):
 - `compileProjection(memories, ctx)` — pure compiler, no I/O
 - `computeProjectionCacheKey(ctx, fingerprints)` — stable hash for cache invalidation
 - All five principles enforced: Minimal Reality, Traceable Reality, Explicit Conflict, Auditable Projection, Reality Freshness
@@ -371,7 +371,7 @@ protocol_rule         → protocolRules
 
 **Goal**: Hard constraints become executable — they can block agent execution.
 
-**P4A — Core Evaluator** (`syncpoint-core/src/constraint-runtime.ts`):
+**P4A — Core Evaluator** (`syncpoint-governance/src/constraint-evaluation.ts`):
 - `evaluateConstraints(input): ConstraintDecision` — pure function, no I/O
 - Core evaluators: `projection_invalid`, `projection_conflict`, `do_not_touch_scope_overlap`, `protocol_gate_blocked`, `snapshot_locked_invalid`, typed hard constraints, and advisory hard constraints
 - Scope prefix matching for file overlap detection

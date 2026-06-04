@@ -19,7 +19,7 @@ Project Memory → Projection Layer → constraintRules → Constraint Runtime �
 
 ### Core Evaluator
 
-**File**: `syncpoint-core/src/constraint-runtime.ts`
+**File**: `syncpoint-governance/src/constraint-evaluation.ts`
 
 Pure function, no I/O:
 
@@ -182,7 +182,7 @@ Summary adds:
 
 | Suite | File | Count |
 |-------|------|-------|
-| P4A Core | `syncpoint-core/src/constraint-runtime.test.ts` | 52 |
+| P4A Core | `syncpoint-governance/test/constraint-evaluation.test.ts` | 52 |
 | P4C Entry Points | `syncpoint-server/src/tests/p4c-constraint-enforcement.test.ts` | 7 |
 | P4D Visibility | `syncpoint-server/src/tests/p4d-constraint-visibility.test.ts` | 17 |
 | Adversarial bypass | `syncpoint-server/src/tests/constraint-adversarial.test.ts` | 11 |

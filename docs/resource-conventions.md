@@ -62,8 +62,8 @@ Project Memory entries use `appliesTo` to restrict which task contexts they are 
 
 | Field | Registered by | Match semantics | Example |
 |---|---|---|---|
-| `files` | `_scope-matchers.ts` (server) | Prefix/glob overlap | `"src/**"` matches `"src/auth.ts"` |
-| `modules` | `_scope-matchers.ts` (server) | Prefix/glob overlap | `"core"` matches `"core"` |
+| `files` | `syncpoint-plugin-code` | Prefix/glob overlap | `"src/**"` matches `"src/auth.ts"` |
+| `modules` | `syncpoint-plugin-code` | Prefix/glob overlap | `"core"` matches `"core"` |
 
 ### How appliesTo matching works
 
