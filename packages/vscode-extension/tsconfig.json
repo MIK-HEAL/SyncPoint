@@ -5,7 +5,6 @@
     "rootDir": "../",
     "lib": ["ES2022", "WebWorker"],
     "strict": false,
-    "baseUrl": "./",
     "paths": {
       "syncpoint-kernel": ["../syncpoint-kernel/src/index.ts"],
       "syncpoint-governance": ["../syncpoint-governance/src/index.ts"],

@@ -4,7 +4,6 @@
     "outDir": "dist",
     "rootDir": "../",
     "noImplicitAny": false,
-    "baseUrl": "./",
     "paths": {
       "syncpoint-core": ["../syncpoint-core/src/index.ts"],
       "syncpoint-core/*": ["../syncpoint-core/src/*"],
