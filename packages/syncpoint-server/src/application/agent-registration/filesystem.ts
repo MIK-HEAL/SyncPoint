@@ -3,11 +3,11 @@ import path from "node:path";
 import {
   detectUserAgentManifestFormatFromPath,
   serializeUserAgentManifest,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import type {
   AgentManifestFileFormat,
   UserAgentManifest,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import { getSyncpointDir } from "../../db.js";
 import {
   ensureAgentManifestDirectory,

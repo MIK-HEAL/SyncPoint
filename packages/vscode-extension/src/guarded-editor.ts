@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { WriteIntent } from "syncpoint-core";
+import { WriteIntent } from "syncpoint-kernel";
 
 interface GuardedEditorOptions {
   client: any;

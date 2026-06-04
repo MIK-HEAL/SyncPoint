@@ -3,30 +3,14 @@
  * Builds on top of v0.7 orchestration-service. CLI, MCP, and tRPC all share this layer.
  */
 
-import {
-  ChecklistItemStatus,
-  ChangeRequestStatus,
-  evaluateApprovalGate,
-  ApprovalGateStatus,
-  ReviewRequestStatus,
-} from "syncpoint-core";
-import type {
-  ReviewChecklistItem,
-  ReviewChecklistItemCreate,
-  ReviewEvidence,
-  ReviewEvidenceCreate,
-  ChangeRequest,
-  ChangeRequestCreate,
-  ApprovalRecord,
-  ApprovalGateResult,
-  EvidenceKind,
-  ReviewRequest,
-  ReviewDecision,
-} from "syncpoint-core";
+import { ReviewRequestStatus } from "syncpoint-adapters";
+import { ChecklistItemStatus, ChangeRequestStatus, evaluateApprovalGate, ApprovalGateStatus } from "syncpoint-governance";
+import type { ReviewRequest, ReviewDecision } from "syncpoint-adapters";
+import type { ReviewChecklistItem, ReviewChecklistItemCreate, ReviewEvidence, ReviewEvidenceCreate, ChangeRequest, ChangeRequestCreate, ApprovalRecord, ApprovalGateResult, EvidenceKind } from "syncpoint-governance";
 import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
 import { prepareContext } from "./context-policy-service.js";
 import { orchSubmitReview } from "./orchestration-service.js";
-import type { PreparedContext } from "syncpoint-core";
+import type { PreparedContext } from "syncpoint-context";
 
 // ── Input Types ──────────────────────────────────────
 

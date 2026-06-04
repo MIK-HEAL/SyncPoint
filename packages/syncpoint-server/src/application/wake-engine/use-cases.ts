@@ -1,5 +1,6 @@
-import { WakeRequestStatus, EventType } from "syncpoint-core";
-import type { WakeRequest } from "syncpoint-core";
+import { WakeRequestStatus } from "syncpoint-governance";
+import { EventType } from "syncpoint-kernel";
+import type { WakeRequest } from "syncpoint-governance";
 import {
   getWakeRequest,
   listQueuedWakeRequests,

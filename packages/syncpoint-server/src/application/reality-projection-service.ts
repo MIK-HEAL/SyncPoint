@@ -9,14 +9,8 @@
  * Fingerprints are pre-filtered (skip stale/invalid) to match compiler behavior.
  */
 
-import {
-  buildRealityProjection,
-  computeProjectionLookupKey,
-  normalizeResourcePath,
-  type RealityProjection,
-  type ProjectionContext,
-  type MemoryProjectionInput,
-} from "syncpoint-core";
+import { buildRealityProjection, computeProjectionLookupKey, RealityProjection, ProjectionContext, MemoryProjectionInput } from "syncpoint-context";
+import { normalizeResourcePath } from "syncpoint-kernel";
 import {
   collectProjectMemories,
   getMemoryVersion,

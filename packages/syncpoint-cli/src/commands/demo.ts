@@ -8,14 +8,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
+import { ContractStatus } from "syncpoint-adapters";
 import {
-  ContractStatus,
   ProjectMemoryCategory,
   ProjectMemoryConfidence,
   ProjectMemoryScope,
   ProjectMemorySourceType,
-  ChecklistItemStatus,
-} from "syncpoint-core";
+} from "syncpoint-context";
+import { ChecklistItemStatus } from "syncpoint-governance";
 import { getSyncpointDir, initSyncpointDir } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
 import {

@@ -5,8 +5,8 @@ import {
   evaluateFileAuditChange,
   gateMatchesResource,
   normalizeResourcePath,
-} from "syncpoint-core";
-import type { FileAuditDecision, FileAuditGateContext, ResourceClaim, ResourceRef, SyncGate } from "syncpoint-core";
+} from "syncpoint-kernel";
+import type { FileAuditDecision, FileAuditGateContext, ResourceClaim, ResourceRef, SyncGate } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { rcList } from "./resource-claim-service.js";

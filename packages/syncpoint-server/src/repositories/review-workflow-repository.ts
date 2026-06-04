@@ -9,7 +9,7 @@ import {
   ChangeRequestStatus,
   validateChecklistItemTransition,
   validateChangeRequestTransition,
-} from "syncpoint-core";
+} from "syncpoint-governance";
 import type {
   ReviewChecklistItem,
   ReviewChecklistItemCreate,
@@ -19,7 +19,7 @@ import type {
   ChangeRequestCreate,
   ApprovalRecord,
   ApprovalRecordCreate,
-} from "syncpoint-core";
+} from "syncpoint-governance";
 import { _getDb, createId, now } from "./_shared.js";
 
 // ── Checklist Items ──────────────────────────────────

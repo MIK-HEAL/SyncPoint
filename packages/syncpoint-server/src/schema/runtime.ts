@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
-import { DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-core";
+import { DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-adapters";
 
 // ── Runtime ────────────────────────────────────────────
 

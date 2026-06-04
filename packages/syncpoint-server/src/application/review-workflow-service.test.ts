@@ -33,7 +33,7 @@ import {
   rwWaiveGate,
   rwPrepareReviewPacket,
 } from "./review-workflow-service.js";
-import { ChecklistItemStatus, ChangeRequestStatus, ApprovalGateStatus } from "syncpoint-core";
+import { ChecklistItemStatus, ChangeRequestStatus, ApprovalGateStatus } from "syncpoint-governance";
 
 let tmpDir: string;
 let architectId: string;

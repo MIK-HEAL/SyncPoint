@@ -3,8 +3,8 @@
  * against the agent's active claims. Falls back to "file" when
  * no claim covers the locator.
  */
-import type { ResourceRef } from "syncpoint-core";
-import { normalizeResourcePath } from "syncpoint-core";
+import type { ResourceRef } from "syncpoint-kernel";
+import { normalizeResourcePath } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { getProjectRoot } from "./path-resolver.js";
 

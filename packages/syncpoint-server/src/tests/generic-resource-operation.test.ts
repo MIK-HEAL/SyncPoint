@@ -6,7 +6,7 @@
  */
 
 import { eq } from "drizzle-orm";
-import { OperationStatus } from "syncpoint-core";
+import { OperationStatus } from "syncpoint-kernel";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";

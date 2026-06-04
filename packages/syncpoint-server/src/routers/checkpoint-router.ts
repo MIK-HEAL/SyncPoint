@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DiaryEntryType } from "syncpoint-core";
+import { DiaryEntryType } from "syncpoint-adapters";
 import { createCheckpoint, listCheckpoints, createDiaryEntry, listDiaryEntries } from "../repositories/_exports/context-memory.js";
 import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 

@@ -16,13 +16,9 @@
 import {
   evaluateConstraints,
   buildConstraintManifest,
-} from "syncpoint-core";
-import type {
-  ConstraintViolation,
-  ConstraintManifest,
-  ProjectionValidityStatus,
-  ContextMode,
-} from "syncpoint-core";
+} from "syncpoint-governance";
+import type { ProjectionValidityStatus, ContextMode } from "syncpoint-context";
+import type { ConstraintViolation, ConstraintManifest } from "syncpoint-governance";
 import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
 import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
 import * as protocolRepo from "../repositories/_exports/protocol.js";

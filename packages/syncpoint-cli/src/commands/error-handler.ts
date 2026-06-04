@@ -17,7 +17,7 @@ import {
   DatabaseError,
   OperationTimeoutError,
   InternalError,
-} from "syncpoint-core";
+} from "syncpoint-kernel";
 
 // ── Error formatting ──────────────────────────────────
 

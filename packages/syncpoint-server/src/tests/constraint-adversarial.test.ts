@@ -28,7 +28,9 @@ import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../applica
 import { sgRequest, sgAck, sgResolve, sgCheckAgent } from "../application/sync-gate-service.js";
 import { opCreate, opSubmit, opApprove, opApply } from "../application/operation-service.js";
 import { pmAdd, pmApprove } from "../application/project-memory-service.js";
-import { MemoryKind, TaskStatus, WakeRequestStatus } from "syncpoint-core";
+import { TaskStatus } from "syncpoint-adapters";
+import { MemoryKind } from "syncpoint-context";
+import { WakeRequestStatus } from "syncpoint-governance";
 
 let tmpDir: string;
 let architectId: string;

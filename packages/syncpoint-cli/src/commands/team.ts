@@ -1,5 +1,5 @@
 import { Command, Option } from "commander";
-import { USER_AGENT_PROVIDER_VALUES } from "syncpoint-core";
+import { USER_AGENT_PROVIDER_VALUES } from "syncpoint-adapters";
 import {
   initAgentTeam,
   listAgentTeamTemplates,

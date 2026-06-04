@@ -4,7 +4,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { auditFileChange, auditListActiveResourceClaims, rcUpdateLineRangesForFile, rcHasLineRangeClaims } from "syncpoint-server/application";
 import type { AuditFileChangeResult } from "syncpoint-server/application";
-import { FileAuditDecisionKind } from "syncpoint-core";
+import { FileAuditDecisionKind } from "syncpoint-kernel";
 import { resolveAgent } from "./connect.js";
 // @parcel/watcher types imported dynamically to avoid hard dep on type declarations
 

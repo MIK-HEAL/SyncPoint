@@ -3,8 +3,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import type { AgentCapability, AgentManifest, EscalationPreference } from "syncpoint-core";
-import { AgentManifestSchema, DEFAULT_AGENT_MANIFEST } from "syncpoint-core";
+import type { AgentCapability, AgentManifest, EscalationPreference } from "syncpoint-adapters";
+import { AgentManifestSchema, DEFAULT_AGENT_MANIFEST } from "syncpoint-adapters";
 import * as schema from "../schema.js";
 import { _getDb, now } from "./_shared.js";
 

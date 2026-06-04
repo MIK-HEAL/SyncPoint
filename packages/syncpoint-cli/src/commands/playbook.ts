@@ -4,7 +4,7 @@
 
 import { Command } from "commander";
 import { pbGetNextAction, pbCaptureEvidence, pbGetActiveSession } from "syncpoint-server/application";
-import type { EvidenceKind } from "syncpoint-core";
+import type { EvidenceKind } from "syncpoint-governance";
 
 export function registerPlaybookCommands(program: Command): void {
   const playbook = program

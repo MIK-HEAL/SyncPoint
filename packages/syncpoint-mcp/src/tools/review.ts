@@ -12,8 +12,8 @@ import {
   rwBlockReview,
   rwPrepareReviewPacket,
 } from "syncpoint-server/application";
-import { EvidenceKind } from "syncpoint-core";
-import type { ChecklistItemStatus } from "syncpoint-core";
+import { EvidenceKind } from "syncpoint-governance";
+import type { ChecklistItemStatus } from "syncpoint-governance";
 import { fail, ok } from "./_shared.js";
 
 export function registerReviewTools(server: McpServer): void {

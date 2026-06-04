@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { formatResumePrompt } from "syncpoint-core";
+import { formatResumePrompt } from "syncpoint-context";
 import { getResumeContext } from "syncpoint-server/repositories";
 import { pmList, prepareContext, orchGetSessionStatus, rwPrepareReviewPacket, pbGetNextAction, wakeNext, wakeList } from "syncpoint-server/application";
 import { formatProjectMemorySummary } from "./format.js";

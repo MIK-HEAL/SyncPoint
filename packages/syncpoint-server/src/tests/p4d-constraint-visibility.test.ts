@@ -26,7 +26,8 @@ import { pmAdd, pmApprove } from "../application/project-memory-service.js";
 import { buildSnapshot } from "../application/sync-status-service.js";
 import { wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
 import { appRouter } from "../../src/router.js";
-import { MemoryKind, TaskStatus } from "syncpoint-core";
+import { TaskStatus } from "syncpoint-adapters";
+import { MemoryKind } from "syncpoint-context";
 import { resetPathResolverCache } from "../application/path-resolver.js";
 
 let tmpDir: string;

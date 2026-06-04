@@ -43,6 +43,26 @@
       "source": "./src/negotiation-api.ts",
       "types": "./dist/negotiation-api.d.ts",
       "import": "./dist/negotiation-api.js"
+    },
+    "./kernel": {
+      "source": "./src/_exports/kernel.ts",
+      "types": "./dist/_exports/kernel.d.ts",
+      "import": "./dist/_exports/kernel.js"
+    },
+    "./governance": {
+      "source": "./src/_exports/governance.ts",
+      "types": "./dist/_exports/governance.d.ts",
+      "import": "./dist/_exports/governance.js"
+    },
+    "./context-layer": {
+      "source": "./src/_exports/context.ts",
+      "types": "./dist/_exports/context.d.ts",
+      "import": "./dist/_exports/context.js"
+    },
+    "./adapters-layer": {
+      "source": "./src/_exports/adapters.ts",
+      "types": "./dist/_exports/adapters.d.ts",
+      "import": "./dist/_exports/adapters.js"
     }
   },
   "scripts": {
@@ -52,6 +72,10 @@
     "prepublishOnly": "pnpm run build && pnpm run typecheck && pnpm run test"
   },
   "dependencies": {
+    "syncpoint-kernel": "workspace:*",
+    "syncpoint-governance": "workspace:*",
+    "syncpoint-context": "workspace:*",
+    "syncpoint-adapters": "workspace:*",
     "yaml": "^2.4.2",
     "zod": "^3.23.0"
   },

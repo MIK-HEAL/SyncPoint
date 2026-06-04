@@ -25,7 +25,7 @@ import {
 } from "./review-workflow-service.js";
 import { pbGetNextAction, pbCaptureEvidence, pbGetActiveSession } from "./playbook-service.js";
 import { rcClaim } from "./resource-claim-service.js";
-import { ChecklistItemStatus } from "syncpoint-core";
+import { ChecklistItemStatus } from "syncpoint-governance";
 
 let tmpDir: string;
 let architectId: string;

@@ -16,7 +16,9 @@ import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, 
 import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
 import { rcClaim } from "../application/resource-claim-service.js";
 import { pmAdd, pmApprove } from "../application/project-memory-service.js";
-import { MemoryKind, TaskStatus, WakeRequestStatus } from "syncpoint-core";
+import { TaskStatus } from "syncpoint-adapters";
+import { MemoryKind } from "syncpoint-context";
+import { WakeRequestStatus } from "syncpoint-governance";
 import { resetPathResolverCache } from "../application/path-resolver.js";
 
 let tmpDir: string;

@@ -4,8 +4,8 @@
 
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
-import { WakeRequestStatus, validateWakeRequestTransition } from "syncpoint-core";
-import type { WakeRequest, WakeRequestCreate } from "syncpoint-core";
+import { WakeRequestStatus, validateWakeRequestTransition } from "syncpoint-governance";
+import type { WakeRequest, WakeRequestCreate } from "syncpoint-governance";
 import { _getDb, now, createId, NotFoundError } from "./_shared.js";
 
 export function createWakeRequest(data: WakeRequestCreate): WakeRequest {

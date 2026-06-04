@@ -6,8 +6,8 @@ import { Command } from "commander";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as repo from "syncpoint-server/repositories";
-import { buildAdapterInstruction, getAdapterConfig, listAdapterProviders } from "syncpoint-core";
-import type { AdapterLifecycleEvent } from "syncpoint-core";
+import { buildAdapterInstruction, getAdapterConfig, listAdapterProviders } from "syncpoint-adapters";
+import type { AdapterLifecycleEvent } from "syncpoint-adapters";
 
 export function registerAdapterCommand(program: Command): void {
   program

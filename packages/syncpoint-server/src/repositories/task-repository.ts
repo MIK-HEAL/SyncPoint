@@ -4,8 +4,9 @@
 
 import { eq } from "drizzle-orm";
 import * as s from "../schema.js";
-import { TaskStatus, EventType, validateTaskTransition } from "syncpoint-core";
-import type { Task, TaskCreate } from "syncpoint-core";
+import { TaskStatus, validateTaskTransition } from "syncpoint-adapters";
+import { EventType } from "syncpoint-kernel";
+import type { Task, TaskCreate } from "syncpoint-adapters";
 import { _getDb, now, createId, logEvent, NotFoundError } from "./_shared.js";
 import { getAgent } from "./agent-repository.js";
 

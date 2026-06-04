@@ -10,7 +10,7 @@ import {
   msgList,
   msgThread,
 } from "syncpoint-server/application";
-import { AgentMessageKind } from "syncpoint-core";
+import { AgentMessageKind } from "syncpoint-adapters";
 
 export function registerMessageCommands(program: Command): void {
   const message = new Command("message")

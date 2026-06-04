@@ -5,7 +5,7 @@ import type {
   BuiltInAgentTeamTemplate,
   UserAgentManifest,
   UserAgentProvider,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import type { DeclaredAgentRecord } from "../agent-registry-service.js";
 
 export interface AgentManifestWriteResult {

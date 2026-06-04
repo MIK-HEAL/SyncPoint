@@ -1,11 +1,6 @@
-import {
-  computeContentHash,
-  evaluateConstraints,
-  type ConstraintAction,
-  type ConstraintDecision,
-  type RealityProjection,
-  type ResourceRef,
-} from "syncpoint-core";
+import { computeContentHash, RealityProjection } from "syncpoint-context";
+import { evaluateConstraints, ConstraintAction, ConstraintDecision } from "syncpoint-governance";
+import { ResourceRef } from "syncpoint-kernel";
 import {
   getContractForTask,
   getLatestCheckpointForAgent,

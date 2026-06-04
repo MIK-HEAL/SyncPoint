@@ -4,16 +4,10 @@
  * CLI, MCP, and tRPC all share this layer.
  */
 
-import {
-  computeNextActions,
-  ChangeRequestStatus,
-} from "syncpoint-core";
-import type {
-  NextAction,
-  SessionSnapshot,
-  EvidenceKind,
-  ReviewEvidence,
-} from "syncpoint-core";
+import { ChangeRequestStatus } from "syncpoint-governance";
+import { computeNextActions } from "syncpoint-adapters";
+import type { EvidenceKind, ReviewEvidence } from "syncpoint-governance";
+import type { NextAction, SessionSnapshot } from "syncpoint-adapters";
 import * as foundationRepo from "../repositories/_exports/foundation.js";
 import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
 import { rwAddEvidence, rwEvaluateGate, rwListChangeRequests } from "./review-workflow-service.js";

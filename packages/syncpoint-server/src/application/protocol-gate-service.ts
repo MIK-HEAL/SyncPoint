@@ -11,16 +11,10 @@
  *   3. Validation Notes — staleness, evidence coverage, missing proof
  */
 
-import type {
-  ProtocolRule,
-  ProtocolGateSummary,
-  SnapshotValidation,
-  ContextSnapshot,
-  Checkpoint,
-  PeerContract,
-  RealityProjection,
-} from "syncpoint-core";
-import { ContractStatus, CheckpointReviewStatus } from "syncpoint-core";
+import type { ContextSnapshot, Checkpoint, PeerContract } from "syncpoint-adapters";
+import type { ProtocolRule, ProtocolGateSummary, SnapshotValidation, RealityProjection } from "syncpoint-context";
+import { ContractStatus } from "syncpoint-adapters";
+import { CheckpointReviewStatus } from "syncpoint-governance";
 import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
 import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
 import * as protocolRepo from "../repositories/_exports/protocol.js";

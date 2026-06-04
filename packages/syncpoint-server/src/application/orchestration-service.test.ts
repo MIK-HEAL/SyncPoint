@@ -22,7 +22,8 @@ import {
   orchAdvanceSession,
   orchCancelSession,
 } from "./orchestration-service.js";
-import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus, RelationshipMode, getContextPolicyForMode } from "syncpoint-core";
+import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus, RelationshipMode } from "syncpoint-adapters";
+import { getContextPolicyForMode } from "syncpoint-context";
 import { pbGetNextAction } from "./playbook-service.js";
 import { prepareContext } from "./context-policy-service.js";
 

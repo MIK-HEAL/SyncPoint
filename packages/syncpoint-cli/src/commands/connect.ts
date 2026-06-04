@@ -13,7 +13,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { Command, Option } from "commander";
-import { RuntimeKind } from "syncpoint-core";
+import { RuntimeKind } from "syncpoint-adapters";
 import { initSyncpointDir, getSyncpointDir, isProjectLocal, getRawDb } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
 

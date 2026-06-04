@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TaskStatus } from "syncpoint-core";
+import { TaskStatus } from "syncpoint-adapters";
 import { createTask, getTask, listTasks, assignTask, updateTaskStatus } from "../repositories/_exports/foundation.js";
 import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 

@@ -1,4 +1,5 @@
-import { evaluateConstraints, isAgentBlocked } from "syncpoint-core";
+import { evaluateConstraints } from "syncpoint-governance";
+import { isAgentBlocked } from "syncpoint-kernel";
 import {
   listAgents,
   listEvents,

@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import { Command } from "commander";
-import { WriteIntent } from "syncpoint-core";
+import { WriteIntent, type ResourceRef } from "syncpoint-kernel";
 import { writeApply, writeCheck, writePrepare } from "syncpoint-server/application";
-import type { ResourceRef } from "syncpoint-core";
 import { resolveAgent } from "./connect.js";
 
 interface WriteOptions {

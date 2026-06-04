@@ -4,8 +4,8 @@
 
 import { eq } from "drizzle-orm";
 import * as s from "../schema.js";
-import { RuntimeStatus } from "syncpoint-core";
-import type { Runtime, RuntimeCreate } from "syncpoint-core";
+import { RuntimeStatus } from "syncpoint-adapters";
+import type { Runtime, RuntimeCreate } from "syncpoint-adapters";
 import { _getDb, now, createId, NotFoundError } from "./_shared.js";
 
 export function createRuntime(data: RuntimeCreate): Runtime {

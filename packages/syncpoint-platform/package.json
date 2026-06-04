@@ -1,0 +1,23 @@
+{
+  "name": "syncpoint-platform",
+  "version": "0.1.0",
+  "description": "SyncPoint platform layer — workflow/marketplace/discovery/messaging surfaces kept outside kernel",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

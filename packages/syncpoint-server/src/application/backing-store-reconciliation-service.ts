@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { EventType, SyncGateReason } from "syncpoint-core";
-import type { ResourceRef } from "syncpoint-core";
+import { EventType, SyncGateReason } from "syncpoint-kernel";
+import type { ResourceRef } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent, now } from "../repositories/_shared.js";
 import { getSyncpointDir } from "../db.js";

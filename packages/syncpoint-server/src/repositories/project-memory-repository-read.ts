@@ -6,8 +6,8 @@ import {
   defaultKindFromCategory,
   ValidityStatus,
   MemorySeverity,
-} from "syncpoint-core";
-import type { ProjectMemory, MemoryDedupResult } from "syncpoint-core";
+} from "syncpoint-context";
+import type { ProjectMemory, MemoryDedupResult } from "syncpoint-context";
 import { getRawDb } from "../db.js";
 import { _getDb } from "./_shared.js";
 import {

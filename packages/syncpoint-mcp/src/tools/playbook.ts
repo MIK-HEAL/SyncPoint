@@ -5,7 +5,7 @@ import {
   pbCaptureEvidence,
   pbGetActiveSession,
 } from "syncpoint-server/application";
-import { EvidenceKind } from "syncpoint-core";
+import { EvidenceKind } from "syncpoint-governance";
 import { resolveBoundAgentId } from "../identity.js";
 import { fail, ok } from "./_shared.js";
 

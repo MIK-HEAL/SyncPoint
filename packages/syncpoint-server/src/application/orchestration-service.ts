@@ -3,13 +3,8 @@
  * CLI, MCP, and tRPC all share this layer.
  */
 
-import {
-  SessionStatus,
-  TaskAssignmentStatus,
-  ReviewRequestStatus,
-  TaskStatus,
-  EventType,
-} from "syncpoint-core";
+import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus, TaskStatus } from "syncpoint-adapters";
+import { EventType } from "syncpoint-kernel";
 import type {
   OrchestrationSession,
   OrchestrationSessionCreate,
@@ -23,15 +18,15 @@ import type {
   ReviewDecisionCreate,
   OrchestratorRole,
   ReviewVerdict,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import * as foundationRepo from "../repositories/_exports/foundation.js";
 import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { processOrchestrationEvent } from "./wake-engine-service.js";
 import { prepareContext } from "./context-policy-service.js";
-import { RelationshipMode } from "syncpoint-core";
-import type { PreparedContext } from "syncpoint-core";
+import { RelationshipMode } from "syncpoint-adapters";
+import type { PreparedContext } from "syncpoint-context";
 import { collaborationCoordinator } from "./collaboration-coordinator.js";
 
 /**

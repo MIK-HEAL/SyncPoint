@@ -12,7 +12,8 @@ import * as schema from "../schema.js";
 import { createAgent, createTask } from "../repositories/index.js";
 import { sgRequest } from "./sync-gate-service.js";
 import { updateSyncGateStatus } from "../repositories/sync-gate-repository.js";
-import { SyncGateStatus, AgentAvailability, EscalationOptIn, GatePolicyKind, GateTimeoutAction } from "syncpoint-core";
+import { AgentAvailability, EscalationOptIn } from "syncpoint-adapters";
+import { SyncGateStatus, GatePolicyKind, GateTimeoutAction } from "syncpoint-kernel";
 import {
   manifestUpsert, manifestGet, manifestList, manifestDelete,
   routeGateEscalation,

@@ -14,17 +14,9 @@
  * Public function names keep the `stx*` prefix for transport-layer stability.
  */
 
-import {
-  CheckpointReviewStatus,
-  SyncGateReason,
-  EventType,
-  validateCheckpointReviewTransition,
-  allApproved,
-  hasRejection,
-  pendingApprovers,
-  isReviewBlocking,
-} from "syncpoint-core";
-import type { CheckpointReview } from "syncpoint-core";
+import { CheckpointReviewStatus, validateCheckpointReviewTransition, allApproved, hasRejection, pendingApprovers, isReviewBlocking } from "syncpoint-governance";
+import { SyncGateReason, EventType } from "syncpoint-kernel";
+import type { CheckpointReview } from "syncpoint-governance";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { sgRequest, sgAck, sgResolve, sgCancel } from "./sync-gate-service.js";

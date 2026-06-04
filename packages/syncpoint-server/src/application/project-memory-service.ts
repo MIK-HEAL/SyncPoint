@@ -5,21 +5,16 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import {
-  MemoryKind,
-  ProjectionTarget,
-  isValidProjection,
-  defaultKindFromCategory,
-  isConstraintRuleKnown,
-  normalizeResourcePath,
-} from "syncpoint-core";
+import { MemoryKind, ProjectionTarget, isValidProjection, defaultKindFromCategory } from "syncpoint-context";
+import { isConstraintRuleKnown } from "syncpoint-governance";
+import { normalizeResourcePath } from "syncpoint-kernel";
 import type {
   AppliesTo,
   ProjectMemory,
   ProjectMemoryCreate,
   ProjectMemoryValidatorConfig,
   MemoryDedupResult,
-} from "syncpoint-core";
+} from "syncpoint-context";
 import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
 import { isProjectLocal, getSyncpointDir } from "../db.js";
 import { getProjectRoot } from "./path-resolver.js";

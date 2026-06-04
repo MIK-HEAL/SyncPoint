@@ -10,16 +10,9 @@
  *   msgCheckExpired()        — timeout checker: expired → reminder / escalation
  */
 
-import {
-  EventType,
-  AgentMessageKind,
-  AgentMessageReadStatus,
-  AgentMessageRequestStatus,
-  isRequestTimedOut,
-  shouldRetry,
-  validateAgentMessageRequestTransition,
-} from "syncpoint-core";
-import type { AgentMessage, AgentMessageCreate } from "syncpoint-core";
+import { AgentMessageKind, AgentMessageReadStatus, AgentMessageRequestStatus, isRequestTimedOut, shouldRetry, validateAgentMessageRequestTransition } from "syncpoint-adapters";
+import { EventType } from "syncpoint-kernel";
+import type { AgentMessage, AgentMessageCreate } from "syncpoint-adapters";
 import * as repo from "../repositories/agent-message-repository.js";
 import type { ListMessagesFilter } from "../repositories/agent-message-repository.js";
 import { createWakeRequest, hasActiveWakeForAgent } from "../repositories/wake-repository.js";

@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { logEvent } from "../repositories/_shared.js";
-import { EventType } from "syncpoint-core";
-import type { ResourceClaim } from "syncpoint-core";
+import { EventType } from "syncpoint-kernel";
+import type { ResourceClaim } from "syncpoint-kernel";
 import { rcList } from "./resource-claim-service.js";
 
 export interface FilePermissionGuardState {

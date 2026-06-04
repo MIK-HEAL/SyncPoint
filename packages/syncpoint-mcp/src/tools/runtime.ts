@@ -8,7 +8,7 @@ import {
   updateAgentRuntime,
   getAgent,
 } from "syncpoint-server/repositories";
-import { RuntimeKind } from "syncpoint-core";
+import { RuntimeKind } from "syncpoint-adapters";
 import { getConnectionIdentity, isBound } from "../identity.js";
 import { fail, ok } from "./_shared.js";
 

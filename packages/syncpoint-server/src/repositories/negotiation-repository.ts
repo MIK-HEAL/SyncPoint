@@ -3,8 +3,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import { NegotiationConfigSchema, DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-core";
-import type { NegotiationMessage, NegotiationSession, NegotiationConfig } from "syncpoint-core";
+import { NegotiationConfigSchema, DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-adapters";
+import type { NegotiationMessage, NegotiationSession, NegotiationConfig } from "syncpoint-adapters";
 import * as schema from "../schema.js";
 import { _getDb, createId, now } from "./_shared.js";
 

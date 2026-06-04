@@ -11,7 +11,7 @@ import {
   validateSessionTransition,
   validateTaskAssignmentTransition,
   validateReviewRequestTransition,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import type {
   OrchestrationSession,
   OrchestrationSessionCreate,
@@ -23,7 +23,7 @@ import type {
   ReviewRequestCreate,
   ReviewDecision,
   ReviewDecisionCreate,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import { _getDb, createId, now } from "./_shared.js";
 
 // ── Session ──────────────────────────────────────────

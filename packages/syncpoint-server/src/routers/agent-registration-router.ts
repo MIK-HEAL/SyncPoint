@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   USER_AGENT_PROVIDER_VALUES,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import {
   diagnoseAgentRegistry,
   exportAgentCards,

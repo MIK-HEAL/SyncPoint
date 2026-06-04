@@ -9,21 +9,10 @@
  *   routeGateEscalation(gateId)       — find best agents for a gate escalation
  */
 
-import {
-  EscalationPreferenceSchema,
-  AgentAvailability,
-  routeEscalation,
-  parseGatePolicy,
-  isGateBlocking,
-} from "syncpoint-core";
-import type {
-  AgentManifest,
-  AgentCapability,
-  EscalationPreference,
-  EscalationCandidate,
-  EscalationRoutingInput,
-  SyncGate,
-} from "syncpoint-core";
+import { EscalationPreferenceSchema, AgentAvailability, routeEscalation } from "syncpoint-adapters";
+import { parseGatePolicy, isGateBlocking } from "syncpoint-kernel";
+import type { AgentManifest, AgentCapability, EscalationPreference, EscalationCandidate, EscalationRoutingInput } from "syncpoint-adapters";
+import type { SyncGate } from "syncpoint-kernel";
 import * as manifestRepo from "../repositories/agent-manifest-repository.js";
 import { getSyncGate, listActiveSyncGates } from "../repositories/sync-gate-repository.js";
 

@@ -10,7 +10,7 @@ import path from "node:path";
 import os from "node:os";
 import * as repo from "syncpoint-server/repositories";
 import { getDbPath, getRawDb } from "syncpoint-server";
-import { EventType } from "syncpoint-core";
+import { EventType } from "syncpoint-kernel";
 import { unlockAllGuards } from "syncpoint-server/application";
 import { handleError, printError } from "./error-handler.js";
 

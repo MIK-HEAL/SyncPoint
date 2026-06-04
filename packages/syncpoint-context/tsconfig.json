@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "../",
+    "noImplicitAny": false,
+    "baseUrl": "./",
+    "paths": {
+      "syncpoint-core": ["../syncpoint-core/src/index.ts"],
+      "syncpoint-core/*": ["../syncpoint-core/src/*"],
+      "syncpoint-kernel": ["../syncpoint-kernel/src/index.ts"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

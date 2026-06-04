@@ -166,6 +166,9 @@
   "dependencies": {
     "@trpc/client": "^11.0.0",
     "syncpoint-core": "workspace:*",
+    "syncpoint-kernel": "workspace:*",
+    "syncpoint-context": "workspace:*",
+    "syncpoint-adapters": "workspace:*",
     "syncpoint-sdk": "workspace:*"
   },
   "devDependencies": {

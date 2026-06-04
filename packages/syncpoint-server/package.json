@@ -48,6 +48,10 @@
     "drizzle-orm": "^0.36.0",
     "nanoid": "^5.0.0",
     "syncpoint-core": "workspace:*",
+    "syncpoint-kernel": "workspace:*",
+    "syncpoint-governance": "workspace:*",
+    "syncpoint-context": "workspace:*",
+    "syncpoint-adapters": "workspace:*",
     "syncpoint-plugin-code": "workspace:*",
     "syncpoint-plugin-generic-agent": "workspace:*",
     "zod": "^3.23.0"

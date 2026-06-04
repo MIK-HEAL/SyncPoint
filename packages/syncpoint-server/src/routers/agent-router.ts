@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AgentStatus } from "syncpoint-core";
+import { AgentStatus } from "syncpoint-adapters";
 import { createAgent, getAgent, listAgents, updateAgentStatus } from "../repositories/_exports/foundation.js";
 import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 

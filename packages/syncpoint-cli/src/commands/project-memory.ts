@@ -12,7 +12,7 @@ import type {
   AppliesTo,
   ProjectMemoryValidatorConfig,
   Validity,
-} from "syncpoint-core";
+} from "syncpoint-context";
 
 class ProjectMemoryCliInputError extends Error {
   constructor(optionName: string, message: string) {

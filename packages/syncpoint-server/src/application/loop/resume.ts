@@ -1,15 +1,8 @@
-import {
-  TaskStatus,
-  buildAdapterInstruction,
-  formatResumePrompt,
-  DEFAULT_CONTEXT_MODE,
-  buildConstraintManifest,
-} from "syncpoint-core";
-import type {
-  AdapterLifecycleEvent,
-  AgentProvider,
-  ContextMode,
-} from "syncpoint-core";
+import { TaskStatus, buildAdapterInstruction } from "syncpoint-adapters";
+import { formatResumePrompt, DEFAULT_CONTEXT_MODE } from "syncpoint-context";
+import { buildConstraintManifest } from "syncpoint-governance";
+import type { AdapterLifecycleEvent, AgentProvider } from "syncpoint-adapters";
+import type { ContextMode } from "syncpoint-context";
 import {
   getAgent,
   getTask,

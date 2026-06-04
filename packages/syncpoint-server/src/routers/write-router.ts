@@ -1,6 +1,12 @@
 import { z } from "zod";
-import { WriteIntent } from "syncpoint-core";
-import { writeApply, writeCheck, writePrepare } from "../application/write-permit-service.js";
+import { WriteIntent } from "syncpoint-kernel";
+import {
+  writeApply,
+  writeCheck,
+  writePrepare,
+  type WriteCheckInput,
+  type WritePrepareInput,
+} from "../application/write-permit-service.js";
 import { publicProcedure, protectedProcedure, t } from "./_trpc.js";
 
 const resourceRefInput = z.object({
@@ -36,14 +42,17 @@ const mutationInput = z.object({
 export const writeRouter = t.router({
   check: publicProcedure
     .input(writeRequestInput)
-    .query(({ input }) => writeCheck(input)),
+    .query(({ input }) => writeCheck(input as WriteCheckInput)),
 
   prepare: protectedProcedure
     .input(writeRequestInput.extend({
       ttlSeconds: z.number().int().min(1).optional(),
       singleUse: z.boolean().optional(),
     }))
-    .mutation(({ input, ctx }) => writePrepare({ ...input, actorId: ctx.callerId! })),
+    .mutation(({ input, ctx }) => {
+      const payload = { ...input, actorId: ctx.callerId! } as WritePrepareInput;
+      return writePrepare(payload);
+    }),
 
   applyWrite: protectedProcedure
     .input(z.object({

@@ -6,8 +6,8 @@ import {
   AGENT_PROVIDER_VALUES,
   AGENT_ROLE_VALUES,
   USER_AGENT_PROVIDER_VALUES,
-} from "syncpoint-core";
-import type { AgentManifestFileFormat, UserAgentProvider } from "syncpoint-core";
+} from "syncpoint-adapters";
+import type { AgentManifestFileFormat, UserAgentProvider } from "syncpoint-adapters";
 import {
   diagnoseAgentRegistry,
   exportAgentCards,

@@ -2,7 +2,7 @@
  * Markdown formatting helpers for MCP resource/tool output.
  */
 
-import type { ContextSnapshotPayload, ProjectMemory } from "syncpoint-core";
+import type { ContextSnapshotPayload, ProjectMemory } from "syncpoint-context";
 
 export function formatAgentSummary(agent: { id: string; name: string; role: string; status: string }): string {
   return `- **${agent.name}** (${agent.role}) — ${agent.status} [${agent.id}]`;

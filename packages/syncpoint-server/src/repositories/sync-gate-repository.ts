@@ -8,8 +8,8 @@
 
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
-import { SyncGateStatus, GatePolicySchema, DEFAULT_GATE_POLICY } from "syncpoint-core";
-import type { SyncGate, SyncGateCreate, GateAck, GateAckCreate, GateVote, GateVoteCreate, ResourceRef, ResourceScope } from "syncpoint-core";
+import { SyncGateStatus, GatePolicySchema, DEFAULT_GATE_POLICY } from "syncpoint-kernel";
+import type { SyncGate, SyncGateCreate, GateAck, GateAckCreate, GateVote, GateVoteCreate, ResourceRef, ResourceScope } from "syncpoint-kernel";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────

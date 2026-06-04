@@ -6,13 +6,13 @@ import {
   MemoryKind,
   ValidityStatus,
   MemorySeverity,
-} from "syncpoint-core";
+} from "syncpoint-context";
 import type {
   AppliesTo,
   ProjectMemoryValidatorConfig,
   ProjectMemory,
   MemoryProjectionInput,
-} from "syncpoint-core";
+} from "syncpoint-context";
 import { getRawDb } from "../db.js";
 import { _getDb, createId } from "./_shared.js";
 

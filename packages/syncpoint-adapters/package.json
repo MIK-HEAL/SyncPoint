@@ -1,0 +1,30 @@
+{
+  "name": "syncpoint-adapters",
+  "version": "0.1.0",
+  "description": "SyncPoint adapters/orchestration layer — external integration surfaces",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "syncpoint-kernel": "workspace:*",
+    "syncpoint-governance": "workspace:*",
+    "syncpoint-context": "workspace:*",
+    "yaml": "^2.4.2",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

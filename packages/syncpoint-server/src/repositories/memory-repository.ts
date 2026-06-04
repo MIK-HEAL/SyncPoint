@@ -4,7 +4,7 @@
 
 import { eq, and } from "drizzle-orm";
 import * as s from "../schema.js";
-import type { PinnedMemory, PinnedMemoryCreate } from "syncpoint-core";
+import type { PinnedMemory, PinnedMemoryCreate } from "syncpoint-context";
 import { _getDb, now, createId, NotFoundError } from "./_shared.js";
 
 export function createPinnedMemory(data: PinnedMemoryCreate): PinnedMemory {

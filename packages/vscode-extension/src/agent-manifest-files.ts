@@ -2,11 +2,11 @@ import * as vscode from "vscode";
 import {
   createUserAgentManifestTemplate,
   serializeUserAgentManifest,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import type {
   AgentRole,
   UserAgentProvider,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 
 export interface CreateAgentManifestFileInput {
   name: string;

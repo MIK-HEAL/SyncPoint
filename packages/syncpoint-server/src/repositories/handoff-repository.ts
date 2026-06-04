@@ -4,8 +4,9 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import * as s from "../schema.js";
-import { HandoffStatus, EventType } from "syncpoint-core";
-import type { Handoff, HandoffCreate } from "syncpoint-core";
+import { HandoffStatus } from "syncpoint-adapters";
+import { EventType } from "syncpoint-kernel";
+import type { Handoff, HandoffCreate } from "syncpoint-adapters";
 import { _getDb, now, createId, logEvent, NotFoundError } from "./_shared.js";
 import { getTask } from "./task-repository.js";
 import { getAgent } from "./agent-repository.js";

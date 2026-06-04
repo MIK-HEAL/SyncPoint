@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import { SyncGateReason, SyncGateStatus, WriteIntent } from "syncpoint-core";
+import { SyncGateReason, SyncGateStatus, WriteIntent } from "syncpoint-kernel";
 import type { SyncPointDb } from "../db.js";
 import { runMigrations } from "../db.js";
 import * as repo from "../repositories/index.js";

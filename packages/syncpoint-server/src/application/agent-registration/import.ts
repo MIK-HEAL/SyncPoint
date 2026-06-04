@@ -5,7 +5,7 @@ import {
   materializeAgentTeamTemplate,
   parseAgentTeamTemplateContent,
   parseUserAgentManifestContent,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import { ensureAgentManifestDirectory, syncDeclaredAgentFile } from "../agent-registry-service.js";
 import {
   isInsideDirectory,

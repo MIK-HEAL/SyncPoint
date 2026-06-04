@@ -1,4 +1,4 @@
-import { buildAgentCard } from "syncpoint-core";
+import { buildAgentCard } from "syncpoint-adapters";
 import { getAgent, getAgentByName, listAgents } from "../../repositories/_exports/foundation.js";
 import { getAgentManifest } from "../../repositories/_exports/runtime.js";
 import { listDeclaredAgents, syncDeclaredAgents } from "../agent-registry-service.js";

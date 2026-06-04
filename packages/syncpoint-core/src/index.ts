@@ -7,6 +7,10 @@ export * as ContextApi from "./context-api.js";
 export * as RuntimeApi from "./runtime-api.js";
 export * as ProtocolApi from "./protocol-api.js";
 export * as NegotiationApi from "./negotiation-api.js";
+export * as KernelApi from "./_exports/kernel.js";
+export * as GovernanceApi from "./_exports/governance.js";
+export * as ContextLayerApi from "./_exports/context.js";
+export * as AdapterApi from "./_exports/adapters.js";
 
 // States & protocol
 export {

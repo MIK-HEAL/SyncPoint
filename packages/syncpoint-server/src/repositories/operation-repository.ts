@@ -4,8 +4,8 @@
 
 import { eq, and } from "drizzle-orm";
 import * as s from "../schema.js";
-import { OperationStatus, OperationSchema } from "syncpoint-core";
-import type { Operation, OperationCheckResult, OperationCreate, ResourceRef, ResourceScope } from "syncpoint-core";
+import { OperationStatus, OperationSchema } from "syncpoint-kernel";
+import type { Operation, OperationCheckResult, OperationCreate, ResourceRef, ResourceScope } from "syncpoint-kernel";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────

@@ -1,13 +1,10 @@
-import {
-  OrchestrationEventType,
-  computeWakeTargets,
-  EventType,
-} from "syncpoint-core";
+import { OrchestrationEventType, computeWakeTargets } from "syncpoint-governance";
+import { EventType } from "syncpoint-kernel";
 import type {
   WakeRequestCreate,
   WakeTarget,
   WakeContext,
-} from "syncpoint-core";
+} from "syncpoint-governance";
 import { SyncPointEventBus } from "../../event-bus.js";
 import type { SyncPointEventData } from "../../event-bus.js";
 import {

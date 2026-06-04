@@ -16,7 +16,7 @@ import {
   AgentMessageKind,
   AgentMessageReadStatus,
   AgentMessageRequestStatus,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 
 let rawDb: Database.Database;
 

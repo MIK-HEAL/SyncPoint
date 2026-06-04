@@ -4,8 +4,8 @@
 
 import { eq, and, desc } from "drizzle-orm";
 import * as s from "../schema.js";
-import { EventType } from "syncpoint-core";
-import type { Checkpoint, CheckpointCreate, DiaryEntry, DiaryEntryCreate } from "syncpoint-core";
+import { EventType } from "syncpoint-kernel";
+import type { Checkpoint, CheckpointCreate, DiaryEntry, DiaryEntryCreate } from "syncpoint-adapters";
 import { _getDb, now, createId, logEvent } from "./_shared.js";
 import { getTask } from "./task-repository.js";
 import { getAgent } from "./agent-repository.js";

@@ -17,8 +17,8 @@ import {
   orchAdvanceSession,
   orchCancelSession,
 } from "syncpoint-server/application";
-import type { OrchestratorRole, ReviewVerdict } from "syncpoint-core";
-import { RelationshipMode } from "syncpoint-core";
+import type { OrchestratorRole, ReviewVerdict } from "syncpoint-adapters";
+import { RelationshipMode } from "syncpoint-adapters";
 
 export function registerSessionCommands(program: Command): void {
   const session = program

@@ -1,13 +1,6 @@
-import {
-  clearConstraintEvaluatorRegistry,
-  clearResourceMatcherRegistry,
-  clearScopeMatcherRegistry,
-  clearValidatorRegistry,
-  getConstraintEvaluator,
-  getResourceMatcher,
-  getScopeMatcher,
-  getValidatorsForOperation,
-} from "syncpoint-core";
+import { clearScopeMatcherRegistry, getScopeMatcher } from "syncpoint-context";
+import { clearConstraintEvaluatorRegistry, getConstraintEvaluator } from "syncpoint-governance";
+import { clearResourceMatcherRegistry, clearValidatorRegistry, getResourceMatcher, getValidatorsForOperation } from "syncpoint-kernel";
 import {
   CODE_PLUGIN_VALIDATORS,
   _resetCodePlugin,

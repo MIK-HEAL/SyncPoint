@@ -8,12 +8,12 @@ import {
   RuntimeStatus,
   toAgentCreateFromUserAgentManifest,
   toRuntimeAgentManifestInputFromUserAgentManifest,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import type {
   Agent,
   AgentManifestFileFormat,
   UserAgentManifest,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import { getSyncpointDir } from "../db.js";
 import {
   createAgent,

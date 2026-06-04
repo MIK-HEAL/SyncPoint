@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { AgentManifestFileFormatSchema, UserAgentManifestSchema } from "syncpoint-core";
-import type { AgentManifestFileFormat, UserAgentManifest } from "syncpoint-core";
+import { AgentManifestFileFormatSchema, UserAgentManifestSchema } from "syncpoint-adapters";
+import type { AgentManifestFileFormat, UserAgentManifest } from "syncpoint-adapters";
 import * as schema from "../schema.js";
 import { _getDb, now } from "./_shared.js";
 

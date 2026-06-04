@@ -7,7 +7,7 @@ import {
 import {
   ContextIntent,
   ContextRole,
-} from "syncpoint-core";
+} from "syncpoint-context";
 import { fail, ok } from "./_shared.js";
 
 export function registerContextTools(server: McpServer): void {

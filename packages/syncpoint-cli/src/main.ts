@@ -9,7 +9,7 @@
 
 import { Command, Option } from "commander";
 import { closeDb, startServer, initSyncpointDir } from "syncpoint-server";
-import { USER_AGENT_PROVIDER_VALUES } from "syncpoint-core";
+import { USER_AGENT_PROVIDER_VALUES } from "syncpoint-adapters";
 import { initProjectAgents, listAgentTeamTemplates } from "syncpoint-server/application";
 import { registerPrimitiveCommands } from "./commands/primitives.js";
 import { registerAdapterCommand } from "./commands/adapter.js";

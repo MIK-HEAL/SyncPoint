@@ -37,6 +37,10 @@
   },
   "dependencies": {
     "syncpoint-core": "workspace:*",
+    "syncpoint-kernel": "workspace:*",
+    "syncpoint-governance": "workspace:*",
+    "syncpoint-context": "workspace:*",
+    "syncpoint-adapters": "workspace:*",
     "syncpoint-server": "workspace:*",
     "commander": "^12.1.0",
     "@parcel/watcher": "^2.5.1"

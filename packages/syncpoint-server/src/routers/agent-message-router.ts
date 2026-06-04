@@ -12,7 +12,7 @@ import { z } from "zod";
 import {
   msgSend, msgRead, msgReply, msgList, msgThread,
 } from "../application/agent-message-service.js";
-import { AgentMessageKind, AgentMessageRequestStatus } from "syncpoint-core";
+import { AgentMessageKind, AgentMessageRequestStatus } from "syncpoint-adapters";
 import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 export const agentMessageRouter = t.router({

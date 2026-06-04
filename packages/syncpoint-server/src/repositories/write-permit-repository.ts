@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { WriteDecision, WritePermit, WritePermitCreate, WriteResourceHash, ResourceRef, ResourceScope } from "syncpoint-core";
+import type { WriteDecision, WritePermit, WritePermitCreate, WriteResourceHash, ResourceRef, ResourceScope } from "syncpoint-kernel";
 import * as s from "../schema.js";
 import { _getDb, createId, now } from "./_shared.js";
 

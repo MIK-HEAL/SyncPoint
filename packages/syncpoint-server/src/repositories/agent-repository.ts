@@ -4,8 +4,9 @@
 
 import { eq } from "drizzle-orm";
 import * as s from "../schema.js";
-import { AgentStatus, EventType, validateAgentTransition } from "syncpoint-core";
-import type { Agent, AgentCreate } from "syncpoint-core";
+import { AgentStatus, validateAgentTransition } from "syncpoint-adapters";
+import { EventType } from "syncpoint-kernel";
+import type { Agent, AgentCreate } from "syncpoint-adapters";
 import { _getDb, now, createId, logEvent, NotFoundError } from "./_shared.js";
 
 export function createAgent(data: AgentCreate): Agent {

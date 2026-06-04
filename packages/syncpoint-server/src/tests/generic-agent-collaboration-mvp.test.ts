@@ -28,7 +28,7 @@ import {
   MemoryKind,
   ProjectionTarget,
   MemorySeverity,
-} from "syncpoint-core";
+} from "syncpoint-context";
 import {
   rcClaim,
 } from "../application/resource-claim-service.js";

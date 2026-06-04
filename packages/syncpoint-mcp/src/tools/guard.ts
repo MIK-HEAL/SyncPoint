@@ -9,7 +9,7 @@ import {
   reconcileBackingStore,
   constraintCheck,
 } from "syncpoint-server/application";
-import { WriteIntent } from "syncpoint-core";
+import { WriteIntent } from "syncpoint-kernel";
 import { resolveBoundAgentId } from "../identity.js";
 import { fail, ok } from "./_shared.js";
 

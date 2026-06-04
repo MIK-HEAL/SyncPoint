@@ -18,7 +18,7 @@ import {
   rwPrepareReviewPacket,
 } from "syncpoint-server/application";
 import { listSessions, listReviewRequests } from "syncpoint-server/repositories";
-import type { ChecklistItemStatus, EvidenceKind } from "syncpoint-core";
+import type { ChecklistItemStatus, EvidenceKind } from "syncpoint-governance";
 
 export function registerReviewCommands(program: Command): void {
   const review = program

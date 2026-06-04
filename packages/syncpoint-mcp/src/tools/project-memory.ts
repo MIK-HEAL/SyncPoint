@@ -8,7 +8,7 @@ import {
   pmSupersede,
   pmGetVersion,
 } from "syncpoint-server/application";
-import { ProjectMemoryCreateSchema } from "syncpoint-core";
+import { ProjectMemoryCreateSchema } from "syncpoint-context";
 import { resolveBoundAgentId } from "../identity.js";
 import { fail, ok } from "./_shared.js";
 

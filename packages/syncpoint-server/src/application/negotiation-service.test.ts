@@ -10,11 +10,11 @@ import { getDb, closeDb } from "../db.js";
 import { createAgent, createTask } from "../repositories/index.js";
 import { listNegotiationSessions, updateNegotiationSession } from "../repositories/negotiation-repository.js";
 import { sgRequest, sgStatus, sgResolve } from "./sync-gate-service.js";
-import { SyncGateStatus } from "syncpoint-core";
+import { SyncGateStatus } from "syncpoint-kernel";
 import {
   negStart, negMessage, negReconcile, negResolve, negEscalate, negStatus,
 } from "./negotiation-service.js";
-import { NegotiationStatus, NegotiationMessageKind } from "syncpoint-core";
+import { NegotiationStatus, NegotiationMessageKind } from "syncpoint-adapters";
 
 let tmpDir: string;
 let a1: string, a2: string, a3: string;

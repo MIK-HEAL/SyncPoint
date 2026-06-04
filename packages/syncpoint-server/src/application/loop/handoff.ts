@@ -1,12 +1,7 @@
-import {
-  buildAdapterInstruction,
-  formatResumePrompt,
-} from "syncpoint-core";
-import type {
-  AdapterLifecycleEvent,
-  AgentProvider,
-  ContextSnapshotPayload,
-} from "syncpoint-core";
+import { buildAdapterInstruction } from "syncpoint-adapters";
+import { formatResumePrompt } from "syncpoint-context";
+import type { AdapterLifecycleEvent, AgentProvider } from "syncpoint-adapters";
+import type { ContextSnapshotPayload } from "syncpoint-context";
 import {
   getAgent,
   getTask,

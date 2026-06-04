@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema.js";
-import { AgentStatus, TaskStatus, ContractStatus, HandoffStatus, InvalidTransition } from "syncpoint-core";
+import { AgentStatus, TaskStatus, ContractStatus, HandoffStatus, InvalidTransition } from "syncpoint-adapters";
 
 const MIGRATION_SQL = `
   CREATE TABLE IF NOT EXISTS agent (id TEXT PRIMARY KEY, name TEXT NOT NULL, provider TEXT NOT NULL, role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'IDLE', current_task_id TEXT, runtime_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));

@@ -4,10 +4,8 @@
 
 import { eq, and, desc } from "drizzle-orm";
 import * as s from "../schema.js";
-import {
-  ContractStatus,
-  QualityCheckStatus,
-} from "syncpoint-core";
+import { ContractStatus } from "syncpoint-adapters";
+import { QualityCheckStatus } from "syncpoint-context";
 import type {
   Agent,
   Task,
@@ -15,9 +13,8 @@ import type {
   PeerContract,
   ContextSnapshot,
   ContextSnapshotPayload,
-  ResumeContext,
-  QualityCheckResult,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
+import type { ResumeContext, QualityCheckResult } from "syncpoint-context";
 import { _getDb, now } from "./_shared.js";
 import { getAgent } from "./agent-repository.js";
 import { getTask } from "./task-repository.js";

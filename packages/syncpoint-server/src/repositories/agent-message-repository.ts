@@ -8,8 +8,8 @@ import {
   AgentMessageKind,
   AgentMessageReadStatus,
   AgentMessageRequestStatus,
-} from "syncpoint-core";
-import type { AgentMessage, AgentMessageCreate } from "syncpoint-core";
+} from "syncpoint-adapters";
+import type { AgentMessage, AgentMessageCreate } from "syncpoint-adapters";
 import { _getDb, now, createId, NotFoundError } from "./_shared.js";
 
 // ── Row → domain type ────────────────────────────────

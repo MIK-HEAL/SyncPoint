@@ -31,8 +31,8 @@ import {
   GateVoteKind,
   computeGateDetails,
   computeAvailableActions,
-} from "syncpoint-core";
-import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision, GateDetailedStatus, GateAction, ResourceRef } from "syncpoint-core";
+} from "syncpoint-kernel";
+import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision, GateDetailedStatus, GateAction, ResourceRef } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 

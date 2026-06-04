@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ContractStatus } from "syncpoint-core";
+import { ContractStatus } from "syncpoint-adapters";
 import { createContract, getContract, getContractForTask, updateContractStatus } from "../repositories/_exports/context-memory.js";
 import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 

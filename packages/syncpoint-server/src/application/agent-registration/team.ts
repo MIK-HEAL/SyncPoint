@@ -2,7 +2,7 @@ import {
   getBuiltInAgentTeamTemplate,
   listBuiltInAgentTeamTemplates,
   materializeAgentTeamTemplate,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import { persistDeclaredManifest } from "./filesystem.js";
 import type {
   AgentManifestWriteResult,

@@ -2,13 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  RelationshipMode,
-  ResourceClaimMode,
-  SyncGateStatus,
-  WriteDecisionReason,
-  WriteIntent,
-} from "syncpoint-core";
+import { RelationshipMode } from "syncpoint-adapters";
+import { ResourceClaimMode, SyncGateStatus, WriteDecisionReason, WriteIntent } from "syncpoint-kernel";
 import { closeDb, getDb } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "./bootstrap.js";

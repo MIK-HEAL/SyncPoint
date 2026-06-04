@@ -12,7 +12,7 @@ import path from "node:path";
 import {
   normalizeResourcePath,
   type NormalizePathOptions,
-} from "syncpoint-core";
+} from "syncpoint-kernel";
 import { logger } from "../logger.js";
 import { findProjectSyncpointDir } from "../db.js";
 

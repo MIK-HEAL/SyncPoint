@@ -31,7 +31,8 @@ import {
   wakeStart,
   wakeDone,
 } from "./wake-engine-service.js";
-import { WakeRequestStatus, SessionStatus } from "syncpoint-core";
+import { SessionStatus } from "syncpoint-adapters";
+import { WakeRequestStatus } from "syncpoint-governance";
 
 let tmpDir: string;
 let architectId: string;

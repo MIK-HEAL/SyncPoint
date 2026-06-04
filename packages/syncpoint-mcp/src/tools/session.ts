@@ -13,7 +13,7 @@ import {
   orchGetSessionStatus,
   orchAdvanceSession,
 } from "syncpoint-server/application";
-import { OrchestratorRole, ReviewVerdict } from "syncpoint-core";
+import { OrchestratorRole, ReviewVerdict } from "syncpoint-adapters";
 import { fail, ok } from "./_shared.js";
 
 export function registerSessionTools(server: McpServer): void {

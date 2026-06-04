@@ -1,19 +1,8 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import {
-  EventType,
-  WriteIntent,
-  WriteDecisionReason,
-  WritePermitStatus,
-  evaluateConstraints,
-  evaluateWriteDecision,
-  normalizeResourcePath,
-  type ResourceRef,
-  type WriteDecision,
-  type WritePermit,
-  type WriteResourceHash,
-} from "syncpoint-core";
+import { evaluateConstraints } from "syncpoint-governance";
+import { EventType, WriteIntent, WriteDecisionReason, WritePermitStatus, evaluateWriteDecision, normalizeResourcePath, ResourceRef, WriteDecision, WritePermit, WriteResourceHash } from "syncpoint-kernel";
 import {
   createWritePermit,
   getOperation,

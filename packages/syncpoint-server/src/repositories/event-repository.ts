@@ -4,7 +4,7 @@
 
 import { desc } from "drizzle-orm";
 import * as s from "../schema.js";
-import type { Event } from "syncpoint-core";
+import type { Event } from "syncpoint-kernel";
 import { _getDb } from "./_shared.js";
 
 export function listEvents(limit = 100): Event[] {

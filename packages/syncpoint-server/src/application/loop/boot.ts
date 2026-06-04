@@ -1,8 +1,8 @@
 import {
   TaskStatus,
   buildAdapterInstruction,
-} from "syncpoint-core";
-import type { AdapterLifecycleEvent, AgentProvider } from "syncpoint-core";
+} from "syncpoint-adapters";
+import type { AdapterLifecycleEvent, AgentProvider } from "syncpoint-adapters";
 import {
   assignTask,
   getAgent,

@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   detectUserAgentManifestFormatFromPath,
   toUserAgentManifestFromRuntime,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import {
   listAgents,
 } from "../../repositories/_exports/foundation.js";

@@ -4,10 +4,10 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { formatResumePrompt } from "syncpoint-core";
+import { formatResumePrompt } from "syncpoint-context";
 import * as repo from "syncpoint-server/repositories";
 import { pmList, pmExport, getContextPolicyInfo, prepareContext, orchGetSessionStatus, rwListEvidence, rwListChangeRequests, rwPrepareReviewPacket, pbGetActiveSession, pbGetNextAction } from "syncpoint-server/application";
-import { ContextIntent, ContextRole } from "syncpoint-core";
+import { ContextIntent, ContextRole } from "syncpoint-context";
 import {
   formatAgentSummary,
   formatTaskSummary,

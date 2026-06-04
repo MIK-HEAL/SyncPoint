@@ -1,4 +1,4 @@
-import { OrchestrationEventType } from "syncpoint-core";
+import { OrchestrationEventType } from "syncpoint-governance";
 import type { SyncPointEventData } from "../../event-bus.js";
 import {
   getReviewRequest,

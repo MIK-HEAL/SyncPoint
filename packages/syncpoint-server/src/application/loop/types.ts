@@ -1,4 +1,5 @@
-import type { ConstraintManifest, ContextMode, PromptFormat } from "syncpoint-core";
+import type { ConstraintManifest } from "syncpoint-governance";
+import type { ContextMode, PromptFormat } from "syncpoint-context";
 
 export interface LoopBootInput {
   agentId: string;

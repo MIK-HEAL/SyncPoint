@@ -7,8 +7,8 @@
 
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
-import { CheckpointReviewStatus } from "syncpoint-core";
-import type { CheckpointReview, CheckpointReviewCreate } from "syncpoint-core";
+import { CheckpointReviewStatus } from "syncpoint-governance";
+import type { CheckpointReview, CheckpointReviewCreate } from "syncpoint-governance";
 import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────

@@ -15,8 +15,8 @@ import {
   SyncGateReason,
   EventType,
   computeLineDrift,
-} from "syncpoint-core";
-import type { ResourceClaim, ResourceClaimCreate, ResourceConflict, ResourceRef } from "syncpoint-core";
+} from "syncpoint-kernel";
+import type { ResourceClaim, ResourceClaimCreate, ResourceConflict, ResourceRef } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { sgRequest, sgReconcileForClaims } from "./sync-gate-service.js";

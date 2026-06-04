@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { getDb, getRawDb as _getRawDb } from "../db.js";
 export { _getRawDb as getRawDb };
 import * as s from "../schema.js";
-import { EventType } from "syncpoint-core";
+import { EventType } from "syncpoint-kernel";
 import { SyncPointEventBus } from "../event-bus.js";
 
 const bus = SyncPointEventBus.getInstance();

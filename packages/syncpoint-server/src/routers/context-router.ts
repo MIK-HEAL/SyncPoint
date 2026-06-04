@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { getResumeContext, enforceContextPolicy } from "../repositories/_exports/context-memory.js";
 import { listEvents } from "../repositories/_exports/foundation.js";
-import { buildAdapterInstruction, getAdapterConfig, listAdapterProviders } from "syncpoint-core";
-import type { AdapterLifecycleEvent as LifecycleEvent } from "syncpoint-core";
+import { buildAdapterInstruction, getAdapterConfig, listAdapterProviders } from "syncpoint-adapters";
+import type { AdapterLifecycleEvent as LifecycleEvent } from "syncpoint-adapters";
 import { t, publicProcedure } from "./_trpc.js";
 
 export const resumeContextRouter = t.router({

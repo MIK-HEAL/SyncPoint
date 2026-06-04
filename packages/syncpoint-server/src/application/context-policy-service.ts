@@ -9,21 +9,10 @@ import {
   CONTEXT_POLICIES,
   listContextIntents,
   listContextRoles,
-} from "syncpoint-core";
-import type { RelationshipModeStr } from "syncpoint-core";
-import type {
-  ContextIntent,
-  ContextRole,
-  ContextGateMode,
-  ContextPolicy,
-  ContextPolicyCheck,
-  ContextSection,
-  PreparedContext,
-  ResumeContext,
-  ProjectMemory,
-  ContextSnapshot,
-  Handoff,
-} from "syncpoint-core";
+} from "syncpoint-context";
+import type { RelationshipModeStr } from "syncpoint-context";
+import type { ContextSnapshot, Handoff } from "syncpoint-adapters";
+import type { ContextIntent, ContextRole, ContextGateMode, ContextPolicy, ContextPolicyCheck, ContextSection, PreparedContext, ResumeContext, ProjectMemory } from "syncpoint-context";
 import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
 import * as foundationRepo from "../repositories/_exports/foundation.js";
 import { pmList } from "./project-memory-service.js";

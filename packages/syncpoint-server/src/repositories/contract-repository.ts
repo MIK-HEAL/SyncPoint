@@ -4,8 +4,9 @@
 
 import { eq } from "drizzle-orm";
 import * as s from "../schema.js";
-import { ContractStatus, TaskStatus, EventType, validateTaskTransition, validateContractTransition } from "syncpoint-core";
-import type { PeerContract, PeerContractCreate, Task } from "syncpoint-core";
+import { ContractStatus, TaskStatus, validateTaskTransition, validateContractTransition } from "syncpoint-adapters";
+import { EventType } from "syncpoint-kernel";
+import type { PeerContract, PeerContractCreate, Task } from "syncpoint-adapters";
 import { _getDb, now, createId, logEvent, NotFoundError } from "./_shared.js";
 import { hydrateContractRow, replaceContractStructuredFields } from "./contract-repository-internals.js";
 import { getTask } from "./task-repository.js";

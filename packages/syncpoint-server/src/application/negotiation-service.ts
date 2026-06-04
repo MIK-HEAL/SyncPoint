@@ -15,12 +15,12 @@ import {
   DEFAULT_NEGOTIATION_CONFIG,
   validateNegotiationTransition,
   evaluateNegotiation,
-} from "syncpoint-core";
-import type { NegotiationConfig, NegotiationSession, NegotiationMessage } from "syncpoint-core";
+} from "syncpoint-adapters";
+import type { NegotiationConfig, NegotiationSession, NegotiationMessage } from "syncpoint-adapters";
 import * as repo from "../repositories/negotiation-repository.js";
 import { sgResolve as gateResolve } from "./sync-gate-service.js";
 import { updateSyncGateStatus, getSyncGate } from "../repositories/sync-gate-repository.js";
-import { SyncGateStatus, isGateBlocking, validateSyncGateTransition } from "syncpoint-core";
+import { SyncGateStatus, isGateBlocking, validateSyncGateTransition } from "syncpoint-kernel";
 
 /**
  * Safe gate writeback — only writes if the gate is still blocking and the

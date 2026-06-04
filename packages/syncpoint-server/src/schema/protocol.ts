@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
-import { GatePolicyKind, GateTimeoutAction } from "syncpoint-core";
+import { GatePolicyKind, GateTimeoutAction } from "syncpoint-kernel";
 import { agents, tasks } from "./foundation.js";
 
 // ── ResourceClaim (generic) ───────────────────────────

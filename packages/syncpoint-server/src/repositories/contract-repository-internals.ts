@@ -1,5 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
-import type { PeerContract, PeerContractCreate } from "syncpoint-core";
+import type { PeerContract, PeerContractCreate } from "syncpoint-adapters";
 import * as s from "../schema.js";
 import { _getDb, createId } from "./_shared.js";
 

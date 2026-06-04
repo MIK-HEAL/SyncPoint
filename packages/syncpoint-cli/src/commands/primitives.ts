@@ -4,7 +4,7 @@
 
 import { Command } from "commander";
 import * as repo from "syncpoint-server/repositories";
-import { TaskStatus, ContractStatus, DiaryEntryType } from "syncpoint-core";
+import { TaskStatus, ContractStatus, DiaryEntryType } from "syncpoint-adapters";
 import { registerAgentCommands } from "./agent.js";
 
 function parseStringArrayOption(raw: string): string[] {

@@ -5,8 +5,8 @@
  * and provides a single function that tools call to get the effective agentId.
  */
 
-import { resolveIdentity, IdentityConflictError } from "syncpoint-core";
-import type { BoundIdentity } from "syncpoint-core";
+import { resolveIdentity, IdentityConflictError } from "syncpoint-adapters";
+import type { BoundIdentity } from "syncpoint-adapters";
 import { getAgentIdForRuntime } from "syncpoint-server/repositories";
 import { log } from "./errors.js";
 

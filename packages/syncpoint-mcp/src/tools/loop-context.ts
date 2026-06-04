@@ -7,9 +7,7 @@ import {
   loopHandoff,
 } from "syncpoint-server/application";
 import { getResumeContext } from "syncpoint-server/repositories";
-import {
-  formatResumePrompt,
-} from "syncpoint-core";
+import { formatResumePrompt } from "syncpoint-context";
 import { resolveBoundAgentId } from "../identity.js";
 import { fail, ok } from "./_shared.js";
 

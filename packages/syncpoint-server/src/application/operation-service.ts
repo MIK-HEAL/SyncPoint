@@ -13,15 +13,10 @@
  *   opList     — list operations with filters
  */
 
-import {
-  OperationStatus,
-  validateOperationTransition,
-  runOperationValidation,
-  evaluateConstraints,
-  normalizeResourcePath,
-  EventType,
-} from "syncpoint-core";
-import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef, ConstraintViolation } from "syncpoint-core";
+import { evaluateConstraints } from "syncpoint-governance";
+import { OperationStatus, validateOperationTransition, runOperationValidation, normalizeResourcePath, EventType } from "syncpoint-kernel";
+import type { ConstraintViolation } from "syncpoint-governance";
+import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
 import { buildProjection } from "./reality-projection-service.js";

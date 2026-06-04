@@ -2,12 +2,12 @@ import {
   createUserAgentManifestTemplate,
   getBuiltInAgentTeamTemplate,
   materializeAgentTeamTemplate,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import type {
   AgentManifestFileFormat,
   UserAgentManifest,
   UserAgentProvider,
-} from "syncpoint-core";
+} from "syncpoint-adapters";
 import { ensureAgentManifestDirectory } from "../agent-registry-service.js";
 import { persistDeclaredManifest, slugify } from "./filesystem.js";
 import type { AgentManifestWriteResult } from "./types.js";

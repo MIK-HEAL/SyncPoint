@@ -14,7 +14,8 @@ import {
 } from "./checkpoint-review-service.js";
 import { sgStatus, sgCheckAgent } from "./sync-gate-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "./orchestration-service.js";
-import { CheckpointReviewStatus, SyncGateStatus } from "syncpoint-core";
+import { CheckpointReviewStatus } from "syncpoint-governance";
+import { SyncGateStatus } from "syncpoint-kernel";
 
 function makeCheckpoint(taskId: string, agentId: string, summary: string) {
   return repo.createCheckpoint({

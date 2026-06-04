@@ -8,8 +8,9 @@
 import { eq, and, desc, lt, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import * as s from "../schema.js";
-import { EventType, SNAPSHOT_VERSION } from "syncpoint-core";
-import type { ContextSnapshot, ContextSnapshotCreate, ContextSnapshotPayload } from "syncpoint-core";
+import { EventType } from "syncpoint-kernel";
+import { SNAPSHOT_VERSION } from "syncpoint-adapters";
+import type { ContextSnapshot, ContextSnapshotCreate, ContextSnapshotPayload } from "syncpoint-adapters";
 import { _getDb, getRawDb, now, createId, logEvent } from "./_shared.js";
 import { getTask } from "./task-repository.js";
 import { getAgent } from "./agent-repository.js";

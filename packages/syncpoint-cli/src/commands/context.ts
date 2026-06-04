@@ -6,8 +6,8 @@ import { Command } from "commander";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as repo from "syncpoint-server/repositories";
-import { formatResumePrompt, ContextIntent, ContextRole } from "syncpoint-core";
-import type { PromptFormat } from "syncpoint-core";
+import { formatResumePrompt, ContextIntent, ContextRole } from "syncpoint-context";
+import type { PromptFormat } from "syncpoint-context";
 import { prepareContext, enforcePreparedContext, getContextPolicyInfo } from "syncpoint-server/application";
 
 export function registerContextCommands(program: Command): void {

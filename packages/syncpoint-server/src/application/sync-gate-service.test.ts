@@ -16,7 +16,9 @@ import { rcClaim, rcRelease } from "./resource-claim-service.js";
 import { orchCreateSession, orchAssignRole, orchPlanTask, orchAcceptAssignment, orchStartAssignment } from "./orchestration-service.js";
 import { loopResume } from "./loop-service.js";
 import { wakeNext, wakeStart } from "./wake-engine-service.js";
-import { SyncGateStatus, TaskStatus, WakeRequestStatus } from "syncpoint-core";
+import { TaskStatus } from "syncpoint-adapters";
+import { WakeRequestStatus } from "syncpoint-governance";
+import { SyncGateStatus } from "syncpoint-kernel";
 
 let tmpDir: string;
 let agent1Id: string;

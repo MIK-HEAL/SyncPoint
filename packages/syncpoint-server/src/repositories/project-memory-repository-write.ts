@@ -1,19 +1,19 @@
 import { eq } from "drizzle-orm";
 import * as s from "../schema.js";
+import { EventType } from "syncpoint-kernel";
 import {
-  EventType,
   ProjectMemoryStatus,
   computeMemoryFingerprint,
   defaultKindFromCategory,
   ValidityStatus,
   MemorySeverity,
-} from "syncpoint-core";
+} from "syncpoint-context";
 import type {
   AppliesTo,
   ProjectMemoryValidatorConfig,
   ProjectMemory,
   ProjectMemoryCreate,
-} from "syncpoint-core";
+} from "syncpoint-context";
 import { _getDb, createId, now, logEvent } from "./_shared.js";
 import {
   normalizeAppliesTo,

@@ -4,8 +4,8 @@ import {
   detectUserAgentManifestFormatFromPath,
   parseAgentTeamTemplateContent,
   parseUserAgentManifestContent,
-} from "syncpoint-core";
-import type { AgentManifestFileFormat } from "syncpoint-core";
+} from "syncpoint-adapters";
+import type { AgentManifestFileFormat } from "syncpoint-adapters";
 import { listDeclarationSourceFiles } from "./filesystem.js";
 import type {
   AgentDeclarationValidationRecord,

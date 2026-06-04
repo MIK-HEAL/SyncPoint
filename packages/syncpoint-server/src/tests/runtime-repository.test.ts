@@ -16,7 +16,7 @@ import {
   getAgentIdForRuntime,
 } from "../repositories/runtime-repository.js";
 import { createAgent } from "../repositories/agent-repository.js";
-import { RuntimeStatus } from "syncpoint-core";
+import { RuntimeStatus } from "syncpoint-adapters";
 
 let tmpDir: string;
 

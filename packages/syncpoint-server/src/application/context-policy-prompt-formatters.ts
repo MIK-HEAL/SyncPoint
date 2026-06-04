@@ -1,10 +1,5 @@
-import type {
-  ContextPolicy,
-  ContextSnapshot,
-  Handoff,
-  ProjectMemory,
-  ResumeContext,
-} from "syncpoint-core";
+import type { ContextSnapshot, Handoff } from "syncpoint-adapters";
+import type { ContextPolicy, ProjectMemory, ResumeContext } from "syncpoint-context";
 
 export interface PromptTaskInfo {
   id: string;
