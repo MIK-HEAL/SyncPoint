@@ -83,10 +83,10 @@ SyncPoint's memory system is a five-layer executable runtime (see `docs/reality-
 | Layer | Purpose | Key files |
 |-------|---------|-----------|
 | **Project Memory** | Long-term reality source code | `project-memory.ts`, `project-memory-service.ts` |
-| **Projection Layer** | Reality Compiler — scopes, traces, detects conflicts | `projection.ts`, `projection-service.ts` |
-| **Context Capsule** | Agent's current task reality mirror | `capsule-context.ts`, `context-policy-service.ts` |
+| **Projection Layer** | Reality Compiler — scopes, traces, detects conflicts | `reality-projection.ts`, `reality-projection-service.ts` |
+| **Context Snapshot** (formerly Context Capsule) | Agent's current task reality mirror | `state-snapshot.ts`, `context-policy-service.ts` |
 | **Protocol Gate** | Collaboration boundary (gates, transactions, claims) | `protocol-gate-service.ts`, `sync-gate-service.ts` |
-| **Constraint Runtime** | Executable enforcement — blocks on violations | `constraint-runtime.ts`, `constraint-runtime-service.ts` |
+| **Constraint Evaluation** | Executable enforcement — blocks on violations | `constraint-evaluation.ts`, `constraint-evaluation-service.ts` |
 
 **Key invariants**:
 
