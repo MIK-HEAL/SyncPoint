@@ -323,7 +323,7 @@ severity:   MemorySeverity    // info | warning | blocking
 validity:   ValiditySchema    // { status: ValidityStatus, staleReason?: string }
 ```
 
-**Routing rules** (enforced in `projection.ts` compiler):
+**Routing rules** (enforced in `reality-projection.ts` compiler):
 
 ```
 fact                  → capsulePatch.verifiedFacts
@@ -344,14 +344,14 @@ protocol_rule         → protocolRules
 
 **Goal**: The architectural core — compile long-term memory into task-scoped reality.
 
-**P3A — Core Compiler** (`syncpoint-core/src/projection.ts`):
+**P3A — Core Compiler** (`syncpoint-core/src/reality-projection.ts`):
 - `compileProjection(memories, ctx)` — pure compiler, no I/O
 - `computeProjectionCacheKey(ctx, fingerprints)` — stable hash for cache invalidation
 - All five principles enforced: Minimal Reality, Traceable Reality, Explicit Conflict, Auditable Projection, Reality Freshness
 - Kind→bucket routing, `appliesTo` scope filtering, `file_scope_collision` conflict detection
 - Stale/invalid memories gated via `skippedStale`; `needs_revalidation` degrades `projectionValidity`
 
-**P3A — Server Service** (`syncpoint-server/src/application/projection-service.ts`):
+**P3A — Server Service** (`syncpoint-server/src/application/reality-projection-service.ts`):
 - `buildProjection(ctx)` — orchestrates `collectProjectMemories` → `compileProjection`
 - Auto-fetches `memoryVersion` from DB
 - tRPC: `projectMemory.projection` query
@@ -367,11 +367,11 @@ protocol_rule         → protocolRules
 
 ---
 
-### P4: Constraint Runtime ✅
+### P4: Constraint Evaluation Runtime ✅
 
 **Goal**: Hard constraints become executable — they can block agent execution.
 
-**P4A — Core Evaluator** (`syncpoint-core/src/constraint-runtime.ts`):
+**P4A — Core Evaluator** (`syncpoint-core/src/constraint-evaluation.ts`):
 - `evaluateConstraints(input): ConstraintDecision` — pure function, no I/O
 - Core evaluators: `projection_invalid`, `projection_conflict`, `do_not_touch_scope_overlap`, `protocol_gate_blocked`, `snapshot_locked_invalid`, typed hard constraints, and advisory hard constraints
 - Scope prefix matching for file overlap detection
@@ -388,7 +388,7 @@ protocol_rule         → protocolRules
 - `wakeStart` — throws on violation (uses latest capsule workingResources)
 - `wakeNext` — returns `null` when constraint-blocked
 
-**P4D — Visibility Layer** (`constraint-runtime-service.ts`):
+**P4D — Visibility Layer** (`constraint-evaluation-service.ts`):
 - `constraintCheck(input): ConstraintRuntimeView` — unified read-only query
 - Input resolution per action: capsule workingResources, resource claims, operation touchedResources
 - Output: projected refs only (no raw PM content), projection metadata, resolved inputs

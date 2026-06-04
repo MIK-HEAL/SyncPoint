@@ -47,7 +47,7 @@ AI coding agents do not only break projects by generating bad code. They also br
 | A handoff drops blockers and risks | The next agent repeats or undoes prior work | Handoff + projected context |
 | A patch touches unowned resources | Review happens after damage is already staged | Operation validation |
 | A reviewer approves without evidence | Approval becomes a guess | Review gate |
-| A hard constraint is only in a prompt | The agent can ignore it accidentally | Constraint runtime |
+| A hard constraint is only in a prompt | The agent can ignore it accidentally | Constraint evaluation runtime |
 
 The user-facing promise is simple:
 
@@ -70,7 +70,7 @@ Read these only after the core story is clear:
 
 - **Architecture boundaries** — [`ARCHITECTURE.md`](ARCHITECTURE.md)
 - **Architecture decisions** — [`architecture-decisions.md`](architecture-decisions.md)
-- **Constraint runtime** — [`constraint-runtime.md`](constraint-runtime.md)
+- **Constraint evaluation runtime** — [`constraint-runtime.md`](constraint-runtime.md)
 - **Reality runtime** — [`reality-runtime.md`](reality-runtime.md)
 - **Plugin API** — [`plugin-api.md`](plugin-api.md)
 - **Resource conventions** — [`resource-conventions.md`](resource-conventions.md)
@@ -115,8 +115,8 @@ The tour guides are not marketing samples. They are executable stories for the c
 | Tour | Protocol boundary |
 |---|---|
 | [`01-file-shield-tour.md`](tours/01-file-shield-tour.md) | `ResourceClaim` overlap creates a `SyncGate` before unsafe continuation |
-| [`02-transaction-purity-tour.md`](tours/02-transaction-purity-tour.md) | `SyncTransaction` prevents unapproved checkpoints from becoming base reality |
-| [`03-constraint-enforcement-tour.md`](tours/03-constraint-enforcement-tour.md) | Constraint Runtime blocks a `do_not_touch` scope violation |
+| [`02-transaction-purity-tour.md`](tours/02-transaction-purity-tour.md) | `CheckpointReview` (`SyncTransaction` internals) prevents unapproved checkpoints from becoming base reality |
+| [`03-constraint-enforcement-tour.md`](tours/03-constraint-enforcement-tour.md) | Constraint Evaluation runtime blocks a `do_not_touch` scope violation |
 | [`04-liveness-and-escalation-tour.md`](tours/04-liveness-and-escalation-tour.md) | liveness policies turn zombie gates into visible decisions |
 
 When changing gate, transaction, constraint, or liveness behavior, update these tours as part of the same change.
