@@ -436,7 +436,15 @@ export function backupDb(destPath: string): { ok: boolean; error?: string } {
     return { ok: false, error: "Database not initialized" };
   }
   try {
-    sqlite.exec(`VACUUM INTO '${destPath.replace(/'/g, "''")}'`);
+    // Resolve and validate the destination path before passing to SQLite.
+    // VACUUM INTO does not support bound parameters, so we resolve to a
+    // canonical absolute path and still escape single-quote literals.
+    const resolved = path.resolve(destPath);
+    const destDir = path.dirname(resolved);
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+    sqlite.exec(`VACUUM INTO '${resolved.replace(/'/g, "''")}'`);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

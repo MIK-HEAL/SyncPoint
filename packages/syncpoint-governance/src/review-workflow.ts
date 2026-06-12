@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { ApprovalGateStatus } from "syncpoint-kernel";
 
 // ── Enums ────────────────────────────────────────────
 
@@ -64,12 +65,8 @@ export function validateChangeRequestTransition(current: ChangeRequestStatus, ta
   }
 }
 
-export enum ApprovalGateStatus {
-  PENDING = "PENDING",
-  PASSED = "PASSED",
-  BLOCKED = "BLOCKED",
-  WAIVED = "WAIVED",
-}
+// ApprovalGateStatus is imported from syncpoint-kernel (shared kernel type)
+export { ApprovalGateStatus };
 
 export const ApprovalRecordDecision = z.enum([
   "approved",

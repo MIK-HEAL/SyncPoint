@@ -17,6 +17,7 @@ import {
   evaluateConstraints,
   buildConstraintManifest,
 } from "syncpoint-governance";
+import { ValidationError, InternalError } from "syncpoint-kernel";
 import type { ProjectionValidityStatus, ContextMode } from "syncpoint-context";
 import type { ConstraintViolation, ConstraintManifest } from "syncpoint-governance";
 import * as contextMemoryRepo from "../repositories/_exports/context-memory.js";
@@ -119,8 +120,8 @@ interface ResolvedInput {
 }
 
 function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
-  if (!input.taskId) throw new Error("taskId required for action 'resume'");
-  if (!input.agentId) throw new Error("agentId required for action 'resume'");
+  if (!input.taskId) throw new ValidationError("taskId", "taskId required for action 'resume'");
+  if (!input.agentId) throw new ValidationError("agentId", "agentId required for action 'resume'");
 
   if (input.touchedResources?.length) {
     return {
@@ -146,7 +147,7 @@ function resolveResumeInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
 }
 
 function resolveStartAssignmentInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
-  if (!input.assignmentId) throw new Error("assignmentId required for action 'start_assignment'");
+  if (!input.assignmentId) throw new ValidationError("assignmentId", "assignmentId required for action 'start_assignment'");
 
   const ta = orchestrationRepo.getTaskAssignment(input.assignmentId);
 
@@ -184,8 +185,8 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
     agentId = wr.targetAgentId;
     sessionId = wr.sessionId ?? input.sessionId;
   } else {
-    if (!input.taskId) throw new Error("taskId or wakeRequestId required for action 'wake_start'");
-    if (!input.agentId) throw new Error("agentId or wakeRequestId required for action 'wake_start'");
+    if (!input.taskId) throw new ValidationError("taskId", "taskId or wakeRequestId required for action 'wake_start'");
+    if (!input.agentId) throw new ValidationError("agentId", "agentId or wakeRequestId required for action 'wake_start'");
     taskId = input.taskId;
     agentId = input.agentId;
     sessionId = input.sessionId;
@@ -215,7 +216,7 @@ function resolveWakeStartInput(input: ConstraintRuntimeCheckInput): ResolvedInpu
 }
 
 function resolveOperationInput(input: ConstraintRuntimeCheckInput, action: "operation_submit" | "operation_apply"): ResolvedInput {
-  if (!input.operationId) throw new Error(`operationId required for action '${action}'`);
+  if (!input.operationId) throw new ValidationError("operationId", `operationId required for action '${action}'`);
 
   const op = protocolRepo.getOperation(input.operationId);
 
@@ -253,7 +254,7 @@ function resolveInput(input: ConstraintRuntimeCheckInput): ResolvedInput {
     case "operation_apply":
       return resolveOperationInput(input, input.action);
     default:
-      throw new Error(`Unknown action: ${input.action}`);
+      throw new ValidationError("action", `Unknown action: ${input.action}`);
   }
 }
 
@@ -317,12 +318,18 @@ export function constraintCheck(input: ConstraintRuntimeCheckInput): ConstraintR
       },
     };
   } catch (err) {
-    // Runtime unavailable — return a degraded but informative view
+    // Runtime unavailable — fail-closed: deny operation when constraints cannot be evaluated
+    // This is the safe default; constraint evaluation failures could mask real violations.
     const message = err instanceof Error ? err.message : String(err);
     return {
       action: input.action,
-      permitted: true,
-      blockers: [],
+      permitted: false,
+      blockers: [{
+        rule: "constraint_runtime_unavailable",
+        message: `Constraint evaluation unavailable: ${message}`,
+        sourceMemoryId: "",
+        projectionId: "",
+      }],
       warnings: [],
       projection: {
         projectionId: "",

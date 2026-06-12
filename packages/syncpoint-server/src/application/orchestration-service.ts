@@ -4,7 +4,7 @@
  */
 
 import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus, TaskStatus } from "syncpoint-adapters";
-import { EventType } from "syncpoint-kernel";
+import { EventType, ConstraintViolationError, ForbiddenError, InvalidStateTransitionError, InternalError } from "syncpoint-kernel";
 import type {
   OrchestrationSession,
   OrchestrationSessionCreate,
@@ -167,7 +167,7 @@ export function orchPlanTask(input: PlanTaskInput): TaskAssignment {
   if (!task.ownerAgentId) {
     foundationRepo.assignTask(input.taskId, input.assigneeAgentId);
   } else if (task.ownerAgentId !== input.assigneeAgentId) {
-    throw new Error(`Task ${task.id} is already assigned to ${task.ownerAgentId}, not ${input.assigneeAgentId}`);
+    throw new ConstraintViolationError(["task_already_assigned"], `Task ${task.id} is already assigned to ${task.ownerAgentId}, not ${input.assigneeAgentId}`);
   }
 
   const assignment = orchestrationRepo.createTaskAssignment({
@@ -211,7 +211,7 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
   const blockCheck = readiness.blockCheck;
   if (blockCheck.blocked) {
     const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
-    throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting work.`);
+    throw new ForbiddenError("start_assignment", `Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting work.`);
   }
 
   // P7: peer-contract requires resource claims before starting work
@@ -220,7 +220,7 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
     const claims = protocolRepo.listActiveResourceClaims({ sessionId: ta0.sessionId });
     const agentClaims = claims.filter(c => c.actorId === ta0.assigneeAgentId);
     if (agentClaims.length === 0) {
-      throw new Error(
+      throw new ForbiddenError("start_assignment",
         `peer-contract mode requires resource claims before starting work. ` +
         `Agent ${ta0.assigneeAgentId} has no active resource claims. ` +
         `Use 'syncpoint resource claim' first.`
@@ -233,12 +233,12 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
     const decision = readiness.constraintDecision;
     if (!decision.permitted) {
       const reasons = decision.blockers.map(b => b.message).join("; ");
-      throw new Error(`Constraint violation: ${reasons}`);
+      throw new ConstraintViolationError(["orchestration_constraint"], `Constraint violation: ${reasons}`);
     }
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("Constraint violation:")) throw err;
     // Fail-closed: projection unavailable — block start assignment
-    throw new Error(`Cannot start assignment: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`);
+    throw new InternalError(`Cannot start assignment: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`);
   }
 
   const ta = orchestrationRepo.updateTaskAssignmentStatus(assignmentId, TaskAssignmentStatus.IN_PROGRESS);
@@ -273,7 +273,7 @@ export function orchRequestReview(input: RequestReviewInput): ReviewRequest {
   const assignments = orchestrationRepo.listTaskAssignments(input.sessionId);
   const inSession = assignments.some(a => a.taskId === input.taskId);
   if (!inSession) {
-    throw new Error(`Task ${input.taskId} is not assigned in session ${input.sessionId}`);
+    throw new InvalidStateTransitionError("task_assignment", "unassigned", `Task ${input.taskId} is not assigned in session ${input.sessionId}`);
   }
 
   // Move task to REVIEWING status if it's IN_PROGRESS

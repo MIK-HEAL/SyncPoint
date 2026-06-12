@@ -15,7 +15,7 @@
  */
 
 import { CheckpointReviewStatus, validateCheckpointReviewTransition, allApproved, hasRejection, pendingApprovers, isReviewBlocking } from "syncpoint-governance";
-import { SyncGateReason, EventType } from "syncpoint-kernel";
+import { SyncGateReason, EventType, ForbiddenError, InvalidStateTransitionError } from "syncpoint-kernel";
 import type { CheckpointReview } from "syncpoint-governance";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
 import { logEvent } from "../repositories/_shared.js";
@@ -102,12 +102,12 @@ export function stxApprove(txId: string, agentId: string, summary?: string): Syn
   // Verify agent is required approver
   const required = tx.requiredApproverIds;
   if (!required.includes(agentId)) {
-    throw new Error(`Agent ${agentId} is not a required approver for transaction ${txId}`);
+    throw new ForbiddenError("checkpoint_review", `Agent ${agentId} is not a required approver for transaction ${txId}`);
   }
 
   // Verify transaction is in WAITING_APPROVAL
   if (tx.status !== CheckpointReviewStatus.WAITING_APPROVAL) {
-    throw new Error(`Transaction ${txId} is not in WAITING_APPROVAL state (currently ${tx.status})`);
+    throw new InvalidStateTransitionError("checkpoint_review", tx.status, CheckpointReviewStatus.WAITING_APPROVAL);
   }
 
   // Add to approved list
@@ -145,12 +145,12 @@ export function stxReject(txId: string, agentId: string, reason?: string): SyncT
   // Verify agent is required approver
   const required = tx.requiredApproverIds;
   if (!required.includes(agentId)) {
-    throw new Error(`Agent ${agentId} is not a required approver for transaction ${txId}`);
+    throw new ForbiddenError("checkpoint_review", `Agent ${agentId} is not a required approver for transaction ${txId}`);
   }
 
   // Verify transaction is in WAITING_APPROVAL
   if (tx.status !== CheckpointReviewStatus.WAITING_APPROVAL) {
-    throw new Error(`Transaction ${txId} is not in WAITING_APPROVAL state (currently ${tx.status})`);
+    throw new InvalidStateTransitionError("checkpoint_review", tx.status, CheckpointReviewStatus.WAITING_APPROVAL);
   }
 
   // Add to rejected list
@@ -185,7 +185,7 @@ export function stxResolve(txId: string, decisionSummary?: string): SyncTxStatus
   let tx = protocolRepo.getCheckpointReview(txId);
 
   if (!validateCheckpointReviewTransition(tx.status as CheckpointReviewStatus, CheckpointReviewStatus.RESOLVED)) {
-    throw new Error(`Cannot resolve transaction ${txId} from ${tx.status}`);
+    throw new InvalidStateTransitionError("checkpoint_review", tx.status, CheckpointReviewStatus.RESOLVED);
   }
 
   tx = protocolRepo.updateCheckpointReviewStatus(tx.id, CheckpointReviewStatus.RESOLVED, decisionSummary ?? "");
@@ -216,7 +216,7 @@ export function stxCancel(txId: string, reason?: string): CheckpointReview {
   let tx = protocolRepo.getCheckpointReview(txId);
 
   if (!validateCheckpointReviewTransition(tx.status as CheckpointReviewStatus, CheckpointReviewStatus.CANCELLED)) {
-    throw new Error(`Cannot cancel transaction ${txId} from ${tx.status}`);
+    throw new InvalidStateTransitionError("checkpoint_review", tx.status, CheckpointReviewStatus.CANCELLED);
   }
 
   tx = protocolRepo.updateCheckpointReviewStatus(tx.id, CheckpointReviewStatus.CANCELLED, reason ?? "");

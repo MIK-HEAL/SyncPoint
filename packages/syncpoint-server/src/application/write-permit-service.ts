@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { evaluateConstraints } from "syncpoint-governance";
-import { EventType, WriteIntent, WriteDecisionReason, WritePermitStatus, evaluateWriteDecision, normalizeResourcePath, ResourceRef, WriteDecision, WritePermit, WriteResourceHash } from "syncpoint-kernel";
+import { ConstraintViolationError, ForbiddenError, EventType, WriteIntent, WriteDecisionReason, WritePermitStatus, evaluateWriteDecision, normalizeResourcePath, ResourceRef, WriteDecision, WritePermit, WriteResourceHash } from "syncpoint-kernel";
 import {
   createWritePermit,
   getOperation,
@@ -165,14 +165,14 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
     const decision = { permitted: false, reason: WriteDecisionReason.BLOCKED, blockers: [denial], warnings: [] };
     permit = updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision });
     logEvent(EventType.WRITE_BLOCKED, "write_permit", permit.id, JSON.stringify(decision));
-    throw new Error(denial.message);
+    throw new ForbiddenError("write", denial.message);
   }
 
   const revalidated = revalidatePermitDecision(permit);
   if (!revalidated.permitted) {
     permit = updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision: revalidated });
     logEvent(EventType.WRITE_BLOCKED, "write_permit", permit.id, JSON.stringify(revalidated));
-    throw new Error(`Write permit no longer valid: ${revalidated.blockers.map(blocker => blocker.message).join("; ")}`);
+    throw new ForbiddenError("write", `Write permit no longer valid: ${revalidated.blockers.map(blocker => blocker.message).join("; ")}`);
   }
 
   const preparedMutations = preflightMutations(permit, normalizedMutations, root);
@@ -185,7 +185,7 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
     };
     permit = updateWritePermit(permit.id, { status: WritePermitStatus.REVOKED, decision });
     logEvent(EventType.WRITE_BLOCKED, "write_permit", permit.id, JSON.stringify(decision));
-    throw new Error(preparedMutations.denial.message);
+    throw new ForbiddenError("write", preparedMutations.denial.message);
   }
 
   const applied: Array<{ locator: string; sha256?: string; exists: boolean }> = [];
@@ -195,7 +195,8 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
   try {
     for (const { mutation, target, content } of preparedMutations.mutations) {
       if (mutation.delete) {
-        if (fs.existsSync(target)) fs.unlinkSync(target);
+        // Use rmSync with force to avoid a separate existsSync check
+        try { fs.rmSync(target, { force: true }); } catch { /* file may already be gone */ }
       } else {
         fs.mkdirSync(path.dirname(target), { recursive: true });
         atomicWriteFile(target, content);
@@ -203,6 +204,8 @@ export function writeApply(input: WriteApplyInput): WriteApplyResult {
       applied.push({ locator: mutation.resource.locator, ...readResourceHash(root, mutation.resource) });
       recordAuthorizedWrite(root, mutation.resource.locator);
     }
+    // TODO: Consider migrating to fs.promises + Promise.all for parallel I/O
+    // when the calling context supports async.
   } finally {
     unlock.restore();
   }
@@ -364,11 +367,11 @@ function canonicalRoot(root: string): string {
 function safeResolve(root: string, locator: string): string {
   const target = resolveNativeLocator(root, locator);
   if (!isInsideOrSame(root, target)) {
-    throw new Error(`Refusing to write outside guarded root: ${locator}`);
+    throw new ForbiddenError("filesystem_write", `Refusing to write outside guarded root: ${locator}`);
   }
   const realTarget = realpathForContainmentCheck(target);
   if (!isInsideOrSame(root, realTarget)) {
-    throw new Error(`Refusing to follow path outside guarded root: ${locator}`);
+    throw new ForbiddenError("filesystem_write", `Refusing to follow path outside guarded root: ${locator}`);
   }
   return target;
 }

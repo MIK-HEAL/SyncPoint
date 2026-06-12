@@ -20,7 +20,7 @@ import type { NegotiationConfig, NegotiationSession, NegotiationMessage } from "
 import * as repo from "../repositories/negotiation-repository.js";
 import { sgResolve as gateResolve } from "./sync-gate-service.js";
 import { updateSyncGateStatus, getSyncGate } from "../repositories/sync-gate-repository.js";
-import { SyncGateStatus, isGateBlocking, validateSyncGateTransition } from "syncpoint-kernel";
+import { ConstraintViolationError, ForbiddenError, InvalidStateTransitionError, ResourceNotFoundError, ValidationError, SyncGateStatus, isGateBlocking, validateSyncGateTransition } from "syncpoint-kernel";
 
 /**
  * Safe gate writeback — only writes if the gate is still blocking and the
@@ -43,12 +43,12 @@ export function negStart(
   config?: Partial<NegotiationConfig>,
 ) {
   if (participantIds.length < 2) {
-    throw new Error("Negotiation requires at least 2 participants");
+    throw new ValidationError("participantIds", "Negotiation requires at least 2 participants");
   }
 
   const existing = repo.getNegotiationSessionByGate(gateId);
   if (existing && existing.status !== NegotiationStatus.RESOLVED && existing.status !== NegotiationStatus.ESCALATED) {
-    throw new Error(`Active negotiation already exists for gate ${gateId}: ${existing.id}`);
+    throw new ConstraintViolationError(["negotiation_unique_gate"], `Active negotiation already exists for gate ${gateId}: ${existing.id}`);
   }
 
   const merged: NegotiationConfig = { ...DEFAULT_NEGOTIATION_CONFIG, ...config };
@@ -80,12 +80,12 @@ export function negMessage(
   content: string,
 ) {
   const session = repo.getNegotiationSession(sessionId);
-  if (!session) throw new Error(`Negotiation session not found: ${sessionId}`);
+  if (!session) throw new ResourceNotFoundError(sessionId);
 
   // Validate kind
   const validKinds = Object.values(NegotiationMessageKind) as string[];
   if (!validKinds.includes(kind.toUpperCase())) {
-    throw new Error(`Invalid message kind: ${kind}. Valid: ${validKinds.join(", ")}`);
+    throw new ValidationError("kind", `Invalid message kind: ${kind}. Valid: ${validKinds.join(", ")}`);
   }
 
   // Must be active
@@ -93,13 +93,13 @@ export function negMessage(
     session.status !== NegotiationStatus.ROUND_ACTIVE &&
     session.status !== NegotiationStatus.WAITING_FOR_RESPONSES
   ) {
-    throw new Error(`Cannot post message: session is ${session.status}`);
+    throw new InvalidStateTransitionError("negotiation", session.status, NegotiationStatus.ROUND_ACTIVE);
   }
 
   // Must be a participant
   const participants = session.participantIds;
   if (!participants.includes(agentId)) {
-    throw new Error(`Agent ${agentId} is not a participant in this negotiation`);
+    throw new ForbiddenError("neg_message", `Agent ${agentId} is not a participant in this negotiation`);
   }
 
   const msg = repo.createNegotiationMessage({
@@ -131,7 +131,7 @@ export function negMessage(
 
 export function negReconcile(sessionId: string) {
   const session = repo.getNegotiationSession(sessionId);
-  if (!session) throw new Error(`Negotiation session not found: ${sessionId}`);
+  if (!session) throw new ResourceNotFoundError(sessionId);
 
   // Terminal states — nothing to do
   if (
@@ -188,11 +188,11 @@ export function negReconcile(sessionId: string) {
 
 export function negResolve(sessionId: string, agentId: string, summary: string) {
   const session = repo.getNegotiationSession(sessionId);
-  if (!session) throw new Error(`Negotiation session not found: ${sessionId}`);
+  if (!session) throw new ResourceNotFoundError(sessionId);
 
   // Can resolve from DEADLOCKED, TIMED_OUT, ESCALATED, or active states
   if (session.status === NegotiationStatus.RESOLVED) {
-    throw new Error("Negotiation already resolved");
+    throw new InvalidStateTransitionError("negotiation", NegotiationStatus.RESOLVED, "non_resolved");
   }
 
   const updated = repo.updateNegotiationSession(sessionId, {
@@ -211,10 +211,10 @@ export function negResolve(sessionId: string, agentId: string, summary: string) 
 
 export function negEscalate(sessionId: string) {
   const session = repo.getNegotiationSession(sessionId);
-  if (!session) throw new Error(`Negotiation session not found: ${sessionId}`);
+  if (!session) throw new ResourceNotFoundError(sessionId);
 
   if (!validateNegotiationTransition(session.status as NegotiationStatus, NegotiationStatus.ESCALATED)) {
-    throw new Error(`Cannot escalate from ${session.status}`);
+    throw new InvalidStateTransitionError("negotiation", session.status, NegotiationStatus.ESCALATED);
   }
 
   const updated = repo.updateNegotiationSession(sessionId, {

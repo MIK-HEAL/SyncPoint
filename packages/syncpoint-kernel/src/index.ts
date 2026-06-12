@@ -185,3 +185,6 @@ export {
 // ── Events (hosted locally in kernel) ──
 export { EventType, EventSchema } from "./events.js";
 export type { Event } from "./events.js";
+
+// ── Approval gate (shared kernel enum) ──────────────────
+export { ApprovalGateStatus } from "./approval-gate.js";

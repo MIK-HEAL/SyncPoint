@@ -66,13 +66,9 @@ const TYPESCRIPT_STRATEGY: FunctionParseStrategy = {
 
       if (match) {
         const name = match[1] || match[2] || match[3] || "";
-        if (!name || name.startsWith("//") || name === "if" || name === "for" || name === "while" || name === "switch" || name === "catch" || name === "constructor") {
-          // Skip control flow and constructor (constructor is handled as method)
-          if (name === "constructor" && methodMatch) {
-            // Actually include constructor
-          } else {
-            continue;
-          }
+        if (!name || name.startsWith("//") || name === "if" || name === "for" || name === "while" || name === "switch" || name === "catch") {
+          // Skip control flow keywords that look like function calls
+          continue;
         }
         braceDepth = countBraces(line);
         if (braceDepth > 0) {

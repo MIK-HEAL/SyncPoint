@@ -14,7 +14,7 @@
  */
 
 import { evaluateConstraints } from "syncpoint-governance";
-import { OperationStatus, validateOperationTransition, runOperationValidation, normalizeResourcePath, EventType } from "syncpoint-kernel";
+import { ConstraintViolationError, InvalidStateTransitionError, OperationStatus, validateOperationTransition, runOperationValidation, normalizeResourcePath, EventType } from "syncpoint-kernel";
 import type { ConstraintViolation } from "syncpoint-governance";
 import type { Operation, OperationCreate, OperationCheckItem, OperationCheckResult, ResourceRef } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
@@ -83,7 +83,7 @@ export function opSubmit(operationId: string): OperationStatusResult {
   let operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.SUBMITTED)) {
-    throw new Error(`Cannot submit operation ${operationId} from ${operation.status}`);
+    throw new InvalidStateTransitionError("operation", operation.status, OperationStatus.SUBMITTED);
   }
 
   operation = protocolRepo.updateOperation(operationId, {
@@ -166,7 +166,7 @@ export function opApprove(operationId: string, actorId: string, summary?: string
   const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.APPROVED)) {
-    throw new Error(`Cannot approve operation ${operationId} from ${operation.status}`);
+    throw new InvalidStateTransitionError("operation", operation.status, OperationStatus.APPROVED);
   }
 
   const updated = protocolRepo.updateOperation(operationId, {
@@ -191,7 +191,7 @@ export function opReject(operationId: string, actorId: string, reason?: string):
   const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.REJECTED)) {
-    throw new Error(`Cannot reject operation ${operationId} from ${operation.status}`);
+    throw new InvalidStateTransitionError("operation", operation.status, OperationStatus.REJECTED);
   }
 
   const updated = protocolRepo.updateOperation(operationId, {
@@ -217,14 +217,15 @@ export function opApply(operationId: string): Operation {
   const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.APPLIED)) {
-    throw new Error(`Cannot apply operation ${operationId} from ${operation.status}`);
+    throw new InvalidStateTransitionError("operation", operation.status, OperationStatus.APPLIED);
   }
 
   // Final constraint check before apply
   const violations = runConstraintCheck(operation, "operation_apply");
   if (violations.length > 0) {
-    throw new Error(
-      `Cannot apply operation ${operationId}: blocked by constraint runtime — ${violations.map(v => v.message).join("; ")}`,
+    throw new ConstraintViolationError(
+      violations.map(v => v.rule),
+      `Cannot apply operation ${operationId}: ${violations.map(v => v.message).join("; ")}`,
     );
   }
 
@@ -243,7 +244,7 @@ export function opCancel(operationId: string, reason?: string): Operation {
   const operation = protocolRepo.getOperation(operationId);
 
   if (!validateOperationTransition(operation.status, OperationStatus.CANCELLED)) {
-    throw new Error(`Cannot cancel operation ${operationId} from ${operation.status}`);
+    throw new InvalidStateTransitionError("operation", operation.status, OperationStatus.CANCELLED);
   }
 
   const updated = protocolRepo.updateOperation(operationId, {

@@ -31,6 +31,9 @@ import {
   GateVoteKind,
   computeGateDetails,
   computeAvailableActions,
+  ForbiddenError,
+  InvalidStateTransitionError,
+  ValidationError,
 } from "syncpoint-kernel";
 import type { SyncGate, SyncGateCreate, GatePolicy, GateVote, GateVoteCreate, LivenessDecision, GateDetailedStatus, GateAction, ResourceRef } from "syncpoint-kernel";
 import * as protocolRepo from "../repositories/_exports/protocol.js";
@@ -123,7 +126,7 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
   // Verify agent is required
   const required = parseIdList(gate.requiredAgentIds);
   if (!required.includes(agentId)) {
-    throw new Error(`Agent ${agentId} is not required for gate ${gateId}`);
+    throw new ForbiddenError("sg_ack", `Agent ${agentId} is not required for gate ${gateId}`);
   }
 
   // Verify gate is in a state that accepts acks
@@ -131,7 +134,7 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
     gate.status !== SyncGateStatus.SYNC_REQUESTED &&
     gate.status !== SyncGateStatus.PARTIALLY_ACKED
   ) {
-    throw new Error(`Gate ${gateId} is not in SYNC_REQUESTED or PARTIALLY_ACKED state (currently ${gate.status})`);
+    throw new InvalidStateTransitionError("sync_gate", gate.status, SyncGateStatus.SYNC_REQUESTED);
   }
 
   // Add to acked list (separate ack table, never overwrites governance votes)
@@ -175,7 +178,7 @@ export function sgAck(gateId: string, agentId: string, summary?: string): SyncGa
 export function sgVote(gateId: string, agentId: string, vote: string, summary?: string): SyncGateStatusResult {
   const gate = protocolRepo.getSyncGate(gateId);
   if (!isGateBlocking(gate)) {
-    throw new Error(`Gate ${gateId} is already resolved (${gate.status})`);
+    throw new InvalidStateTransitionError("sync_gate", gate.status, "voting");
   }
 
   // Validate vote kind
@@ -186,7 +189,7 @@ export function sgVote(gateId: string, agentId: string, vote: string, summary?: 
     GateVoteKind.ESCALATE,
   ] as string[];
   if (!validKinds.includes(vote)) {
-    throw new Error(`Invalid vote kind "${vote}". Must be one of: ${validKinds.join(", ")}`);
+    throw new ValidationError("vote", `Invalid vote kind "${vote}". Must be one of: ${validKinds.join(", ")}`);
   }
 
   // Validate voter eligibility: must be a required agent or escalation agent
@@ -195,7 +198,7 @@ export function sgVote(gateId: string, agentId: string, vote: string, summary?: 
   const escalationAgents = policy.escalationAgentIds ?? [];
   const eligible = new Set([...requiredAgents, ...escalationAgents, gate.requestedByAgentId]);
   if (!eligible.has(agentId)) {
-    throw new Error(`Agent ${agentId} is not eligible to vote on gate ${gateId}. Eligible: required, escalation, or owner agents.`);
+    throw new ForbiddenError("sg_vote", `Agent ${agentId} is not eligible to vote on gate ${gateId}.`);
   }
 
   const voteData: GateVoteCreate = {
@@ -325,7 +328,7 @@ export function sgResolve(gateId: string, decisionSummary?: string): SyncGateSta
   let gate = protocolRepo.getSyncGate(gateId);
 
   if (!validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.READY_TO_CONTINUE)) {
-    throw new Error(`Cannot resolve gate ${gateId} from ${gate.status}`);
+    throw new InvalidStateTransitionError("sync_gate", gate.status, SyncGateStatus.READY_TO_CONTINUE);
   }
 
   gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.READY_TO_CONTINUE, decisionSummary ?? "");
@@ -347,7 +350,7 @@ export function sgCancel(gateId: string, reason?: string): SyncGate {
   let gate = protocolRepo.getSyncGate(gateId);
 
   if (!validateSyncGateTransition(gate.status as SyncGateStatus, SyncGateStatus.CANCELLED)) {
-    throw new Error(`Cannot cancel gate ${gateId} from ${gate.status}`);
+    throw new InvalidStateTransitionError("sync_gate", gate.status, SyncGateStatus.CANCELLED);
   }
 
   gate = protocolRepo.updateSyncGateStatus(gate.id, SyncGateStatus.CANCELLED, reason ?? "");

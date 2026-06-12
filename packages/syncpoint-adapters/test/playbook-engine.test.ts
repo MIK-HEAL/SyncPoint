@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { computeNextActions } from "../src/playbook-engine.js";
 import type { SessionSnapshot } from "../src/playbook-engine.js";
 import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus } from "../src/orchestration.js";
-import { ApprovalGateStatus } from "syncpoint-governance";
+import { ApprovalGateStatus } from "syncpoint-kernel";
 import type { ApprovalGateResult } from "syncpoint-governance";
 import { RelationshipMode } from "../src/relationship-mode.js";
 

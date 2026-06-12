@@ -8,7 +8,7 @@
 
 import { z } from "zod";
 import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus } from "./orchestration.js";
-import { ApprovalGateStatus } from "syncpoint-governance";
+import { ApprovalGateStatus } from "syncpoint-kernel";
 import type { ApprovalGateResult } from "syncpoint-governance";
 import { RelationshipMode, MODE_SYNC_RULES, isModeActionAllowed } from "./relationship-mode.js";
 

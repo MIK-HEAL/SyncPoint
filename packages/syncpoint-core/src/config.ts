@@ -8,6 +8,9 @@
  */
 
 import { z } from "zod";
+import fs from "node:fs";
+import path from "node:path";
+import { parse as parseYaml } from "yaml";
 
 // ── Sub-schemas ──────────────────────────────────────────
 
@@ -112,84 +115,21 @@ export function mergeConfig(...configs: Partial<SyncPointConfig>[]): SyncPointCo
  */
 export function configFromFile(filePath: string): Partial<SyncPointConfig> {
   try {
-    const fs = require("node:fs") as typeof import("node:fs");
-    const path = require("node:path") as typeof import("node:path");
     const absPath = path.resolve(filePath);
     if (!fs.existsSync(absPath)) return {};
     const raw = fs.readFileSync(absPath, "utf-8");
-    // Minimal YAML-like parsing for simple flat+section structures.
-    // Full YAML support requires a parser dependency; for now we support
-    // JSON config files and a simple YAML subset.
     if (absPath.endsWith(".json")) {
       return JSON.parse(raw) as Partial<SyncPointConfig>;
     }
-    // For .yaml/.yml, attempt a basic parse; fall back to empty
-    const parsed = parseSimpleYaml(raw);
-    return parsed as Partial<SyncPointConfig>;
+    // Use the fully-featured yaml library (already a dependency)
+    const parsed = parseYaml(raw);
+    return (parsed ?? {}) as Partial<SyncPointConfig>;
   } catch {
     return {};
   }
 }
 
 /**
- * Very basic YAML parser supporting the SyncPoint config subset:
- * - Comments (#)
- * - Top-level scalar values (port: 8765, host: localhost)
- * - Nested objects via indentation
- * - Boolean and numeric values
- *
- * This avoids adding a YAML dependency to the core package.
- */
-function parseSimpleYaml(raw: string): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  const lines = raw.split("\n");
-  let currentSection: string | null = null;
-  let currentObj: Record<string, unknown> = result;
-
-  for (const line of lines) {
-    const trimmed = line.trimEnd();
-    // Skip empty lines and comments
-    if (!trimmed || trimmed.startsWith("#")) continue;
-
-    const indent = line.length - line.trimStart().length;
-    const colonIdx = trimmed.indexOf(":");
-    if (colonIdx === -1) continue;
-
-    const key = trimmed.slice(0, colonIdx).trim();
-    const valuePart = trimmed.slice(colonIdx + 1).trim();
-
-    if (indent === 0) {
-      // Top-level key
-      if (valuePart === "" || valuePart === "{}") {
-        currentSection = key;
-        currentObj = {};
-        result[key] = currentObj;
-      } else {
-        currentSection = null;
-        result[key] = parseYamlValue(valuePart);
-      }
-    } else if (currentSection && indent >= 2) {
-      // Nested under current section
-      currentObj[key] = parseYamlValue(valuePart);
-    }
-  }
-
-  return result;
-}
-
-function parseYamlValue(raw: string): unknown {
-  const v = raw.replace(/#.*$/, "").trim();
-  if (v === "true") return true;
-  if (v === "false") return false;
-  if (v === "null" || v === "~") return null;
-  if (/^-?\d+$/.test(v)) return parseInt(v, 10);
-  if (/^-?\d+\.\d+$/.test(v)) return parseFloat(v);
-  if (v.startsWith('"') && v.endsWith('"')) return v.slice(1, -1);
-  if (v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1);
-  // Unquoted string — strip trailing comment safely
-  return v;
-}
-
 /**
  * Full config loading with priority: CLI > env > file > defaults.
  *
