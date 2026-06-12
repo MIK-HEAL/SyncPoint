@@ -1,3 +1,5 @@
+import { InvalidStateTransitionError } from "syncpoint-kernel";
+
 export interface StatusTransitionSpec<TEntity, TStatus extends string, TResult = TEntity> {
   entityName: string;
   entityId: string;
@@ -14,7 +16,7 @@ export function applyStatusTransition<TEntity, TStatus extends string, TResult =
   spec: StatusTransitionSpec<TEntity, TStatus, TResult>,
 ): TResult {
   if (!spec.canTransition(spec.currentStatus, spec.targetStatus)) {
-    throw new Error(`Cannot ${spec.actionLabel ?? spec.targetStatus.toLowerCase()} ${spec.entityName} ${spec.entityId} from ${spec.currentStatus}`);
+    throw new InvalidStateTransitionError(spec.entityName, spec.currentStatus, spec.targetStatus);
   }
 
   const entity = spec.transition();

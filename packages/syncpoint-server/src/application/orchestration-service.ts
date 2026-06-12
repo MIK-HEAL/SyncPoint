@@ -216,7 +216,7 @@ export function orchStartAssignment(assignmentId: string): TaskAssignment {
 
   // P7: peer-contract requires resource claims before starting work
   const session = orchestrationRepo.getSession(ta0.sessionId);
-  if ((session as any).relationshipMode === RelationshipMode.PEER_CONTRACT) {
+  if (session.relationshipMode === RelationshipMode.PEER_CONTRACT) {
     const claims = protocolRepo.listActiveResourceClaims({ sessionId: ta0.sessionId });
     const agentClaims = claims.filter(c => c.actorId === ta0.assigneeAgentId);
     if (agentClaims.length === 0) {

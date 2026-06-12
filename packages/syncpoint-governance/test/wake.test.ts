@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { computeWakeTargets, DEFAULT_WAKE_RULES, SYNC_VERB_WHITELIST, OrchestrationEventType, validateWakeRequestTransition, WakeRequestStatus } from "../src/wake.js";
 import type { WakeContext, WakeRule } from "../src/wake.js";
-import { RelationshipMode } from "syncpoint-adapters";
+import { RelationshipMode } from "syncpoint-kernel";
 
 function makeCtx(overrides: Partial<WakeContext> = {}): WakeContext {
   return {

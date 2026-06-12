@@ -11,7 +11,7 @@
  */
 
 import { AgentMessageKind, AgentMessageReadStatus, AgentMessageRequestStatus, isRequestTimedOut, shouldRetry, validateAgentMessageRequestTransition } from "syncpoint-adapters";
-import { EventType } from "syncpoint-kernel";
+import { EventType, ForbiddenError } from "syncpoint-kernel";
 import type { AgentMessage, AgentMessageCreate } from "syncpoint-adapters";
 import * as repo from "../repositories/agent-message-repository.js";
 import type { ListMessagesFilter } from "../repositories/agent-message-repository.js";
@@ -35,7 +35,7 @@ export function msgRead(messageId: string, actorAgentId: string): AgentMessage {
   const msg = repo.getMessage(messageId);
   if (!msg) throw new NotFoundError("agent_message", messageId);
   if (msg.toAgent !== actorAgentId) {
-    throw new Error(`Agent ${actorAgentId} is not the recipient of message ${messageId}`);
+    throw new ForbiddenError("msg_read", `Agent ${actorAgentId} is not the recipient of message ${messageId}`);
   }
   if (msg.readStatus === AgentMessageReadStatus.READ) return msg;
 
@@ -51,7 +51,7 @@ export function msgReply(messageId: string, actorAgentId: string, body: string):
   const original = repo.getMessage(messageId);
   if (!original) throw new NotFoundError("agent_message", messageId);
   if (original.toAgent !== actorAgentId) {
-    throw new Error(`Agent ${actorAgentId} is not the recipient of message ${messageId}`);
+    throw new ForbiddenError("msg_read", `Agent ${actorAgentId} is not the recipient of message ${messageId}`);
   }
 
   // Create the response message

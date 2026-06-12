@@ -5,6 +5,7 @@
 
 import { ReviewRequestStatus } from "syncpoint-adapters";
 import { ChecklistItemStatus, ChangeRequestStatus, evaluateApprovalGate, ApprovalGateStatus } from "syncpoint-governance";
+import { ForbiddenError, InvalidStateTransitionError } from "syncpoint-kernel";
 import type { ReviewRequest, ReviewDecision } from "syncpoint-adapters";
 import type { ReviewChecklistItem, ReviewChecklistItemCreate, ReviewEvidence, ReviewEvidenceCreate, ChangeRequest, ChangeRequestCreate, ApprovalRecord, ApprovalGateResult, EvidenceKind } from "syncpoint-governance";
 import * as orchestrationRepo from "../repositories/_exports/orchestration.js";
@@ -94,7 +95,7 @@ function ensureReviewInProgress(reviewRequestId: string): ReviewRequest {
     return orchestrationRepo.updateReviewRequestStatus(reviewRequestId, ReviewRequestStatus.IN_PROGRESS);
   }
   if (rr.status !== ReviewRequestStatus.IN_PROGRESS) {
-    throw new Error(`Review request must be IN_PROGRESS to decide; current status is ${rr.status}`);
+    throw new InvalidStateTransitionError("review_request", rr.status, ReviewRequestStatus.IN_PROGRESS);
   }
   return rr;
 }
@@ -205,7 +206,7 @@ export function rwApproveReview(input: ApproveReviewInput): {
 } {
   const gate = rwEvaluateGate(input.reviewRequestId);
   if (gate.status !== ApprovalGateStatus.PASSED) {
-    throw new Error(`Cannot approve: gate is ${gate.status}. Reasons: ${gate.reasons.join("; ")}`);
+    throw new ForbiddenError("rw_approve", `Cannot approve: gate is ${gate.status}. Reasons: ${gate.reasons.join("; ")}`);
   }
   ensureReviewInProgress(input.reviewRequestId);
 

@@ -1,5 +1,5 @@
 import { WakeRequestStatus } from "syncpoint-governance";
-import { EventType } from "syncpoint-kernel";
+import { ConstraintViolationError, EventType, ForbiddenError, InternalError } from "syncpoint-kernel";
 import type { WakeRequest } from "syncpoint-governance";
 import {
   getWakeRequest,
@@ -44,7 +44,7 @@ export function wakeStart(id: string): WakeRequest {
   });
   if (blockCheck.blocked) {
     const gateIds = blockCheck.blockingGates.map(g => g.id).join(", ");
-    throw new Error(`Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting wake.`);
+    throw new ForbiddenError("wake_start", `Agent blocked by sync gate(s): ${gateIds}. Acknowledge before starting wake.`);
   }
 
   if (wr.taskId) {
@@ -56,11 +56,11 @@ export function wakeStart(id: string): WakeRequest {
       }).constraintDecision;
       if (!decision.permitted) {
         const reasons = decision.blockers.map(b => b.message).join("; ");
-        throw new Error(`Constraint violation: ${reasons}`);
+        throw new ConstraintViolationError(["wake_constraint"], `Constraint violation: ${reasons}`);
       }
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("Constraint violation:")) throw err;
-      throw new Error(`Cannot start wake: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`);
+      throw new InternalError(`Cannot start wake: projection unavailable (${err instanceof Error ? err.message : "unknown error"})`);
     }
   }
 

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { ForbiddenError, ResourceNotFoundError } from "syncpoint-kernel";
 import { getSyncpointDir } from "../db.js";
 import { lockClaimedFiles, unlockClaimedFiles } from "./file-permission-guard.js";
 
@@ -123,7 +124,7 @@ export function guardValidateToken(token: string): GuardValidateTokenResult {
 
 export function guardRevokeSession(sessionId: string): Omit<GuardSession, "token"> {
   const session = sessions.get(sessionId);
-  if (!session) throw new Error(`Guard session not found: ${sessionId}`);
+  if (!session) throw new ResourceNotFoundError(sessionId);
   session.status = "revoked";
   unlockClaimedFiles(sessionId);
   return redactSession(session);
@@ -177,12 +178,12 @@ function canonicalRoot(root: string): string {
 function validateMountPath(projectRoot: string, mountPath: string): string {
   const resolved = path.resolve(projectRoot, mountPath);
   if (!isInsideOrSame(projectRoot, resolved)) {
-    throw new Error(`Guard mount path must stay inside the project root: ${mountPath}`);
+    throw new ForbiddenError("guard_mount", `Guard mount path must stay inside the project root: ${mountPath}`);
   }
   const relative = path.relative(projectRoot, resolved).replace(/\\/g, "/");
   const segments = relative.split("/").filter(Boolean);
   if (segments.includes(".git") || segments.includes(".syncpoint")) {
-    throw new Error("Guard mount path cannot be inside .git or .syncpoint.");
+    throw new ForbiddenError("guard_mount", "Guard mount path cannot be inside .git or .syncpoint.");
   }
   return resolved;
 }

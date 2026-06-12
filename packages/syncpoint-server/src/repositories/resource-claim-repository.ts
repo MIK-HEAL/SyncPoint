@@ -24,15 +24,26 @@ function loadResources(db: ReturnType<typeof _getDb>, claimId: string): Resource
     }));
 }
 
-function rowToResourceClaim(row: any, resources: ResourceRef[]): ResourceClaim {
+interface ResourceClaimRow {
+  id: string;
+  actorId: string;
+  taskId: string;
+  sessionId: string | null;
+  mode: string;
+  status: string;
+  createdAt: string;
+  releasedAt: string | null;
+}
+
+function rowToResourceClaim(row: ResourceClaimRow, resources: ResourceRef[]): ResourceClaim {
   return {
     id: row.id,
     actorId: row.actorId,
     taskId: row.taskId,
     sessionId: row.sessionId ?? "",
     resources,
-    mode: row.mode as any,
-    status: row.status as any,
+    mode: row.mode as ResourceClaim["mode"],
+    status: row.status as ResourceClaim["status"],
     createdAt: row.createdAt,
     releasedAt: row.releasedAt ?? "",
   };

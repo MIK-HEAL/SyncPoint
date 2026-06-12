@@ -163,7 +163,7 @@ function resolveStartAssignmentInput(input: ConstraintRuntimeCheckInput): Resolv
   }
 
   const agentClaims = protocolRepo.listResourceClaims({ actorId: ta.assigneeAgentId, status: "ACTIVE" });
-  const claimedLocators = agentClaims.flatMap(c => c.resources.map((r: any) => r.locator));
+  const claimedLocators = agentClaims.flatMap(c => c.resources.map(r => r.locator));
   return {
     taskId: ta.taskId,
     agentId: ta.assigneeAgentId,
@@ -231,7 +231,7 @@ function resolveOperationInput(input: ConstraintRuntimeCheckInput, action: "oper
     };
   }
 
-  const targetLocators = (op.targetResources ?? []).map((r: any) => r.locator).filter(Boolean);
+  const targetLocators = (op.targetResources ?? []).map(r => r.locator).filter(Boolean);
   return {
     taskId: op.taskId,
     agentId: op.actorId,

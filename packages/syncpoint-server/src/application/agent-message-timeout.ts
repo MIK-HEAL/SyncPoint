@@ -7,6 +7,7 @@
  * starting the interval.
  */
 
+import { InternalError } from "syncpoint-kernel";
 import { msgCheckExpired } from "./agent-message-service.js";
 
 const DEFAULT_INTERVAL_MS = 30_000; // 30 seconds
@@ -23,7 +24,7 @@ export function startMessageTimeoutChecker(
   sessionId?: string,
 ): { stop: () => void } {
   if (_intervalId !== null) {
-    throw new Error("Message timeout checker is already running");
+    throw new InternalError("Message timeout checker is already running");
   }
 
   _intervalId = setInterval(() => {

@@ -188,3 +188,24 @@ export type { Event } from "./events.js";
 
 // ── Approval gate (shared kernel enum) ──────────────────
 export { ApprovalGateStatus } from "./approval-gate.js";
+
+// ── Relationship mode (shared kernel types) ──────────────
+export {
+  RelationshipMode,
+  RelationshipModeSchema,
+  MODE_PHASE_FLOW,
+  MODE_SYNC_RULES,
+  MODE_WAKE_VERBS,
+  REQUIRED_BEFORE_START,
+  RECOMMENDED_ACTIONS,
+  FORBIDDEN_ACTIONS,
+  isValidWakeVerb,
+  getSyncRules,
+  getPhaseFlow,
+  getModeDescription,
+  isModeActionAllowed,
+  getRequiredBeforeStart,
+  getRecommendedActions,
+  getForbiddenActions,
+} from "./relationship-mode.js";
+export type { ModeSyncRule, ModeActionVerdict } from "./relationship-mode.js";
