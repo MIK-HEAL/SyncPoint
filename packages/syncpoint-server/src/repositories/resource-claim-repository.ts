@@ -4,7 +4,7 @@
 
 import { eq, and } from "drizzle-orm";
 import * as s from "../schema.js";
-import { ResourceClaimStatus } from "syncpoint-kernel";
+import { ResourceClaimStatus, ValidationError } from "syncpoint-kernel";
 import type { ResourceClaim, ResourceClaimCreate, ResourceRef, ResourceScope } from "syncpoint-kernel";
 import { _getDb, now, createId } from "./_shared.js";
 
@@ -54,11 +54,11 @@ function rowToResourceClaim(row: ResourceClaimRow, resources: ResourceRef[]): Re
 export function createResourceClaim(data: ResourceClaimCreate): ResourceClaim {
   const db = _getDb();
   if (data.resources.length === 0) {
-    throw new Error("resource_claim requires at least one resource");
+    throw new ValidationError("resources", "resource_claim requires at least one resource");
   }
   const resourceType = data.resources[0]!.type;
   if (data.resources.some(resource => resource.type !== resourceType)) {
-    throw new Error("resource_claim resources must all have the same type");
+    throw new ValidationError("resources", "resource_claim resources must all have the same type");
   }
   const id = createId();
   const ts = now();
@@ -93,7 +93,7 @@ export function createResourceClaim(data: ResourceClaimCreate): ResourceClaim {
 export function getResourceClaim(id: string): ResourceClaim {
   const db = _getDb();
   const row = db.select().from(s.resourceClaims).where(eq(s.resourceClaims.id, id)).get();
-  if (!row) throw new Error(`resource_claim not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return rowToResourceClaim(row, loadResources(db, id));
 }
 

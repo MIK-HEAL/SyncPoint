@@ -28,6 +28,8 @@ export {
   ProjectMemoryConfidence,
   ProjectMemorySourceType,
   ProjectMemorySchema,
+  ProjectMemoryV1Schema,
+  ProjectMemoryV2Schema,
   ProjectMemoryCreateSchema,
   computeMemoryFingerprint,
   isMemoryDuplicate,
@@ -41,9 +43,14 @@ export {
   defaultKindFromCategory,
   validProjectionTargets,
   isValidProjection,
+  upgradeV1ToV2,
+  isV2,
+  isV1,
 } from "./project-memory.js";
 export type {
   ProjectMemory,
+  ProjectMemoryV1,
+  ProjectMemoryV2,
   ProjectMemoryCreate,
   MemoryDedupResult,
   AppliesTo,

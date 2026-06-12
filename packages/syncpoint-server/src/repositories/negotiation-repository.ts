@@ -3,6 +3,7 @@
  */
 
 import { eq } from "drizzle-orm";
+import { InternalError, ResourceNotFoundError } from "syncpoint-kernel";
 import { NegotiationConfigSchema, DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-adapters";
 import type { NegotiationMessage, NegotiationSession, NegotiationConfig } from "syncpoint-adapters";
 import * as schema from "../schema.js";
@@ -62,7 +63,7 @@ export function createNegotiationSession(opts: {
   }
   const row = db.select().from(schema.negotiationSessions).where(eq(schema.negotiationSessions.id, id)).get();
   if (!row) {
-    throw new Error(`negotiation session not found after create: ${id}`);
+    throw new InternalError(`negotiation session not found after create: ${id}`);
   }
   return hydrateSession(db, row);
 }

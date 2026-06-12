@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Command, Option } from "commander";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import {
   buildSnapshot,
   rcClaim,
@@ -45,7 +46,7 @@ interface StatusOptions {
  */
 function requireAgentId(nameOrId: string): string {
   const agent = resolveAgent(nameOrId);
-  if (!agent) throw new Error(`Agent not found: "${nameOrId}". Use an agent ID or registered name.`);
+  if (!agent) throw new ResourceNotFoundError(nameOrId);
   return agent.id;
 }
 

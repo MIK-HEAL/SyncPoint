@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { Command, Option } from "commander";
+import { ResourceNotFoundError, ValidationError } from "syncpoint-kernel";
 import {
   AGENT_PROVIDER_VALUES,
   AGENT_ROLE_VALUES,
@@ -252,7 +253,7 @@ export function registerAgentCommands(program: Command): void {
         .option("--json", "Output JSON to stdout")
         .action((agents: string[], opts) => {
           if (!opts.all && (!agents || agents.length === 0)) {
-            throw new Error("Use --all or provide at least one agent name/ID.");
+            throw new ValidationError("agent", "Use --all or provide at least one agent name/ID.");
           }
           const agentIds = opts.all ? undefined : agents.map(resolveAgentId);
           const result = exportAgentCards({
@@ -358,7 +359,7 @@ function printValidationResults(records: AgentDeclarationValidationRecord[], sou
 function resolveAgentId(value: string): string {
   const agent = resolveAgent(value);
   if (!agent) {
-    throw new Error(`Agent not found: ${value}`);
+    throw new ResourceNotFoundError(value);
   }
   return agent.id;
 }
@@ -398,7 +399,7 @@ async function promptAgentInitAnswers(opts: AgentInitAnswers): Promise<AgentInit
 
     const name = await rl.question("Agent name (required): ");
     if (!name.trim()) {
-      throw new Error("Agent name is required.");
+      throw new ValidationError("name", "Agent name is required.");
     }
 
     const profile = (await rl.question(`Profile [general]: `)).trim() || "general";

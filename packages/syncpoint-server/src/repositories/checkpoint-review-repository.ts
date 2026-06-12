@@ -7,6 +7,7 @@
 
 import { eq, and, inArray } from "drizzle-orm";
 import * as s from "../schema.js";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import { CheckpointReviewStatus } from "syncpoint-governance";
 import type { CheckpointReview, CheckpointReviewCreate } from "syncpoint-governance";
 import { _getDb, now, createId } from "./_shared.js";
@@ -72,7 +73,7 @@ export function createCheckpointReview(data: CheckpointReviewCreate & { gateId?:
 export function getCheckpointReview(id: string): CheckpointReview {
   const db = _getDb();
   const row = db.select().from(s.checkpointReviews).where(eq(s.checkpointReviews.id, id)).get();
-  if (!row) throw new Error(`checkpoint_review not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return hydrateReview(db, row);
 }
 

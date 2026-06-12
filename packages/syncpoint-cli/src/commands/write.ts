@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { Command } from "commander";
-import { WriteIntent, type ResourceRef } from "syncpoint-kernel";
+import { ForbiddenError, ValidationError, WriteIntent, type ResourceRef } from "syncpoint-kernel";
 import { writeApply, writeCheck, writePrepare } from "syncpoint-server/application";
 import { resolveAgent } from "./connect.js";
 
@@ -96,8 +96,8 @@ export function registerWriteCommands(program: Command): void {
 function writeInput(locators: string[], opts: WriteOptions) {
   const agent = opts.agent ? resolveAgent(opts.agent) : undefined;
   const actorId = agent?.id ?? opts.agent;
-  if (!actorId) throw new Error("--agent is required");
-  if (!opts.task) throw new Error("--task is required");
+  if (!actorId) throw new ValidationError("agent", "--agent is required");
+  if (!opts.task) throw new ValidationError("task", "--task is required");
   return {
     actorId,
     taskId: opts.task,
@@ -109,8 +109,8 @@ function writeInput(locators: string[], opts: WriteOptions) {
 }
 
 function prepareForApply(resource: ResourceRef, opts: ApplyOptions): string {
-  if (!opts.agent) throw new Error("--agent is required when --permit is omitted");
-  if (!opts.task) throw new Error("--task is required when --permit is omitted");
+  if (!opts.agent) throw new ValidationError("agent", "--agent is required when --permit is omitted");
+  if (!opts.task) throw new ValidationError("task", "--task is required when --permit is omitted");
   const result = writePrepare({
     actorId: resolveAgent(opts.agent)?.id ?? opts.agent,
     taskId: opts.task,
@@ -120,7 +120,7 @@ function prepareForApply(resource: ResourceRef, opts: ApplyOptions): string {
     operationId: opts.operation,
   });
   if (!result.decision.permitted) {
-    throw new Error(`Write denied: ${result.decision.blockers.map(blocker => blocker.message).join("; ")}`);
+    throw new ForbiddenError("write", `Write denied: ${result.decision.blockers.map(blocker => blocker.message).join("; ")}`);
   }
   return result.permit.id;
 }

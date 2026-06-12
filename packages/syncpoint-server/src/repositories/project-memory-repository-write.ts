@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import * as s from "../schema.js";
-import { EventType } from "syncpoint-kernel";
+import { ConstraintViolationError, EventType, ResourceNotFoundError } from "syncpoint-kernel";
 import {
   ProjectMemoryStatus,
   computeMemoryFingerprint,
@@ -166,7 +166,7 @@ export function updateProjectMemory(id: string, fields: {
 export function approveProjectMemory(id: string, updatedBy = ""): ProjectMemory {
   const mem = getProjectMemory(id);
   if (mem.status === ProjectMemoryStatus.DEPRECATED) {
-    throw new Error(`Cannot approve deprecated project memory ${id}`);
+    throw new ConstraintViolationError(["memory_is_deprecated"], `Cannot approve deprecated project memory ${id}`);
   }
   _getDb().update(s.projectMemories).set({
     status: ProjectMemoryStatus.APPROVED,
@@ -195,7 +195,7 @@ export function supersedeProjectMemory(newId: string, oldId: string, updatedBy: 
   const newMem = getProjectMemory(newId);
   const oldMem = getProjectMemory(oldId);
   if (oldMem.status === ProjectMemoryStatus.DEPRECATED && oldMem.supersededBy) {
-    throw new Error(`Memory ${oldId} is already superseded by ${oldMem.supersededBy}`);
+    throw new ConstraintViolationError(["memory_already_superseded"], `Memory ${oldId} is already superseded by ${oldMem.supersededBy}`);
   }
   const ts = now();
   db.update(s.projectMemories).set({

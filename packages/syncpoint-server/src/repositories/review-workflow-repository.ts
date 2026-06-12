@@ -46,7 +46,7 @@ export function createChecklistItem(input: ReviewChecklistItemCreate): ReviewChe
 export function getChecklistItem(id: string): ReviewChecklistItem {
   const db = _getDb();
   const row = db.select().from(s.reviewChecklistItems).where(eq(s.reviewChecklistItems.id, id)).get();
-  if (!row) throw new Error(`Checklist item not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return row as unknown as ReviewChecklistItem;
 }
 
@@ -126,7 +126,7 @@ export function createChangeRequest(input: ChangeRequestCreate): ChangeRequest {
 export function getChangeRequest(id: string): ChangeRequest {
   const db = _getDb();
   const row = db.select().from(s.changeRequests).where(eq(s.changeRequests.id, id)).get();
-  if (!row) throw new Error(`Change request not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return row as unknown as ChangeRequest;
 }
 

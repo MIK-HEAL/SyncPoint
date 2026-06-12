@@ -170,6 +170,17 @@ export function isMemoryDuplicate(
 
 // ── Schemas ──────────────────────────────────────────
 
+/**
+ * Canonical ProjectMemory schema — flat schema with both V1 and V2 fields.
+ * V2 fields have sensible defaults for backward compatibility with V1 records.
+ *
+ * Schema versioning:
+ *   - schemaVersion 1: V2 fields are present but at defaults
+ *   - schemaVersion 2: V2 fields carry meaningful values
+ *
+ * For strict V1/V2 type narrowing, use ProjectMemoryV1 / ProjectMemoryV2 types
+ * and the isV1() / isV2() type guards.
+ */
 export const ProjectMemorySchema = z.object({
   id: z.string().min(1),
   scope: z.nativeEnum(ProjectMemoryScope),
@@ -185,7 +196,7 @@ export const ProjectMemorySchema = z.object({
   fingerprint: z.string().default(""),
   supersedes: z.string().nullable().default(null),
   supersededBy: z.string().nullable().default(null),
-  // V2 fields
+  // V2 fields (all have defaults for backward compat with V1 records)
   kind: z.nativeEnum(MemoryKind).default(MemoryKind.FACT),
   projectionTarget: z.nativeEnum(ProjectionTarget).nullable().default(null),
   appliesTo: AppliesToSchema.default({}),
@@ -202,6 +213,35 @@ export const ProjectMemorySchema = z.object({
 });
 
 export type ProjectMemory = z.infer<typeof ProjectMemorySchema>;
+
+/**
+ * V1 narrowed type — ProjectMemory record created before V2 fields existed.
+ * Distinguished by absence of V2-required fields or schemaVersion !== 2.
+ */
+export interface ProjectMemoryV1 extends ProjectMemory {
+  schemaVersion?: 1;
+}
+
+/**
+ * V2 narrowed type — ProjectMemory with explicit V2 classification.
+ * Guarantees kind, severity, and validityStatus are present.
+ */
+export interface ProjectMemoryV2 extends ProjectMemory {
+  schemaVersion: 2;
+  kind: MemoryKind;
+  severity: MemorySeverity;
+  validityStatus: ValidityStatus;
+}
+
+/** Synthetic V1-only schema for validation of legacy records. */
+export const ProjectMemoryV1Schema = ProjectMemorySchema;
+
+/** Synthetic V2-only schema for validation of new records. */
+export const ProjectMemoryV2Schema = ProjectMemorySchema.extend({
+  kind: z.nativeEnum(MemoryKind),
+  severity: z.nativeEnum(MemorySeverity),
+  validityStatus: z.nativeEnum(ValidityStatus),
+});
 
 export const ProjectMemoryCreateSchema = z.object({
   scope: z.nativeEnum(ProjectMemoryScope).default(ProjectMemoryScope.PROJECT),
@@ -226,6 +266,45 @@ export const ProjectMemoryCreateSchema = z.object({
 });
 
 export type ProjectMemoryCreate = z.infer<typeof ProjectMemoryCreateSchema>;
+
+// ── V1 → V2 Migration ───────────────────────────────
+
+/**
+ * Upgrade a V1 memory to V2 format.
+ * Infers V2 fields from existing V1 data where possible,
+ * applies sensible defaults where inference isn't possible.
+ */
+export function upgradeV1ToV2(memory: ProjectMemoryV1): ProjectMemoryV2 {
+  return {
+    ...memory,
+    schemaVersion: 2 as const,
+    kind: defaultKindFromCategory(memory.category),
+    projectionTarget: null,
+    appliesTo: {},
+    severity: MemorySeverity.INFO,
+    validityStatus: ValidityStatus.FRESH,
+    validityStaleReason: "",
+    validatorType: "",
+    validatorConfig: null,
+  };
+}
+
+/**
+ * Check if a memory is V2 (has explicit V2 classification fields).
+ * Heuristic: V2 memories have a non-default kind OR explicit severity.
+ */
+export function isV2(memory: ProjectMemory): memory is ProjectMemoryV2 {
+  return (memory as any).schemaVersion === 2
+    || memory.kind !== MemoryKind.FACT
+    || memory.severity !== MemorySeverity.INFO;
+}
+
+/**
+ * Check if a memory is V1 (legacy, no explicit V2 classification).
+ */
+export function isV1(memory: ProjectMemory): memory is ProjectMemoryV1 {
+  return !isV2(memory);
+}
 
 // ── Dedup result ────────────────────────────────────
 

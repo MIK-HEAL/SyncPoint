@@ -94,7 +94,7 @@ export function createOperation(data: OperationCreate): Operation {
 export function getOperation(id: string): Operation {
   const db = _getDb();
   const row = db.select().from(s.operations).where(eq(s.operations.id, id)).get();
-  if (!row) throw new Error(`operation not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return rowToOperation(row, loadTargetResources(db, id));
 }
 

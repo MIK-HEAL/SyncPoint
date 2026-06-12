@@ -42,7 +42,7 @@ export function checkMemoryDuplicate(category: string, title: string, content: s
 export function getProjectMemory(id: string): ProjectMemory {
   const db = _getDb();
   const row = db.select().from(s.projectMemories).where(eq(s.projectMemories.id, id)).get();
-  if (!row) throw new Error(`project_memory not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return hydrateProjectMemories([row])[0]!;
 }
 

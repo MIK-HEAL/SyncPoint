@@ -19,6 +19,7 @@ import {
 } from "syncpoint-server/application";
 import type { OrchestratorRole, ReviewVerdict } from "syncpoint-adapters";
 import { RelationshipMode } from "syncpoint-adapters";
+import { ValidationError } from "syncpoint-kernel";
 
 export function registerSessionCommands(program: Command): void {
   const session = program
@@ -37,7 +38,7 @@ export function registerSessionCommands(program: Command): void {
     .action((opts) => {
       const validModes = Object.values(RelationshipMode) as string[];
       if (!validModes.includes(opts.mode)) {
-        throw new Error(`Invalid mode: ${opts.mode}. Must be one of: ${validModes.join(", ")}`);
+        throw new ValidationError("mode", `Invalid mode: ${opts.mode}. Must be one of: ${validModes.join(", ")}`);
       }
       const result = orchCreateSession({
         title: opts.title,

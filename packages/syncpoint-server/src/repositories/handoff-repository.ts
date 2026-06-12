@@ -4,6 +4,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import * as s from "../schema.js";
+import { InvalidStateTransitionError, ResourceNotFoundError } from "syncpoint-kernel";
 import { HandoffStatus } from "syncpoint-adapters";
 import { EventType } from "syncpoint-kernel";
 import type { Handoff, HandoffCreate } from "syncpoint-adapters";
@@ -36,7 +37,7 @@ export function acceptHandoff(id: string): Handoff {
   const db = _getDb();
   const h = db.select().from(s.handoffs).where(eq(s.handoffs.id, id)).get() as unknown as Handoff | undefined;
   if (!h) throw new NotFoundError("handoff", id);
-  if (h.status !== HandoffStatus.PENDING) throw new Error(`Handoff ${id} is not PENDING (current: ${h.status})`);
+  if (h.status !== HandoffStatus.PENDING) throw new InvalidStateTransitionError("handoff", h.status, HandoffStatus.PENDING);
   db.update(s.handoffs).set({ status: HandoffStatus.ACCEPTED, updatedAt: now() }).where(eq(s.handoffs.id, id)).run();
   db.update(s.tasks).set({ ownerAgentId: h.toAgentId, updatedAt: now() }).where(eq(s.tasks.id, h.taskId)).run();
   db.update(s.agents).set({ currentTaskId: null, updatedAt: now() }).where(eq(s.agents.id, h.fromAgentId)).run();
@@ -49,7 +50,7 @@ export function rejectHandoff(id: string): Handoff {
   const db = _getDb();
   const h = db.select().from(s.handoffs).where(eq(s.handoffs.id, id)).get() as unknown as Handoff | undefined;
   if (!h) throw new NotFoundError("handoff", id);
-  if (h.status !== HandoffStatus.PENDING) throw new Error(`Handoff ${id} is not PENDING (current: ${h.status})`);
+  if (h.status !== HandoffStatus.PENDING) throw new InvalidStateTransitionError("handoff", h.status, HandoffStatus.PENDING);
   db.update(s.handoffs).set({ status: HandoffStatus.REJECTED, updatedAt: now() }).where(eq(s.handoffs.id, id)).run();
   logEvent(EventType.HANDOFF_REJECTED, "handoff", id);
   return db.select().from(s.handoffs).where(eq(s.handoffs.id, id)).get() as unknown as Handoff;

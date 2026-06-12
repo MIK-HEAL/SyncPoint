@@ -10,7 +10,7 @@ import path from "node:path";
 import os from "node:os";
 import * as repo from "syncpoint-server/repositories";
 import { getDbPath, getRawDb } from "syncpoint-server";
-import { EventType } from "syncpoint-kernel";
+import { EventType, ResourceNotFoundError, ValidationError } from "syncpoint-kernel";
 import { unlockAllGuards } from "syncpoint-server/application";
 import { handleError, printError } from "./error-handler.js";
 
@@ -234,7 +234,7 @@ export function registerAdminCommands(program: Command): void {
       try {
         const absPath = path.resolve(file);
         if (!fs.existsSync(absPath)) {
-          throw new Error(`File not found: ${absPath}`);
+          throw new ResourceNotFoundError(absPath);
         }
 
         const raw = fs.readFileSync(absPath, "utf-8");
@@ -246,12 +246,12 @@ export function registerAdminCommands(program: Command): void {
           try {
             data = parseSimpleYaml(raw) as unknown as ExportData;
           } catch {
-            throw new Error("Failed to parse export file. Expected JSON or YAML format.");
+            throw new ValidationError("export_file", "Failed to parse export file. Expected JSON or YAML format.");
           }
         }
 
         if (!data.version) {
-          throw new Error("Invalid export file: missing version field.");
+          throw new ValidationError("version", "Invalid export file: missing version field.");
         }
 
         const stats = {

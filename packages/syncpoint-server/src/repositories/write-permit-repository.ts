@@ -101,7 +101,7 @@ export function createWritePermit(data: WritePermitCreate): WritePermit {
 export function getWritePermit(id: string): WritePermit {
   const db = _getDb();
   const row = db.select().from(s.writePermits).where(eq(s.writePermits.id, id)).get();
-  if (!row) throw new Error(`write_permit not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return hydratePermit(db, row);
 }
 

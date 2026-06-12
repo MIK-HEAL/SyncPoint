@@ -12,6 +12,7 @@ import {
   validateTaskAssignmentTransition,
   validateReviewRequestTransition,
 } from "syncpoint-adapters";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import type {
   OrchestrationSession,
   OrchestrationSessionCreate,
@@ -49,7 +50,7 @@ export function createSession(input: OrchestrationSessionCreate): OrchestrationS
 export function getSession(id: string): OrchestrationSession {
   const db = _getDb();
   const row = db.select().from(s.orchestrationSessions).where(eq(s.orchestrationSessions.id, id)).get();
-  if (!row) throw new Error(`Session not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return row as unknown as OrchestrationSession;
 }
 
@@ -122,7 +123,7 @@ export function createTaskAssignment(input: TaskAssignmentCreate): TaskAssignmen
 export function getTaskAssignment(id: string): TaskAssignment {
   const db = _getDb();
   const row = db.select().from(s.taskAssignments).where(eq(s.taskAssignments.id, id)).get();
-  if (!row) throw new Error(`Task assignment not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return row as unknown as TaskAssignment;
 }
 
@@ -167,7 +168,7 @@ export function createReviewRequest(input: ReviewRequestCreate): ReviewRequest {
 export function getReviewRequest(id: string): ReviewRequest {
   const db = _getDb();
   const row = db.select().from(s.reviewRequests).where(eq(s.reviewRequests.id, id)).get();
-  if (!row) throw new Error(`Review request not found: ${id}`);
+  if (!row) throw new ResourceNotFoundError(id);
   return row as unknown as ReviewRequest;
 }
 

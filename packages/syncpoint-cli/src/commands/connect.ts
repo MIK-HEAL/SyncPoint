@@ -14,6 +14,7 @@ import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { Command, Option } from "commander";
 import { RuntimeKind } from "syncpoint-adapters";
+import { InternalError } from "syncpoint-kernel";
 import { initSyncpointDir, getSyncpointDir, isProjectLocal, getRawDb } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
 
@@ -272,7 +273,7 @@ export function registerConnectCommands(program: Command): void {
       // Check 1: .syncpoint/ directory
       let syncDir: string | null = null;
       try {
-        if (!isProjectLocal()) throw new Error("No project-local .syncpoint directory");
+        if (!isProjectLocal()) throw new InternalError("No project-local .syncpoint directory");
         syncDir = getSyncpointDir();
         const dbPath = path.join(syncDir, "syncpoint.db");
         if (fs.existsSync(dbPath)) {

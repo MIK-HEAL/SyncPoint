@@ -8,6 +8,7 @@ import {
   pmSupersede,
   pmGetVersion,
 } from "syncpoint-server/application";
+import { ValidationError } from "syncpoint-kernel";
 import { ProjectMemoryCreateSchema } from "syncpoint-context";
 import { resolveBoundAgentId } from "../identity.js";
 import { fail, ok } from "./_shared.js";
@@ -71,7 +72,7 @@ export function registerProjectMemoryTools(server: McpServer): void {
           sourceRef: input.sourceRef ?? "",
           confidence: input.confidence ?? "medium",
           taskId: input.taskId ?? null,
-          createdBy: input.createdBy || resolveBoundAgentId() || (() => { throw new Error("createdBy is required. Provide it explicitly or bind an agent first."); })(),
+          createdBy: input.createdBy || resolveBoundAgentId() || (() => { throw new ValidationError("createdBy", "createdBy is required. Provide it explicitly or bind an agent first."); })(),
         });
         const mem = pmAdd(data);
         return ok({
