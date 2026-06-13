@@ -278,27 +278,16 @@ export function getWalSize(): number | null {
 }
 
 export function runMigrations(db: Database.Database): void {
-  // Wrap all migrations in a single transaction so that any failure
-  // rolls back the entire batch. SQLite nested BEGIN/COMMIT calls
-  // are treated as savepoints, so Drizzle's internal transaction
-  // management is safe inside this outer transaction.
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    ensureDrizzleMigrationAssets();
-    migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });
-    runPeerContractNormalizationMigration(db, PEER_CONTRACT_NORMALIZATION_SQL_PATH);
-    runAgentRegistryEntryMigration(db, AGENT_REGISTRY_ENTRY_SQL_PATH);
-    runAgentMessageMigration(db, AGENT_MESSAGE_SQL_PATH);
-    runFkIndexesMigration(db);
-    runQueryPathIndexesMigration(db);
-    runStateTransitionLogMigration(db);
-    runResourceScopeMigration(db);
-    runContextSnapshotIncrementalMigration(db);
-    runEventSeqMigration(db);
-    ensureRuntimeOnlyTables(db);
-    db.exec("COMMIT");
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  ensureDrizzleMigrationAssets();
+  migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });
+  runPeerContractNormalizationMigration(db, PEER_CONTRACT_NORMALIZATION_SQL_PATH);
+  runAgentRegistryEntryMigration(db, AGENT_REGISTRY_ENTRY_SQL_PATH);
+  runAgentMessageMigration(db, AGENT_MESSAGE_SQL_PATH);
+  runFkIndexesMigration(db);
+  runQueryPathIndexesMigration(db);
+  runStateTransitionLogMigration(db);
+  runResourceScopeMigration(db);
+  runContextSnapshotIncrementalMigration(db);
+  runEventSeqMigration(db);
+  ensureRuntimeOnlyTables(db);
 }
