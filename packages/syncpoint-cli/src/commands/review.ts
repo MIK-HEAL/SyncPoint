@@ -236,14 +236,14 @@ export function registerReviewCommands(program: Command): void {
           try {
             const reviews = listReviewRequests(session.id);
             for (const r of reviews) {
-              if (opts.task && (r as any).taskId !== opts.task) continue;
+              if (opts.task && r.taskId !== opts.task) continue;
               // Only approve PENDING or IN_PROGRESS reviews
-              if ((r as any).status !== "PENDING" && (r as any).status !== "IN_PROGRESS") continue;
+              if (r.status !== "PENDING" && r.status !== "IN_PROGRESS") continue;
               allReviewRequests.push({
                 id: r.id,
-                taskId: (r as any).taskId ?? "",
+                taskId: r.taskId,
                 sessionId: session.id,
-                status: (r as any).status,
+                status: r.status,
               });
             }
           } catch { /* session may not have reviews */ }

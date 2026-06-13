@@ -127,7 +127,7 @@ export function registerConstraintTools(server: McpServer): void {
         const activeClaims = sessionId ? rcList({ sessionId, status: "ACTIVE" }) : [];
         for (const claim of activeClaims) {
           for (const resource of claim.resources ?? []) {
-            if (resource.scope === "file" && resource.locator === locator && (claim as any).mode === "exclusive") {
+            if (resource.scope === "file" && resource.locator === locator && claim.mode === "exclusive") {
               violations.push(`active_claim: ${locator} is exclusively claimed by ${claim.actorId} (task: ${claim.taskId})`);
             }
           }
@@ -193,7 +193,7 @@ export function registerConstraintTools(server: McpServer): void {
             if (resolved && claim.actorId === resolved) continue;
             for (const resource of claim.resources ?? []) {
               if (resource.scope === "file" && resource.locator === file) {
-                if ((claim as any).mode === "exclusive") {
+                if (claim.mode === "exclusive") {
                   fileViolations.push(`claimed exclusively by ${claim.actorId} (${claim.taskId})`);
                 } else {
                   fileWarnings.push(`shared claim by ${claim.actorId} (${claim.taskId})`);
@@ -317,8 +317,8 @@ export function registerConstraintTools(server: McpServer): void {
           agents: [c.claimA.actorId, c.claimB.actorId],
           tasks: [c.claimA.taskId, c.claimB.taskId],
           claimIds: [c.claimA.id, c.claimB.id],
-          claimAMode: (c.claimA as any).mode ?? "exclusive",
-          claimBMode: (c.claimB as any).mode ?? "exclusive",
+          claimAMode: c.claimA.mode,
+          claimBMode: c.claimB.mode,
           claimAScope: c.claimA.resources?.[0]?.scope ?? "file",
           claimBScope: c.claimB.resources?.[0]?.scope ?? "file",
         }));

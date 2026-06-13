@@ -7,7 +7,7 @@ import {
   loopHandoff,
 } from "syncpoint-server/application";
 import { getResumeContext } from "syncpoint-server/repositories";
-import { formatResumePrompt } from "syncpoint-context";
+import { formatResumePrompt, type ContextMode } from "syncpoint-context";
 import { resolveBoundAgentId } from "../identity.js";
 import { fail, ok } from "./_shared.js";
 
@@ -48,7 +48,7 @@ export function registerLoopContextTools(server: McpServer): void {
       try {
         const resolved = resolveBoundAgentId(agentId);
         if (!resolved) return fail(new Error("agentId required (no bound identity)"));
-        return ok(loopResume({ agentId: resolved, taskId, provider, format, contextMode: contextMode as any, sessionId }));
+        return ok(loopResume({ agentId: resolved, taskId, provider, format, contextMode: contextMode as ContextMode, sessionId }));
       } catch (e) { return fail(e); }
     }
   );

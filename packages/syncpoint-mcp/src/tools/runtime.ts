@@ -77,7 +77,7 @@ export function registerRuntimeTools(server: McpServer): void {
         }
         const rt = createRuntime({
           name: input.name,
-          kind: (input.kind as any) ?? RuntimeKind.LOCAL_MCP,
+          kind: (input.kind as RuntimeKind) ?? RuntimeKind.LOCAL_MCP,
           provider: input.provider ?? "",
           host: input.host ?? "",
           workspaceRoot: input.workspaceRoot ?? "",

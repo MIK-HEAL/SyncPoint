@@ -273,7 +273,7 @@ export function registerReviewPrompts(server: McpServer): void {
             for (const resource of claim.resources ?? []) {
               if (resource.scope === "file" && resource.locator === file) {
                 warned = true;
-                lines.push((claim as any).mode === "exclusive"
+                lines.push(claim.mode === "exclusive"
                   ? `🔒 Claimed exclusively by ${claim.actorId} — DO NOT EDIT`
                   : `⚠️ Shared claim by ${claim.actorId} — coordinate before editing`);
               }

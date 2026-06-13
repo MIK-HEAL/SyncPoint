@@ -224,10 +224,10 @@ export function registerFacadeCommands(program: Command): void {
       }
 
       const scopeDesc = opts.scope !== "file" ? `, scope=${opts.scope}${opts.function ? `:${opts.function}` : ""}${lineRange ? `:${lineRange.start}-${lineRange.end}` : ""}` : "";
-      const resourceList = resources.map((r: typeof resources[number]) => {
+      const resourceList = resources.map((r) => {
         let desc = r.locator;
-        if ((r as any).scope === "function" && (r as any).functionName) desc += ` [function:${(r as any).functionName}]`;
-        if ((r as any).scope === "line_range" && (r as any).lineRange) desc += ` [lines:${(r as any).lineRange.start}-${(r as any).lineRange.end}]`;
+        if (r.scope === "function" && r.functionName) desc += ` [function:${r.functionName}]`;
+        if (r.scope === "line_range" && r.lineRange) desc += ` [lines:${r.lineRange.start}-${r.lineRange.end}]`;
         return desc;
       }).join(", ");
       console.log(`✅ Claimed: ${resourceList}`);

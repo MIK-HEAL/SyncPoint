@@ -59,7 +59,7 @@ export function buildSnapshot(input?: SnapshotInput) {
       id: s.id,
       title: s.title,
       status: s.status,
-      relationshipMode: (s as any).relationshipMode ?? "manager-delegate",
+      relationshipMode: s.relationshipMode,
       agents: roles.map(r => ({
         agentId: r.agentId,
         agentName: agentName(r.agentId),

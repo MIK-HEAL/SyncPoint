@@ -8,6 +8,7 @@ import {
   guardCreateSession,
   reconcileBackingStore,
   constraintCheck,
+  type ConstraintRuntimeCheckInput,
 } from "syncpoint-server/application";
 import { WriteIntent } from "syncpoint-kernel";
 import { resolveBoundAgentId } from "../identity.js";
@@ -190,7 +191,7 @@ export function registerGuardTools(server: McpServer): void {
     },
     async (input) => {
       try {
-        const result = constraintCheck(input as any);
+        const result = constraintCheck(input as ConstraintRuntimeCheckInput);
         return ok(result);
       } catch (e) { return fail(e); }
     }

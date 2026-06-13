@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as repo from "syncpoint-server/repositories";
 import { buildAdapterInstruction, getAdapterConfig, listAdapterProviders } from "syncpoint-adapters";
-import type { AdapterLifecycleEvent } from "syncpoint-adapters";
+import type { AdapterLifecycleEvent, AgentProvider } from "syncpoint-adapters";
 
 export function registerAdapterCommand(program: Command): void {
   program
@@ -25,7 +25,7 @@ export function registerAdapterCommand(program: Command): void {
           const ctx = repo.getResumeContext(opts.task, opts.agent);
           ctx.projectMemories = []; // P3B: no raw PM in adapter output
           const provider = opts.provider ?? ctx.agent.name;
-          const instruction = buildAdapterInstruction(ctx, provider as any, opts.event as AdapterLifecycleEvent);
+          const instruction = buildAdapterInstruction(ctx, provider as AgentProvider, opts.event as AdapterLifecycleEvent);
           if (!instruction.ready) {
             console.error("⚠ Context not ready:");
             for (const w of instruction.warnings) console.error(`  - ${w}`);

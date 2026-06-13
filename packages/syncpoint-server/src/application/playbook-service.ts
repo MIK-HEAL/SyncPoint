@@ -5,7 +5,7 @@
  */
 
 import { ChangeRequestStatus } from "syncpoint-governance";
-import { computeNextActions } from "syncpoint-adapters";
+import { computeNextActions, SessionStatus, TaskAssignmentStatus, ReviewRequestStatus } from "syncpoint-adapters";
 import type { EvidenceKind, ReviewEvidence } from "syncpoint-governance";
 import type { NextAction, SessionSnapshot } from "syncpoint-adapters";
 import * as foundationRepo from "../repositories/_exports/foundation.js";
@@ -94,24 +94,24 @@ export function pbGetNextAction(input: NextActionInput): NextActionResult {
 
   const snap: SessionSnapshot = {
     sessionId: input.sessionId,
-    sessionStatus: status.session.status as any,
+    sessionStatus: status.session.status as SessionStatus,
     agentId: input.agentId,
     agentRoles,
     assignments: status.assignments.map(a => ({
       id: a.id,
       taskId: a.taskId,
       assigneeAgentId: a.assigneeAgentId,
-      status: a.status as any,
+      status: a.status as TaskAssignmentStatus,
     })),
     reviews: status.reviews.map(r => ({
       id: r.id,
       taskId: r.taskId,
       reviewerAgentId: r.reviewerAgentId,
-      status: r.status as any,
+      status: r.status as ReviewRequestStatus,
     })),
     gates,
     openChanges,
-    relationshipMode: (status.session as any).relationshipMode ?? undefined,
+    relationshipMode: status.session.relationshipMode,
     activeClaimTaskIds: rcList({ actorId: input.agentId, status: "ACTIVE" })
       .map(c => c.taskId)
       .filter((v, i, a) => a.indexOf(v) === i),

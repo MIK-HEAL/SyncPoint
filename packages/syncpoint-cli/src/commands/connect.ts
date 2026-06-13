@@ -13,7 +13,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { Command, Option } from "commander";
-import { RuntimeKind } from "syncpoint-adapters";
+import { RuntimeKind, type AgentProvider, type AgentRole } from "syncpoint-adapters";
 import { InternalError } from "syncpoint-kernel";
 import { initSyncpointDir, getSyncpointDir, isProjectLocal, getRawDb } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
@@ -206,8 +206,8 @@ export function registerConnectCommands(program: Command): void {
 
         const agent = repo.createAgent({
           name: p.name,
-          provider: p.provider as any,
-          role: p.role as any,
+          provider: p.provider as AgentProvider,
+          role: p.role as AgentRole,
         });
 
         const boundAgent = bindRuntime(agent, p.provider, projectRoot);
@@ -338,13 +338,13 @@ export function registerConnectCommands(program: Command): void {
       try {
         const rawDb = getRawDb();
         if (rawDb) {
-          const integrityResult = rawDb.prepare("PRAGMA integrity_check").get() as any;
+          const integrityResult = rawDb.prepare("PRAGMA integrity_check").get() as { integrity_check: string };
           if (integrityResult?.integrity_check === "ok") {
             checks.push({ check: "db-integrity", status: "ok", detail: "PRAGMA integrity_check: ok" });
           } else {
             checks.push({ check: "db-integrity", status: "fail", detail: `integrity_check: ${JSON.stringify(integrityResult)}` });
           }
-          const journalMode = rawDb.prepare("PRAGMA journal_mode").get() as any;
+          const journalMode = rawDb.prepare("PRAGMA journal_mode").get() as { journal_mode: string };
           const mode = journalMode?.journal_mode ?? "unknown";
           checks.push({ check: "db-wal", status: mode === "wal" ? "ok" : "warn", detail: `journal_mode: ${mode}` });
         }
@@ -363,7 +363,7 @@ export function registerConnectCommands(program: Command): void {
         if (rawDb) {
           const orphanResources = rawDb.prepare(
             "SELECT COUNT(*) as cnt FROM resource_claim_resource WHERE claim_id NOT IN (SELECT id FROM resource_claim)"
-          ).get() as any;
+          ).get() as { cnt: number };
           if (orphanResources?.cnt > 0) {
             checks.push({ check: "orphans", status: "warn", detail: `${orphanResources.cnt} orphan resource_claim_resource rows` });
           }

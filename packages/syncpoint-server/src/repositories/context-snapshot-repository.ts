@@ -21,23 +21,39 @@ function computePayloadHash(payload: ContextSnapshotPayload): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 16);
 }
 
-function rowToSnapshot(row: any): ContextSnapshot {
+/** Shape of a row returned by Drizzle from the context_snapshot table. */
+interface ContextSnapshotRow {
+  id: string;
+  taskId: string;
+  agentId: string;
+  checkpointId: string;
+  kind: string;
+  summary: string;
+  payloadJson: ContextSnapshotPayload;
+  version: number;
+  contentHash: string;
+  isDelta: boolean;
+  baseSnapshotId: string;
+  createdAt: string;
+}
+
+function rowToSnapshot(row: ContextSnapshotRow): ContextSnapshot {
   return {
     id: row.id,
     taskId: row.taskId,
     agentId: row.agentId,
     checkpointId: row.checkpointId,
-    kind: row.kind ?? "resume",
-    summary: row.summary ?? "",
+    kind: row.kind || "resume",
+    summary: row.summary || "",
     payload: row.payloadJson ?? {},
     version: row.version ?? 1,
-    contentHash: row.contentHash ?? "",
+    contentHash: row.contentHash || "",
     isDelta: Boolean(row.isDelta),
-    baseSnapshotId: row.baseSnapshotId ?? "",
+    baseSnapshotId: row.baseSnapshotId || "",
     validationStatus: "",
     staleReason: "",
     createdAt: row.createdAt,
-  } as ContextSnapshot;
+  };
 }
 
 // ── CRUD ────────────────────────────────────────────
@@ -69,7 +85,7 @@ export function createContextSnapshot(data: ContextSnapshotCreate): ContextSnaps
 
     if (prevFull) {
       // Compute delta: only store fields that differ from the previous full snapshot
-      const prevPayload = (prevFull as any).payloadJson as ContextSnapshotPayload;
+      const prevPayload = prevFull.payloadJson;
       const delta = computeDelta(prevPayload, data.payload ?? {});
       if (Object.keys(delta).length > 0) {
         isDelta = true;
@@ -125,25 +141,24 @@ export function resolveSnapshotPayload(snapshotId: string): ContextSnapshotPaylo
     .get();
   if (!snapshot) return undefined;
 
-  const row = snapshot as any;
-  if (!row.isDelta) return row.payloadJson as ContextSnapshotPayload;
+  if (!snapshot.isDelta) return snapshot.payloadJson;
 
   // Walk the delta chain backwards to find the base full snapshot
-  const chain: Array<{ id: string; payloadJson: ContextSnapshotPayload; isDelta: boolean; baseSnapshotId: string }> = [row];
-  let current = row;
+  const chain: ContextSnapshotRow[] = [snapshot];
+  let current: ContextSnapshotRow = snapshot;
   while (current.isDelta && current.baseSnapshotId) {
     const base = db.select().from(s.contextSnapshots)
       .where(eq(s.contextSnapshots.id, current.baseSnapshotId))
-      .get() as any;
+      .get();
     if (!base) break;
     chain.unshift(base);
     current = base;
   }
 
   // Apply deltas in order
-  let payload: ContextSnapshotPayload = chain[0]!.payloadJson as ContextSnapshotPayload;
+  let payload: ContextSnapshotPayload = chain[0]!.payloadJson;
   for (let i = 1; i < chain.length; i++) {
-    payload = applyDelta(payload, chain[i]!.payloadJson as ContextSnapshotPayload);
+    payload = applyDelta(payload, chain[i]!.payloadJson);
   }
   return payload;
 }
@@ -152,12 +167,14 @@ export function resolveSnapshotPayload(snapshotId: string): ContextSnapshotPaylo
 
 function computeDelta(base: ContextSnapshotPayload, current: ContextSnapshotPayload): Partial<ContextSnapshotPayload> {
   const delta: Record<string, unknown> = {};
+  const baseRecord = base as Record<string, unknown>;
+  const currentRecord = current as Record<string, unknown>;
   const allKeys = new Set([...Object.keys(base), ...Object.keys(current)]);
   for (const key of allKeys) {
-    const bVal = (base as any)[key];
-    const cVal = (current as any)[key];
+    const bVal = baseRecord[key];
+    const cVal = currentRecord[key];
     if (JSON.stringify(bVal) !== JSON.stringify(cVal)) {
-      (delta as any)[key] = cVal;
+      delta[key] = cVal;
     }
   }
   return delta;

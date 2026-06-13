@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { WriteDecisionReason } from "syncpoint-kernel";
 import type { WriteDecision, WritePermit, WritePermitCreate, WriteResourceHash, ResourceRef, ResourceScope } from "syncpoint-kernel";
 import * as s from "../schema.js";
 import { _getDb, createId, now } from "./_shared.js";
@@ -40,7 +41,7 @@ function rowToWritePermit(row: any, resources: ResourceRef[], baseHashes: WriteR
     expiresAt: row.expiresAt,
     singleUse: Boolean(row.singleUse),
     status: row.status,
-    decision: row.decisionJson ?? { permitted: false, reason: "blocked" as any, blockers: [], warnings: [] },
+    decision: row.decisionJson ?? { permitted: false, reason: WriteDecisionReason.BLOCKED, blockers: [], warnings: [] },
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     consumedAt: row.consumedAt ?? "",

@@ -11,6 +11,7 @@ import os from "node:os";
 import * as repo from "syncpoint-server/repositories";
 import { getDbPath, getRawDb } from "syncpoint-server";
 import { EventType, ResourceNotFoundError, ValidationError } from "syncpoint-kernel";
+import type { AgentCreate, TaskCreate } from "syncpoint-adapters";
 import { unlockAllGuards } from "syncpoint-server/application";
 import { handleError, printError } from "./error-handler.js";
 
@@ -279,7 +280,7 @@ export function registerAdminCommands(program: Command): void {
         let imported = 0;
         for (const agent of data.agents ?? []) {
           try {
-            repo.createAgent(agent as any);
+            repo.createAgent(agent as AgentCreate);
             imported++;
           } catch { /* skip duplicates */ }
         }
@@ -287,7 +288,7 @@ export function registerAdminCommands(program: Command): void {
         // Import tasks
         for (const task of data.tasks ?? []) {
           try {
-            repo.createTask(task as any);
+            repo.createTask(task as TaskCreate);
             imported++;
           } catch { /* skip duplicates */ }
         }
@@ -359,9 +360,8 @@ export function registerAdminCommands(program: Command): void {
 
         console.log(`${Math.min(filtered.length, limit)} event(s):`);
         for (const event of filtered.slice(0, limit)) {
-          const e = event as any;
-          const ts = formatTimestamp(e.createdAt ?? e.timestamp ?? "");
-          const typeLabel = (e.eventType ?? e.type ?? "unknown").padEnd(30);
+          const ts = formatTimestamp(event.createdAt ?? "");
+          const typeLabel = (event.eventType ?? "unknown").padEnd(30);
           const entity = `${e.entityType ?? ""}:${e.entityId ?? e.id ?? ""}`.padEnd(25);
           console.log(`  ${ts}  ${typeLabel}  ${entity}`);
           if (e.detail) {
