@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import { ApprovalGateStatus } from "syncpoint-kernel";
+import { ApprovalGateStatus, InvalidStateTransitionError } from "syncpoint-kernel";
 
 // ── Enums ────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ export const CHECKLIST_ITEM_TRANSITIONS: Record<ChecklistItemStatus, ChecklistIt
 export function validateChecklistItemTransition(current: ChecklistItemStatus, target: ChecklistItemStatus): void {
   const allowed = CHECKLIST_ITEM_TRANSITIONS[current];
   if (!allowed || !allowed.includes(target)) {
-    throw new Error(`Invalid checklist item transition: ${current} → ${target}`);
+    throw new InvalidStateTransitionError("ChecklistItem", current, target);
   }
 }
 
@@ -61,7 +61,7 @@ export const CHANGE_REQUEST_TRANSITIONS: Record<ChangeRequestStatus, ChangeReque
 export function validateChangeRequestTransition(current: ChangeRequestStatus, target: ChangeRequestStatus): void {
   const allowed = CHANGE_REQUEST_TRANSITIONS[current];
   if (!allowed || !allowed.includes(target)) {
-    throw new Error(`Invalid change request transition: ${current} → ${target}`);
+    throw new InvalidStateTransitionError("ChangeRequest", current, target);
   }
 }
 

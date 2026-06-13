@@ -8,6 +8,7 @@ import type {
   AgentManifestFileFormat,
   UserAgentManifest,
 } from "syncpoint-adapters";
+import { ResourceNotFoundError, ValidationError } from "syncpoint-kernel";
 import { getSyncpointDir } from "../../db.js";
 import {
   ensureAgentManifestDirectory,
@@ -27,21 +28,21 @@ export interface PersistDeclaredManifestInput {
 export function listDeclarationSourceFiles(sourcePath: string): string[] {
   const absolutePath = path.resolve(sourcePath);
   if (!fs.existsSync(absolutePath)) {
-    throw new Error(`Declaration source not found: ${absolutePath}`);
+    throw new ResourceNotFoundError(absolutePath);
   }
 
   const stat = fs.statSync(absolutePath);
   if (stat.isFile()) {
     const format = detectUserAgentManifestFormatFromPath(absolutePath);
     if (!format) {
-      throw new Error(`Unsupported declaration file: ${absolutePath}`);
+      throw new ValidationError("declaration file", `unsupported format: ${absolutePath}`);
     }
     return [absolutePath];
   }
 
   const files = collectDeclarationFiles(absolutePath);
   if (!files.length) {
-    throw new Error(`No YAML or JSON declaration files found in: ${absolutePath}`);
+    throw new ResourceNotFoundError(absolutePath);
   }
   return files;
 }
@@ -102,7 +103,7 @@ export function isInsideDirectory(parentPath: string, candidatePath: string): bo
 
 export function slugify(value: string): string {
   const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  if (!normalized) throw new Error("Unable to derive a stable manifest path.");
+  if (!normalized) throw new ValidationError("value", "unable to derive a stable manifest path");
   return normalized;
 }
 

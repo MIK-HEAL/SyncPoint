@@ -10,7 +10,7 @@
 
 import { z } from "zod";
 import type { PlaybookActionKind } from "syncpoint-adapters";
-import { RelationshipMode, isValidWakeVerb, MODE_WAKE_VERBS, isModeActionAllowed } from "syncpoint-kernel";
+import { RelationshipMode, isValidWakeVerb, MODE_WAKE_VERBS, isModeActionAllowed, InvalidStateTransitionError } from "syncpoint-kernel";
 
 // ── WakeRequest Status ─────────────────────────────────
 
@@ -265,6 +265,6 @@ export function computeWakeTargets(
 export function validateWakeRequestTransition(current: WakeRequestStatus, target: WakeRequestStatus): void {
   const allowed = WAKE_REQUEST_TRANSITIONS[current];
   if (!allowed.includes(target)) {
-    throw new Error(`Invalid WakeRequest transition: ${current} → ${target}`);
+    throw new InvalidStateTransitionError("WakeRequest", current, target);
   }
 }

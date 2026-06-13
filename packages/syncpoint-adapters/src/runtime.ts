@@ -6,6 +6,7 @@
  */
 
 import { z } from "zod";
+import { ForbiddenError } from "syncpoint-kernel";
 
 // ── Status ──────────────────────────────────────────────
 
@@ -103,15 +104,14 @@ export function resolveIdentity(
 
 // ── Errors ──────────────────────────────────────────────
 
-export class IdentityConflictError extends Error {
+export class IdentityConflictError extends ForbiddenError {
   constructor(
     public boundAgentId: string,
     public requestedAgentId: string,
   ) {
     super(
-      `Identity conflict: connection is bound to agent "${boundAgentId}" ` +
-      `but tool call requested "${requestedAgentId}". ` +
-      `A bound connection cannot act as a different agent.`
+      "identity switch",
+      `connection bound to "${boundAgentId}" but requested "${requestedAgentId}"`
     );
     this.name = "IdentityConflictError";
   }

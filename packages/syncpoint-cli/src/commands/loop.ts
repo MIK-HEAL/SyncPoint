@@ -18,7 +18,7 @@ function fail(code: number, message: string, json: boolean): never {
   if (json) console.log(JSON.stringify({ ok: false, error: message, exitCode: code }));
   else console.error(`Error: ${message}`);
   process.exitCode = code;
-  throw new Error(message);
+  throw new LoopError(code, message);
 }
 
 function catchLoop(err: unknown, json: boolean): void {

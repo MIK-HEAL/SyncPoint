@@ -13,6 +13,7 @@
  * Compensation definitions are extensible via registerCompensation().
  */
 
+import { SyncPointError } from "syncpoint-kernel";
 import { getRawDb } from "../db.js";
 import { logger } from "../logger.js";
 import {
@@ -38,7 +39,11 @@ export interface StateTransitionRecord {
 /**
  * Error thrown when a state transition fails due to state mismatch.
  */
-export class StateTransitionError extends Error {
+export class StateTransitionError extends SyncPointError {
+  readonly code = "STATE_TRANSITION_ERROR";
+  readonly httpStatus = 409;
+  readonly retryable = false;
+  readonly suggestion = "Refresh the current state and retry the operation.";
   constructor(
     public readonly entityType: string,
     public readonly entityId: string,
@@ -48,6 +53,9 @@ export class StateTransitionError extends Error {
   ) {
     super(message);
     this.name = "StateTransitionError";
+  }
+  get userMessage(): string {
+    return `Cannot change "${this.entityType}" "${this.entityId}" from ${this.expectedFrom} to ${this.targetTo}`;
   }
 }
 

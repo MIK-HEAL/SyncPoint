@@ -3,6 +3,7 @@ import {
   listBuiltInAgentTeamTemplates,
   materializeAgentTeamTemplate,
 } from "syncpoint-adapters";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import { persistDeclaredManifest } from "./filesystem.js";
 import type {
   AgentManifestWriteResult,
@@ -20,7 +21,7 @@ export function listAgentTeamTemplates(): AgentTeamTemplateCatalogResult {
 export function getAgentTeamTemplate(templateId: string) {
   const template = getBuiltInAgentTeamTemplate(templateId);
   if (!template) {
-    throw new Error(`Unknown team template: ${templateId}`);
+    throw new ResourceNotFoundError(templateId);
   }
   return template;
 }

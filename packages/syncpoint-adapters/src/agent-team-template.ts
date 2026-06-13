@@ -16,6 +16,7 @@ import type {
   UserAgentManifestInput,
   UserAgentProvider,
 } from "./agent-file-manifest.js";
+import { InternalError, ValidationError } from "syncpoint-kernel";
 
 const AgentTeamMemberTemplateBodySchema = z.object({
   key: z.string().min(1).optional(),
@@ -283,7 +284,7 @@ function ensureUniqueMemberKeys(
   const seen = new Set<string>();
   for (const member of members) {
     if (seen.has(member.key)) {
-      throw new Error(`Duplicate team member key: ${member.key}`);
+      throw new ValidationError("team member key", `duplicate key: ${member.key}`);
     }
     seen.add(member.key);
   }
@@ -305,7 +306,7 @@ function joinNamePrefix(prefix: string | undefined, value: string): string {
 
 function slugify(value: string): string {
   const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  if (!normalized) throw new Error("Unable to derive a stable team manifest key.");
+  if (!normalized) throw new InternalError("unable to derive a stable team manifest key");
   return normalized;
 }
 

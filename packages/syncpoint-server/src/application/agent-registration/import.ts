@@ -6,6 +6,7 @@ import {
   parseAgentTeamTemplateContent,
   parseUserAgentManifestContent,
 } from "syncpoint-adapters";
+import { ValidationError } from "syncpoint-kernel";
 import { ensureAgentManifestDirectory, syncDeclaredAgentFile } from "../agent-registry-service.js";
 import {
   isInsideDirectory,
@@ -28,7 +29,7 @@ export function importAgentDeclarations(
   const writes = files.flatMap(filePath => {
     const format = detectUserAgentManifestFormatFromPath(filePath);
     if (!format) {
-      throw new Error(`Unsupported declaration file: ${filePath}`);
+      throw new ValidationError("declaration file", `unsupported format: ${filePath}`);
     }
 
     const content = fs.readFileSync(filePath, "utf8");

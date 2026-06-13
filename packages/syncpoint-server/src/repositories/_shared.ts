@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { getDb, getRawDb as _getRawDb } from "../db.js";
 export { _getRawDb as getRawDb };
 import * as s from "../schema.js";
-import { EventType } from "syncpoint-kernel";
+import { EventType, ResourceNotFoundError } from "syncpoint-kernel";
 import { SyncPointEventBus } from "../event-bus.js";
 
 const bus = SyncPointEventBus.getInstance();
@@ -70,9 +70,9 @@ export function recoverEventBusSeq(): void {
   }
 }
 
-export class NotFoundError extends Error {
+export class NotFoundError extends ResourceNotFoundError {
   constructor(public entity: string, public entityId: string) {
-    super(`${entity} not found: ${entityId}`);
+    super(`${entity}:${entityId}`);
     this.name = "NotFoundError";
   }
 }

@@ -1,5 +1,6 @@
 import type { ConstraintManifest } from "syncpoint-governance";
 import type { ContextMode, PromptFormat } from "syncpoint-context";
+import { InternalError } from "syncpoint-kernel";
 
 export interface LoopBootInput {
   agentId: string;
@@ -123,7 +124,7 @@ export const EXIT = {
   STATE_INVALID: 4,
 } as const;
 
-export class LoopError extends Error {
+export class LoopError extends InternalError {
   public readonly constraintManifest?: ConstraintManifest;
   constructor(public readonly exitCode: number, message: string, opts?: { constraintManifest?: ConstraintManifest }) {
     super(message);

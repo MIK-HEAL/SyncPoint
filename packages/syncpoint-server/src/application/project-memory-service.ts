@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { MemoryKind, ProjectionTarget, isValidProjection, defaultKindFromCategory } from "syncpoint-context";
 import { isConstraintRuleKnown } from "syncpoint-governance";
-import { normalizeResourcePath } from "syncpoint-kernel";
+import { InternalError, ResourceConflictError, ValidationError, normalizeResourcePath } from "syncpoint-kernel";
 import type {
   AppliesTo,
   ProjectMemory,
@@ -34,9 +34,10 @@ export interface ProjectMemoryExportResult {
 
 // ── Path guard ────────────────────────────────────────
 
-export class ProjectMemoryPathError extends Error {
+export class ProjectMemoryPathError extends ValidationError {
   constructor(message?: string) {
     super(
+      "project path",
       message ??
       "No project-local .syncpoint/ found. Run `syncpoint init` first, " +
       "or use --global to write to the fallback location."
@@ -52,7 +53,7 @@ function ensureProjectLocal(global?: boolean): void {
 
 // ── Caller identity guard ────────────────────────────
 
-export class CallerIdentityError extends Error {
+export class CallerIdentityError extends InternalError {
   constructor() {
     super(
       "Caller identity required. Provide callerBy (agentId or user identifier) " +
@@ -113,23 +114,22 @@ function validateExportPath(resolvedPath: string): void {
 
 // ── Use cases ────────────────────────────────────────
 
-export class DuplicateMemoryError extends Error {
-  public readonly existingId: string;
+export class DuplicateMemoryError extends ResourceConflictError {
   constructor(existingId: string) {
-    super(
-      `Duplicate project memory detected. Existing memory: ${existingId}. ` +
-      `Use supersede to replace it, or update the existing memory.`
-    );
+    super("project-memory", existingId);
     this.name = "DuplicateMemoryError";
-    this.existingId = existingId;
+  }
+  get existingId(): string { return this.claimedBy; }
+  get userMessage(): string {
+    return `Duplicate project memory detected. Existing memory: ${this.claimedBy}. Use supersede to replace it, or update the existing memory.`;
   }
 }
 
-export class InvalidProjectionError extends Error {
+export class InvalidProjectionError extends ValidationError {
   constructor(kind: string, target: string) {
     super(
-      `Memory kind "${kind}" cannot project to "${target}". ` +
-      `hard_constraint and protocol_rule must target protocol_gate or constraint_runtime.`
+      "projection",
+      `Memory kind "${kind}" cannot project to "${target}". hard_constraint and protocol_rule must target protocol_gate or constraint_runtime.`
     );
     this.name = "InvalidProjectionError";
   }
@@ -140,13 +140,11 @@ export class InvalidProjectionError extends Error {
  * Without a typed validator, the constraint runtime treats the memory as advisory
  * only. Requiring validatorType at write time ensures intent is explicit.
  */
-export class MissingValidatorError extends Error {
+export class MissingValidatorError extends ValidationError {
   constructor() {
     super(
-      `Blocking hard_constraint requires a validatorType. ` +
-      `Without a typed validator, the constraint is advisory only. ` +
-      `Provide a validatorType registered by a plugin (e.g. "file_forbidden", "resource_forbidden") ` +
-      `to enable runtime enforcement.`
+      "validatorType",
+      "Blocking hard_constraint requires a validatorType. Without a typed validator, the constraint is advisory only."
     );
     this.name = "MissingValidatorError";
   }
@@ -155,12 +153,11 @@ export class MissingValidatorError extends Error {
 /**
  * P4: Unknown validatorType — not registered by any plugin or core built-in.
  */
-export class UnknownValidatorTypeError extends Error {
+export class UnknownValidatorTypeError extends ValidationError {
   constructor(given: string) {
     super(
-      `Unknown validatorType "${given}". ` +
-      `No constraint rule evaluator is registered for this type. ` +
-      `Ensure the appropriate plugin is loaded (e.g. syncpoint-plugin-code for "file_forbidden").`
+      "validatorType",
+      `Unknown validatorType "${given}". No constraint rule evaluator is registered for this type.`
     );
     this.name = "UnknownValidatorTypeError";
   }

@@ -14,6 +14,7 @@ import type {
   AgentManifestFileFormat,
   UserAgentManifest,
 } from "syncpoint-adapters";
+import { InternalError } from "syncpoint-kernel";
 import { getSyncpointDir } from "../db.js";
 import {
   createAgent,
@@ -57,7 +58,7 @@ export interface DeclaredAgentRecord {
   manifest: UserAgentManifest | null;
 }
 
-export class AgentRegistryPathError extends Error {
+export class AgentRegistryPathError extends InternalError {
   constructor(message: string) {
     super(message);
     this.name = "AgentRegistryPathError";

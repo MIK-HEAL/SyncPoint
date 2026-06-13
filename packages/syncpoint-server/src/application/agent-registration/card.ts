@@ -1,4 +1,5 @@
 import { buildAgentCard } from "syncpoint-adapters";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import { getAgent, getAgentByName, listAgents } from "../../repositories/_exports/foundation.js";
 import { getAgentManifest } from "../../repositories/_exports/runtime.js";
 import { listDeclaredAgents, syncDeclaredAgents } from "../agent-registry-service.js";
@@ -75,7 +76,7 @@ export function resolveAgentIdsForCardExport(rawValues: string[]): string[] {
     if (direct) return direct.id;
     const named = getAgentByName(value);
     if (named) return named.id;
-    throw new Error(`Agent not found: ${value}`);
+    throw new ResourceNotFoundError(value);
   });
 }
 

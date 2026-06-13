@@ -6,6 +6,7 @@ import { AgentRoleSchema, UserAgentProviderSchema } from "./agent-file-manifest.
 import type { UserAgentManifest } from "./agent-file-manifest.js";
 import type { Agent } from "./models.js";
 import { toUserAgentManifestFromRuntime } from "./agent-manifest-conversion.js";
+import { ValidationError } from "syncpoint-kernel";
 
 export const AgentCardEndpointSchema = z.object({
   kind: z.string().min(1),
@@ -54,7 +55,7 @@ export interface BuildAgentCardInput {
 export function buildAgentCard(input: BuildAgentCardInput): AgentCard {
   const manifest = resolveCardManifest(input);
   if (!manifest) {
-    throw new Error("Cannot build agent card without a declared or derived manifest.");
+    throw new ValidationError("manifest", "cannot build agent card without a declared or derived manifest");
   }
 
   return AgentCardSchema.parse({

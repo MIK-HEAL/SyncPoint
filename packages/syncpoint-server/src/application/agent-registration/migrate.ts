@@ -4,6 +4,7 @@ import {
   detectUserAgentManifestFormatFromPath,
   toUserAgentManifestFromRuntime,
 } from "syncpoint-adapters";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import {
   listAgents,
 } from "../../repositories/_exports/foundation.js";
@@ -44,7 +45,7 @@ function migrateOneRuntimeAgent(
 ): RuntimeAgentMigrationItem {
   const agent = listAgents().find(entry => entry.id === agentId);
   if (!agent) {
-    throw new Error(`Agent not found: ${agentId}`);
+    throw new ResourceNotFoundError(agentId);
   }
 
   const runtimeManifest = getAgentManifest(agent.id) ?? null;

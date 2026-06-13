@@ -23,9 +23,6 @@ importers:
       syncpoint-context:
         specifier: workspace:*
         version: link:../syncpoint-context
-      syncpoint-core:
-        specifier: workspace:*
-        version: link:../syncpoint-core
       syncpoint-governance:
         specifier: workspace:*
         version: link:../syncpoint-governance
@@ -42,6 +39,9 @@ importers:
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.4(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
 
   packages/syncpoint-cli:
     dependencies:
@@ -92,9 +92,24 @@ importers:
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.4(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
 
   packages/syncpoint-core:
     dependencies:
+      syncpoint-adapters:
+        specifier: workspace:*
+        version: link:../syncpoint-adapters
+      syncpoint-context:
+        specifier: workspace:*
+        version: link:../syncpoint-context
+      syncpoint-governance:
+        specifier: workspace:*
+        version: link:../syncpoint-governance
+      syncpoint-kernel:
+        specifier: workspace:*
+        version: link:../syncpoint-kernel
       yaml:
         specifier: ^2.4.2
         version: 2.9.0
@@ -108,9 +123,12 @@ importers:
 
   packages/syncpoint-governance:
     dependencies:
-      syncpoint-core:
+      syncpoint-adapters:
         specifier: workspace:*
-        version: link:../syncpoint-core
+        version: link:../syncpoint-adapters
+      syncpoint-context:
+        specifier: workspace:*
+        version: link:../syncpoint-context
       syncpoint-kernel:
         specifier: workspace:*
         version: link:../syncpoint-kernel
@@ -121,6 +139,9 @@ importers:
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.4(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
 
   packages/syncpoint-kernel:
     dependencies:
@@ -131,6 +152,9 @@ importers:
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
 
   packages/syncpoint-mcp:
     dependencies:

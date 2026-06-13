@@ -3,6 +3,7 @@ import {
   getBuiltInAgentTeamTemplate,
   materializeAgentTeamTemplate,
 } from "syncpoint-adapters";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import type {
   AgentManifestFileFormat,
   UserAgentManifest,
@@ -100,7 +101,7 @@ export function initProjectAgents(
   if (input.teamTemplateId) {
     const builtIn = getBuiltInAgentTeamTemplate(input.teamTemplateId);
     if (!builtIn) {
-      throw new Error(`Unknown team template: ${input.teamTemplateId}`);
+      throw new ResourceNotFoundError(input.teamTemplateId);
     }
 
     const manifests = materializeAgentTeamTemplate(builtIn.template, {

@@ -6,6 +6,7 @@ import {
   parseUserAgentManifestContent,
 } from "syncpoint-adapters";
 import type { AgentManifestFileFormat } from "syncpoint-adapters";
+import { ValidationError } from "syncpoint-kernel";
 import { listDeclarationSourceFiles } from "./filesystem.js";
 import type {
   AgentDeclarationValidationRecord,
@@ -17,7 +18,7 @@ export function validateAgentDeclarations(
   input: ValidateAgentDeclarationsInput,
 ): ValidateAgentDeclarationsResult {
   if (!!input.sourcePath === !!input.content) {
-    throw new Error("Provide exactly one of sourcePath or content for validation.");
+    throw new ValidationError("input", "provide exactly one of sourcePath or content");
   }
 
   if (input.content !== undefined) {

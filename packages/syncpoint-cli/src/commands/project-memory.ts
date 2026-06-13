@@ -13,10 +13,11 @@ import type {
   ProjectMemoryValidatorConfig,
   Validity,
 } from "syncpoint-context";
+import { ValidationError } from "syncpoint-kernel";
 
-class ProjectMemoryCliInputError extends Error {
+class ProjectMemoryCliInputError extends ValidationError {
   constructor(optionName: string, message: string) {
-    super(`${optionName} ${message}`);
+    super(optionName, message);
     this.name = "ProjectMemoryCliInputError";
   }
 }
