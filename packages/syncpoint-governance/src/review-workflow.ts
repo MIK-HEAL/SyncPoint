@@ -6,7 +6,16 @@
  */
 
 import { z } from "zod";
-import { ApprovalGateStatus, InvalidStateTransitionError } from "syncpoint-kernel";
+import {
+  ApprovalGateStatus,
+  ApprovalGateResultSchema,
+  InvalidStateTransitionError,
+} from "syncpoint-kernel";
+import type { ApprovalGateResult } from "syncpoint-kernel";
+
+// Re-export ApprovalGateResult types for backward compatibility
+export { ApprovalGateResultSchema };
+export type { ApprovalGateResult };
 
 // ── Enums ────────────────────────────────────────────
 
@@ -166,19 +175,9 @@ export const ApprovalRecordCreateSchema = z.object({
 export type ApprovalRecordCreate = z.infer<typeof ApprovalRecordCreateSchema>;
 
 // ── Approval Gate (computed, not persisted) ──────────
-
-export const ApprovalGateResultSchema = z.object({
-  status: z.nativeEnum(ApprovalGateStatus),
-  reasons: z.array(z.string()),
-  checklistTotal: z.number(),
-  checklistPassed: z.number(),
-  checklistFailed: z.number(),
-  checklistWaived: z.number(),
-  checklistOpen: z.number(),
-  evidenceCount: z.number(),
-  openChangeRequests: z.number(),
-});
-export type ApprovalGateResult = z.infer<typeof ApprovalGateResultSchema>;
+// ApprovalGateResultSchema and ApprovalGateResult are now in syncpoint-kernel
+// to break the governance ↔ adapters circular dependency.
+// Re-exported at the top of this file for backward compatibility.
 
 /**
  * Evaluate approval gate from checklist items, evidence, and change requests.

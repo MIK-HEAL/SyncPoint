@@ -8,6 +8,7 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { InternalError } from "syncpoint-kernel";
 import * as schema from "./schema.js";
 
 // ── Helpers ──────────────────────────────────────────
@@ -28,6 +29,13 @@ function hasIndex(db: Database.Database, indexName: string): boolean {
 
 // ── Migration functions ──────────────────────────────
 
+/**
+ * Purpose: Normalizes the legacy `peer_contract` table by splitting its JSON
+ * `participants` column into dedicated child tables (participant, responsibility,
+ * interface_spec, resource_boundary, dependency).
+ *
+ * Idempotency: Skips if the `participants` column no longer exists.
+ */
 export function runPeerContractNormalizationMigration(
   db: Database.Database,
   sqlPath: string,
@@ -43,17 +51,24 @@ export function runPeerContractNormalizationMigration(
   ];
   const partiallyExistingChildTables = childTables.filter(tableName => hasTable(db, tableName));
   if (partiallyExistingChildTables.length > 0) {
-    throw new Error(
+    throw new InternalError(
       `peer_contract normalization encountered partial child tables: ${partiallyExistingChildTables.join(", ")}`,
     );
   }
   if (!fs.existsSync(sqlPath)) {
-    throw new Error("Missing peer_contract normalization migration SQL.");
+    throw new InternalError("Missing peer_contract normalization migration SQL.");
   }
 
   db.exec(fs.readFileSync(sqlPath, "utf-8"));
 }
 
+/**
+ * Purpose: Creates indexes on foreign key columns across join tables
+ * (resource_claim_resource, sync_gate_resource, operation_resource,
+ * write_permit_resource) to accelerate FK-based lookups.
+ *
+ * Idempotency: Checks for each index before creation.
+ */
 export function runFkIndexesMigration(db: Database.Database): void {
   const fkIndexes: Array<{ table: string; index: string; column: string }> = [
     { table: "resource_claim_resource", index: "idx_rcr_claim", column: "claim_id" },
@@ -69,13 +84,20 @@ export function runFkIndexesMigration(db: Database.Database): void {
   }
 }
 
+/**
+ * Purpose: Creates the `agent_registry_entry` table from an external SQL file
+ * and ensures its unique index on `agent_id` exists. Supports the agent
+ * registration and discovery subsystem.
+ *
+ * Idempotency: Skips table creation if it already exists; adds index if missing.
+ */
 export function runAgentRegistryEntryMigration(
   db: Database.Database,
   sqlPath: string,
 ): void {
   if (!hasTable(db, "agent_registry_entry")) {
     if (!fs.existsSync(sqlPath)) {
-      throw new Error("Missing agent_registry_entry migration SQL.");
+      throw new InternalError("Missing agent_registry_entry migration SQL.");
     }
     db.exec(fs.readFileSync(sqlPath, "utf-8"));
     return;
@@ -86,6 +108,13 @@ export function runAgentRegistryEntryMigration(
   }
 }
 
+/**
+ * Purpose: Creates composite indexes on frequently queried columns across
+ * core tables (resource_claim, sync_gate, checkpoint, checkpoint_review, event)
+ * to accelerate common query paths: by actor+status, session, task, and time ranges.
+ *
+ * Idempotency: Checks for each index before creation.
+ */
 export function runQueryPathIndexesMigration(db: Database.Database): void {
   const queryIndexes: Array<{ table: string; index: string; columns: string }> = [
     { table: "resource_claim", index: "idx_claims_actor_status", columns: "actor_id, status" },
@@ -108,17 +137,30 @@ export function runQueryPathIndexesMigration(db: Database.Database): void {
   }
 }
 
+/**
+ * Purpose: Creates the `agent_message` table from an external SQL file.
+ * Stores inter-agent messages for the collaboration protocol.
+ *
+ * Idempotency: Skips if the table already exists.
+ */
 export function runAgentMessageMigration(
   db: Database.Database,
   sqlPath: string,
 ): void {
   if (hasTable(db, "agent_message")) return;
   if (!fs.existsSync(sqlPath)) {
-    throw new Error("Missing agent_message migration SQL.");
+    throw new InternalError("Missing agent_message migration SQL.");
   }
   db.exec(fs.readFileSync(sqlPath, "utf-8"));
 }
 
+/**
+ * Purpose: Creates the `state_transition_log` table with indexes on entity,
+ * agent, and timestamp columns. Provides an audit trail for all entity state
+ * transitions in the system.
+ *
+ * Idempotency: Skips if the table already exists.
+ */
 export function runStateTransitionLogMigration(db: Database.Database): void {
   if (hasTable(db, "state_transition_log")) return;
   db.exec(`
@@ -139,6 +181,13 @@ export function runStateTransitionLogMigration(db: Database.Database): void {
   `);
 }
 
+/**
+ * Purpose: Adds `scope`, `function_name`, `line_start`, and `line_end` columns
+ * to all resource join tables. Enables fine-grained resource scoping beyond
+ * file-level (e.g., function-level, line-range).
+ *
+ * Idempotency: Checks each column before adding; skips missing tables.
+ */
 export function runResourceScopeMigration(db: Database.Database): void {
   const tables: Array<{ table: string }> = [
     { table: "resource_claim_resource" },
@@ -165,6 +214,14 @@ export function runResourceScopeMigration(db: Database.Database): void {
   }
 }
 
+/**
+ * Purpose: Adds incremental snapshot support columns (`version`, `content_hash`,
+ * `is_delta`, `base_snapshot_id`) to the `context_snapshot` table. Enables
+ * delta-based snapshots that reference a base snapshot instead of storing full
+ * copies every time.
+ *
+ * Idempotency: Checks each column before adding; skips if table is missing.
+ */
 export function runContextSnapshotIncrementalMigration(db: Database.Database): void {
   if (!hasTable(db, "context_snapshot")) return;
   const columns = (db.prepare("PRAGMA table_info(context_snapshot)").all() as Array<{ name: string }>).map(c => c.name);
@@ -182,6 +239,12 @@ export function runContextSnapshotIncrementalMigration(db: Database.Database): v
   }
 }
 
+/**
+ * Purpose: Adds a monotonically increasing `seq` column and index to the `event`
+ * table. Enables ordered event replay and catch-up subscriptions by sequence number.
+ *
+ * Idempotency: Checks for column before adding; skips if table is missing.
+ */
 export function runEventSeqMigration(db: Database.Database): void {
   if (!hasTable(db, "event")) return;
   const columns = (db.prepare("PRAGMA table_info(event)").all() as Array<{ name: string }>).map(c => c.name);
@@ -191,6 +254,13 @@ export function runEventSeqMigration(db: Database.Database): void {
   }
 }
 
+/**
+ * Purpose: Creates runtime-only tables that are not managed by Drizzle ORM
+ * migrations: `memory_version` (optimistic concurrency control for project
+ * memory) and the FTS5 full-text search index for project memory content.
+ *
+ * Idempotency: Uses CREATE IF NOT EXISTS and INSERT OR IGNORE.
+ */
 export function ensureRuntimeOnlyTables(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS memory_version (

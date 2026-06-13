@@ -186,8 +186,15 @@ export {
 export { EventType, EventSchema } from "./events.js";
 export type { Event } from "./events.js";
 
-// ── Approval gate (shared kernel enum) ──────────────────
-export { ApprovalGateStatus } from "./approval-gate.js";
+// ── Approval gate (shared kernel types) ──────────────────
+export {
+  ApprovalGateStatus,
+  ApprovalGateResultSchema,
+} from "./approval-gate.js";
+export type { ApprovalGateResult } from "./approval-gate.js";
+
+// ── Playbook action kind (shared kernel enum) ──────────
+export { PlaybookActionKind } from "./playbook-action-kind.js";
 
 // ── Relationship mode (shared kernel types) ──────────────
 export {

@@ -8,6 +8,7 @@
  */
 
 import { z } from "zod";
+import type { ZodInvalidEnumValueIssue, ZodTooSmallIssue, ZodTooBigIssue } from "zod";
 import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -173,14 +174,17 @@ export function validateConfig(config: unknown): ConfigValidationIssue[] {
       message = `${path}: expected ${err.expected}, got ${err.received}`;
       suggestion = `Set ${path} to a valid ${err.expected} value.`;
     } else if (err.code === "invalid_enum_value") {
-      message = `${path}: "${err.received}" is not a valid value`;
-      suggestion = `Valid options: ${(err as any).options?.join(", ") ?? "see docs"}.`;
+      const enumErr = err as ZodInvalidEnumValueIssue;
+      message = `${path}: "${enumErr.received}" is not a valid value`;
+      suggestion = `Valid options: ${enumErr.options.join(", ")}.`;
     } else if (err.code === "too_small") {
-      message = `${path}: ${err.message}`;
-      suggestion = `Minimum value is ${(err as any).minimum}.`;
+      const tooSmallErr = err as ZodTooSmallIssue;
+      message = `${path}: ${tooSmallErr.message}`;
+      suggestion = `Minimum value is ${tooSmallErr.minimum}.`;
     } else if (err.code === "too_big") {
-      message = `${path}: ${err.message}`;
-      suggestion = `Maximum value is ${(err as any).maximum}.`;
+      const tooBigErr = err as ZodTooBigIssue;
+      message = `${path}: ${tooBigErr.message}`;
+      suggestion = `Maximum value is ${tooBigErr.maximum}.`;
     }
 
     issues.push({ path, message, suggestion });
@@ -210,16 +214,25 @@ export function configFromEnv(): Partial<SyncPointConfig> {
   if (process.env.SYNCPOINT_NO_WAL === "true") config.database = { ...(config.database as object ?? {}), wal: false };
 
   // Guard
-  if (process.env.SYNCPOINT_GUARD_MODE) config.guard = { mode: process.env.SYNCPOINT_GUARD_MODE as any };
+  if (process.env.SYNCPOINT_GUARD_MODE) {
+    const mode = GuardConfig.shape.mode.safeParse(process.env.SYNCPOINT_GUARD_MODE);
+    if (mode.success) config.guard = { mode: mode.data };
+  }
 
   // Constraints
-  if (process.env.SYNCPOINT_DEFAULT_POLICY) config.constraints = { defaultPolicy: process.env.SYNCPOINT_DEFAULT_POLICY as any };
+  if (process.env.SYNCPOINT_DEFAULT_POLICY) {
+    const policy = ConstraintsConfig.shape.defaultPolicy.safeParse(process.env.SYNCPOINT_DEFAULT_POLICY);
+    if (policy.success) config.constraints = { defaultPolicy: policy.data };
+  }
 
   // Auth
   if (process.env.SYNCPOINT_SHARED_SECRET) config.auth = { sharedSecret: process.env.SYNCPOINT_SHARED_SECRET };
 
   // Log
-  if (process.env.LOG_LEVEL) config.log = { level: process.env.LOG_LEVEL as SyncPointConfig["log"]["level"] };
+  if (process.env.LOG_LEVEL) {
+    const level = LogConfig.shape.level.safeParse(process.env.LOG_LEVEL);
+    if (level.success) config.log = { level: level.data };
+  }
 
   return config as Partial<SyncPointConfig>;
 }

@@ -1,5 +1,5 @@
 /**
- * Blocker Explanation Formatter — shared human-readable output for CLI.
+ * CLI Output Formatter — human-readable status and blocker explanations.
  *
  * Turns raw snapshot data into explainable output that answers:
  *   - Who is blocked?
@@ -9,203 +9,28 @@
  */
 
 import type { UnifiedBlocker } from "syncpoint-server/application";
+import {
+  type Snapshot,
+  type SnapshotAgent,
+  type SnapshotConflict,
+  type SnapshotClaim,
+  type SnapshotOperation,
+  type SnapshotWake,
+  type SnapshotEvent,
+} from "./formatter-types.js";
+import {
+  indent,
+  blockerTypeLabel,
+  blockerReasonLabel,
+  suggestedAction,
+  agentLabel,
+  formatDeadline,
+  formatVoteCounts,
+  eventSummary,
+} from "./formatter-helpers.js";
 
-// ── Snapshot types (mirror sync-status-service output) ──
-
-interface SnapshotAgent {
-  id: string;
-  name: string;
-  status: string;
-  provider: string;
-  role: string;
-  blocked: boolean;
-  blockingGateIds: string[];
-  constraintBlocked: boolean;
-  constraintBlockerCount: number;
-  constraintWarningCount: number;
-  activeAssignments: Array<{ id: string; taskId: string; taskTitle: string; status: string }>;
-  claimedResources: Array<{ claimId: string; resources: any[]; mode: string; taskId: string }>;
-  pendingWakeCount: number;
-}
-
-interface SnapshotSession {
-  id: string;
-  title: string;
-  status: string;
-  relationshipMode: string;
-  agents: Array<{ agentId: string; agentName: string; role: string }>;
-}
-
-interface SnapshotConflict {
-  overlappingLocator: string;
-  claimA: { id: string; actorId: string; actorName: string; mode: string };
-  claimB: { id: string; actorId: string; actorName: string; mode: string };
-}
-
-interface SnapshotClaim {
-  id: string;
-  actorId: string;
-  actorName: string;
-  taskId: string;
-  taskTitle: string;
-  resources: Array<{ type: string; locator: string; metadata: string }>;
-  mode: string;
-}
-
-interface SnapshotOperation {
-  id: string;
-  title: string;
-  actorId: string;
-  actorName: string;
-  status: string;
-  taskId: string;
-  taskTitle: string;
-  needsAction: string;
-}
-
-interface SnapshotWake {
-  id: string;
-  targetAgentId: string;
-  targetAgentName: string;
-  sourceEvent: string;
-  reason: string;
-  status: string;
-  createdAt: string;
-}
-
-interface SnapshotEvent {
-  id: string;
-  eventType: string;
-  entityType: string;
-  entityId: string;
-  detail: string;
-  createdAt: string;
-}
-
-export interface Snapshot {
-  timestamp: string;
-  sessions: SnapshotSession[];
-  agents: SnapshotAgent[];
-  resourceOwnership: {
-    activeClaims: SnapshotClaim[];
-    conflicts: SnapshotConflict[];
-    stats: {
-      totalClaims: number;
-      exclusiveClaims: number;
-      sharedClaims: number;
-      hardConflicts: number;
-      softConflicts: number;
-    };
-  };
-  blockers: UnifiedBlocker[];
-  blockerCount: number;
-  operations: SnapshotOperation[];
-  wakeQueue: SnapshotWake[];
-  recentEvents?: SnapshotEvent[];
-  gateStats: { total: number; active: number; resolved: number; cancelled: number };
-  summary: {
-    activeSessionCount: number;
-    agentCount: number;
-    blockedAgentCount: number;
-    activeClaimCount: number;
-    hardConflictCount: number;
-    pendingOperationCount: number;
-    pendingWakeCount: number;
-    blockerCount: number;
-    constraintBlockedAgents: number;
-    constraintBlockedTasks: number;
-  };
-}
-
-// ── Formatting helpers ──
-
-function indent(text: string, level = 1): string {
-  const pad = "  ".repeat(level);
-  return text.split("\n").map(l => pad + l).join("\n");
-}
-
-function blockerTypeLabel(type: string): string {
-  switch (type) {
-    case "sync_gate": return "Sync Gate";
-    case "checkpoint_review": return "Checkpoint Review";
-    case "handoff": return "Pending Handoff";
-    case "review": return "Review Required";
-    case "operation": return "Operation";
-    default: return type;
-  }
-}
-
-function blockerReasonLabel(reason: string): string {
-  switch (reason) {
-    case "resource_conflict": return "resource ownership conflict";
-    case "checkpoint_required": return "checkpoint requires approval";
-    case "checkpoint_approval": return "checkpoint waiting for approval";
-    case "manual_request": return "manual sync request";
-    case "review_requested": return "review not started";
-    case "review_in_progress": return "review in progress";
-    case "handoff_pending": return "handoff waiting for acceptance";
-    case "operation_awaiting_approval": return "operation awaiting approval";
-    case "operation_conflict": return "operation has conflicts";
-    default: return reason;
-  }
-}
-
-function suggestedAction(blocker: UnifiedBlocker): string {
-  switch (blocker.type) {
-    case "sync_gate":
-      return `syncpoint sync ack --gate ${blocker.id} --agent <agentId>\n` +
-             `syncpoint sync resolve --gate ${blocker.id} --summary "Resolved"`;
-    case "checkpoint_review":
-      return `syncpoint checkpoint review approve --tx ${blocker.id} --agent <agentId>`;
-    case "handoff":
-      return `syncpoint handoff accept --handoff ${blocker.id}`;
-    case "review":
-      return `syncpoint review approve --review ${blocker.id} --summary "Approved" --by <agentId>`;
-    case "operation":
-      if (blocker.reason === "operation_conflict") {
-        return `syncpoint operation check --id ${blocker.id}\nsyncpoint operation submit --id ${blocker.id}`;
-      }
-      return `syncpoint operation approve --id ${blocker.id} --agent <agentId>`;
-    default:
-      return "";
-  }
-}
-
-function agentLabel(id: string, agents: Array<{ id: string; name: string }>): string {
-  return agents.find(a => a.id === id)?.name ?? id;
-}
-
-function formatDeadline(deadlineAt?: string): string | undefined {
-  if (!deadlineAt) return undefined;
-  const deadline = new Date(deadlineAt);
-  if (Number.isNaN(deadline.getTime())) return deadlineAt;
-  const deltaMs = deadline.getTime() - Date.now();
-  const absSeconds = Math.abs(Math.round(deltaMs / 1000));
-  const minutes = Math.floor(absSeconds / 60);
-  const seconds = absSeconds % 60;
-  const suffix = deltaMs >= 0 ? `${minutes}m ${seconds}s remaining` : `${minutes}m ${seconds}s overdue`;
-  return `${deadlineAt} (${suffix})`;
-}
-
-function formatVoteCounts(counts: Record<string, number>): string {
-  const keys = ["approve", "reject", "abstain", "escalate"];
-  return keys.map(key => `${key}:${counts[key] ?? 0}`).join(" ");
-}
-
-function eventSummary(event: SnapshotEvent): string {
-  if (!event.detail) return "";
-  try {
-    const detail = JSON.parse(event.detail);
-    const parts = [
-      detail.locator ? `locator=${detail.locator}` : "",
-      detail.decision ? `decision=${detail.decision}` : "",
-      detail.gateId ? `gate=${detail.gateId}` : "",
-    ].filter(Boolean);
-    return parts.join(" ");
-  } catch {
-    return event.detail;
-  }
-}
+// Re-export Snapshot type for backward compatibility
+export type { Snapshot } from "./formatter-types.js";
 
 // ── Main formatters ──
 
@@ -445,9 +270,8 @@ export function formatBlockedExplanation(snapshot: Snapshot): string {
   }
 
   // Current state summary
-  const fo = snapshot.resourceOwnership;
   lines.push("Current state:");
-  lines.push(`  Resource conflicts: ${fo.stats.hardConflicts > 0 ? `${fo.stats.hardConflicts} hard` : "none"}`);
+  lines.push(`  Resource conflicts: ${snapshot.resourceOwnership.stats.hardConflicts > 0 ? `${snapshot.resourceOwnership.stats.hardConflicts} hard` : "none"}`);
   lines.push(`  Sync gates: ${snapshot.gateStats.active} active`);
   lines.push(`  Operations: ${snapshot.operations.length > 0 ? snapshot.operations.map(op => op.status).join(", ") : "none"}`);
   lines.push(`  Wake queue: ${snapshot.wakeQueue.length} pending`);

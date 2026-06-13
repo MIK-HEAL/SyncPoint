@@ -8,47 +8,13 @@
 
 import { z } from "zod";
 import { SessionStatus, TaskAssignmentStatus, ReviewRequestStatus } from "./orchestration.js";
-import { ApprovalGateStatus } from "syncpoint-kernel";
-import type { ApprovalGateResult } from "syncpoint-governance";
+import { ApprovalGateStatus, PlaybookActionKind } from "syncpoint-kernel";
+import type { ApprovalGateResult } from "syncpoint-kernel";
 import { RelationshipMode, MODE_SYNC_RULES, isModeActionAllowed } from "./relationship-mode.js";
 
-// ── Action Kinds ────────────────────────────────────
-
-export const PlaybookActionKind = z.enum([
-  // Architect actions
-  "plan-tasks",
-  "assign-roles",
-  "advance-session",
-
-  // Executor actions
-  "accept-assignment",
-  "start-work",
-  "checkpoint",
-  "complete-assignment",
-  "address-changes",
-
-  // Reviewer actions
-  "start-review",
-  "add-checklist",
-  "add-evidence",
-  "evaluate-gate",
-  "approve-review",
-  "block-review",
-
-  // Shared actions
-  "request-review",
-  "handoff",
-
-  // Mode-specific sync actions
-  "claim-resources",
-  "sync-checkpoint",
-
-  // Terminal / informational
-  "wait",
-  "session-completed",
-  "no-action",
-]);
-export type PlaybookActionKind = z.infer<typeof PlaybookActionKind>;
+// Re-export PlaybookActionKind for backward compatibility
+// Note: only the value export is needed — it provides both the Zod schema and inferred type
+export { PlaybookActionKind };
 
 // ── NextAction Schema ───────────────────────────────
 

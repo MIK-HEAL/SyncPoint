@@ -9,7 +9,7 @@
  */
 
 import { z } from "zod";
-import type { PlaybookActionKind } from "syncpoint-adapters";
+import type { PlaybookActionKind } from "syncpoint-kernel";
 import { RelationshipMode, isValidWakeVerb, MODE_WAKE_VERBS, isModeActionAllowed, InvalidStateTransitionError } from "syncpoint-kernel";
 
 // ── WakeRequest Status ─────────────────────────────────
