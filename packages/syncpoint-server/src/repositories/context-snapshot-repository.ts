@@ -8,7 +8,7 @@
 import { eq, and, desc, lt, sql } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import * as s from "../schema.js";
-import { EventType } from "syncpoint-kernel";
+import { EventType, ResourceNotFoundError } from "syncpoint-kernel";
 import { SNAPSHOT_VERSION } from "syncpoint-adapters";
 import type { ContextSnapshot, ContextSnapshotCreate, ContextSnapshotPayload } from "syncpoint-adapters";
 import { _getDb, getRawDb, now, createId, logEvent } from "./_shared.js";
@@ -43,7 +43,7 @@ function rowToSnapshot(row: ContextSnapshotRow): ContextSnapshot {
     taskId: row.taskId,
     agentId: row.agentId,
     checkpointId: row.checkpointId,
-    kind: row.kind || "resume",
+    kind: (row.kind as ContextSnapshot["kind"]) || "resume",
     summary: row.summary || "",
     payload: row.payloadJson ?? {},
     version: row.version ?? 1,
@@ -111,6 +111,7 @@ export function createContextSnapshot(data: ContextSnapshotCreate): ContextSnaps
   }).run();
   logEvent(EventType.CONTEXT_SNAPSHOT_CREATED, "context_snapshot", id);
   const row = db.select().from(s.contextSnapshots).where(eq(s.contextSnapshots.id, id)).get();
+  if (!row) throw new ResourceNotFoundError(id);
   return rowToSnapshot(row);
 }
 

@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Command, Option } from "commander";
 import { ResourceNotFoundError } from "syncpoint-kernel";
+import type { ResourceRef } from "syncpoint-kernel";
 import {
   buildSnapshot,
   rcClaim,
@@ -202,7 +203,7 @@ export function registerFacadeCommands(program: Command): void {
           return;
         }
       }
-      const resources = locators.split(",").map((p: string) => ({
+      const resources: ResourceRef[] = locators.split(",").map((p: string) => ({
         type: opts.type as string,
         locator: p.trim(),
         metadata: "",

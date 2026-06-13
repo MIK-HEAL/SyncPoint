@@ -362,10 +362,10 @@ export function registerAdminCommands(program: Command): void {
         for (const event of filtered.slice(0, limit)) {
           const ts = formatTimestamp(event.createdAt ?? "");
           const typeLabel = (event.eventType ?? "unknown").padEnd(30);
-          const entity = `${e.entityType ?? ""}:${e.entityId ?? e.id ?? ""}`.padEnd(25);
+          const entity = `${event.entityType ?? ""}:${event.entityId ?? event.id ?? ""}`.padEnd(25);
           console.log(`  ${ts}  ${typeLabel}  ${entity}`);
-          if (e.detail) {
-            const detail = typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail);
+          if (event.detail) {
+            const detail = typeof event.detail === "string" ? event.detail : JSON.stringify(event.detail);
             if (detail.length > 100) {
               console.log(`           ${detail.slice(0, 100)}...`);
             } else if (detail) {

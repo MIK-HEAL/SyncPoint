@@ -235,6 +235,7 @@ export function hydrateProjectMemories(rows: ProjectMemoryRow[]): ProjectMemory[
       fingerprint: version?.fingerprint || computeMemoryFingerprint(row.category, row.title, row.content),
       supersedes: version?.supersedesMemoryId ?? null,
       supersededBy: version?.supersededByMemoryId ?? null,
+      schemaVersion: 2,
       kind: (row.kind as MemoryKind | null) ?? defaultKindFromCategory(row.category),
       projectionTarget: (projection?.projectionTarget as ProjectMemory["projectionTarget"]) ?? null,
       appliesTo,

@@ -4,11 +4,19 @@
     "outDir": "dist",
     "rootDir": "../",
     "paths": {
+      "syncpoint-core": ["../syncpoint-core/src/index.ts"],
+      "syncpoint-core/*": ["../syncpoint-core/src/*"],
+      "syncpoint-server": ["../syncpoint-server/src/index.ts"],
+      "syncpoint-server/application": ["../syncpoint-server/src/application/index.ts"],
+      "syncpoint-server/repositories": ["../syncpoint-server/src/repositories/index.ts"],
       "syncpoint-kernel": ["../syncpoint-kernel/src/index.ts"],
       "syncpoint-governance": ["../syncpoint-governance/src/index.ts"],
       "syncpoint-context": ["../syncpoint-context/src/index.ts"],
-      "syncpoint-adapters": ["../syncpoint-adapters/src/index.ts"]
+      "syncpoint-adapters": ["../syncpoint-adapters/src/index.ts"],
+      "syncpoint-plugin-code": ["../syncpoint-plugin-code/src/index.ts"],
+      "syncpoint-plugin-generic-agent": ["../syncpoint-plugin-generic-agent/src/index.ts"]
     }
   },
   "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
 }

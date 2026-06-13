@@ -4,6 +4,7 @@
 
 import { eq } from "drizzle-orm";
 import * as s from "../schema.js";
+import { ResourceNotFoundError } from "syncpoint-kernel";
 import {
   ChecklistItemStatus,
   ChangeRequestStatus,
