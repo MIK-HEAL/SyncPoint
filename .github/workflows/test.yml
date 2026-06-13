@@ -54,7 +54,7 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter syncpoint-core test --coverage
+      - run: pnpm --filter syncpoint-core exec vitest run --coverage
       - name: Check core coverage
         run: |
           COVERAGE=$(node -e "const c = require('./packages/syncpoint-core/coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
@@ -82,10 +82,10 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter syncpoint-server test --coverage
-      - run: pnpm --filter syncpoint-cli test --coverage
-      - run: pnpm --filter syncpoint-mcp test --coverage
-      - run: pnpm --filter syncpoint-sdk test --coverage
+      - run: pnpm --filter syncpoint-server exec vitest run --coverage
+      - run: pnpm --filter syncpoint-cli exec vitest run --coverage
+      - run: pnpm --filter syncpoint-mcp exec vitest run --coverage
+      - run: pnpm --filter syncpoint-sdk exec vitest run --coverage
 
   test-plugins:
     name: Test Plugins (${{ matrix.os }})
@@ -104,8 +104,8 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter syncpoint-plugin-code test --coverage
-      - run: pnpm --filter syncpoint-plugin-generic-agent test --coverage
+      - run: pnpm --filter syncpoint-plugin-code exec vitest run --coverage
+      - run: pnpm --filter syncpoint-plugin-generic-agent exec vitest run --coverage
 
   test-vscode:
     name: Test VS Code Extension
@@ -121,7 +121,7 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter syncpoint-vscode test --coverage
+      - run: pnpm --filter syncpoint-vscode exec vitest run --coverage
 
   e2e:
     name: E2E Tests
