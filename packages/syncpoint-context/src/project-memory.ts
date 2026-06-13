@@ -175,11 +175,11 @@ export function isMemoryDuplicate(
  * V2 fields have sensible defaults for backward compatibility with V1 records.
  *
  * Schema versioning:
- *   - schemaVersion 1: V2 fields are present but at defaults
- *   - schemaVersion 2: V2 fields carry meaningful values
+ *   - schemaVersion 1: V2 fields are present but at defaults (legacy records)
+ *   - schemaVersion 2: V2 fields carry meaningful values (new records)
  *
- * For strict V1/V2 type narrowing, use ProjectMemoryV1 / ProjectMemoryV2 types
- * and the isV1() / isV2() type guards.
+ * The `schemaVersion` discriminant field enables type narrowing via isV1()/isV2().
+ * For strict V1/V2 validation, use ProjectMemoryV1Schema / ProjectMemoryV2Schema.
  */
 export const ProjectMemorySchema = z.object({
   id: z.string().min(1),
@@ -196,6 +196,8 @@ export const ProjectMemorySchema = z.object({
   fingerprint: z.string().default(""),
   supersedes: z.string().nullable().default(null),
   supersededBy: z.string().nullable().default(null),
+  // Schema version discriminant (added for V1/V2 separation)
+  schemaVersion: z.number().int().min(1).max(2).default(1),
   // V2 fields (all have defaults for backward compat with V1 records)
   kind: z.nativeEnum(MemoryKind).default(MemoryKind.FACT),
   projectionTarget: z.nativeEnum(ProjectionTarget).nullable().default(null),
@@ -215,16 +217,19 @@ export const ProjectMemorySchema = z.object({
 export type ProjectMemory = z.infer<typeof ProjectMemorySchema>;
 
 /**
- * V1 narrowed type — ProjectMemory record created before V2 fields existed.
- * Distinguished by absence of V2-required fields or schemaVersion !== 2.
+ * V1 narrowed type — legacy ProjectMemory with schemaVersion 1.
+ * V2 fields are at their defaults (not explicitly set).
  */
 export interface ProjectMemoryV1 extends ProjectMemory {
-  schemaVersion?: 1;
+  schemaVersion: 1;
+  kind: MemoryKind.FACT;
+  severity: MemorySeverity.INFO;
+  validityStatus: ValidityStatus.FRESH;
 }
 
 /**
  * V2 narrowed type — ProjectMemory with explicit V2 classification.
- * Guarantees kind, severity, and validityStatus are present.
+ * schemaVersion is 2 and V2 required fields carry meaningful values.
  */
 export interface ProjectMemoryV2 extends ProjectMemory {
   schemaVersion: 2;
@@ -233,11 +238,14 @@ export interface ProjectMemoryV2 extends ProjectMemory {
   validityStatus: ValidityStatus;
 }
 
-/** Synthetic V1-only schema for validation of legacy records. */
-export const ProjectMemoryV1Schema = ProjectMemorySchema;
+/** V1-specific schema — schemaVersion locked to 1, V2 fields at defaults. */
+export const ProjectMemoryV1Schema = ProjectMemorySchema.extend({
+  schemaVersion: z.literal(1),
+});
 
-/** Synthetic V2-only schema for validation of new records. */
+/** V2-specific schema — schemaVersion locked to 2, V2 fields required. */
 export const ProjectMemoryV2Schema = ProjectMemorySchema.extend({
+  schemaVersion: z.literal(2),
   kind: z.nativeEnum(MemoryKind),
   severity: z.nativeEnum(MemorySeverity),
   validityStatus: z.nativeEnum(ValidityStatus),
@@ -294,9 +302,7 @@ export function upgradeV1ToV2(memory: ProjectMemoryV1): ProjectMemoryV2 {
  * Heuristic: V2 memories have a non-default kind OR explicit severity.
  */
 export function isV2(memory: ProjectMemory): memory is ProjectMemoryV2 {
-  return (memory as any).schemaVersion === 2
-    || memory.kind !== MemoryKind.FACT
-    || memory.severity !== MemorySeverity.INFO;
+  return memory.schemaVersion === 2;
 }
 
 /**

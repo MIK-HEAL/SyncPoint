@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { WriteIntent } from "syncpoint-kernel";
+import { WriteIntent, ForbiddenError } from "syncpoint-kernel";
 
 interface GuardedEditorOptions {
   client: any;
@@ -94,7 +94,7 @@ class SyncPointFileSystemProvider implements vscode.FileSystemProvider {
         intent: WriteIntent.MODIFY,
       });
       if (!prepared.decision?.permitted) {
-        throw new Error(formatBlockers(prepared.decision?.blockers));
+        throw new ForbiddenError(formatBlockers(prepared.decision?.blockers));
       }
       await this.client.write.applyWrite.mutate({
         permitId: prepared.permit.id,

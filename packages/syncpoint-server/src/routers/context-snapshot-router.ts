@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createContextSnapshot, listContextSnapshots, getLatestContextSnapshot } from "../repositories/_exports/context-memory.js";
+import type { ContextSnapshotCreate } from "syncpoint-adapters";
 import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
 const ContextSnapshotPayloadSchema = z.object({
@@ -34,7 +35,7 @@ export const contextSnapshotRouter = t.router({
       summary: z.string().default(""),
       payload: ContextSnapshotPayloadSchema,
     }))
-    .mutation(({ input }) => createContextSnapshot(input as any)),
+    .mutation(({ input }) => createContextSnapshot(input as ContextSnapshotCreate)),
 
   list: publicProcedure
     .input(z.object({ taskId: z.string() }))

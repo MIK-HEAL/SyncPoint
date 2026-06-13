@@ -12,6 +12,7 @@ import {
   pmAdd, pmGet, pmUpdate, pmApprove, pmDeprecate,
   pmList, pmSearch, pmExport, pmSupersede, pmGetVersion,
   pmCheckDuplicate, buildProjection,
+  type ProjectMemoryAddInput,
 } from "../application/index.js";
 import { t, publicProcedure, protectedProcedure } from "./_trpc.js";
 
@@ -47,7 +48,7 @@ export const projectMemoryRouter = t.router({
     }))
     .mutation(({ input, ctx }) => {
       // P0: derive createdBy from authenticated context; input is audit-only
-      const merged = { ...input, createdBy: ctx.callerId! } as any;
+      const merged = { ...input, createdBy: ctx.callerId! } as ProjectMemoryAddInput;
       return pmAdd(merged);
     }),
 

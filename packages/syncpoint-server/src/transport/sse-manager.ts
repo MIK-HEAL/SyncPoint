@@ -176,7 +176,7 @@ export function setupSseConnection(
       evictSseConnection(connState, "heartbeat_missed");
       return;
     }
-    const sock = (connState.res as any).socket;
+    const sock = (connState.res as import("node:http").ServerResponse).socket;
     if (sock && sock.destroyed) {
       evictSseConnection(connState, "socket_destroyed");
     }

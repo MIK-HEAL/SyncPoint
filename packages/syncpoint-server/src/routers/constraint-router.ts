@@ -5,7 +5,7 @@
  * Delegates to constraint-evaluation-service.ts.
  */
 import { z } from "zod";
-import { constraintCheck } from "../application/constraint-evaluation-service.js";
+import { constraintCheck, type ConstraintRuntimeCheckInput } from "../application/constraint-evaluation-service.js";
 import { t, protectedProcedure } from "./_trpc.js";
 
 const ConstraintCheckActionSchema = z.enum([
@@ -34,5 +34,5 @@ export const constraintRouter = t.router({
       contextMode: z.enum(["snapshot-first", "snapshot-only", "snapshot-locked"]).optional(),
       touchedResources: z.array(z.string()).optional(),
     }))
-    .query(({ input }) => constraintCheck(input as any)),
+    .query(({ input }) => constraintCheck(input as ConstraintRuntimeCheckInput)),
 });
