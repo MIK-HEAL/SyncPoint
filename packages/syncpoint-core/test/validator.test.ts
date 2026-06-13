@@ -8,12 +8,12 @@ import {
   getValidatorsForOperation,
   runOperationValidation,
   clearValidatorRegistry,
-} from "../src/validator.js";
-import type { OperationValidator, OperationValidationContext } from "../src/validator.js";
-import { OperationStatus } from "../src/operation.js";
-import type { Operation } from "../src/operation.js";
-import { ResourceClaimMode, ResourceClaimStatus } from "../src/resource.js";
-import type { ResourceRef } from "../src/resource.js";
+} from "syncpoint-kernel";
+import type { OperationValidator, OperationValidationContext } from "syncpoint-kernel";
+import { OperationStatus } from "syncpoint-kernel";
+import type { Operation } from "syncpoint-kernel";
+import { ResourceClaimMode, ResourceClaimStatus } from "syncpoint-kernel";
+import type { ResourceRef } from "syncpoint-kernel";
 
 function makeOperation(type: string, targetResources?: ResourceRef[]): Operation {
   return {

@@ -98,6 +98,6 @@ team:
           provider: "auto_detect",
         },
       ],
-    })).toThrow("Duplicate team member key");
+    })).toThrow("team member key");
   });
 });

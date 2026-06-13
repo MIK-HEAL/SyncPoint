@@ -10,8 +10,8 @@ import {
   detectResourceClaimConflicts,
   registerResourceMatcher,
   clearResourceMatcherRegistry,
-} from "../src/resource.js";
-import type { ResourceRef, ResourceClaim } from "../src/resource.js";
+} from "syncpoint-kernel";
+import type { ResourceRef, ResourceClaim } from "syncpoint-kernel";
 
 // ── resourceLocatorsOverlap (matcher dispatch) ─────
 

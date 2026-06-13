@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { OperationStatus, type Operation } from "../src/operation.js";
-import { ResourceClaimMode, ResourceClaimStatus, type ResourceClaim, type ResourceRef } from "../src/resource.js";
-import { SyncGateReason, SyncGateStatus, type SyncGate } from "../src/sync-gate.js";
-import { evaluateWriteDecision, WriteDecisionReason, WriteIntent } from "../src/write-permit.js";
+import { OperationStatus, type Operation } from "syncpoint-kernel";
+import { ResourceClaimMode, ResourceClaimStatus, type ResourceClaim, type ResourceRef } from "syncpoint-kernel";
+import { SyncGateReason, SyncGateStatus, type SyncGate } from "syncpoint-kernel";
+import { evaluateWriteDecision, WriteDecisionReason, WriteIntent } from "syncpoint-kernel";
 
 const ts = "2026-01-01T00:00:00.000Z";
 

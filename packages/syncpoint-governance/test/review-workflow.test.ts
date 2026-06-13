@@ -89,11 +89,11 @@ describe("validateChecklistItemTransition", () => {
   });
 
   it("PASSED → FAILED is invalid", () => {
-    expect(() => validateChecklistItemTransition(ChecklistItemStatus.PASSED, ChecklistItemStatus.FAILED)).toThrow("Invalid checklist item transition");
+    expect(() => validateChecklistItemTransition(ChecklistItemStatus.PASSED, ChecklistItemStatus.FAILED)).toThrow("Invalid ChecklistItem transition");
   });
 
   it("WAIVED → PASSED is invalid", () => {
-    expect(() => validateChecklistItemTransition(ChecklistItemStatus.WAIVED, ChecklistItemStatus.PASSED)).toThrow("Invalid checklist item transition");
+    expect(() => validateChecklistItemTransition(ChecklistItemStatus.WAIVED, ChecklistItemStatus.PASSED)).toThrow("Invalid ChecklistItem transition");
   });
 });
 
@@ -117,11 +117,11 @@ describe("validateChangeRequestTransition", () => {
   });
 
   it("REJECTED → anything is invalid", () => {
-    expect(() => validateChangeRequestTransition(ChangeRequestStatus.REJECTED, ChangeRequestStatus.OPEN)).toThrow("Invalid change request transition");
+    expect(() => validateChangeRequestTransition(ChangeRequestStatus.REJECTED, ChangeRequestStatus.OPEN)).toThrow("Invalid ChangeRequest transition");
   });
 
   it("CANCELLED → anything is invalid", () => {
-    expect(() => validateChangeRequestTransition(ChangeRequestStatus.CANCELLED, ChangeRequestStatus.OPEN)).toThrow("Invalid change request transition");
+    expect(() => validateChangeRequestTransition(ChangeRequestStatus.CANCELLED, ChangeRequestStatus.OPEN)).toThrow("Invalid ChangeRequest transition");
   });
 });
 

@@ -42,6 +42,7 @@ export {
   FileAuditDecisionKind,
   evaluateFileAuditChange,
   gateMatchesResource,
+  parseRelatedFileLocators,
 } from "./file-audit.js";
 export type {
   FileAuditDecision,

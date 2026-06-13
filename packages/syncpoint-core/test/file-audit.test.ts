@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ResourceClaimMode, ResourceClaimStatus } from "../src/resource.js";
-import type { ResourceClaim, ResourceRef } from "../src/resource.js";
+import { ResourceClaimMode, ResourceClaimStatus } from "syncpoint-kernel";
+import type { ResourceClaim, ResourceRef } from "syncpoint-kernel";
 import {
   FileAuditDecisionKind,
   evaluateFileAuditChange,
   parseRelatedFileLocators,
-} from "../src/file-audit.js";
+} from "syncpoint-kernel";
 
 function resource(locator: string): ResourceRef {
   return { type: "file", locator, metadata: "", scope: "file" as const };

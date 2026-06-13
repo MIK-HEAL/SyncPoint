@@ -7,8 +7,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { computeLineDrift, remapLineRanges, rangeStillExists } from "../src/line-range-drift.js";
-import type { LineRange } from "../src/resource.js";
+import { computeLineDrift, remapLineRanges, rangeStillExists } from "syncpoint-kernel";
+import type { LineRange } from "syncpoint-kernel";
 
 // ── Helpers ───────────────────────────────────────────
 

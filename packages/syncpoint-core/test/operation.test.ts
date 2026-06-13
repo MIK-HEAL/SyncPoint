@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
   OperationStatus,
   validateOperationTransition,
-} from "../src/operation.js";
+} from "syncpoint-kernel";
 
 // ── Operation transitions ──────────────────────────
 

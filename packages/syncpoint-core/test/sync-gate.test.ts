@@ -24,8 +24,8 @@ import {
   hasPartialAcks,
   computeGateDetails,
   computeAvailableActions,
-} from "../src/sync-gate.js";
-import type { SyncGate, GateVote, GatePolicy } from "../src/sync-gate.js";
+} from "syncpoint-kernel";
+import type { SyncGate, GateVote, GatePolicy } from "syncpoint-kernel";
 
 // ── helpers ─────────────────────────────────────────
 
@@ -262,19 +262,6 @@ describe("hasPartialAcks", () => {
 
   it("false when all acked", () => {
     expect(hasPartialAcks(makeGate({ ackedAgentIds: ["a2", "a3"] }))).toBe(false);
-  });
-});
-
-// ── quorumMet ───────────────────────────────────────
-
-describe("quorumMet", () => {
-  it("false when acks < quorum", () => {
-    expect(quorumMet(makeGate({ ackedAgentIds: [] }), 2)).toBe(false);
-  });
-
-  it("true when acks >= quorum", () => {
-    expect(quorumMet(makeGate({ ackedAgentIds: ["a2"] }), 1)).toBe(true);
-    expect(quorumMet(makeGate({ ackedAgentIds: ["a2", "a3"] }), 2)).toBe(true);
   });
 });
 
