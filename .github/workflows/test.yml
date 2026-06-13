@@ -80,6 +80,9 @@ jobs:
         with:
           node-version: 20
           cache: "pnpm"
+      - name: Setup MSVC build tools environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm --filter syncpoint-server exec vitest run --coverage
@@ -102,6 +105,9 @@ jobs:
         with:
           node-version: 20
           cache: "pnpm"
+      - name: Setup MSVC build tools environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm --filter syncpoint-plugin-code exec vitest run --coverage

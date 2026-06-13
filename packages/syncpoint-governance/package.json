@@ -21,7 +21,6 @@
   "dependencies": {
     "syncpoint-kernel": "workspace:*",
     "syncpoint-context": "workspace:*",
-    "syncpoint-adapters": "workspace:*",
     "zod": "^3.23.0"
   },
   "devDependencies": {

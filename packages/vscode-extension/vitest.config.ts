@@ -1,16 +1,28 @@
 import { defineConfig } from "vitest/config";
 import { resolve } from "node:path";
 
+const ROOT = (p: string) => resolve(__dirname, p);
+
 export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
   },
   resolve: {
+    conditions: ["source"],
     alias: [
       { find: /^(\..+)\.js$/, replacement: "$1.ts" },
-      { find: "vscode", replacement: resolve(__dirname, "src/__mocks__/vscode.ts") },
-      { find: "syncpoint-core", replacement: resolve(__dirname, "../syncpoint-core/src/index.ts") },
-      { find: "syncpoint-sdk", replacement: resolve(__dirname, "../syncpoint-sdk/src/index.ts") },
+      { find: "vscode", replacement: ROOT("src/__mocks__/vscode.ts") },
+      { find: /^syncpoint-core$/, replacement: ROOT("../syncpoint-core/src/index.ts") },
+      { find: /^syncpoint-kernel$/, replacement: ROOT("../syncpoint-kernel/src/index.ts") },
+      { find: /^syncpoint-governance$/, replacement: ROOT("../syncpoint-governance/src/index.ts") },
+      { find: /^syncpoint-context$/, replacement: ROOT("../syncpoint-context/src/index.ts") },
+      { find: /^syncpoint-adapters$/, replacement: ROOT("../syncpoint-adapters/src/index.ts") },
+      { find: /^syncpoint-sdk$/, replacement: ROOT("../syncpoint-sdk/src/index.ts") },
+      { find: /^syncpoint-server$/, replacement: ROOT("../syncpoint-server/src/index.ts") },
+      { find: "syncpoint-server/application", replacement: ROOT("../syncpoint-server/src/application/index.ts") },
+      { find: "syncpoint-server/repositories", replacement: ROOT("../syncpoint-server/src/repositories/index.ts") },
+      { find: /^syncpoint-plugin-code$/, replacement: ROOT("../syncpoint-plugin-code/src/index.ts") },
+      { find: /^syncpoint-plugin-generic-agent$/, replacement: ROOT("../syncpoint-plugin-generic-agent/src/index.ts") },
     ],
   },
 });
