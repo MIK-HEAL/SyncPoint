@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "../",
+    "paths": {
+      "syncpoint-sdk": ["../syncpoint-sdk/src/index.ts"],
+      "syncpoint-sdk/*": ["../syncpoint-sdk/src/*"],
+      "syncpoint-core": ["../syncpoint-core/src/index.ts"],
+      "syncpoint-core/*": ["../syncpoint-core/src/*"],
+      "syncpoint-server": ["../syncpoint-server/src/index.ts"],
+      "syncpoint-server/application": ["../syncpoint-server/src/application/index.ts"],
+      "syncpoint-server/repositories": ["../syncpoint-server/src/repositories/index.ts"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

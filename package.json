@@ -13,6 +13,7 @@
     "test:server": "pnpm --filter syncpoint-server test",
     "test:sdk": "pnpm --filter syncpoint-sdk test",
     "test:cli": "pnpm --filter syncpoint-cli test",
+    "test:loop-runner": "pnpm --filter syncpoint-loop-runner test",
     "release:npm": "node scripts/release-npm.mjs",
     "publish:npm": "node scripts/publish-npm.mjs"
   },

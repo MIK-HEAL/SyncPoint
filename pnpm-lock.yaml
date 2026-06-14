@@ -153,6 +153,28 @@ importers:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
 
+  packages/syncpoint-loop-runner:
+    dependencies:
+      commander:
+        specifier: ^12.1.0
+        version: 12.1.0
+      syncpoint-sdk:
+        specifier: workspace:*
+        version: link:../syncpoint-sdk
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      tsx:
+        specifier: ^4.15.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/syncpoint-mcp:
     dependencies:
       '@modelcontextprotocol/sdk':

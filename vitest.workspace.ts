@@ -9,4 +9,5 @@ export default defineWorkspace([
   "packages/syncpoint-plugin-code",
   "packages/syncpoint-plugin-generic-agent",
   "packages/vscode-extension",
+  "packages/syncpoint-loop-runner",
 ]);
