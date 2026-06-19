@@ -4,167 +4,68 @@
 
 **Stop agent drift before it becomes a merge conflict.**
 
-A local coordination protocol for AI agents that share resources.
+A local-first coordination protocol for AI agents that share resources.
 
+[![npm](https://img.shields.io/npm/v/syncpoint-ai?color=blue)](https://www.npmjs.com/package/syncpoint-ai)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-green?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-%E2%89%A59-orange?logo=pnpm)](https://pnpm.io/)
 [![SQLite](https://img.shields.io/badge/SQLite-local--first-003B57?logo=sqlite&logoColor=white)](https://sqlite.org/)
-[![MCP](https://img.shields.io/badge/MCP-editor--agent%20ready-purple)](packages/syncpoint-mcp)
+[![MCP](https://img.shields.io/badge/MCP-editor--agent%20ready-purple)](https://modelcontextprotocol.io)
 
 </div>
-
-**English** · [中文](README_zh-CN.md)
 
 ---
 
 ## The Problem
 
-AI coding agents fail not because they write bad code — but because they **continue from different realities**.
+AI coding agents fail because they **continue from different realities**.
 
 - Agent A owns `shared-config.ts`. Agent B edits it anyway. Neither knows.
 - A checkpoint goes stale. Another agent resumes from it and builds on wrong assumptions.
-- A handoff loses the blockers, risks, and review state the previous agent built up.
-- A hard constraint says "don't touch the auth module." The agent touches it. Nothing stops it.
-
-By the time you notice, the damage is a merge conflict — or worse, silently wrong code in production.
-
-## What SyncPoint Does
+- A constraint says "don't touch the auth module." The agent touches it. Nothing stops it.
 
 SyncPoint checks whether an agent's continuation path is safe **before** the agent proceeds. If it isn't, SyncPoint **blocks** — not with a warning in a prompt, but with a hard protocol gate the agent cannot skip.
-
----
-
-## Four Experiences
-
-### 1. Collision Detection
-
-Two agents claim the same file. SyncPoint creates a SyncGate — a hard stop that neither agent can ignore.
-
-```bash
-# Start the server
-pnpm build && pnpm --filter syncpoint-server dev
-
-# Terminal A — agent-a claims a file exclusively
-syncpoint claim src/shared-config.ts --agent agent-a --mode exclusive
-
-# Terminal B — agent-b tries to claim the same file
-syncpoint claim src/shared-config.ts --agent agent-b --mode exclusive
-# → BLOCKED. agent-b sees who holds the lock and why.
-
-# See the full state
-syncpoint status
-# → Shows: agent-b is blocked because agent-a has an exclusive claim
-```
-
-The blocked agent doesn't just get an error message. SyncPoint creates a **SyncGate** — a synchronization barrier that both agents can see. The gate stays open until the conflict is explicitly resolved. Neither agent can silently proceed.
-
-### 2. Stale Resume Detection
-
-Agent-a checkpoints mid-task. Meanwhile, agent-b changes related dependencies. When agent-a resumes, SyncPoint detects the stale context.
-
-```bash
-# agent-a saves progress
-syncpoint checkpoint --agent agent-a --summary "Auth module halfway done"
-
-# ... time passes, other agents make changes ...
-
-# agent-a tries to resume
-syncpoint resume --agent agent-a
-
-# SyncPoint checks:
-#   - Is the checkpoint still fresh?
-#   - Did other agents touch related resources?
-#   - Are there new constraints or blockers?
-#
-# If stale → warnings and blockers are injected into the resume output.
-# The agent sees: "Your assumptions may be outdated."
-```
-
-Without SyncPoint, the agent resumes from a stale snapshot and silently produces code based on assumptions that no longer hold. With SyncPoint, the staleness is caught at the resume boundary.
-
-### 3. Structured Handoff
-
-Agent-a finishes frontend work and hands off to agent-b for backend. SyncPoint transfers not just a text summary, but a complete structured state.
-
-```bash
-# agent-a hands off to agent-b
-syncpoint loop handoff \
-  --task <taskId> \
-  --from agent-a \
-  --to agent-b \
-  --context "Login page complete. API uses JWT, token expiry 1h"
-
-# agent-b resumes — receives:
-#   ✓ Context snapshot (working resources, completed work, blockers)
-#   ✓ Constraint state (active rules, do-not-touch scopes)
-#   ✓ Resource ownership (what agent-a claimed, what's released)
-#   ✓ Unresolved gates (any pending sync obligations)
-```
-
-A handoff is not "send a message about what I did." It is a **structured state transfer** — task context, resource ownership, active constraints, and unresolved blockers, all packaged together. The receiving agent gets a complete reality projection, not a text summary that might miss critical details.
-
-### 4. Hard Constraints
-
-Set a constraint that no agent may touch a protected scope. SyncPoint enforces it at the execution boundary — not in the agent's prompt.
-
-```bash
-# Add a hard constraint via project memory
-syncpoint project-memory add \
-  --content "Auth module under audit — do not modify" \
-  --kind hard_constraint \
-  --applies-to '{"files":["src/auth/**"]}' \
-  --severity blocking \
-  --validator-type resource_forbidden
-
-# Any agent that tries to claim or modify files under src/auth/ gets blocked
-syncpoint claim src/auth/middleware.ts --agent rogue-agent
-# → BLOCKED by Constraint Evaluation
-
-# Verify constraints
-syncpoint constraint check --action resume --task <taskId> --agent <agentId>
-```
-
-The key difference: constraints live in SyncPoint's execution layer, not in the agent's prompt. An agent prompt can be ignored. A SyncPoint constraint **cannot**. This is the difference between "please don't touch this" and "you physically cannot touch this."
 
 ---
 
 ## Quick Start
 
 ```bash
-# Install dependencies and build
-pnpm install
-pnpm build
+# Install globally
+npm install -g syncpoint-ai
 
-# Initialize SyncPoint in your project
-syncpoint init
+# One-command setup: init + register agents + generate editor configs
+syncpoint setup --agents 2
 
-# Run the demo — shows collision detection in action
+# Start the server
+syncpoint server start
+
+# Run the collision detection demo
 syncpoint demo
-
-# Stop at the blocked state to inspect
-syncpoint demo --stage blocked
-syncpoint status
 ```
 
-Without global install:
+That's it. Two simulated agents claim the same file, one gets blocked, and SyncPoint shows why.
 
-```bash
-node packages/syncpoint-cli/dist/main.js demo
-node packages/syncpoint-cli/dist/main.js status
-```
+---
 
-## Declaring Agents
+## Declare Agents as Files
 
-Creating a manifest file in `.syncpoint/agents/` registers the agent automatically:
+Agents are declared by dropping a manifest file in `.syncpoint/agents/`. No CLI flags, no copy-paste IDs.
 
 ```yaml
-# .syncpoint/agents/my-agent.yml
+# .syncpoint/agents/architect.yml
 version: 1
-name: my-agent
-provider: auto_detect
-profile: general
-role: executor
+name: architect
+provider: claude-code
+role: manager
+```
+
+```yaml
+# .syncpoint/agents/worker.yml
+version: 1
+name: worker
+provider: cursor
+role: backend
 ```
 
 ```bash
@@ -172,136 +73,290 @@ syncpoint agent list       # See all declared agents
 syncpoint agent diagnose   # Check for issues
 ```
 
-## Editor Integration
+SyncPoint auto-discovers agents on startup. Creating a file is all it takes.
 
-SyncPoint exposes the same protocol through MCP for editor agents.
+---
 
-### Cursor `.cursor/mcp.json`
+## Core Workflows
+
+### Collision Detection
+
+When two agents claim the same resource, SyncPoint blocks one of them — with full context.
+
+```bash
+# Agent A claims a file exclusively
+syncpoint claim src/config.ts --agent architect --mode exclusive
+
+# Agent B tries the same file
+syncpoint claim src/config.ts --agent worker --mode exclusive
+# → BLOCKED. Output shows who holds the lock and why.
+
+# See the full picture
+syncpoint status
+# → Lists all claims, gates, blockers, and blocked agents
+```
+
+### Stale Resume Detection
+
+```bash
+# Save mid-task progress
+syncpoint checkpoint --agent architect --task <taskId> \
+  --summary "Auth module halfway done"
+
+# Later, other agents change things. Architect resumes:
+syncpoint resume --agent architect --task <taskId>
+# → WARNING: "Your assumptions may be outdated."
+# → Lists changed resources and active blockers
+```
+
+### Hard Constraints
+
+Block access to protected resources — enforced at the protocol level, not in a prompt.
+
+```bash
+syncpoint knowledge add \
+  --content "Auth module under audit — do not modify" \
+  --kind hard_constraint \
+  --applies-to '{"files":["src/auth/**"]}' \
+  --severity blocking
+
+syncpoint claim src/auth/middleware.ts --agent rogue
+# → BLOCKED by constraint: resource_forbidden
+```
+
+### Structured Handoff
+
+```bash
+syncpoint handoff create \
+  --from architect --to worker --task <taskId> \
+  --summary "Login page done. JWT auth, token expiry 1h."
+
+# Worker resumes — receives full structured state:
+#   ✓ Resource ownership map
+#   ✓ Active constraints
+#   ✓ Unresolved gates and blockers
+#   ✓ Checkpoint context
+```
+
+### Editor Agent Setup
+
+```bash
+# Cursor
+syncpoint setup --editor cursor --agents 2
+
+# VS Code / Cline
+syncpoint setup --editor vscode --agents 2
+
+# GitHub Copilot
+syncpoint setup --editor copilot --agents 2
+```
+
+This initializes `.syncpoint/`, creates agent manifests, and prints ready-to-paste MCP config blocks.
+
+Alternatively, register a single agent and get its MCP config:
+
+```bash
+syncpoint connect --name architect --provider claude-code --role manager --editor cursor
+```
+
+---
+
+## Programmatic Usage
+
+### SDK (tRPC client)
+
+```ts
+import { createSyncPointClient } from "syncpoint-ai/sdk";
+
+const sp = createSyncPointClient("http://127.0.0.1:8765");
+
+const task = await sp.task.create.mutate({
+  title: "Implement login",
+  description: "OAuth 2.0 with PKCE",
+});
+
+await sp.agent.claim.mutate({
+  agentId: "architect",
+  taskId: task.id,
+  resources: [{ type: "file", locator: "src/auth/**", scope: "file" }],
+  mode: "exclusive",
+});
+
+const status = await sp.syncStatus.status.query();
+// → { agents: [...], claims: [...], gates: [...], blockers: [...] }
+```
+
+### Write-level guard
+
+```ts
+import { createSyncPointWriteClient } from "syncpoint-ai/sdk";
+const write = createSyncPointWriteClient();
+
+const check = await write.check({ actorId: "architect", resources: [...] });
+if (!check.permitted) {
+  console.log("Blocked:", check.blockers);
+}
+```
+
+### Start server programmatically
+
+```ts
+import { startServer, defaultContext } from "syncpoint-ai/server";
+
+const server = startServer(8765);
+// SyncPoint running on http://127.0.0.1:8765
+```
+
+### Kernel types (zero-dependency primitives)
+
+```ts
+import { SyncGateStatus, evaluateGateLiveness, isGateBlocking } from "syncpoint-ai/kernel";
+```
+
+---
+
+## MCP Configuration (Manual)
+
+If you prefer to set up MCP manually:
 
 ```json
+// .cursor/mcp.json
 {
   "mcpServers": {
     "syncpoint": {
-      "command": "node",
-      "args": ["<SYNCPOINT_REPO>/packages/syncpoint-mcp/dist/main.js"],
-      "env": {
-        "SYNCPOINT_PROJECT_ROOT": "<YOUR_PROJECT_ROOT>"
-      }
+      "command": "npx",
+      "args": ["syncpoint-mcp"],
+      "env": { "SYNCPOINT_PROJECT_ROOT": "${workspaceFolder}" }
     }
   }
 }
 ```
 
-### VS Code `.vscode/mcp.json`
-
 ```json
+// .vscode/mcp.json
 {
   "servers": {
     "syncpoint": {
       "type": "stdio",
-      "command": "node",
-      "args": ["<SYNCPOINT_REPO>/packages/syncpoint-mcp/dist/main.js"],
-      "env": {
-        "SYNCPOINT_PROJECT_ROOT": "${workspaceFolder}"
-      }
+      "command": "npx",
+      "args": ["syncpoint-mcp"],
+      "env": { "SYNCPOINT_PROJECT_ROOT": "${workspaceFolder}" }
     }
   }
 }
 ```
 
+Available MCP tools: `syncpoint_sync_request`, `syncpoint_sync_ack`, `syncpoint_sync_status`, `syncpoint_sync_resolve`, `syncpoint_claim_resource`, `syncpoint_checkpoint`, `syncpoint_resume`, `syncpoint_handoff`, `syncpoint_write_check`, `syncpoint_write_apply`, and more.
+
+---
+
+## Claude Code Skill
+
+The `syncpoint-ai-skill` package gives Claude Code direct knowledge of SyncPoint workflows. Install once, then Claude handles coordination automatically.
+
+```bash
+# Install the skill plugin
+claude plugins install syncpoint-ai-skill
+```
+
+Or add to `.claude/plugins/plugin.json`:
+
+```json
+{
+  "plugins": ["syncpoint-ai-skill"]
+}
+```
+
+**What the skill teaches Claude to do:**
+
+| Skill | What it guides Claude to do |
+|---|---|
+| **setup** | Initialize SyncPoint, register agents, start the server, generate MCP configs |
+| **claim** | Claim resource ownership before editing, check for conflicts, release when done |
+| **sync** | Manage sync gates — request ack, acknowledge, vote, resolve coordination barriers |
+| **handoff** | Checkpoint progress, transfer task ownership, resume from snapshot with full context |
+| **review** | Create review requests, add checklists, submit evidence, approve or request changes |
+| **guard** | Create guard sessions, validate tokens, audit for unauthorized file writes |
+| **agent-loop** | Boot tasks, claim resources, work, checkpoint, handoff — the full orchestration cycle |
+| **write** | Check viability, prepare permits, apply mutations with audit trail |
+
+Once installed, tell Claude "set up SyncPoint for this project" or "claim the auth module" — the skill gives it step-by-step instructions backed by the protocol.
+
+---
+
 ## How It Works
 
-SyncPoint enforces boundaries through five protocol primitives:
+Five protocol primitives enforce the "pause → sync → resume" loop:
 
-| Primitive | What it does |
+| Primitive | Purpose |
 |---|---|
-| **ResourceClaim** | Agent declares "I will touch these resources" — overlapping claims create blockers |
-| **SyncGate** | A hard stop — cannot continue until the gate is resolved |
-| **CheckpointReview** | A checkpoint that requires approval before another agent can resume from it |
-| **Operation** | A tracked change checked for ownership, conflicts, and constraints before apply |
-| **Wake** | A sync obligation — notifies an agent to review, approve, or acknowledge |
+| **ResourceClaim** | Agent declares "I'm working on these resources" |
+| **SyncGate** | Hard barrier — agent cannot proceed until gate is resolved |
+| **Operation** | Tracked change, validated for ownership + constraints |
+| **Checkpoint** | Save task state; detect staleness on resume |
+| **Wake** | Active notification — "you have a pending sync obligation" |
 
-The core loop: **pause → sync → resume**.
+At each resume boundary, SyncPoint checks ownership, constraints, gates, and staleness. Clean path → continue. Dirty path → blocked with explanation.
 
-When an agent tries to continue, SyncPoint checks:
+---
 
-- Do working resources overlap a protected scope? → blocked
-- Is there an unresolved ownership conflict? → blocked
-- Is there an open gate or pending review? → blocked
-- Is the checkpoint stale? → blocked
+## Enforcement Levels
 
-If everything is clean, the agent continues. If not, the specific blocker is surfaced with the reason and what needs to happen to unblock.
+SyncPoint supports progressive enforcement — from audit-only to OS-level:
+
+| Level | Mode | What's blocked |
+|---|---|---|
+| L0 | `L0_audit` | Nothing — audit log only |
+| L1 | `L1_controlled` | Direct writes through SyncPoint API |
+| L2 | `L2_editor_guard` | Editor saves (VS Code extension) |
+| L3 | `L3_proxy` | Workspace file proxy |
+| L4 | Planned | OS kernel/minifilter |
+
+Configure in `.syncpoint/config.yml`:
+```yaml
+guard:
+  mode: L1_controlled
+```
+
+See [`docs/system-file-lock-design.md`](docs/system-file-lock-design.md) for details.
+
+---
+
+## Package Structure
+
+```
+syncpoint-ai                    # One package, everything included
+├── . (main)                    # All kernel, context, governance, adapters types
+├── /server                     # startServer, DatabaseContext, tRPC router
+├── /application                # Service layer (sync gates, claims, operations…)
+├── /repositories               # Data access layer
+├── /sdk                        # Typed tRPC client + write/guard clients
+├── /kernel                     # Zero-dep types, validators, state machines
+├── /plugins/code               # File resource plugin
+├── /plugins/generic-agent      # Generic resource plugin
+│
+├── CLI:    syncpoint <command>
+├── MCP:    syncpoint-mcp
+└── Runner: syncpoint-loop-runner
+```
+
+---
 
 ## What SyncPoint Is Not
 
-| It is not | Why |
+| Not a | Why |
 |---|---|
-| Agent runner | Does not call model APIs or run autonomous loops |
-| Workflow builder | Does not build DAGs or visual flows |
-| File lock daemon | Protocol-level enforcement, not OS-level (see [enforcement design](docs/system-file-lock-design.md)) |
-| Memory product | Project memory supports synchronization, not generic recall |
+| Agent runner | Doesn't call model APIs |
+| Workflow builder | Doesn't build DAGs or visual flows |
+| File lock daemon | Protocol-level enforcement, not OS-level |
+| Memory product | Project memory serves synchronization, not general recall |
 
 **SyncPoint is the layer agents call before they continue.**
-
-## Repository Layout
-
-```text
-packages/
-├── syncpoint-kernel         # Pure types, validators, state machines, errors
-├── syncpoint-context        # Memory, reality projection, context policy
-├── syncpoint-governance     # Constraint evaluation, checkpoint review, wake engine
-├── syncpoint-adapters       # Agent manifests, negotiation, orchestration, runtime
-├── syncpoint-core           # Facade — re-exports kernel, context, governance, adapters
-├── syncpoint-server         # Application services, SQLite, tRPC, SSE
-├── syncpoint-cli            # Operator CLI
-├── syncpoint-mcp            # MCP adapter for editor AI agents
-├── syncpoint-sdk            # Typed client for integrations
-├── syncpoint-plugin-generic-agent  # Generic resource plugin
-└── vscode-extension         # Sync View panel
-```
-
-Dependency order: `kernel → context → governance → adapters → core → server → cli, mcp, sdk`
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Language | TypeScript |
-| Runtime | Node.js |
-| Package manager | pnpm workspaces |
-| Database | SQLite + Drizzle ORM |
-| API | tRPC |
-| Validation | Zod |
-| Tests | Vitest |
-| Editor integration | MCP + VS Code extension |
-
-## Documentation
-
-| Document | Best for |
-|---|---|
-| [`docs/core-synchronization.md`](docs/core-synchronization.md) | Protocol primitives and invariants |
-| [`docs/reality-runtime.md`](docs/reality-runtime.md) | Layered reality architecture |
-| [`docs/constraint-runtime.md`](docs/constraint-runtime.md) | Constraint evaluation rules and enforcement |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layer boundaries and code placement |
-| [`docs/beyond-code.md`](docs/beyond-code.md) | SyncPoint for non-code resources |
-| [`docs/local-operations-guide.md`](docs/local-operations-guide.md) | Operating SyncPoint with CLI, MCP, server |
-| [`docs/migration-guide.md`](docs/migration-guide.md) | Migrating to manifest-based agent registration |
-
-## Examples
-
-| Scenario | Directory | What it shows |
-|---|---|---|
-| File conflict | [`examples/conflict`](examples/conflict) | Two agents claim the same file — blocked |
-| Stale resume | [`examples/stale-resume`](examples/stale-resume) | Resume from outdated checkpoint — warned |
-| Handoff | [`examples/handoff`](examples/handoff) | Structured context transfer between agents |
-| Review gate | [`examples/review-gate`](examples/review-gate) | Checkpoint requires approval — blocked |
-
-For the interactive version, run `syncpoint demo`.
 
 ---
 
 <div align="center">
 
-**SyncPoint helps multiple AI agents stop, align, and continue safely.**
+**Stop drift. Start SyncPoint.**
 
 </div>

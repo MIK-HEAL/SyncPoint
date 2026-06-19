@@ -21,6 +21,58 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
 
+  packages/syncpoint:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.12.0
+        version: 1.29.0(zod@3.25.76)
+      '@parcel/watcher':
+        specifier: ^2.5.1
+        version: 2.5.6
+      '@trpc/client':
+        specifier: ^11.0.0
+        version: 11.16.0(@trpc/server@11.16.0(typescript@5.9.3))(typescript@5.9.3)
+      '@trpc/server':
+        specifier: ^11.0.0
+        version: 11.16.0(typescript@5.9.3)
+      better-sqlite3:
+        specifier: ^12.10.0
+        version: 12.10.0
+      commander:
+        specifier: ^12.1.0
+        version: 12.1.0
+      drizzle-orm:
+        specifier: ^0.36.0
+        version: 0.36.4(@types/better-sqlite3@7.6.13)(better-sqlite3@12.10.0)
+      nanoid:
+        specifier: ^5.0.0
+        version: 5.1.9
+      yaml:
+        specifier: ^2.4.2
+        version: 2.9.0
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.0
+        version: 7.6.13
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.39
+      drizzle-kit:
+        specifier: ^0.28.0
+        version: 0.28.1
+      tsx:
+        specifier: ^4.15.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
+
   packages/syncpoint-adapters:
     dependencies:
       syncpoint-context:

@@ -12,7 +12,7 @@
  */
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { getDb } from "syncpoint-server";
+import { defaultContext } from "syncpoint-server";
 import { createSyncPointMcpServer } from "./server.js";
 import { log } from "./errors.js";
 import { logIdentityStatus } from "./identity.js";
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   }
 
   // Initialize DB
-  getDb();
+  defaultContext.db;
   log("Database initialized");
 
   // Log bound identity

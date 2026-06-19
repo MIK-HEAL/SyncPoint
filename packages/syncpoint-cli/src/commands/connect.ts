@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { Command, Option } from "commander";
 import { RuntimeKind, type AgentProvider, type AgentRole } from "syncpoint-adapters";
 import { InternalError } from "syncpoint-kernel";
-import { initSyncpointDir, getSyncpointDir, isProjectLocal, getRawDb } from "syncpoint-server";
+import { initSyncpointDir, getSyncpointDir, isProjectLocal, defaultContext } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
 
 // ── Helpers ──────────────────────────────────────────────
@@ -336,7 +336,7 @@ export function registerConnectCommands(program: Command): void {
 
       // Check 6: Database integrity & WAL mode
       try {
-        const rawDb = getRawDb();
+        const rawDb = defaultContext.raw;
         if (rawDb) {
           const integrityResult = rawDb.prepare("PRAGMA integrity_check").get() as { integrity_check: string };
           if (integrityResult?.integrity_check === "ok") {
@@ -359,7 +359,7 @@ export function registerConnectCommands(program: Command): void {
           for (const f of walkDir(syncDir)) { try { totalSize += fs.statSync(f).size; } catch { /* ok */ } }
           checks.push({ check: "disk-usage", status: totalSize > 500 * 1024 * 1024 ? "warn" : "ok", detail: `.syncpoint size: ${formatBytes(totalSize)}` });
         }
-        const rawDb = getRawDb();
+        const rawDb = defaultContext.raw;
         if (rawDb) {
           const orphanResources = rawDb.prepare(
             "SELECT COUNT(*) as cnt FROM resource_claim_resource WHERE claim_id NOT IN (SELECT id FROM resource_claim)"

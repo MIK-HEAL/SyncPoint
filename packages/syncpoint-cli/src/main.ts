@@ -8,7 +8,7 @@
  */
 
 import { Command, Option } from "commander";
-import { closeDb, startServer, initSyncpointDir } from "syncpoint-server";
+import { defaultContext, startServer, initSyncpointDir } from "syncpoint-server";
 import { USER_AGENT_PROVIDER_VALUES } from "syncpoint-adapters";
 import { initProjectAgents, listAgentTeamTemplates } from "syncpoint-server/application";
 import { registerPrimitiveCommands } from "./commands/primitives.js";
@@ -134,7 +134,7 @@ registerAdminCommands(program);
 program
   .parseAsync(process.argv)
   .finally(() => {
-    if (!keepDbOpen) closeDb();
+    if (!keepDbOpen) defaultContext.destroy();
   })
   .catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);

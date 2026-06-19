@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import * as repo from "syncpoint-server/repositories";
-import { getDbPath, getRawDb } from "syncpoint-server";
+import { getDbPath } from "syncpoint-server";
 import { EventType, ResourceNotFoundError, ValidationError } from "syncpoint-kernel";
 import type { AgentCreate, TaskCreate } from "syncpoint-adapters";
 import { unlockAllGuards } from "syncpoint-server/application";
