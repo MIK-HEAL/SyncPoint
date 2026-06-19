@@ -31,11 +31,9 @@ import { GENERIC_RESOURCE_TYPES } from "./resource-types.js";
 
 // ── Plugin registration ──────────────────────────────
 
-let _registered = false;
-
 /**
  * Register the generic agent plugin with the core registries.
- * Safe to call multiple times — subsequent calls are no-ops.
+ * Safe to call multiple times — subsequent calls are no-ops (each registry check prevents duplicates).
  */
 export function registerGenericAgentPlugin(): void {
   // 1. Resource matchers (one per generic resource type)
@@ -75,21 +73,14 @@ export function registerGenericAgentPlugin(): void {
     registerScopeMatcher({ field: "assetTypes", findOverlaps: assetTypesScopeMatcher });
   }
 
-  _registered = true;
 }
 
 /**
  * Check if the generic agent plugin has been registered.
+ * Uses the resource matcher registry as source of truth.
  */
 export function isGenericAgentPluginRegistered(): boolean {
-  return _registered;
-}
-
-/**
- * Reset registration state (for testing only).
- */
-export function _resetGenericAgentPlugin(): void {
-  _registered = false;
+  return getResourceMatcher("artifact") !== undefined;
 }
 
 // ── Re-exports ───────────────────────────────────────

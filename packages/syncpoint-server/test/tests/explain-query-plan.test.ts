@@ -9,22 +9,22 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { closeDb, getDb, getRawDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import { ensureApplicationBootstrap } from "../../src/application/index.js";
 
 let tmpDir = "";
 
 beforeEach(() => {
-  closeDb();
+  defaultContext.destroy();
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-explain-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
   ensureApplicationBootstrap();
-  getDb();
+  defaultContext.db;
 });
 
 afterEach(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   if (tmpDir) {
@@ -40,7 +40,7 @@ interface ExplainRow {
 }
 
 function explainQuery(sql: string): ExplainRow[] {
-  const db = getRawDb();
+  const db = defaultContext.raw;
   return db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as ExplainRow[];
 }
 

@@ -8,12 +8,7 @@
 import { eq } from "drizzle-orm";
 import { OperationStatus } from "syncpoint-kernel";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { __setDb } from "../repositories/_shared.js";
-import { runMigrations } from "../db.js";
-import type { SyncPointDb } from "../db.js";
+import { __createTestContext, __resetContext, _getDb } from "../repositories/_shared.js";
 import * as repo from "../repositories/index.js";
 import {
   rcClaim, rcRelease, rcList, rcDetectConflicts,
@@ -22,16 +17,12 @@ import {
   opCreate, opSubmit, opCheck, opApprove, opApply, opCancel, opStatus, opList,
 } from "../application/operation-service.js";
 
-let sqlite: Database.Database;
-let db: SyncPointDb;
 let agentId: string;
 let taskId: string;
 
 beforeAll(() => {
-  sqlite = new Database(":memory:");
-  runMigrations(sqlite);
-  db = drizzle(sqlite, { schema }) as unknown as SyncPointDb;
-  __setDb(db);
+  __createTestContext();
+  const db = _getDb();
 
   // Seed agent + task
   agentId = repo.createAgent({ name: "alice", provider: "other", role: "backend" }).id;
@@ -39,8 +30,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  __setDb(null);
-  sqlite.close();
+  __resetContext();
 });
 
 // ── ResourceClaim ──────────────────────────────────────

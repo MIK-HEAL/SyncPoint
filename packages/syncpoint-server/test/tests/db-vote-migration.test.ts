@@ -6,14 +6,14 @@ import { describe, it, expect, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb, getRawDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 
 describe("DB vote uniqueness", () => {
   let tmpDir: string;
   const origEnv = process.env.SYNCPOINT_DB_DIR;
 
   afterAll(() => {
-    closeDb();
+    defaultContext.destroy();
     if (origEnv !== undefined) {
       process.env.SYNCPOINT_DB_DIR = origEnv;
     } else {
@@ -23,13 +23,13 @@ describe("DB vote uniqueness", () => {
   });
 
   it("fresh schema prevents duplicate votes for the same gate and agent", () => {
-    closeDb();
+    defaultContext.destroy();
 
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-vote-migrate-"));
     process.env.SYNCPOINT_DB_DIR = tmpDir;
-    getDb();
+    defaultContext.db;
 
-    const db = getRawDb();
+    const db = defaultContext.raw;
 
     const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='sync_gate_vote'").all() as any[];
     const indexNames = indexes.map((r: any) => r.name);

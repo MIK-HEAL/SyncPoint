@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "../db.js";
+import {  } from "../db.js";
 import {
   createRuntime,
   getRuntime,
@@ -24,11 +24,11 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-runtime-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
-  getDb();
+  defaultContext.db;
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

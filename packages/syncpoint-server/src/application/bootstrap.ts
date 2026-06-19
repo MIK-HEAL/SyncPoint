@@ -3,13 +3,11 @@ import { clearConstraintEvaluatorRegistry, getConstraintEvaluator } from "syncpo
 import { clearResourceMatcherRegistry, clearValidatorRegistry, getResourceMatcher, getValidatorsForOperation } from "syncpoint-kernel";
 import {
   CODE_PLUGIN_VALIDATORS,
-  _resetCodePlugin,
   registerCodePlugin,
 } from "syncpoint-plugin-code";
 import {
   GENERIC_RESOURCE_TYPES,
   GENERIC_VALIDATORS,
-  _resetGenericAgentPlugin,
   registerGenericAgentPlugin,
 } from "syncpoint-plugin-generic-agent";
 
@@ -83,7 +81,5 @@ export function resetApplicationBootstrapForTest(): void {
   clearResourceMatcherRegistry();
   clearConstraintEvaluatorRegistry();
   clearScopeMatcherRegistry();
-  _resetCodePlugin();
-  _resetGenericAgentPlugin();
   _initialized = false;
 }

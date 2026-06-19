@@ -4,12 +4,10 @@
  * A SyncGate blocks affected agents from proceeding until the gate's
  * liveness policy is satisfied.  Status flow:
  *
- *   NEEDS_SYNC → SYNC_REQUESTED → PARTIALLY_ACKED → SYNC_ACKED → READY_TO_CONTINUE
+ *   NEEDS_SYNC → SYNC_REQUESTED → SYNC_ACKED → READY_TO_CONTINUE
  *
- * Sideband states:
- *   ESCALATED, TIMED_OUT, BYPASS_REQUESTED, CANCELLED
- *
- * TIMED_OUT does NOT auto-pass — it enters the decision layer.
+ * CANCELLED is the terminal abort state.
+ * The `escalated` flag indicates the gate has been escalated (timeout, veto, manual).
  */
 
 import { z } from "zod";
@@ -22,18 +20,10 @@ export enum SyncGateStatus {
   NEEDS_SYNC = "NEEDS_SYNC",
   /** Sync has been formally requested; waiting for acknowledgements */
   SYNC_REQUESTED = "SYNC_REQUESTED",
-  /** Some (but not all) required agents have acknowledged */
-  PARTIALLY_ACKED = "PARTIALLY_ACKED",
-  /** All required agents have acknowledged */
+  /** All required agents have acknowledged; awaiting resolve */
   SYNC_ACKED = "SYNC_ACKED",
   /** Gate resolved — agents may continue */
   READY_TO_CONTINUE = "READY_TO_CONTINUE",
-  /** Gate escalated — handed to escalationAgentIds or human */
-  ESCALATED = "ESCALATED",
-  /** Gate timed out — NOT auto-pass, enters decision layer */
-  TIMED_OUT = "TIMED_OUT",
-  /** An agent requested bypass — pending owner/human approval */
-  BYPASS_REQUESTED = "BYPASS_REQUESTED",
   /** Gate cancelled — no longer relevant */
   CANCELLED = "CANCELLED",
 }
@@ -43,36 +33,12 @@ export enum SyncGateStatus {
 export const SYNC_GATE_TRANSITIONS: Record<SyncGateStatus, SyncGateStatus[]> = {
   [SyncGateStatus.NEEDS_SYNC]: [SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.CANCELLED],
   [SyncGateStatus.SYNC_REQUESTED]: [
-    SyncGateStatus.PARTIALLY_ACKED,
     SyncGateStatus.SYNC_ACKED,
     SyncGateStatus.READY_TO_CONTINUE,
-    SyncGateStatus.ESCALATED,
-    SyncGateStatus.TIMED_OUT,
-    SyncGateStatus.CANCELLED,
-  ],
-  [SyncGateStatus.PARTIALLY_ACKED]: [
-    SyncGateStatus.SYNC_ACKED,
-    SyncGateStatus.READY_TO_CONTINUE,
-    SyncGateStatus.ESCALATED,
-    SyncGateStatus.TIMED_OUT,
     SyncGateStatus.CANCELLED,
   ],
   [SyncGateStatus.SYNC_ACKED]: [SyncGateStatus.READY_TO_CONTINUE, SyncGateStatus.CANCELLED],
   [SyncGateStatus.READY_TO_CONTINUE]: [],
-  [SyncGateStatus.ESCALATED]: [
-    SyncGateStatus.READY_TO_CONTINUE,
-    SyncGateStatus.CANCELLED,
-  ],
-  [SyncGateStatus.TIMED_OUT]: [
-    SyncGateStatus.ESCALATED,
-    SyncGateStatus.READY_TO_CONTINUE,
-    SyncGateStatus.CANCELLED,
-  ],
-  [SyncGateStatus.BYPASS_REQUESTED]: [
-    SyncGateStatus.READY_TO_CONTINUE,
-    SyncGateStatus.ESCALATED,
-    SyncGateStatus.CANCELLED,
-  ],
   [SyncGateStatus.CANCELLED]: [],
 };
 
@@ -96,16 +62,10 @@ export enum SyncGateReason {
 // ── Gate Policy ──────────────────────────────────────
 
 export enum GatePolicyKind {
-  /** Current behavior — all requiredAgentIds must ack */
+  /** All requiredAgentIds must ack before resolve */
   ALL_REQUIRED = "all_required",
   /** N of M acks is sufficient (quorum field) */
   QUORUM_ACK = "quorum_ack",
-  /** Majority can veto "continue waiting" — triggers escalation, not auto-pass */
-  MAJORITY_VETO = "majority_veto",
-  /** Designated owner can resolve with reason */
-  OWNER_OVERRIDE = "owner_override",
-  /** High-risk gate: human confirmation required */
-  HUMAN_REQUIRED = "human_required",
 }
 
 export enum GateTimeoutAction {
@@ -210,6 +170,10 @@ export const SyncGateSchema = z.object({
   relatedCheckpointId: z.string(),
   relatedClaimIds: z.array(z.string()).default([]),
   status: z.nativeEnum(SyncGateStatus),
+  /** True when the gate has been escalated (timeout, veto, manual escalation). */
+  escalated: z.boolean().default(false),
+  /** ISO timestamp of when the gate was escalated. */
+  escalatedAt: z.string().default(""),
   decisionSummary: z.string(),
   policy: GatePolicySchema.default(DEFAULT_GATE_POLICY),
   createdAt: z.string(),
@@ -246,7 +210,6 @@ export type SyncGateAck = z.infer<typeof SyncGateAckSchema>;
 
 // ── Pure helpers & evaluation — extracted to sync-gate-evaluate.ts ──
 export {
-  parseIdList,
   allAcked,
   quorumMet,
   parseGatePolicy,

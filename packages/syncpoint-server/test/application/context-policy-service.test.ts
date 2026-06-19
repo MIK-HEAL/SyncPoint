@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import { pmAdd, pmApprove } from "../../src/application/project-memory-service.js";
 import { prepareContext, enforcePreparedContext, getContextPolicyInfo } from "../../src/application/context-policy-service.js";
@@ -19,7 +19,7 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-cp-svc-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
-  getDb();
+  defaultContext.db;
 
   // Seed
   const agent = repo.createAgent({ name: "cursor", provider: "cursor", role: "frontend" });
@@ -92,7 +92,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

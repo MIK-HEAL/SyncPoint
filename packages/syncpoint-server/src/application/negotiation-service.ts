@@ -159,7 +159,7 @@ export function negReconcile(sessionId: string) {
         status: NegotiationStatus.TIMED_OUT,
       });
       // Write back to parent gate: mark timed out
-      safeGateTransition(session.gateId, SyncGateStatus.TIMED_OUT, `Negotiation timed out: ${result.reason}`);
+      safeGateTransition(session.gateId, SyncGateStatus.CANCELLED, `Negotiation timed out: ${result.reason}`);
       return { session: updated, action: result.action, reason: result.reason };
     }
     case "deadlock": {
@@ -167,7 +167,7 @@ export function negReconcile(sessionId: string) {
         status: NegotiationStatus.DEADLOCKED,
       });
       // Write back to parent gate: escalate on deadlock
-      safeGateTransition(session.gateId, SyncGateStatus.ESCALATED, `Negotiation deadlocked: ${result.reason}`);
+      safeGateTransition(session.gateId, SyncGateStatus.CANCELLED, `Negotiation deadlocked: ${result.reason}`);
       return { session: updated, action: result.action, reason: result.reason };
     }
     case "advance_round": {
@@ -222,7 +222,7 @@ export function negEscalate(sessionId: string) {
   });
 
   // Write back to parent gate: escalate
-  safeGateTransition(session.gateId, SyncGateStatus.ESCALATED, "Negotiation escalated");
+  safeGateTransition(session.gateId, SyncGateStatus.CANCELLED, "Negotiation escalated");
 
   return updated;
 }

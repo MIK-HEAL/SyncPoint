@@ -13,7 +13,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import { loopResume } from "../application/loop-service.js";
@@ -43,7 +43,7 @@ beforeAll(() => {
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   ensureApplicationBootstrap();
-  getDb();
+  defaultContext.db;
   wakeEngineStart();
 
   const a1 = repo.createAgent({ name: "architect", provider: "claude-code", role: "manager" });
@@ -101,7 +101,7 @@ beforeAll(() => {
 
 afterAll(() => {
   wakeEngineStop();
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

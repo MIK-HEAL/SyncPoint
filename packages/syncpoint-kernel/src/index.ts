@@ -72,8 +72,8 @@ export {
   evaluateGateLiveness,
   isGateBlocking,
   hasPartialAcks,
-  parseIdList,
   allAcked,
+  quorumMet,
   pendingAgents,
   isAgentBlocked,
   computeAvailableActions,
@@ -153,20 +153,6 @@ export type {
   DriftResult,
   LineMapping,
 } from "./line-range-drift.js";
-
-// ── Function parser ───────────────────────────────────
-export {
-  parseFunctions,
-  findFunctionAtLine,
-  registerFunctionParseStrategy,
-  getFunctionParseStrategy,
-  getStrategyForExtension,
-  clearFunctionParseStrategies,
-} from "./function-parser.js";
-export type {
-  ParsedFunction,
-  FunctionParseStrategy,
-} from "./function-parser.js";
 
 // ── Errors ────────────────────────────────────────────
 export {

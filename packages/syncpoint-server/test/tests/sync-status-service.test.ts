@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TaskStatus } from "syncpoint-adapters";
 import { MemoryKind } from "syncpoint-context";
-import { getDb, closeDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import {
@@ -41,7 +41,7 @@ beforeAll(() => {
   resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   ensureApplicationBootstrap();
-  getDb();
+  defaultContext.db;
 
   const architect = repo.createAgent({ name: "arch-sync", provider: "cursor", role: "manager" });
   const executor = repo.createAgent({ name: "exec-sync", provider: "codex", role: "backend" });
@@ -176,7 +176,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   resetPathResolverCache();

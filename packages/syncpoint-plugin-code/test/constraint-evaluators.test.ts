@@ -30,7 +30,7 @@ import {
   moduleForbiddenEvaluator,
   prefixFindOverlaps,
 } from "../src/constraint-evaluators.js";
-import { registerCodePlugin, _resetCodePlugin } from "../src/index.js";
+import { registerCodePlugin } from "../src/index.js";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -75,7 +75,6 @@ function emptyProjection(overrides?: Partial<RealityProjection>): RealityProject
 beforeEach(() => {
   clearConstraintEvaluatorRegistry();
   clearScopeMatcherRegistry();
-  _resetCodePlugin();
   registerCodePlugin();
 });
 

@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "syncpoint-server";
+import {  } from "syncpoint-server";
 import * as repo from "../../src/repositories/_exports/foundation.js";
 import { SessionStatus } from "syncpoint-adapters";
 import { InvalidStateTransitionError } from "syncpoint-kernel";
@@ -16,7 +16,7 @@ let sessionId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-app-sts-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
-  getDb();
+  defaultContext.db;
   const agent = repo.createAgent({ name: "sts-agent", provider: "cursor", role: "frontend" });
   const task = repo.createTask({ title: "STS task" });
   const session = repo.createSession({ title: "STS Session" });
@@ -26,7 +26,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

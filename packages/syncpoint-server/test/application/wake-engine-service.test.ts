@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import {
   orchCreateSession,
@@ -43,7 +43,7 @@ beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-wake-"));
   process.env.SYNCPOINT_DB_DIR = path.join(tmpDir, ".syncpoint");
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
-  getDb();
+  defaultContext.db;
 
   const architect = repo.createAgent({ name: "arch-ai", provider: "claude-code", role: "manager" });
   const executor = repo.createAgent({ name: "exec-ai", provider: "codex", role: "backend" });
@@ -58,7 +58,7 @@ beforeAll(() => {
 
 afterAll(() => {
   wakeEngineStop();
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

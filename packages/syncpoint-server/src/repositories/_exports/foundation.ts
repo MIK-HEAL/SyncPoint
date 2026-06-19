@@ -1,4 +1,4 @@
-export { __setDb, NotFoundError } from "../_shared.js";
+export { __setTestContext, __resetContext, __createTestContext, __resetBus, NotFoundError } from "../_shared.js";
 
 export {
   createAgent,

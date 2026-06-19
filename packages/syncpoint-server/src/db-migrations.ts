@@ -255,11 +255,8 @@ export function runEventSeqMigration(db: Database.Database): void {
 }
 
 /**
- * Purpose: Creates runtime-only tables that are not managed by Drizzle ORM
- * migrations: `memory_version` (optimistic concurrency control for project
- * memory) and the FTS5 full-text search index for project memory content.
- *
- * Idempotency: Uses CREATE IF NOT EXISTS and INSERT OR IGNORE.
+ * Purpose: Creates runtime-only tables: `memory_version` (optimistic concurrency
+ * control for project memory) and the FTS5 full-text search index.
  */
 export function ensureRuntimeOnlyTables(db: Database.Database): void {
   db.exec(`

@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "syncpoint-server";
+import {  } from "syncpoint-server";
 import * as repo from "../../src/repositories/_exports/foundation.js";
 import { TaskStatus } from "syncpoint-adapters";
 
@@ -14,11 +14,11 @@ let tmpDir: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-rtr-task-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
-  getDb();
+  defaultContext.db;
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

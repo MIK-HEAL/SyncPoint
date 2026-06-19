@@ -186,11 +186,7 @@ export function listActiveSyncGates(opts?: {
   const activeStatuses = [
     SyncGateStatus.NEEDS_SYNC,
     SyncGateStatus.SYNC_REQUESTED,
-    SyncGateStatus.PARTIALLY_ACKED,
     SyncGateStatus.SYNC_ACKED,
-    SyncGateStatus.ESCALATED,
-    SyncGateStatus.TIMED_OUT,
-    SyncGateStatus.BYPASS_REQUESTED,
   ];
 
   const conditions = [inArray(s.syncGates.status, activeStatuses)];

@@ -14,7 +14,7 @@
  */
 
 import { SyncPointError } from "syncpoint-kernel";
-import { getRawDb } from "../db.js";
+import { defaultContext } from "../db.js";
 import { logger } from "../logger.js";
 import {
   insertTransitionLog,
@@ -80,7 +80,7 @@ const ENTITY_STATE_TABLES: Record<string, { table: string; statusCol: string }> 
 function getCurrentEntityState(entityType: string, entityId: string): string | undefined {
   const mapping = ENTITY_STATE_TABLES[entityType];
   if (!mapping) return undefined;
-  const db = getRawDb();
+  const db = defaultContext.raw;
   const row = db.prepare(
     `SELECT ${mapping.statusCol} as state FROM ${mapping.table} WHERE id = ?`
   ).get(entityId) as { state: string } | undefined;
@@ -235,7 +235,7 @@ export function executeAtomicTransition<T>(
   updateFn: () => T,
   options?: { validateFromState?: boolean },
 ): T {
-  const db = getRawDb();
+  const db = defaultContext.raw;
   const createdAt = record.createdAt ?? new Date().toISOString();
   const shouldValidate = options?.validateFromState ?? false;
 

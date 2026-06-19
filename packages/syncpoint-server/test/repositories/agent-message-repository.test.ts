@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { __setDb, _getDb } from "../../src/repositories/_shared.js";
+import { __createTestContext, __resetContext } from "../../src/repositories/_shared.js";
 import {
   createMessage,
   getMessage,
@@ -15,26 +12,18 @@ import {
   incrementRetry,
   listTimedOutRequests,
 } from "../../src/repositories/agent-message-repository.js";
-import { runMigrations } from "../db.js";
 import {
   AgentMessageKind,
   AgentMessageReadStatus,
   AgentMessageRequestStatus,
 } from "syncpoint-adapters";
 
-let rawDb: Database.Database;
-
 beforeEach(() => {
-  rawDb = new Database(":memory:");
-  rawDb.pragma("foreign_keys = ON");
-  const db = drizzle(rawDb, { schema });
-  __setDb(db);
-  runMigrations(rawDb);
+  __createTestContext();
 });
 
 afterEach(() => {
-  __setDb(null);
-  rawDb.close();
+  __resetContext();
 });
 
 const nowIso = () => new Date().toISOString();

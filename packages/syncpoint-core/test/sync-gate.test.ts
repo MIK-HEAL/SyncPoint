@@ -1,700 +1,499 @@
-/**
- * Unit tests for SyncGate — status transitions, ack logic, blocking.
- */
-
 import { describe, it, expect } from "vitest";
 import {
   SyncGateStatus,
-  SyncGateReason,
   SYNC_GATE_TRANSITIONS,
   validateSyncGateTransition,
-  parseIdList,
-  allAcked,
-  pendingAgents,
-  isAgentBlocked,
+  SyncGateReason,
   GatePolicyKind,
   GateTimeoutAction,
+  DEFAULT_GATE_POLICY,
   GateVoteKind,
-  LivenessAction,
+} from "syncpoint-kernel";
+import {
+  allAcked,
   quorumMet,
   parseGatePolicy,
   countVotes,
+  LivenessAction,
   evaluateGateLiveness,
+  pendingAgents,
+  isAgentBlocked,
   isGateBlocking,
   hasPartialAcks,
-  computeGateDetails,
   computeAvailableActions,
+  computeGateDetails,
 } from "syncpoint-kernel";
-import type { SyncGate, GateVote, GatePolicy } from "syncpoint-kernel";
+import type { SyncGate, GateVote } from "syncpoint-kernel";
 
-// ── helpers ─────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────
 
 function makeGate(overrides: Partial<SyncGate> = {}): SyncGate {
   return {
-    id: "g1",
-    sessionId: "s1",
-    taskId: "t1",
-    requestedByAgentId: "a1",
-    requiredAgentIds: ["a2", "a3"],
+    id: "gate-1",
+    sessionId: "sess-1",
+    taskId: "task-1",
+    requestedByAgentId: "agent-architect",
+    requiredAgentIds: ["agent-architect", "agent-executor", "agent-reviewer"],
     ackedAgentIds: [],
-    reason: SyncGateReason.MANUAL_REQUEST,
+    reason: SyncGateReason.RESOURCE_CONFLICT,
     description: "test gate",
     relatedFiles: [],
     relatedResources: [],
     relatedCheckpointId: "",
     relatedClaimIds: [],
-    status: SyncGateStatus.SYNC_REQUESTED,
+    status: SyncGateStatus.NEEDS_SYNC,
+    escalated: false,
+    escalatedAt: "",
     decisionSummary: "",
-    policy: makePolicy(),
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01",
+    policy: DEFAULT_GATE_POLICY,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
 }
 
-function makeVote(overrides: Partial<GateVote> = {}): GateVote {
-  return {
-    id: "v1",
-    gateId: "g1",
-    agentId: "a2",
-    vote: GateVoteKind.APPROVE,
-    summary: "",
-    createdAt: "2024-01-01",
-    ...overrides,
-  };
-}
-
-function makePolicy(policy: Record<string, unknown> = {}): GatePolicy {
-  return {
-    kind: GatePolicyKind.ALL_REQUIRED,
-    timeoutAction: GateTimeoutAction.ESCALATE,
-    ...policy,
-  } as GatePolicy;
-}
-
-// ── transitions ─────────────────────────────────────
+// ── Transitions ──────────────────────────────────────────
 
 describe("SyncGate transitions", () => {
-  it("NEEDS_SYNC → SYNC_REQUESTED is valid", () => {
+  it("all statuses have defined transitions", () => {
+    for (const status of Object.values(SyncGateStatus)) {
+      expect(SYNC_GATE_TRANSITIONS[status]).toBeDefined();
+    }
+  });
+
+  it("terminal statuses have no transitions", () => {
+    expect(SYNC_GATE_TRANSITIONS[SyncGateStatus.READY_TO_CONTINUE]).toEqual([]);
+    expect(SYNC_GATE_TRANSITIONS[SyncGateStatus.CANCELLED]).toEqual([]);
+  });
+
+  it("validateSyncGateTransition returns true for valid transitions", () => {
     expect(validateSyncGateTransition(SyncGateStatus.NEEDS_SYNC, SyncGateStatus.SYNC_REQUESTED)).toBe(true);
-  });
-
-  it("SYNC_REQUESTED → SYNC_ACKED is valid", () => {
     expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.SYNC_ACKED)).toBe(true);
-  });
-
-  it("SYNC_ACKED → READY_TO_CONTINUE is valid", () => {
     expect(validateSyncGateTransition(SyncGateStatus.SYNC_ACKED, SyncGateStatus.READY_TO_CONTINUE)).toBe(true);
   });
 
-  it("READY_TO_CONTINUE is terminal", () => {
-    expect(SYNC_GATE_TRANSITIONS[SyncGateStatus.READY_TO_CONTINUE]).toHaveLength(0);
+  it("validateSyncGateTransition returns false for invalid transitions", () => {
+    expect(validateSyncGateTransition(SyncGateStatus.READY_TO_CONTINUE, SyncGateStatus.NEEDS_SYNC)).toBe(false);
+    expect(validateSyncGateTransition(SyncGateStatus.CANCELLED, SyncGateStatus.NEEDS_SYNC)).toBe(false);
+    expect(validateSyncGateTransition(SyncGateStatus.NEEDS_SYNC, SyncGateStatus.READY_TO_CONTINUE)).toBe(false);
   });
 
-  it("CANCELLED is terminal", () => {
-    expect(SYNC_GATE_TRANSITIONS[SyncGateStatus.CANCELLED]).toHaveLength(0);
+  it("NEEDS_SYNC can go to SYNC_REQUESTED or CANCELLED", () => {
+    const to = SYNC_GATE_TRANSITIONS[SyncGateStatus.NEEDS_SYNC];
+    expect(to).toContain(SyncGateStatus.SYNC_REQUESTED);
+    expect(to).toContain(SyncGateStatus.CANCELLED);
   });
 
-  it("any non-terminal → CANCELLED is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.NEEDS_SYNC, SyncGateStatus.CANCELLED)).toBe(true);
-    expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.CANCELLED)).toBe(true);
-    expect(validateSyncGateTransition(SyncGateStatus.SYNC_ACKED, SyncGateStatus.CANCELLED)).toBe(true);
-    expect(validateSyncGateTransition(SyncGateStatus.PARTIALLY_ACKED, SyncGateStatus.CANCELLED)).toBe(true);
-    expect(validateSyncGateTransition(SyncGateStatus.ESCALATED, SyncGateStatus.CANCELLED)).toBe(true);
-    expect(validateSyncGateTransition(SyncGateStatus.TIMED_OUT, SyncGateStatus.CANCELLED)).toBe(true);
-    expect(validateSyncGateTransition(SyncGateStatus.BYPASS_REQUESTED, SyncGateStatus.CANCELLED)).toBe(true);
-  });
-
-  it("SYNC_REQUESTED → PARTIALLY_ACKED is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.PARTIALLY_ACKED)).toBe(true);
-  });
-
-  it("PARTIALLY_ACKED → SYNC_ACKED is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.PARTIALLY_ACKED, SyncGateStatus.SYNC_ACKED)).toBe(true);
-  });
-
-  it("SYNC_REQUESTED → ESCALATED is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.ESCALATED)).toBe(true);
-  });
-
-  it("SYNC_REQUESTED → TIMED_OUT is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.SYNC_REQUESTED, SyncGateStatus.TIMED_OUT)).toBe(true);
-  });
-
-  it("TIMED_OUT → ESCALATED is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.TIMED_OUT, SyncGateStatus.ESCALATED)).toBe(true);
-  });
-
-  it("TIMED_OUT → READY_TO_CONTINUE is valid (human decision)", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.TIMED_OUT, SyncGateStatus.READY_TO_CONTINUE)).toBe(true);
-  });
-
-  it("ESCALATED → READY_TO_CONTINUE is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.ESCALATED, SyncGateStatus.READY_TO_CONTINUE)).toBe(true);
-  });
-
-  it("BYPASS_REQUESTED → READY_TO_CONTINUE is valid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.BYPASS_REQUESTED, SyncGateStatus.READY_TO_CONTINUE)).toBe(true);
-  });
-
-  it("backward transitions are invalid", () => {
-    expect(validateSyncGateTransition(SyncGateStatus.SYNC_ACKED, SyncGateStatus.NEEDS_SYNC)).toBe(false);
-    expect(validateSyncGateTransition(SyncGateStatus.READY_TO_CONTINUE, SyncGateStatus.SYNC_REQUESTED)).toBe(false);
+  it("SYNC_REQUESTED has expected transitions", () => {
+    const to = SYNC_GATE_TRANSITIONS[SyncGateStatus.SYNC_REQUESTED];
+    expect(to).toContain(SyncGateStatus.SYNC_ACKED);
+    expect(to).toContain(SyncGateStatus.READY_TO_CONTINUE);
+    expect(to).toContain(SyncGateStatus.CANCELLED);
   });
 });
 
-// ── parseIdList ─────────────────────────────────────
-
-describe("parseIdList", () => {
-  it("splits comma-separated IDs", () => {
-    expect(parseIdList("a1,a2,a3")).toEqual(["a1", "a2", "a3"]);
-  });
-
-  it("trims whitespace", () => {
-    expect(parseIdList(" a1 , a2 ")).toEqual(["a1", "a2"]);
-  });
-
-  it("returns empty array for empty string", () => {
-    expect(parseIdList("")).toEqual([]);
-  });
-});
-
-// ── allAcked / pendingAgents ────────────────────────
+// ── allAcked ─────────────────────────────────────────────
 
 describe("allAcked", () => {
-  it("false when no agents have acked", () => {
-    expect(allAcked(makeGate())).toBe(false);
+  it("returns true when all required agents acked", () => {
+    const gate = makeGate({
+      requiredAgentIds: ["a", "b"],
+      ackedAgentIds: ["a", "b"],
+    });
+    expect(allAcked(gate)).toBe(true);
   });
 
-  it("false when partial ack", () => {
-    expect(allAcked(makeGate({ ackedAgentIds: ["a2"] }))).toBe(false);
+  it("returns false when not all acked", () => {
+    const gate = makeGate({
+      requiredAgentIds: ["a", "b"],
+      ackedAgentIds: ["a"],
+    });
+    expect(allAcked(gate)).toBe(false);
   });
 
-  it("true when all required acked", () => {
-    expect(allAcked(makeGate({ ackedAgentIds: ["a2", "a3"] }))).toBe(true);
-  });
-
-  it("true with extra acks beyond required", () => {
-    expect(allAcked(makeGate({ ackedAgentIds: ["a2", "a3", "a4"] }))).toBe(true);
+  it("returns false when no agents required", () => {
+    const gate = makeGate({
+      requiredAgentIds: [],
+      ackedAgentIds: ["a"],
+    });
+    expect(allAcked(gate)).toBe(false);
   });
 });
 
-describe("pendingAgents", () => {
-  it("returns all when none acked", () => {
-    expect(pendingAgents(makeGate())).toEqual(["a2", "a3"]);
+// ── quorumMet ────────────────────────────────────────────
+
+describe("quorumMet", () => {
+  it("returns true when ack count >= quorum", () => {
+    const gate = makeGate({ ackedAgentIds: ["a", "b"] });
+    expect(quorumMet(gate, 2)).toBe(true);
+    expect(quorumMet(gate, 1)).toBe(true);
   });
 
-  it("returns remaining after partial ack", () => {
-    expect(pendingAgents(makeGate({ ackedAgentIds: ["a2"] }))).toEqual(["a3"]);
+  it("returns false when ack count < quorum", () => {
+    const gate = makeGate({ ackedAgentIds: ["a"] });
+    expect(quorumMet(gate, 2)).toBe(false);
+  });
+});
+
+// ── pendingAgents ────────────────────────────────────────
+
+describe("pendingAgents", () => {
+  it("returns agents who have not acked", () => {
+    const gate = makeGate({
+      requiredAgentIds: ["a", "b", "c"],
+      ackedAgentIds: ["a"],
+    });
+    expect(pendingAgents(gate)).toEqual(["b", "c"]);
   });
 
   it("returns empty when all acked", () => {
-    expect(pendingAgents(makeGate({ ackedAgentIds: ["a2", "a3"] }))).toEqual([]);
+    const gate = makeGate({
+      requiredAgentIds: ["a", "b"],
+      ackedAgentIds: ["a", "b"],
+    });
+    expect(pendingAgents(gate)).toEqual([]);
   });
 });
 
-// ── isAgentBlocked ──────────────────────────────────
-
-describe("isAgentBlocked", () => {
-  it("required agent is blocked when gate is SYNC_REQUESTED and not acked", () => {
-    expect(isAgentBlocked(makeGate(), "a2")).toBe(true);
-  });
-
-  it("required agent is blocked when gate is NEEDS_SYNC", () => {
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.NEEDS_SYNC }), "a2")).toBe(true);
-  });
-
-  it("required agent is still blocked after acking until the gate is resolved", () => {
-    expect(isAgentBlocked(makeGate({ ackedAgentIds: ["a2"] }), "a2")).toBe(true);
-  });
-
-  it("non-required agent is NOT blocked", () => {
-    expect(isAgentBlocked(makeGate(), "a99")).toBe(false);
-  });
-
-  it("no one is blocked when gate is READY_TO_CONTINUE", () => {
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.READY_TO_CONTINUE }), "a2")).toBe(false);
-  });
-
-  it("no one is blocked when gate is CANCELLED", () => {
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.CANCELLED }), "a2")).toBe(false);
-  });
-
-  it("SYNC_ACKED still blocks until READY_TO_CONTINUE", () => {
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.SYNC_ACKED }), "a2")).toBe(true);
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.SYNC_ACKED }), "a3")).toBe(true);
-  });
-
-  it("new sideband states still block", () => {
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.PARTIALLY_ACKED }), "a2")).toBe(true);
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.ESCALATED }), "a2")).toBe(true);
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.TIMED_OUT }), "a2")).toBe(true);
-    expect(isAgentBlocked(makeGate({ status: SyncGateStatus.BYPASS_REQUESTED }), "a2")).toBe(true);
-  });
-});
-
-// ── isGateBlocking / hasPartialAcks ─────────────────
+// ── isGateBlocking ───────────────────────────────────────
 
 describe("isGateBlocking", () => {
-  it("true for all non-terminal states", () => {
+  it("returns true for non-terminal statuses", () => {
     expect(isGateBlocking(makeGate({ status: SyncGateStatus.NEEDS_SYNC }))).toBe(true);
     expect(isGateBlocking(makeGate({ status: SyncGateStatus.SYNC_REQUESTED }))).toBe(true);
-    expect(isGateBlocking(makeGate({ status: SyncGateStatus.PARTIALLY_ACKED }))).toBe(true);
     expect(isGateBlocking(makeGate({ status: SyncGateStatus.SYNC_ACKED }))).toBe(true);
-    expect(isGateBlocking(makeGate({ status: SyncGateStatus.ESCALATED }))).toBe(true);
-    expect(isGateBlocking(makeGate({ status: SyncGateStatus.TIMED_OUT }))).toBe(true);
   });
 
-  it("false for terminal states", () => {
+  it("returns false for terminal statuses", () => {
     expect(isGateBlocking(makeGate({ status: SyncGateStatus.READY_TO_CONTINUE }))).toBe(false);
     expect(isGateBlocking(makeGate({ status: SyncGateStatus.CANCELLED }))).toBe(false);
   });
 });
 
-describe("hasPartialAcks", () => {
-  it("false when no acks", () => {
-    expect(hasPartialAcks(makeGate())).toBe(false);
+// ── isAgentBlocked ───────────────────────────────────────
+
+describe("isAgentBlocked", () => {
+  it("returns true for a required agent when gate is blocking", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["agent-executor"],
+    });
+    expect(isAgentBlocked(gate, "agent-executor")).toBe(true);
   });
 
-  it("true when some but not all acked", () => {
-    expect(hasPartialAcks(makeGate({ ackedAgentIds: ["a2"] }))).toBe(true);
+  it("returns false for non-required agent", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["agent-executor"],
+    });
+    expect(isAgentBlocked(gate, "agent-other")).toBe(false);
   });
 
-  it("false when all acked", () => {
-    expect(hasPartialAcks(makeGate({ ackedAgentIds: ["a2", "a3"] }))).toBe(false);
+  it("returns false when gate is resolved", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.READY_TO_CONTINUE,
+      requiredAgentIds: ["agent-executor"],
+    });
+    expect(isAgentBlocked(gate, "agent-executor")).toBe(false);
   });
 });
 
-// ── countVotes ──────────────────────────────────────
+// ── hasPartialAcks ───────────────────────────────────────
+
+describe("hasPartialAcks", () => {
+  it("returns true when some but not all acked", () => {
+    const gate = makeGate({
+      requiredAgentIds: ["a", "b"],
+      ackedAgentIds: ["a"],
+    });
+    expect(hasPartialAcks(gate)).toBe(true);
+  });
+
+  it("returns false when all acked", () => {
+    const gate = makeGate({
+      requiredAgentIds: ["a", "b"],
+      ackedAgentIds: ["a", "b"],
+    });
+    expect(hasPartialAcks(gate)).toBe(false);
+  });
+
+  it("returns false when none acked", () => {
+    const gate = makeGate({
+      requiredAgentIds: ["a", "b"],
+      ackedAgentIds: [],
+    });
+    expect(hasPartialAcks(gate)).toBe(false);
+  });
+});
+
+// ── countVotes ───────────────────────────────────────────
 
 describe("countVotes", () => {
-  it("counts by kind", () => {
-    const votes = [
-      makeVote({ vote: GateVoteKind.APPROVE }),
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a3" }),
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a4" }),
+  it("counts votes by kind, deduping by agent", () => {
+    const votes: GateVote[] = [
+      { id: "v1", gateId: "g1", agentId: "a1", vote: GateVoteKind.APPROVE, summary: "", createdAt: "2026-01-01T00:00:00Z" },
+      { id: "v2", gateId: "g1", agentId: "a2", vote: GateVoteKind.REJECT, summary: "", createdAt: "2026-01-01T00:00:01Z" },
+      { id: "v3", gateId: "g1", agentId: "a1", vote: GateVoteKind.ABSTAIN, summary: "", createdAt: "2026-01-01T00:00:02Z" },
     ];
-    const c = countVotes(votes);
-    expect(c.approve).toBe(2);
-    expect(c.reject).toBe(1);
-    expect(c.abstain).toBe(0);
-    expect(c.escalate).toBe(0);
+    const result = countVotes(votes);
+    // a1's last vote is ABSTAIN (v3 overrides v1)
+    expect(result[GateVoteKind.APPROVE]).toBe(0);
+    expect(result[GateVoteKind.REJECT]).toBe(1);
+    expect(result[GateVoteKind.ABSTAIN]).toBe(1);
+    expect(result[GateVoteKind.ESCALATE]).toBe(0);
+  });
+
+  it("returns zero counts for empty votes", () => {
+    const result = countVotes([]);
+    expect(result[GateVoteKind.APPROVE]).toBe(0);
+    expect(result[GateVoteKind.REJECT]).toBe(0);
   });
 });
 
-// ── parseGatePolicy ─────────────────────────────────
-
-describe("parseGatePolicy", () => {
-  it("returns default for empty policyJson", () => {
-    const p = parseGatePolicy(makeGate());
-    expect(p.kind).toBe(GatePolicyKind.ALL_REQUIRED);
-  });
-
-  it("parses valid JSON", () => {
-    const p = parseGatePolicy(makeGate({
-      policy: makePolicy({ kind: "quorum_ack", quorum: 1 }),
-    }));
-    expect(p.kind).toBe(GatePolicyKind.QUORUM_ACK);
-    expect(p.quorum).toBe(1);
-  });
-
-  it("returns default for invalid policy object", () => {
-    const p = parseGatePolicy(makeGate({ policy: { kind: "not-json" } as unknown as GatePolicy }));
-    expect(p.kind).toBe(GatePolicyKind.ALL_REQUIRED);
-  });
-});
-
-// ── evaluateGateLiveness ────────────────────────────
+// ── evaluateGateLiveness — CONTINUE_BLOCKING ─────────────
 
 describe("evaluateGateLiveness", () => {
-  const T = new Date("2024-06-01T12:00:00Z");
+  const now = new Date("2026-06-01T12:00:00Z");
 
-  // ── all_required (default, backward-compat) ──
-
-  it("all_required: continue blocking when not all acked", () => {
-    const d = evaluateGateLiveness(makeGate(), [], T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+  it("returns CONTINUE_BLOCKING for already-resolved gate", () => {
+    const gate = makeGate({ status: SyncGateStatus.READY_TO_CONTINUE });
+    const result = evaluateGateLiveness(gate, [], now);
+    expect(result.action).toBe(LivenessAction.CONTINUE_BLOCKING);
   });
 
-  it("all_required: continue blocking when all acked (explicit resolve needed)", () => {
-    const d = evaluateGateLiveness(makeGate({ ackedAgentIds: ["a2", "a3"] }), [], T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
-  });
+  // ── ALL_REQUIRED policy ────────────────────────────────
 
-  it("terminal state returns continue_blocking (no-op)", () => {
-    const d = evaluateGateLiveness(makeGate({ status: SyncGateStatus.READY_TO_CONTINUE }), [], T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
-  });
-
-  // ── deadline timeout ──
-
-  it("deadline passed → escalate (default timeoutAction)", () => {
-    const gate = makeGate({
-      policy: makePolicy({
-        kind: "all_required",
-        deadlineAt: "2024-06-01T11:00:00Z",
-        escalationAgentIds: ["human1"],
-      }),
+  describe("ALL_REQUIRED policy", () => {
+    it("returns CONTINUE_BLOCKING when not all acked", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        policy: { kind: GatePolicyKind.ALL_REQUIRED, timeoutAction: GateTimeoutAction.ESCALATE },
+      });
+      const result = evaluateGateLiveness(gate, [], now);
+      expect(result.action).toBe(LivenessAction.CONTINUE_BLOCKING);
     });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.ESCALATE);
-    expect(d.escalateTo).toEqual(["human1"]);
+
+    it("returns CONTINUE_BLOCKING even when all acked (awaiting explicit resolve)", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        requiredAgentIds: ["a"],
+        ackedAgentIds: ["a"],
+        policy: { kind: GatePolicyKind.ALL_REQUIRED, timeoutAction: GateTimeoutAction.ESCALATE },
+      });
+      const result = evaluateGateLiveness(gate, [], now);
+      expect(result.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+    });
   });
 
-  it("deadline passed with cancel action → allow cancel", () => {
-    const gate = makeGate({
-      policy: makePolicy({
-        kind: "all_required",
-        deadlineAt: "2024-06-01T11:00:00Z",
-        timeoutAction: "cancel",
-      }),
+  // ── QUORUM_ACK policy ──────────────────────────────────
+
+  describe("QUORUM_ACK policy", () => {
+    it("allows resolve when quorum met", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        requiredAgentIds: ["a", "b", "c"],
+        ackedAgentIds: ["a", "b"],
+        policy: { kind: GatePolicyKind.QUORUM_ACK, quorum: 2, timeoutAction: GateTimeoutAction.ESCALATE },
+      });
+      const result = evaluateGateLiveness(gate, [], now);
+      expect(result.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
     });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.ALLOW_CANCEL);
+
+    it("blocks when quorum not met", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        requiredAgentIds: ["a", "b", "c"],
+        ackedAgentIds: ["a"],
+        policy: { kind: GatePolicyKind.QUORUM_ACK, quorum: 2, timeoutAction: GateTimeoutAction.ESCALATE },
+      });
+      const result = evaluateGateLiveness(gate, [], now);
+      expect(result.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+    });
   });
 
-  it("deadline passed with await_decision → require human override", () => {
-    const gate = makeGate({
-      policy: makePolicy({
-        kind: "all_required",
-        deadlineAt: "2024-06-01T11:00:00Z",
-        timeoutAction: "await_decision",
-      }),
+  // ── Timeout handling ────────────────────────────────────
+
+  describe("deadline timeout", () => {
+    it("ESCALATE on expired deadline", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        policy: {
+          kind: GatePolicyKind.ALL_REQUIRED,
+          deadlineAt: "2026-06-01T11:00:00.000Z",
+          timeoutAction: GateTimeoutAction.ESCALATE,
+          escalationAgentIds: ["admin-1"],
+        },
+      });
+      const result = evaluateGateLiveness(gate, [], new Date("2026-06-01T12:00:00Z"));
+      expect(result.action).toBe(LivenessAction.ESCALATE);
+      expect(result.escalateTo).toEqual(["admin-1"]);
     });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.REQUIRE_HUMAN_OVERRIDE);
+
+    it("AUTO_RESOLVE on expired deadline with cancel action", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        policy: {
+          kind: GatePolicyKind.ALL_REQUIRED,
+          deadlineAt: "2026-06-01T11:00:00.000Z",
+          timeoutAction: GateTimeoutAction.CANCEL,
+        },
+      });
+      const result = evaluateGateLiveness(gate, [], new Date("2026-06-01T12:00:00Z"));
+      expect(result.action).toBe(LivenessAction.AUTO_RESOLVE);
+    });
+
+    it("ESCALATE on expired deadline with await_decision", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        policy: {
+          kind: GatePolicyKind.ALL_REQUIRED,
+          deadlineAt: "2026-06-01T11:00:00.000Z",
+          timeoutAction: GateTimeoutAction.AWAIT_DECISION,
+        },
+      });
+      const result = evaluateGateLiveness(gate, [], new Date("2026-06-01T12:00:00Z"));
+      expect(result.action).toBe(LivenessAction.ESCALATE);
+    });
+
+    it("does not timeout if deadline not passed", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        policy: {
+          kind: GatePolicyKind.ALL_REQUIRED,
+          deadlineAt: "2026-06-01T13:00:00.000Z",
+          timeoutAction: GateTimeoutAction.ESCALATE,
+        },
+      });
+      const result = evaluateGateLiveness(gate, [], new Date("2026-06-01T12:00:00Z"));
+      expect(result.action).toBe(LivenessAction.CONTINUE_BLOCKING);
+    });
   });
 
-  it("deadline not yet passed → normal policy evaluation", () => {
-    const gate = makeGate({
-      policy: makePolicy({
-        kind: "all_required",
-        deadlineAt: "2024-06-01T13:00:00Z",
-      }),
+  // ── Lease expiry ────────────────────────────────────────
+
+  describe("lease expiry", () => {
+    it("escalates on expired lease", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        policy: {
+          kind: GatePolicyKind.ALL_REQUIRED,
+          leaseExpiresAt: "2026-06-01T11:00:00.000Z",
+          timeoutAction: GateTimeoutAction.ESCALATE,
+          escalationAgentIds: ["admin-1"],
+        },
+      });
+      const result = evaluateGateLiveness(gate, [], new Date("2026-06-01T12:00:00Z"));
+      expect(result.action).toBe(LivenessAction.ESCALATE);
     });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
-  });
 
-  // ── lease expiry ──
-
-  it("lease expired → escalate", () => {
-    const gate = makeGate({
-      policy: makePolicy({
-        kind: "all_required",
-        leaseExpiresAt: "2024-06-01T11:30:00Z",
-        escalationAgentIds: ["sup1"],
-      }),
+    it("does not escalate if lease not expired", () => {
+      const gate = makeGate({
+        status: SyncGateStatus.SYNC_REQUESTED,
+        policy: {
+          kind: GatePolicyKind.ALL_REQUIRED,
+          leaseExpiresAt: "2026-06-01T13:00:00.000Z",
+          timeoutAction: GateTimeoutAction.ESCALATE,
+        },
+      });
+      const result = evaluateGateLiveness(gate, [], new Date("2026-06-01T12:00:00Z"));
+      expect(result.action).toBe(LivenessAction.CONTINUE_BLOCKING);
     });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.ESCALATE);
-    expect(d.escalateTo).toEqual(["sup1"]);
-  });
-
-  // ── quorum_ack ──
-
-  it("quorum_ack: not met → blocking", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "quorum_ack", quorum: 2 }),
-      ackedAgentIds: ["a2"],
-    });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
-  });
-
-  it("quorum_ack: met → allow quorum resolve", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "quorum_ack", quorum: 1 }),
-      ackedAgentIds: ["a2"],
-    });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
-  });
-
-  it("quorum_ack: defaults to ceil(N/2) when quorum not specified", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "quorum_ack" }),
-      requiredAgentIds: ["a1", "a2", "a3"],
-      ackedAgentIds: ["a1", "a2"],
-    });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
-  });
-
-  // ── majority_veto ──
-
-  it("majority_veto: majority reject → escalate (not auto-pass)", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
-    });
-    const votes = [
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a2" }),
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a3" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.ESCALATE);
-    expect(d.escalateTo).toEqual(["sup"]);
-  });
-
-  it("majority_veto: majority approve → allow resolve", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto" }),
-    });
-    const votes = [
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a3" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
-  });
-
-  it("majority_veto: no majority → continue blocking", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto" }),
-    });
-    const votes = [
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a3" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
-  });
-
-  // ── owner_override ──
-
-  it("owner_override: owner approved → auto-resolve", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "owner_override" }),
-    });
-    const votes = [
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.AUTO_RESOLVE);
-  });
-
-  it("owner_override: no owner vote, not all acked → blocking", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "owner_override" }),
-    });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
-  });
-
-  it("owner_override: all acked → auto-resolve even without owner vote", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "owner_override" }),
-      ackedAgentIds: ["a2", "a3"],
-    });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.AUTO_RESOLVE);
-  });
-
-  // ── owner_override vote change regression ──
-
-  it("owner_override: owner reject then approve → latest vote (approve) wins", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "owner_override" }),
-    });
-    // Simulate two votes from owner: reject first, then approve
-    const votes = [
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a1" }),
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.AUTO_RESOLVE);
-    expect(d.reason).toBe("Owner approved override");
-  });
-
-  it("owner_override: owner approve then reject → latest vote (reject) blocks", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "owner_override" }),
-    });
-    const votes = [
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a1" }),
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a1" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.CONTINUE_BLOCKING);
-  });
-
-  // ── majority_veto vote change regression ──
-
-  it("majority_veto: voter changes approve → reject flips majority result", () => {
-    // 3 required agents. majority = floor(3/2)+1 = 2
-    const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["sup"] }),
-    });
-    // a2 initially approved, then changed to reject; a3 rejects
-    // Deduped: a2=reject, a3=reject → 2 rejects (majority)
-    const votes = [
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a3" }),
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a2" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.ESCALATE);
-  });
-
-  it("majority_veto: voter changes reject → approve flips to resolve", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto" }),
-    });
-    // a2 initially rejected, then changed to approve; a3 approves
-    // Deduped: a2=approve, a3=approve → 2 approves (majority)
-    const votes = [
-      makeVote({ vote: GateVoteKind.REJECT, agentId: "a2" }),
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a3" }),
-      makeVote({ vote: GateVoteKind.APPROVE, agentId: "a2" }),
-    ];
-    const d = evaluateGateLiveness(gate, votes, T);
-    expect(d.action).toBe(LivenessAction.ALLOW_QUORUM_RESOLVE);
-  });
-
-  // ── human_required ──
-
-  it("human_required: always require human override", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "human_required", escalationAgentIds: ["human"] }),
-    });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.REQUIRE_HUMAN_OVERRIDE);
-    expect(d.escalateTo).toEqual(["human"]);
-  });
-
-  // ── deadline takes priority over policy ──
-
-  it("deadline overrides quorum even if quorum met", () => {
-    const gate = makeGate({
-      policy: makePolicy({
-        kind: "quorum_ack",
-        quorum: 1,
-        deadlineAt: "2024-06-01T11:00:00Z",
-      }),
-      ackedAgentIds: ["a2"],
-    });
-    const d = evaluateGateLiveness(gate, [], T);
-    expect(d.action).toBe(LivenessAction.ESCALATE);
   });
 });
 
-// ── computeGateDetails ──────────────────────────────
-
-describe("computeGateDetails", () => {
-  it("returns pending, acked, required agent lists correctly", () => {
-    const gate = makeGate({ ackedAgentIds: ["a2"] });
-    const details = computeGateDetails(gate, []);
-    expect(details.requiredAgentIds).toEqual(["a2", "a3"]);
-    expect(details.ackedAgentIds).toEqual(["a2"]);
-    expect(details.pendingAgentIds).toEqual(["a3"]);
-    expect(details.isBlocking).toBe(true);
-  });
-
-  it("returns vote counts with dedup", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto" }),
-    });
-    const votes = [
-      makeVote({ agentId: "a2", vote: GateVoteKind.APPROVE }),
-      makeVote({ agentId: "a2", vote: GateVoteKind.REJECT }),
-      makeVote({ agentId: "a3", vote: GateVoteKind.APPROVE }),
-    ];
-    const details = computeGateDetails(gate, votes);
-    // a2's last vote is reject, a3 approve
-    expect(details.voteCounts[GateVoteKind.APPROVE]).toBe(1);
-    expect(details.voteCounts[GateVoteKind.REJECT]).toBe(1);
-  });
-
-  it("marks requiresHuman for ESCALATED gate", () => {
-    const gate = makeGate({ status: SyncGateStatus.ESCALATED });
-    const details = computeGateDetails(gate, []);
-    expect(details.requiresHuman).toBe(true);
-  });
-
-  it("marks requiresHuman for human_required policy", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "human_required", escalationAgentIds: ["human"] }),
-    });
-    const details = computeGateDetails(gate, []);
-    expect(details.requiresHuman).toBe(true);
-  });
-
-  it("does not mark requiresHuman for normal quorum gate", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "quorum_ack", quorum: 1 }),
-    });
-    const details = computeGateDetails(gate, []);
-    expect(details.requiresHuman).toBe(false);
-  });
-
-  it("eligible voters include required + owner + escalation (deduped)", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["esc1"] }),
-    });
-    const details = computeGateDetails(gate, []);
-    // required: a2, a3; owner: a1; escalation: esc1
-    expect(details.eligibleVoterIds).toContain("a1");
-    expect(details.eligibleVoterIds).toContain("a2");
-    expect(details.eligibleVoterIds).toContain("a3");
-    expect(details.eligibleVoterIds).toContain("esc1");
-  });
-
-  it("includes deadlineAt from policy", () => {
-    const gate = makeGate({
-      policy: makePolicy({ kind: "quorum_ack", quorum: 1, deadlineAt: "2025-01-01T00:00:00Z" }),
-    });
-    const details = computeGateDetails(gate, []);
-    expect(details.deadlineAt).toBe("2025-01-01T00:00:00Z");
-  });
-});
-
-// ── computeAvailableActions ─────────────────────────
+// ── computeAvailableActions ──────────────────────────────
 
 describe("computeAvailableActions", () => {
-  it("unacked required agent can ack and vote", () => {
-    const gate = makeGate();
-    const actions = computeAvailableActions(gate, "a2", []);
+  it("returns view_only for resolved gate", () => {
+    const gate = makeGate({ status: SyncGateStatus.READY_TO_CONTINUE });
+    expect(computeAvailableActions(gate, "agent-executor", [])).toEqual(["view_only"]);
+  });
+
+  it("offers ack to required unacked agent", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["agent-executor"],
+    });
+    const actions = computeAvailableActions(gate, "agent-executor", []);
     expect(actions).toContain("ack");
+  });
+
+  it("does not offer ack if already acked", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["agent-executor"],
+      ackedAgentIds: ["agent-executor"],
+    });
+    const actions = computeAvailableActions(gate, "agent-executor", []);
+    expect(actions).not.toContain("ack");
+  });
+
+  it("offers vote to required agent", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["agent-executor"],
+    });
+    const actions = computeAvailableActions(gate, "agent-executor", []);
     expect(actions).toContain("vote");
   });
 
-  it("acked required agent gets change_vote instead of ack", () => {
-    const gate = makeGate({ ackedAgentIds: ["a2"] });
-    const votes = [makeVote({ agentId: "a2", vote: GateVoteKind.APPROVE })];
-    const actions = computeAvailableActions(gate, "a2", votes);
-    expect(actions).not.toContain("ack");
+  it("offers change_vote if already voted", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["agent-executor"],
+    });
+    const votes: GateVote[] = [
+      { id: "v1", gateId: "g1", agentId: "agent-executor", vote: GateVoteKind.APPROVE, summary: "", createdAt: "2026-01-01T00:00:00Z" },
+    ];
+    const actions = computeAvailableActions(gate, "agent-executor", votes);
     expect(actions).toContain("change_vote");
   });
 
-  it("owner with owner_override policy gets owner_override action", () => {
+  it("offers resolve/cancel/escalate to escalation agents", () => {
     const gate = makeGate({
-      policy: makePolicy({ kind: "owner_override" }),
+      status: SyncGateStatus.SYNC_REQUESTED,
+      policy: {
+        kind: GatePolicyKind.ALL_REQUIRED,
+        timeoutAction: GateTimeoutAction.ESCALATE,
+        escalationAgentIds: ["admin-1"],
+      },
     });
-    const actions = computeAvailableActions(gate, "a1", []);
-    expect(actions).toContain("owner_override");
+    const actions = computeAvailableActions(gate, "admin-1", []);
     expect(actions).toContain("resolve");
     expect(actions).toContain("cancel");
   });
 
-  it("escalation agent gets resolve, cancel, request_more_info", () => {
+  it("returns view_only for non-required, non-owner, non-escalation agent", () => {
     const gate = makeGate({
-      policy: makePolicy({ kind: "majority_veto", escalationAgentIds: ["esc1"] }),
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["agent-executor"],
+      requestedByAgentId: "agent-architect",
     });
-    const actions = computeAvailableActions(gate, "esc1", []);
-    expect(actions).toContain("resolve");
-    expect(actions).toContain("cancel");
-    expect(actions).toContain("request_more_info");
+    expect(computeAvailableActions(gate, "agent-rando", [])).toEqual(["view_only"]);
+  });
+});
+
+// ── computeGateDetails ───────────────────────────────────
+
+describe("computeGateDetails", () => {
+  it("computes full gate status", () => {
+    const gate = makeGate({
+      status: SyncGateStatus.SYNC_REQUESTED,
+      requiredAgentIds: ["a", "b", "c"],
+      ackedAgentIds: ["a"],
+    });
+    const details = computeGateDetails(gate, []);
+    expect(details.requiredAgentIds).toEqual(["a", "b", "c"]);
+    expect(details.ackedAgentIds).toEqual(["a"]);
+    expect(details.pendingAgentIds).toEqual(["b", "c"]);
+    expect(details.isBlocking).toBe(true);
+    expect(details.voteCounts[GateVoteKind.APPROVE]).toBe(0);
+    expect(details.policy.kind).toBe(GatePolicyKind.ALL_REQUIRED);
   });
 
-  it("non-involved agent gets view_only", () => {
-    const gate = makeGate();
-    const actions = computeAvailableActions(gate, "outsider", []);
-    expect(actions).toEqual(["view_only"]);
-  });
-
-  it("resolved gate returns view_only for everyone", () => {
-    const gate = makeGate({ status: SyncGateStatus.READY_TO_CONTINUE });
-    const actions = computeAvailableActions(gate, "a2", []);
-    expect(actions).toEqual(["view_only"]);
+  it("detects requiresHuman when gate is escalated", () => {
+    const gate = makeGate({ status: SyncGateStatus.SYNC_REQUESTED, escalated: true } as any);
+    const details = computeGateDetails(gate, []);
+    expect(details.requiresHuman).toBe(true);
   });
 });

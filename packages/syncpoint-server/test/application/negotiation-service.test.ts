@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "../db.js";
+import {  } from "../db.js";
 import { createAgent, createTask } from "../repositories/index.js";
 import { listNegotiationSessions, updateNegotiationSession } from "../repositories/negotiation-repository.js";
 import { sgRequest, sgStatus, sgResolve } from "../../src/application/sync-gate-service.js";
@@ -23,7 +23,7 @@ let taskId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-neg-test-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
-  getDb();
+  defaultContext.db;
   a1 = createAgent({ name: "neg-a1", provider: "other", role: "backend" }).id;
   a2 = createAgent({ name: "neg-a2", provider: "other", role: "frontend" }).id;
   a3 = createAgent({ name: "neg-a3", provider: "other", role: "tester" }).id;
@@ -31,7 +31,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

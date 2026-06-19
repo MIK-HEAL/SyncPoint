@@ -41,8 +41,7 @@ function createTestDb() {
 let testDb: ReturnType<typeof drizzle<typeof schema>>;
 
 vi.mock("./db.js", () => ({
-  getDb: () => testDb,
-  closeDb: () => {},
+  defaultContext: { get db() { return testDb; }, get raw() { return null; }, destroy() {}, walEnabled: false },
   runMigrations: () => {},
 }));
 

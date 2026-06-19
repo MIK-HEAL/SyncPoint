@@ -25,11 +25,9 @@ import { CODE_PLUGIN_CONSTRAINT_EVALUATORS, prefixFindOverlaps } from "./constra
 
 // ── Plugin registration ─────────────────────────────
 
-let _registered = false;
-
 /**
  * Register the code plugin's validators and resource matcher with the core registries.
- * Safe to call multiple times — subsequent calls are no-ops.
+ * Safe to call multiple times — subsequent calls are no-ops (each registry check prevents duplicates).
  */
 export function registerCodePlugin(): void {
   // Register file ResourceMatcher (prefix/directory/glob overlap)
@@ -59,29 +57,20 @@ export function registerCodePlugin(): void {
   }
 
   // Register ScopeMatchers for files and modules
-  // resourceTypes: ["file"] ensures non-file resources don't trigger file-scoped constraints
   if (!getScopeMatcher("files")) {
     registerScopeMatcher({ field: "files", findOverlaps: prefixFindOverlaps, resourceTypes: ["file"] });
   }
   if (!getScopeMatcher("modules")) {
     registerScopeMatcher({ field: "modules", findOverlaps: prefixFindOverlaps, resourceTypes: ["file"] });
   }
-
-  _registered = true;
 }
 
 /**
  * Check if the code plugin has been registered.
+ * Uses the resource matcher registry as source of truth.
  */
 export function isCodePluginRegistered(): boolean {
-  return _registered;
-}
-
-/**
- * Reset registration state (for testing only).
- */
-export function _resetCodePlugin(): void {
-  _registered = false;
+  return getResourceMatcher("file") !== undefined;
 }
 
 // ── Re-exports ──────────────────────────────────────
@@ -122,4 +111,18 @@ export {
   CODE_PLUGIN_CONSTRAINT_EVALUATORS,
   prefixFindOverlaps,
 } from "./constraint-evaluators.js";
+
+// ── Function parser (moved from kernel — optional code analysis) ──
+export {
+  parseFunctions,
+  findFunctionAtLine,
+  registerFunctionParseStrategy,
+  getFunctionParseStrategy,
+  getStrategyForExtension,
+  clearFunctionParseStrategies,
+} from "./function-parser.js";
+export type {
+  ParsedFunction,
+  FunctionParseStrategy,
+} from "./function-parser.js";
 

@@ -11,7 +11,6 @@ import type { Operation, ResourceClaim, OperationValidationContext } from "syncp
 import { ResourceClaimMode, ResourceClaimStatus } from "syncpoint-core";
 import {
   registerCodePlugin,
-  _resetCodePlugin,
   codePatchFormatValidator,
   codePatchClaimCoverageValidator,
   codePatchNoHardConflictValidator,
@@ -54,7 +53,8 @@ function makeClaim(id: string, actorId: string, locator: string, mode = "exclusi
 beforeEach(() => {
   clearValidatorRegistry();
   clearResourceMatcherRegistry();
-  _resetCodePlugin();
+  clearValidatorRegistry();
+  clearResourceMatcherRegistry();
 });
 
 describe("registerCodePlugin", () => {

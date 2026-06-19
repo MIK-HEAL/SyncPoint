@@ -8,7 +8,7 @@
 
 import { Command } from "commander";
 import * as repo from "syncpoint-server/repositories";
-import { SyncPointEventBus, getRawDb, getDbPath, checkDbIntegrity, findIntermediateStateEntities, getEntityTransitionHistory, getCompensationDefinition } from "syncpoint-server";
+import { SyncPointEventBus, createEventBus, defaultContext, getDbPath, findIntermediateStateEntities, getEntityTransitionHistory, getCompensationDefinition } from "syncpoint-server";
 import type { SyncPointEventData } from "syncpoint-server";
 
 // ── 4.1  dev status ──────────────────────────────────
@@ -103,11 +103,11 @@ function printStatus(opts: { json?: boolean }): void {
 // ── 4.2  dev tail ─────────────────────────────────────
 
 function startTail(opts: { json?: boolean; n?: string }): void {
-  const bus = SyncPointEventBus.getInstance();
+  const bus = createEventBus();
 
   // Print recent events from DB first
   const limit = parseInt(opts.n ?? "20", 10);
-  const raw = getRawDb();
+  const raw = defaultContext.raw;
   const recent = raw.prepare(
     `SELECT id, event_type, entity_type, entity_id, detail, created_at FROM event ORDER BY created_at DESC LIMIT ?`
   ).all(limit) as Array<{ id: string; event_type: string; entity_type: string; entity_id: string; detail: string; created_at: string }>;
@@ -155,7 +155,7 @@ function resetState(opts: { json?: boolean; confirm?: boolean }): void {
     return;
   }
 
-  const raw = getRawDb();
+  const raw = defaultContext.raw;
   // Delete in dependency order — child join tables first, then parent tables
   const joinTables = [
     "sync_gate_required_agent",
@@ -226,7 +226,7 @@ function resetState(opts: { json?: boolean; confirm?: boolean }): void {
 // ── 4.4  dev integrity ──────────────────────────────────
 
 function checkIntegrity(opts: { json?: boolean }): void {
-  const result = checkDbIntegrity();
+  const result = defaultContext.checkIntegrity();
   if (opts.json) {
     console.log(JSON.stringify(result));
     return;
@@ -313,7 +313,7 @@ function forceRecover(opts: { json?: boolean; entityType?: string; entityId?: st
     process.exit(1);
   }
 
-  const raw = getRawDb();
+  const raw = defaultContext.raw;
   const tableName = opts.entityType;
 
   // Map entity_type to the actual table and state column

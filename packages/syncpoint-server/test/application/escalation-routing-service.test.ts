@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "../db.js";
+import {  } from "../db.js";
 import * as schema from "../schema.js";
 import { createAgent, createTask } from "../repositories/index.js";
 import { sgRequest } from "../../src/application/sync-gate-service.js";
@@ -26,7 +26,7 @@ let taskId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-esc-test-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
-  getDb();
+  defaultContext.db;
   a1 = createAgent({ name: "esc-a1", provider: "other", role: "backend" }).id;
   a2 = createAgent({ name: "esc-a2", provider: "other", role: "frontend" }).id;
   e1 = createAgent({ name: "esc-e1", provider: "other", role: "reviewer" }).id;
@@ -36,7 +36,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
@@ -81,7 +81,7 @@ describe("manifestUpsert / manifestGet", () => {
 
     // Write malformed JSON directly via raw SQL — Drizzle's mode:"json" columns
     // would stringify a plain string, so we bypass to store truly broken text.
-    getDb().run(
+    defaultContext.db.run(
       sql`UPDATE agent_manifest SET
         capabilities_json = ${"{"},
         escalation_preference_json = ${"{"},

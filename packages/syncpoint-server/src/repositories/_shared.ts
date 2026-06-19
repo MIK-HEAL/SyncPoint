@@ -2,26 +2,53 @@
  * Shared infrastructure for all repository modules.
  */
 
+import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
-import { getDb, getRawDb as _getRawDb } from "../db.js";
-export { _getRawDb as getRawDb };
+import { defaultContext, createTestDatabaseContext, type DatabaseContext, type SyncPointDb } from "../db.js";
 import * as s from "../schema.js";
 import { EventType, ResourceNotFoundError } from "syncpoint-kernel";
-import { SyncPointEventBus } from "../event-bus.js";
+import { createEventBus, type SyncPointEventBus } from "../event-bus.js";
 
-const bus = SyncPointEventBus.getInstance();
+// ── Database context ──────────────────────────────────
 
-// ── Test DB injection ────────────────────────────────
+let _context: DatabaseContext = defaultContext;
 
-let _testDb: ReturnType<typeof getDb> | null = null;
-
-/** @internal Test-only: inject a test database */
-export function __setDb(override: ReturnType<typeof getDb> | null): void {
-  _testDb = override;
+export function _getDb(): SyncPointDb {
+  return _context.db;
 }
 
-export function _getDb(): ReturnType<typeof getDb> {
-  return _testDb ?? getDb();
+export function getRawDb(): Database.Database {
+  return _context.raw;
+}
+
+/** @internal Inject a test database context. */
+export function __setTestContext(ctx: DatabaseContext): void {
+  _context = ctx;
+}
+
+/** @internal Reset to default context after test. */
+export function __resetContext(): void {
+  _context = defaultContext;
+}
+
+/** @internal Create a fresh in-memory context for tests. */
+export function __createTestContext(): DatabaseContext {
+  const ctx = createTestDatabaseContext();
+  _context = ctx;
+  return ctx;
+}
+
+// ── Event bus ─────────────────────────────────────────
+
+let _bus: SyncPointEventBus = createEventBus();
+
+export function _getBus(): SyncPointEventBus {
+  return _bus;
+}
+
+/** @internal Reset event bus for tests. */
+export function __resetBus(): void {
+  _bus = createEventBus();
 }
 
 export function now(): string {
@@ -39,7 +66,7 @@ export function logEvent(
   detail = ""
 ): void {
   const db = _getDb();
-  // Emit event first to get the seq number from the bus
+  const bus = _getBus();
   bus.emitEvent(eventType, entityType, entityId, detail);
   const seq = bus.currentSeq;
   db.insert(s.events).values({
@@ -59,11 +86,11 @@ export function logEvent(
  */
 export function recoverEventBusSeq(): void {
   try {
-    const rawDb = _getRawDb();
+    const rawDb = getRawDb();
     const row = rawDb.prepare("SELECT MAX(seq) as max_seq FROM event").get() as { max_seq: number | null } | undefined;
     const maxSeq = row?.max_seq;
     if (typeof maxSeq === "number" && maxSeq > 0) {
-      bus.recoverSeq(maxSeq);
+      _getBus().recoverSeq(maxSeq);
     }
   } catch {
     // Table might not have seq column yet (migration pending)

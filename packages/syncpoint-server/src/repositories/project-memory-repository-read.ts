@@ -9,7 +9,7 @@ import {
   MemorySeverity,
 } from "syncpoint-context";
 import type { ProjectMemory, MemoryDedupResult } from "syncpoint-context";
-import { getRawDb } from "../db.js";
+import { defaultContext } from "../db.js";
 import { _getDb } from "./_shared.js";
 import {
   buildFtsQuery,
@@ -74,7 +74,7 @@ export function searchProjectMemories(query: string): ProjectMemory[] {
   if (!trimmed) return [];
 
   const ftsQuery = buildFtsQuery(trimmed);
-  const raw = getRawDb();
+  const raw = defaultContext.raw;
   let ids: string[] = [];
   if (ftsQuery) {
     try {

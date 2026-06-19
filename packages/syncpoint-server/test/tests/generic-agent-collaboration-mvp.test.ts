@@ -12,12 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { __setDb } from "../repositories/_shared.js";
-import { runMigrations } from "../db.js";
-import type { SyncPointDb } from "../db.js";
+import { __createTestContext, __resetContext, _getDb } from "../repositories/_shared.js";
 import * as repo from "../repositories/index.js";
 import { ensureApplicationBootstrap } from "../application/bootstrap.js";
 import {
@@ -45,18 +40,14 @@ import {
   pmApprove,
 } from "../application/project-memory-service.js";
 
-let sqlite: Database.Database;
-let db: SyncPointDb;
 let agentA: string;
 let agentB: string;
 let agentC: string;
 let taskId: string;
 
 beforeAll(() => {
-  sqlite = new Database(":memory:");
-  runMigrations(sqlite);
-  db = drizzle(sqlite, { schema }) as unknown as SyncPointDb;
-  __setDb(db);
+  __createTestContext();
+  const db = _getDb();
   ensureApplicationBootstrap();
 
   // Seed agents + task
@@ -67,8 +58,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  __setDb(null);
-  sqlite.close();
+  __resetContext();
 });
 
 // ── Case A: Ownership conflict ─────────────────────────

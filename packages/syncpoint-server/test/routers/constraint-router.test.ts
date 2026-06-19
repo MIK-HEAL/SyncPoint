@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "syncpoint-server";
+import {  } from "syncpoint-server";
 import * as repo from "../../src/repositories/_exports/foundation.js";
 import { constraintCheck } from "../../src/application/_exports/review-operation-status.js";
 import { rcClaim, pmAdd, pmApprove } from "../../src/application/_exports/review-operation-status.js";
@@ -18,7 +18,7 @@ let taskId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-rtr-const-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
-  getDb();
+  defaultContext.db;
   agentId = repo.createAgent({ name: "const-agent", provider: "cursor", role: "frontend" }).id;
   taskId = repo.createTask({ title: "Constraint router task" }).id;
   const cp = repo.createCheckpoint({ taskId, agentId, summary: "Start", progress: "0%", currentUnderstanding: "", changedResources: [], risks: "", blockers: "", nextSteps: "Go", needSync: false });
@@ -26,7 +26,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

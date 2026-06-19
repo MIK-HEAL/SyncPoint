@@ -61,9 +61,7 @@ export function routeGateEscalation(gateId: string): EscalationCandidate[] {
   const policy = parseGatePolicy(gate);
 
   const requiresHuman =
-    gate.status === "ESCALATED" ||
-    gate.status === "TIMED_OUT" ||
-    policy.kind === "human_required";
+    gate.escalated && (policy.escalationAgentIds ?? []).length === 0;
 
   const input: EscalationRoutingInput = {
     gateId: gate.id,
@@ -83,13 +81,13 @@ export function routeGateEscalation(gateId: string): EscalationCandidate[] {
 }
 
 /**
- * Count how many active (ESCALATED) gates each agent is involved in as an escalation target.
+ * Count how many active escalated gates each agent is involved in as an escalation target.
  */
 function countActiveEscalations(): Map<string, number> {
   const counts = new Map<string, number>();
   const activeGates = listActiveSyncGates();
   for (const gate of activeGates) {
-    if (gate.status === "ESCALATED") {
+    if (gate.escalated) {
       const policy = parseGatePolicy(gate);
       for (const id of policy.escalationAgentIds ?? []) {
         counts.set(id, (counts.get(id) ?? 0) + 1);

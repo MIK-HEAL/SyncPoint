@@ -214,7 +214,7 @@ describe("evaluateWriteDecision", () => {
         operation: op,
       });
       expect(result.permitted).toBe(false);
-      expect(result.blockers.some(b => b.type === "operation")).toBe(true);
+      expect(result.blockers.some(b => b.type === "authorization")).toBe(true);
     });
 
     it("blocks operation for different actor", () => {

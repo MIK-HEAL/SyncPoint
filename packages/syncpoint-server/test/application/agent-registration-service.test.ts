@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, closeDb } from "../db.js";
+import {  } from "../db.js";
 import {
   diagnoseAgentRegistry,
   exportAgentCards,
@@ -26,17 +26,17 @@ let projectRoot = "";
 let syncpointDir = "";
 
 beforeEach(() => {
-  closeDb();
+  defaultContext.destroy();
   projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "sp-agent-registration-"));
   syncpointDir = path.join(projectRoot, ".syncpoint");
   fs.mkdirSync(syncpointDir, { recursive: true });
   process.env.SYNCPOINT_PROJECT_ROOT = projectRoot;
   process.env.SYNCPOINT_DB_DIR = syncpointDir;
-  getDb();
+  defaultContext.db;
 });
 
 afterEach(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   delete process.env.SYNCPOINT_DB_DIR;
   if (projectRoot) {

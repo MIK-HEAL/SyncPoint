@@ -14,7 +14,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { closeDb, getDb, getRawDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import { ensureApplicationBootstrap } from "../../src/application/index.js";
 import {
   executeAtomicTransition,
@@ -34,16 +34,16 @@ import { insertTransitionLog } from "../../src/repositories/state-transition-rep
 let tmpDir = "";
 
 beforeEach(() => {
-  closeDb();
+  defaultContext.destroy();
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-crash-recovery-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
   ensureApplicationBootstrap();
-  getDb();
+  defaultContext.db;
 });
 
 afterEach(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   if (tmpDir) {
@@ -64,7 +64,7 @@ describe("state_transition_log", () => {
 
     executeAtomicTransition(record, () => {
       // Simulate the state update
-      const db = getRawDb();
+      const db = defaultContext.raw;
       db.prepare("INSERT INTO resource_claim (id, actor_id, task_id, session_id, resource_type, mode, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         .run("claim-1", "agent-1", "task-1", "session-1", "file", "exclusive", "active", new Date().toISOString());
     });
@@ -112,7 +112,7 @@ describe("findIntermediateStateEntities", () => {
     };
 
     executeAtomicTransition(record, () => {
-      const db = getRawDb();
+      const db = defaultContext.raw;
       db.prepare("INSERT INTO resource_claim (id, actor_id, task_id, session_id, resource_type, mode, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         .run("claim-stuck", "agent-1", "task-1", "session-1", "file", "exclusive", "active", new Date().toISOString());
     });
@@ -133,7 +133,7 @@ describe("findIntermediateStateEntities", () => {
     };
 
     executeAtomicTransition(record, () => {
-      const db = getRawDb();
+      const db = defaultContext.raw;
       db.prepare("INSERT INTO resource_claim (id, actor_id, task_id, session_id, resource_type, mode, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         .run("claim-done", "agent-1", "task-1", "session-1", "file", "exclusive", "released", new Date().toISOString());
     });
@@ -218,7 +218,7 @@ describe("simulated crash recovery", () => {
     };
 
     executeAtomicTransition(record, () => {
-      const db = getRawDb();
+      const db = defaultContext.raw;
       db.prepare("INSERT INTO resource_claim (id, actor_id, task_id, session_id, resource_type, mode, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         .run("claim-crash", "agent-1", "task-1", "session-1", "file", "exclusive", "active", new Date().toISOString());
     });
@@ -233,7 +233,7 @@ describe("simulated crash recovery", () => {
     expect(recoveryState).toBe("released");
 
     // Force recover (ensure recovery log has a later timestamp)
-    const db = getRawDb();
+    const db = defaultContext.raw;
     db.prepare("UPDATE resource_claim SET status = ? WHERE id = ?").run("released", "claim-crash");
     const recoveryTs = new Date(Date.now() + 1).toISOString();
     insertTransitionLog({
@@ -268,7 +268,7 @@ describe("simulated crash recovery", () => {
     };
 
     executeAtomicTransition(record, () => {
-      const db = getRawDb();
+      const db = defaultContext.raw;
       db.prepare("INSERT INTO operation (id, type, actor_id, task_id, session_id, status, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run("op-crash", "code_patch", "agent-1", "task-1", "session-1", "submitted", "Test op", new Date().toISOString(), new Date().toISOString());
     });
@@ -280,7 +280,7 @@ describe("simulated crash recovery", () => {
     expect(recoveryState).toBe("cancelled");
 
     // Force recover (ensure recovery log has a later timestamp)
-    const db = getRawDb();
+    const db = defaultContext.raw;
     db.prepare("UPDATE operation SET status = ? WHERE id = ?").run("cancelled", "op-crash");
     const recoveryTs = new Date(Date.now() + 1).toISOString();
     insertTransitionLog({
@@ -300,7 +300,7 @@ describe("simulated crash recovery", () => {
 
 describe("fromState validation guard", () => {
   it("rejects transition when current state does not match fromState", () => {
-    const db = getRawDb();
+    const db = defaultContext.raw;
     const ts = new Date().toISOString();
 
     // Create a claim in 'active' state
@@ -329,7 +329,7 @@ describe("fromState validation guard", () => {
   });
 
   it("allows transition when current state matches fromState", () => {
-    const db = getRawDb();
+    const db = defaultContext.raw;
     const ts = new Date().toISOString();
 
     // Create a claim in 'active' state
@@ -357,7 +357,7 @@ describe("fromState validation guard", () => {
   });
 
   it("skips validation by default (backward compat)", () => {
-    const db = getRawDb();
+    const db = defaultContext.raw;
     const ts = new Date().toISOString();
 
     // Create a claim in 'active' state

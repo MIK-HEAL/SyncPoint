@@ -31,7 +31,7 @@ export const ServerConfig = z.object({
 });
 
 export const GuardConfig = z.object({
-  mode: z.enum(["off", "L1_audit", "L2_warn", "L3_block"]).default("L2_warn"),
+  mode: z.enum(["off", "L0_audit", "L1_controlled", "L2_editor_guard", "L3_proxy"]).default("L1_controlled"),
   fileWatcher: z.enum(["@parcel/watcher", "native"]).default("native"),
   debounceMs: z.number().min(50).max(5000).default(300),
   maxWatchers: z.number().min(100).max(50000).default(5000),

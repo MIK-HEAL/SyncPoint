@@ -87,9 +87,8 @@ export function gateMatchesResource(gate: FileAuditGateContext, resource: Resour
     .some(locator => resourceLocatorsOverlap({ type: "file", scope: "file", locator, metadata: "" }, resource));
 }
 
-export function parseRelatedFileLocators(value: string[] | string): string[] {
-  const parts = Array.isArray(value) ? value : value.split(",");
-  return parts
+export function parseRelatedFileLocators(value: string[]): string[] {
+  return value
     .flatMap(part => part.split("↔"))
     .map(part => part.trim())
     .filter(Boolean);

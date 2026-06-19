@@ -4,7 +4,7 @@
  */
 
 import http from "node:http";
-import { SyncPointEventBus } from "../event-bus.js";
+import { _getBus } from "../repositories/_shared.js";
 import type { SyncPointEventData } from "../event-bus.js";
 import { logger } from "../logger.js";
 
@@ -33,7 +33,7 @@ export interface SseConnectionState {
 }
 
 const activeSseConnections = new Map<http.ServerResponse, SseConnectionState>();
-const bus = SyncPointEventBus.getInstance();
+const bus = _getBus();
 
 // ── Write / Evict ─────────────────────────────────────
 

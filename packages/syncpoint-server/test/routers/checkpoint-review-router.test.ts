@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "syncpoint-server";
+import {  } from "syncpoint-server";
 import * as repo from "../../src/repositories/_exports/foundation.js";
 import { rwAddChecklistItem, rwUpdateChecklistItem, rwEvaluateGate } from "../../src/application/_exports/review-operation-status.js";
 import { ChecklistItemStatus, ApprovalGateStatus } from "syncpoint-governance";
@@ -18,7 +18,7 @@ let reviewRequestId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-rtr-cr-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
-  getDb();
+  defaultContext.db;
   agentId = repo.createAgent({ name: "cr-agent", provider: "cursor", role: "reviewer" }).id;
   taskId = repo.createTask({ title: "CR router task" }).id;
   const s = repo.createSession({ title: "CR Session" });
@@ -28,7 +28,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "syncpoint-server";
+import {  } from "syncpoint-server";
 import * as repo from "../../src/repositories/_exports/foundation.js";
 import { rcClaim, writeCheck, writePrepare, writeApply, guardCreateSession } from "../../src/application/_exports/review-operation-status.js";
 import { ResourceClaimMode } from "syncpoint-kernel";
@@ -17,7 +17,7 @@ let taskId: string;
 beforeAll(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-rtr-write-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
-  getDb();
+  defaultContext.db;
   const a = repo.createAgent({ name: "write-router-agent", provider: "cursor", role: "frontend" });
   agentId = a.id;
   const t = repo.createTask({ title: "Write router task" });
@@ -25,7 +25,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

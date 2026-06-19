@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RelationshipMode } from "syncpoint-adapters";
 import { ResourceClaimMode, SyncGateStatus, WriteDecisionReason, WriteIntent } from "syncpoint-kernel";
-import { closeDb, getDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import { ensureApplicationBootstrap } from "../../src/application/bootstrap.js";
 import { __clearReconciliationStateForTest } from "../../src/application/backing-store-reconciliation-service.js";
@@ -45,7 +45,7 @@ beforeEach(() => {
   resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
   ensureApplicationBootstrap();
-  getDb();
+  defaultContext.db;
 
   __clearGuardSessionsForTest();
   __clearFilePermissionGuardsForTest();
@@ -78,7 +78,7 @@ afterEach(() => {
   __clearGuardSessionsForTest();
   __clearFilePermissionGuardsForTest();
   __clearReconciliationStateForTest();
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   resetPathResolverCache();

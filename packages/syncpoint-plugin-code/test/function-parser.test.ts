@@ -9,7 +9,7 @@ import {
   getStrategyForExtension,
   clearFunctionParseStrategies,
   registerFunctionParseStrategy,
-} from "syncpoint-kernel";
+} from "../src/function-parser.js";
 
 describe("parseFunctions — TypeScript/JavaScript", () => {
   it("parses function declarations", () => {

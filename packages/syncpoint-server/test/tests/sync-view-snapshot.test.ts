@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { getDb, closeDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import {
   orchCreateSession,
@@ -39,7 +39,7 @@ beforeAll(() => {
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
   resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
-  getDb();
+  defaultContext.db;
 
   const a = repo.createAgent({ name: "arch-p9", provider: "cursor", role: "manager" });
   const e = repo.createAgent({ name: "exec-p9", provider: "codex", role: "backend" });
@@ -62,7 +62,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   resetPathResolverCache();

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { closeDb, getDb } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
 import { RelationshipMode } from "syncpoint-adapters";
 import { ResourceClaimMode, WriteIntent } from "syncpoint-kernel";
@@ -24,7 +24,7 @@ beforeEach(() => {
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
   resetPathResolverCache();
   fs.mkdirSync(process.env.SYNCPOINT_DB_DIR, { recursive: true });
-  getDb();
+  defaultContext.db;
 
   agentA = repo.createAgent({ name: "agent-a", provider: "cursor", role: "backend" }).id;
   taskA = repo.createTask({ title: "Task A", description: "" }).id;
@@ -45,7 +45,7 @@ afterEach(() => {
   __clearGuardSessionsForTest();
   __clearFilePermissionGuardsForTest();
   __clearReconciliationStateForTest();
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   resetPathResolverCache();

@@ -7,6 +7,8 @@ drizzle/
 !packages/syncpoint-server/drizzle/
 !packages/syncpoint-server/drizzle/**
 *.db
+coverage/
+packages/*/coverage/
 
 # Prevent stale compiled artifacts in src/
 packages/*/src/**/*.js
@@ -18,8 +20,11 @@ PLan/
 .tmp/
 .claude/
 .kiro/
+.workbuddy/
 scripts/
 
 MD-TODO/
 TASK/
 AGENTS.md
+
+plans/

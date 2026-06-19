@@ -9,8 +9,8 @@ import { pathToFileURL } from "node:url";
 import { createHTTPHandler } from "@trpc/server/adapters/standalone";
 import { appRouter } from "./router.js";
 import { createContext } from "./routers/_trpc.js";
-import { getDb, closeDb, getDbPath, isWalEnabled } from "./db.js";
-import { SyncPointEventBus } from "./event-bus.js";
+import { defaultContext, getDbPath } from "./db.js";
+import { createEventBus, type SyncPointEventBus } from "./event-bus.js";
 import type { SyncPointEventData } from "./event-bus.js";
 import { ensureApplicationBootstrap } from "./application/bootstrap.js";
 import { recoverEventBusSeq } from "./repositories/_shared.js";
@@ -38,12 +38,11 @@ const MAX_BODY_SIZE = parseInt(process.env.SYNCPOINT_MAX_BODY_SIZE ?? String(5 *
 
 export function startServer(port = DEFAULT_PORT): http.Server {
   ensureApplicationBootstrap();
-  getDb();
+  defaultContext.db; // force DB init
   syncDeclaredAgents();
   recoverEventBusSeq();
 
-  // Subscribe event bus to SSE broadcast
-  const bus = SyncPointEventBus.getInstance();
+  const bus = createEventBus();
   const sseForward = (data: SyncPointEventData) => broadcastSse(data);
   bus.on("event", sseForward);
 
@@ -123,7 +122,7 @@ export function startServer(port = DEFAULT_PORT): http.Server {
   startMessageTimeoutChecker();
 
   server.listen(port, () => {
-    const walStatus = isWalEnabled() ? "WAL" : "DELETE";
+    const walStatus = defaultContext.walEnabled ? "WAL" : "DELETE";
     logger.info("SyncPoint server started", {
       port,
       dbPath: getDbPath(),
@@ -147,7 +146,7 @@ export function startServer(port = DEFAULT_PORT): http.Server {
     wakeEngineStop();
     closeAllSseConnections();
     bus.off("event", sseForward);
-    closeDb();
+    defaultContext.destroy();
     server.close();
     process.exit(0);
   };

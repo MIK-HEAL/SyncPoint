@@ -7,7 +7,7 @@
  *   - WAL status reporting
  */
 
-import { checkDbIntegrity, isWalEnabled, getWalSize } from "./db.js";
+import { defaultContext } from "./db.js";
 import { logger } from "./logger.js";
 
 // ── Uptime ─────────────────────────────────────────────
@@ -38,9 +38,9 @@ export interface HealthReport {
  * Build a health report. Used by the health check HTTP endpoint.
  */
 export function getHealthReport(): HealthReport {
-  const dbIntegrity = checkDbIntegrity();
-  const walEnabled = isWalEnabled();
-  const walSize = getWalSize();
+  const dbIntegrity = defaultContext.checkIntegrity();
+  const walEnabled = defaultContext.walEnabled;
+  const walSize = defaultContext.getWalSize();
 
   let dbStatus: HealthStatus = "ok";
   if (!dbIntegrity.ok) {

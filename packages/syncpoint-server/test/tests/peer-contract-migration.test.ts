@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "../../src/schema.js";
-import { runMigrations } from "../../src/db.js";
-import type { SyncPointDb } from "../../src/db.js";
-import { __setDb } from "../../src/repositories/_shared.js";
+import { runMigrations, DatabaseContext } from "../../src/db.js";
+import { __setTestContext, __resetContext } from "../../src/repositories/_shared.js";
 import { getContract } from "../../src/repositories/contract-repository.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -30,7 +28,7 @@ describe("peer_contract normalization migration", () => {
   let sqlite: Database.Database | null = null;
 
   afterEach(() => {
-    __setDb(null);
+    __resetContext();
     if (sqlite) {
       sqlite.close();
       sqlite = null;
@@ -141,8 +139,8 @@ describe("peer_contract normalization migration", () => {
       { position: 1, dependency: "db" },
     ]);
 
-    const db = drizzle(sqlite, { schema }) as unknown as SyncPointDb;
-    __setDb(db);
+    const ctx = new DatabaseContext({ dbPath: ":memory:", skipWal: true, sqlite });
+    __setTestContext(ctx);
 
     expect(getContract("c1")).toEqual({
       id: "c1",

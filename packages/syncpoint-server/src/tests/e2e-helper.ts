@@ -28,7 +28,7 @@ export async function startE2E(): Promise<E2EContext> {
 
   // Dynamic import to pick up the env var
   const { startServer } = await import("../main.js");
-  const { closeDb } = await import("../db.js");
+  const { defaultContext } = await import("../db.js");
 
   const server = startServer(port);
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -47,7 +47,7 @@ export async function startE2E(): Promise<E2EContext> {
     rpc: (proc, input?, method?, callerId = "e2e-test-user") => trpcFetch(baseUrl, proc, input, method, callerId),
     cleanup: async () => {
       delete process.env.SYNCPOINT_DB_DIR;
-      closeDb();
+      defaultContext.destroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       fs.rmSync(tmpDir, { recursive: true, force: true });
     },

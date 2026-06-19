@@ -2,20 +2,13 @@ import { mkdtempSync, rmSync, writeFileSync, readFileSync, symlinkSync } from "n
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import { SyncGateReason, SyncGateStatus, WriteIntent } from "syncpoint-kernel";
-import type { SyncPointDb } from "../db.js";
-import { runMigrations } from "../db.js";
-import * as repo from "../repositories/index.js";
-import { __setDb } from "../repositories/_shared.js";
-import * as schema from "../schema.js";
-import { rcClaim } from "../application/resource-claim-service.js";
-import { writeApply, writePrepare } from "../application/write-permit-service.js";
-import { resetPathResolverCache } from "../application/path-resolver.js";
+import * as repo from "../../src/repositories/index.js";
+import { __createTestContext, __resetContext } from "../../src/repositories/_shared.js";
+import { rcClaim } from "../../src/application/resource-claim-service.js";
+import { writeApply, writePrepare } from "../../src/application/write-permit-service.js";
+import { resetPathResolverCache } from "../../src/application/path-resolver.js";
 
-let sqlite: Database.Database;
-let db: SyncPointDb;
 let root: string;
 let agentA: string;
 let agentB: string;
@@ -27,10 +20,7 @@ function fileResource(locator: string) {
 }
 
 beforeEach(() => {
-  sqlite = new Database(":memory:");
-  runMigrations(sqlite);
-  db = drizzle(sqlite, { schema }) as unknown as SyncPointDb;
-  __setDb(db);
+  __createTestContext();
   previousRoot = process.env.SYNCPOINT_PROJECT_ROOT;
   root = mkdtempSync(path.join(os.tmpdir(), "syncpoint-write-"));
   process.env.SYNCPOINT_PROJECT_ROOT = root;
@@ -41,8 +31,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  __setDb(null);
-  sqlite.close();
+  __resetContext();
   rmSync(root, { recursive: true, force: true });
   if (previousRoot === undefined) delete process.env.SYNCPOINT_PROJECT_ROOT;
   else process.env.SYNCPOINT_PROJECT_ROOT = previousRoot;

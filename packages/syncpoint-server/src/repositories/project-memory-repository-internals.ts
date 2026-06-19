@@ -13,7 +13,7 @@ import type {
   ProjectMemory,
   MemoryProjectionInput,
 } from "syncpoint-context";
-import { getRawDb } from "../db.js";
+import { defaultContext } from "../db.js";
 import { _getDb, createId } from "./_shared.js";
 
 export type ProjectMemoryRow = typeof s.projectMemories.$inferSelect;
@@ -92,12 +92,12 @@ export function buildFtsQuery(query: string): string {
 }
 
 function ensureProjectMemoryFtsSchema(): void {
-  const raw = getRawDb();
+  const raw = defaultContext.raw;
   raw.exec(s.PROJECT_MEMORY_FTS_SQL);
 }
 
 export function syncProjectMemoryFts(memory: ProjectMemory): void {
-  const raw = getRawDb();
+  const raw = defaultContext.raw;
   ensureProjectMemoryFtsSchema();
   raw.prepare("DELETE FROM project_memory_fts WHERE memory_id = ?").run(memory.id);
   raw.prepare(

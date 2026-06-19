@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
-import { __setDb } from "../repositories/_shared.js";
-import { runMigrations } from "../db.js";
+import { __createTestContext, __resetContext } from "../repositories/_shared.js";
 import {
   msgSend,
   msgRead,
@@ -18,18 +14,12 @@ import {
   AgentMessageRequestStatus,
 } from "syncpoint-adapters";
 
-let rawDb: Database.Database;
-
 beforeEach(() => {
-  rawDb = new Database(":memory:");
-  rawDb.pragma("foreign_keys = ON");
-  __setDb(drizzle(rawDb, { schema }));
-  runMigrations(rawDb);
+  __createTestContext();
 });
 
 afterEach(() => {
-  __setDb(null);
-  rawDb.close();
+  __resetContext();
 });
 
 describe("msgSend", () => {

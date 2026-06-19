@@ -35,7 +35,6 @@ export interface SseMetrics {
 const RING_BUFFER_SIZE = 1000;
 
 class SyncPointEventBus extends EventEmitter {
-  private static instance: SyncPointEventBus;
   private _seq = 0;
   private _ring: SyncPointEventData[] = [];
   private _metrics: SseMetrics = {
@@ -46,16 +45,9 @@ class SyncPointEventBus extends EventEmitter {
     reconnectReplays: 0,
   };
 
-  private constructor() {
+  constructor() {
     super();
     this.setMaxListeners(200); // accommodate SSE + internal listeners
-  }
-
-  static getInstance(): SyncPointEventBus {
-    if (!SyncPointEventBus.instance) {
-      SyncPointEventBus.instance = new SyncPointEventBus();
-    }
-    return SyncPointEventBus.instance;
   }
 
   /** Emit an event with an auto-incremented sequence number. */
@@ -150,6 +142,12 @@ class SyncPointEventBus extends EventEmitter {
       reconnectReplays: 0,
     };
   }
+}
+
+// ── Factory & default singleton ────────────────────────
+
+export function createEventBus(): SyncPointEventBus {
+  return new SyncPointEventBus();
 }
 
 export { SyncPointEventBus };

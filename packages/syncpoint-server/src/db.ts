@@ -1,5 +1,8 @@
 /**
  * Database connection and Drizzle ORM setup for SyncPoint.
+ *
+ * Use `defaultContext` for the standard project database,
+ * or `createDatabaseContext()` / `createTestDatabaseContext()` for custom setups.
  */
 
 import Database from "better-sqlite3";
@@ -27,10 +30,28 @@ import {
 export const SYNCPOINT_DIR_NAME = ".syncpoint";
 const DEFAULT_DB_NAME = "syncpoint.db";
 
-/**
- * Walk up from cwd looking for an existing .syncpoint/ directory.
- * Returns the first match, or null if none found.
- */
+// ── Path helpers ──────────────────────────────────────
+
+const DRIZZLE_MIGRATIONS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../drizzle",
+);
+
+const PEER_CONTRACT_NORMALIZATION_SQL_PATH = path.join(
+  DRIZZLE_MIGRATIONS_DIR,
+  "0001_peer_contract_normalization.sql",
+);
+
+const AGENT_REGISTRY_ENTRY_SQL_PATH = path.join(
+  DRIZZLE_MIGRATIONS_DIR,
+  "0002_agent_registry_entry.sql",
+);
+
+const AGENT_MESSAGE_SQL_PATH = path.join(
+  DRIZZLE_MIGRATIONS_DIR,
+  "0004_agent_message.sql",
+);
+
 export function findProjectSyncpointDir(from: string = process.cwd()): string | null {
   let dir = path.resolve(from);
   const { root } = path.parse(dir);
@@ -50,44 +71,40 @@ export function findProjectSyncpointDir(from: string = process.cwd()): string | 
   return null;
 }
 
-let sqlite: Database.Database | null = null;
-let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
-const DRIZZLE_MIGRATIONS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../drizzle");
-
-const PEER_CONTRACT_NORMALIZATION_SQL_PATH = path.join(
-  DRIZZLE_MIGRATIONS_DIR,
-  "0001_peer_contract_normalization.sql",
-);
-
-const AGENT_REGISTRY_ENTRY_SQL_PATH = path.join(
-  DRIZZLE_MIGRATIONS_DIR,
-  "0002_agent_registry_entry.sql",
-);
-
-const AGENT_MESSAGE_SQL_PATH = path.join(
-  DRIZZLE_MIGRATIONS_DIR,
-  "0004_agent_message.sql",
-);
-
-
-function ensureDrizzleMigrationAssets(): void {
-  if (!fs.existsSync(DRIZZLE_MIGRATIONS_DIR)) {
-    throw new InternalError("Drizzle migrations not found. Run `pnpm --filter syncpoint-server db:generate` first.");
-  }
+export function isProjectLocal(): boolean {
+  if (process.env.SYNCPOINT_DB_DIR) return true;
+  return findProjectSyncpointDir() !== null;
 }
 
-// Migration functions extracted to db-migrations.ts
+export function getSyncpointDir(): string {
+  if (process.env.SYNCPOINT_DB_DIR) return process.env.SYNCPOINT_DB_DIR;
+  const projectDir = findProjectSyncpointDir();
+  if (projectDir) return projectDir;
+  return path.join(os.homedir(), SYNCPOINT_DIR_NAME);
+}
+
+export function getDbPath(): string {
+  if (process.env.SYNCPOINT_DB_DIR) {
+    const dir = process.env.SYNCPOINT_DB_DIR;
+    fs.mkdirSync(dir, { recursive: true });
+    return path.join(dir, DEFAULT_DB_NAME);
+  }
+  const projectDir = findProjectSyncpointDir();
+  if (projectDir) {
+    return path.join(projectDir, DEFAULT_DB_NAME);
+  }
+  const fallback = path.join(os.homedir(), SYNCPOINT_DIR_NAME);
+  fs.mkdirSync(fallback, { recursive: true });
+  return path.join(fallback, DEFAULT_DB_NAME);
+}
 
 function detectNetworkFilesystem(dbPath: string): boolean {
-  // Common network/synced filesystem mount points and path patterns
   const networkPrefixes = [
     "/mnt/", "/media/", "/Volumes/",
     "/net/", "/nfs/", "/smb/", "/cifs/",
   ];
-  // Windows UNC paths and network drives
   if (process.platform === "win32") {
     if (dbPath.startsWith("\\\\")) return true;
-    // Common cloud-sync directories on Windows
     const cloudSyncPatterns = [
       "OneDrive", "Dropbox", "Google Drive", "Box", "iCloudDrive",
     ];
@@ -97,186 +114,198 @@ function detectNetworkFilesystem(dbPath: string): boolean {
   return false;
 }
 
-let _walEnabled: boolean | null = null;
-
-/**
- * Returns true if WAL mode was successfully enabled on the current database.
- */
-export function isWalEnabled(): boolean {
-  return _walEnabled === true;
-}
-
-function applyPragmas(db: Database.Database, dbPath: string): void {
-  db.pragma("foreign_keys = ON");
-
-  // Skip WAL on known network/synced filesystems to avoid disk I/O errors
-  if (detectNetworkFilesystem(dbPath)) {
-    _walEnabled = false;
-    return;
-  }
-
-  // Attempt to enable WAL mode. On some filesystems (network drives,
-  // certain Linux kernel configs) this can fail with disk I/O errors.
-  // Gracefully fall back to DELETE journal mode if WAL fails.
-  try {
-    db.pragma("journal_mode = WAL");
-    const currentMode = db.pragma("journal_mode", { simple: true });
-    if (currentMode === "wal") {
-      _walEnabled = true;
-      // WAL mode is safe with NORMAL synchronous (fsync only at checkpoint)
-      db.pragma("synchronous = NORMAL");
-      // Auto-checkpoint every 1000 pages (~4MB) to keep WAL file manageable
-      db.pragma("wal_autocheckpoint = 1000");
-      // Wait up to 5s on lock contention instead of immediately failing
-      db.pragma("busy_timeout = 5000");
-      // Use memory-mapped I/O for better read performance
-      db.pragma("mmap_size = 268435456"); // 256MB
-      // Store temp tables in memory
-      db.pragma("temp_store = MEMORY");
-      // Increase page cache for better performance
-      db.pragma("cache_size = -64000"); // 64MB
-    } else {
-      _walEnabled = false;
-    }
-  } catch {
-    // WAL failed — fall back to DELETE mode silently
-    _walEnabled = false;
+function ensureDrizzleMigrationAssets(): void {
+  if (!fs.existsSync(DRIZZLE_MIGRATIONS_DIR)) {
+    throw new InternalError(
+      "Drizzle migrations not found. Run `pnpm --filter syncpoint-server db:generate` first.",
+    );
   }
 }
 
-/**
- * Returns true if the DB resolves to a project-local .syncpoint/ (not ~/.syncpoint fallback).
- */
-export function isProjectLocal(): boolean {
-  if (process.env.SYNCPOINT_DB_DIR) return true;
-  return findProjectSyncpointDir() !== null;
-}
-
-/**
- * Returns the resolved .syncpoint directory path (project-local or fallback).
- */
-export function getSyncpointDir(): string {
-  if (process.env.SYNCPOINT_DB_DIR) return process.env.SYNCPOINT_DB_DIR;
-  const projectDir = findProjectSyncpointDir();
-  if (projectDir) return projectDir;
-  return path.join(os.homedir(), SYNCPOINT_DIR_NAME);
-}
-
-export function getDbPath(): string {
-  // 1. Explicit env var wins
-  if (process.env.SYNCPOINT_DB_DIR) {
-    const dir = process.env.SYNCPOINT_DB_DIR;
-    fs.mkdirSync(dir, { recursive: true });
-    return path.join(dir, DEFAULT_DB_NAME);
-  }
-  // 2. Walk up to find project-local .syncpoint/
-  const projectDir = findProjectSyncpointDir();
-  if (projectDir) {
-    return path.join(projectDir, DEFAULT_DB_NAME);
-  }
-  // 3. Fallback to ~/.syncpoint/
-  const fallback = path.join(os.homedir(), SYNCPOINT_DIR_NAME);
-  fs.mkdirSync(fallback, { recursive: true });
-  return path.join(fallback, DEFAULT_DB_NAME);
-}
-
-/**
- * Initialize a .syncpoint/ directory in the given (or current) directory.
- * Returns the created directory path.
- */
-export function initSyncpointDir(baseDir: string = process.cwd()): string {
-  const dir = path.join(path.resolve(baseDir), SYNCPOINT_DIR_NAME);
-  fs.mkdirSync(dir, { recursive: true });
-  // Create the DB to ensure schema exists
-  const dbPath = path.join(dir, DEFAULT_DB_NAME);
-  const db = new Database(dbPath);
-  applyPragmas(db, dbPath);
-  runMigrations(db);
-  db.close();
-  return dir;
-}
+// ── DatabaseContext ───────────────────────────────────
 
 export type SyncPointDb = ReturnType<typeof drizzle<typeof schema>>;
 
-export function getDb(): SyncPointDb {
-  if (_db) return _db;
-  const dbPath = getDbPath();
-  sqlite = new Database(dbPath);
-  applyPragmas(sqlite, dbPath);
-  _db = drizzle(sqlite, { schema });
-  runMigrations(sqlite);
-  return _db;
+export interface DatabaseContextOptions {
+  dbPath?: string;
+  skipWal?: boolean;
+  /** Pre-existing Database handle. When set, no connection, pragmas,
+   *  or migrations are applied — the caller owns the lifecycle. */
+  sqlite?: Database.Database;
 }
 
-export function getRawDb(): Database.Database {
-  getDb();
-  return sqlite!;
-}
+export class DatabaseContext {
+  private _sqlite: Database.Database | null = null;
+  private _db: SyncPointDb | null = null;
+  private _walEnabled: boolean | null = null;
+  private _dbPath: string;
+  private _skipWal: boolean;
+  private _externalSqlite: boolean;
 
-export function closeDb(): void {
-  if (sqlite) {
-    sqlite.close();
-    sqlite = null;
-    _db = null;
-    _walEnabled = null;
-  }
-}
-
-/**
- * Run a database integrity check. Returns true if the database passes.
- */
-export function checkDbIntegrity(): { ok: boolean; details: string } {
-  if (!sqlite) {
-    return { ok: false, details: "Database not initialized" };
-  }
-  try {
-    const result = sqlite.pragma("integrity_check", { simple: true });
-    const ok = result === "ok";
-    return { ok, details: ok ? "ok" : String(result) };
-  } catch (err) {
-    return { ok: false, details: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/**
- * Create a backup of the current database to the specified path.
- * Uses VACUUM INTO for a clean, defragmented copy (SQLite 3.27.0+).
- */
-export function backupDb(destPath: string): { ok: boolean; error?: string } {
-  if (!sqlite) {
-    return { ok: false, error: "Database not initialized" };
-  }
-  try {
-    // Resolve and validate the destination path before passing to SQLite.
-    // VACUUM INTO does not support bound parameters, so we resolve to a
-    // canonical absolute path and still escape single-quote literals.
-    const resolved = path.resolve(destPath);
-    const destDir = path.dirname(resolved);
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
+  constructor(opts: DatabaseContextOptions = {}) {
+    this._dbPath = opts.dbPath ?? getDbPath();
+    this._skipWal = opts.skipWal ?? false;
+    if (opts.sqlite) {
+      this._sqlite = opts.sqlite;
+      this._externalSqlite = true;
+      // Build the drizzle wrapper immediately — caller manages lifecycle
+      this._db = drizzle(this._sqlite, { schema });
+    } else {
+      this._externalSqlite = false;
     }
-    sqlite.exec(`VACUUM INTO '${resolved.replace(/'/g, "''")}'`);
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+
+  get db(): SyncPointDb {
+    if (this._db) return this._db;
+    this._sqlite = new Database(this._dbPath);
+    this._applyPragmas();
+    this._db = drizzle(this._sqlite, { schema });
+    this._runMigrations();
+    return this._db;
+  }
+
+  get raw(): Database.Database {
+    this.db;
+    return this._sqlite!;
+  }
+
+  get dbPath(): string {
+    return this._dbPath;
+  }
+
+  get walEnabled(): boolean {
+    return this._walEnabled === true;
+  }
+
+  destroy(): void {
+    if (this._sqlite) {
+      if (!this._externalSqlite) {
+        this._sqlite.close();
+      }
+      this._sqlite = null;
+      this._db = null;
+      this._walEnabled = null;
+    }
+  }
+
+  checkIntegrity(): { ok: boolean; details: string } {
+    if (!this._sqlite) {
+      return { ok: false, details: "Database not initialized" };
+    }
+    try {
+      const result = this._sqlite.pragma("integrity_check", { simple: true });
+      const ok = result === "ok";
+      return { ok, details: ok ? "ok" : String(result) };
+    } catch (err) {
+      return {
+        ok: false,
+        details: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  backup(destPath: string): { ok: boolean; error?: string } {
+    if (!this._sqlite) {
+      return { ok: false, error: "Database not initialized" };
+    }
+    try {
+      const resolved = path.resolve(destPath);
+      const destDir = path.dirname(resolved);
+      if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+      }
+      this._sqlite.exec(`VACUUM INTO '${resolved.replace(/'/g, "''")}'`);
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  getWalSize(): number | null {
+    if (!this._sqlite || !this._walEnabled) return null;
+    try {
+      const walPath = this._dbPath + "-wal";
+      const stat = fs.statSync(walPath);
+      return stat.size;
+    } catch {
+      return null;
+    }
+  }
+
+  private _applyPragmas(): void {
+    const db = this._sqlite!;
+    db.pragma("foreign_keys = ON");
+
+    if (this._skipWal || detectNetworkFilesystem(this._dbPath)) {
+      this._walEnabled = false;
+      return;
+    }
+
+    try {
+      db.pragma("journal_mode = WAL");
+      const currentMode = db.pragma("journal_mode", { simple: true });
+      if (currentMode === "wal") {
+        this._walEnabled = true;
+        db.pragma("synchronous = NORMAL");
+        db.pragma("wal_autocheckpoint = 1000");
+        db.pragma("busy_timeout = 5000");
+        db.pragma("mmap_size = 268435456");
+        db.pragma("temp_store = MEMORY");
+        db.pragma("cache_size = -64000");
+      } else {
+        this._walEnabled = false;
+      }
+    } catch {
+      this._walEnabled = false;
+    }
+  }
+
+  private _runMigrations(): void {
+    const db = this._sqlite!;
+    ensureDrizzleMigrationAssets();
+    migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });
+    runPeerContractNormalizationMigration(db, PEER_CONTRACT_NORMALIZATION_SQL_PATH);
+    runAgentRegistryEntryMigration(db, AGENT_REGISTRY_ENTRY_SQL_PATH);
+    runAgentMessageMigration(db, AGENT_MESSAGE_SQL_PATH);
+    runFkIndexesMigration(db);
+    runQueryPathIndexesMigration(db);
+    runStateTransitionLogMigration(db);
+    runResourceScopeMigration(db);
+    runContextSnapshotIncrementalMigration(db);
+    runEventSeqMigration(db);
+    ensureRuntimeOnlyTables(db);
   }
 }
 
-/**
- * Return the current WAL file size in bytes, or null if WAL is not enabled.
- */
-export function getWalSize(): number | null {
-  if (!sqlite || !_walEnabled) return null;
-  try {
-    const dbPath = getDbPath();
-    const walPath = dbPath + "-wal";
-    const stat = fs.statSync(walPath);
-    return stat.size;
-  } catch {
-    return null;
-  }
+// ── Factory functions ─────────────────────────────────
+
+export function createDatabaseContext(opts?: DatabaseContextOptions): DatabaseContext {
+  return new DatabaseContext(opts);
 }
 
+export function createTestDatabaseContext(): DatabaseContext {
+  return new DatabaseContext({ dbPath: ":memory:", skipWal: true });
+}
+
+/** Default project database context. Created lazily on first access. */
+export const defaultContext = new DatabaseContext();
+
+// ── Utilities ─────────────────────────────────────────
+
+export function initSyncpointDir(baseDir: string = process.cwd()): string {
+  const dir = path.join(path.resolve(baseDir), SYNCPOINT_DIR_NAME);
+  fs.mkdirSync(dir, { recursive: true });
+  const dbPath = path.join(dir, DEFAULT_DB_NAME);
+  const ctx = new DatabaseContext({ dbPath });
+  ctx.db;
+  ctx.destroy();
+  return dir;
+}
+
+/** Run migrations on a raw Database handle (for tests that bypass DatabaseContext). */
 export function runMigrations(db: Database.Database): void {
   ensureDrizzleMigrationAssets();
   migrate(drizzle(db, { schema }), { migrationsFolder: DRIZZLE_MIGRATIONS_DIR });

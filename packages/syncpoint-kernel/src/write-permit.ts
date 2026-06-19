@@ -4,7 +4,8 @@ import { OperationStatus } from "./operation.js";
 import type { ResourceClaim, ResourceRef } from "./resource.js";
 import { ResourceClaimMode, ResourceClaimStatus, ResourceRefSchema, resourceLocatorsOverlap } from "./resource.js";
 import type { SyncGate } from "./sync-gate.js";
-import { isGateBlocking, parseIdList } from "./sync-gate.js";
+import { isGateBlocking } from "./sync-gate.js";
+import { parseRelatedFileLocators } from "./file-audit.js";
 
 export enum WriteIntent {
   CREATE = "create",
@@ -118,9 +119,12 @@ export interface WriteDecisionInput {
   constraintDecision?: WriteConstraintDecisionInput;
 }
 
-export function evaluateWriteDecision(input: WriteDecisionInput): WriteDecision {
+// ── Check functions ─────────────────────────────────
+
+type CheckFn = (input: WriteDecisionInput) => WriteDecisionBlocker[];
+
+function validateResources(input: WriteDecisionInput): WriteDecisionBlocker[] {
   const blockers: WriteDecisionBlocker[] = [];
-  const warnings: WriteDecisionWarning[] = [];
 
   if (input.resources.length === 0) {
     blockers.push({ type: "resource", id: "", message: "Write request must include at least one resource." });
@@ -133,13 +137,27 @@ export function evaluateWriteDecision(input: WriteDecisionInput): WriteDecision 
     }
   }
 
+  return blockers;
+}
+
+function checkExternalConflicts(input: WriteDecisionInput): WriteDecisionBlocker[] {
+  const blockers: WriteDecisionBlocker[] = [];
+
+  // Blocking sync gates
   for (const gate of relevantBlockingGates(input)) {
     blockers.push({ type: "sync_gate", id: gate.id, message: `Unresolved SyncGate blocks this write: ${gate.description || gate.reason}.` });
   }
 
+  // Conflicting exclusive claims from other actors
   for (const claim of conflictingExclusiveClaims(input)) {
     blockers.push({ type: "resource_claim", id: claim.id, message: `Resource is covered by another active exclusive claim owned by ${claim.actorId}.` });
   }
+
+  return blockers;
+}
+
+function checkConstraintRuntime(input: WriteDecisionInput): WriteDecisionBlocker[] {
+  const blockers: WriteDecisionBlocker[] = [];
 
   if (input.constraintDecision?.runtimeUnavailable) {
     blockers.push({ type: "constraint_runtime", id: "runtime_unavailable", message: `Constraint runtime unavailable: ${input.constraintDecision.runtimeUnavailable.message}` });
@@ -153,32 +171,64 @@ export function evaluateWriteDecision(input: WriteDecisionInput): WriteDecision 
     }
   }
 
+  return blockers;
+}
+
+function checkAuthorization(input: WriteDecisionInput): WriteDecisionBlocker[] {
+  const blockers: WriteDecisionBlocker[] = [];
+
   const operationAuthorized = isApprovedOperationAuthorized(input);
   const coveringClaims = claimsCoveringAllResources(input);
 
+  // Not authorized by operation AND no covering claims → single clear blocker
   if (!operationAuthorized && coveringClaims.length === 0) {
-    blockers.push({ type: "authorization", id: input.operation?.id ?? "", message: "Actor must own a compatible active claim or reference an approved operation for all target resources." });
+    const id = input.operation?.id ?? "";
+    const msg = input.operation
+      ? "Referenced operation is not approved for this actor, task, session, and target resources."
+      : "Actor must own a compatible active claim or reference an approved operation for all target resources.";
+    blockers.push({ type: "authorization", id, message: msg });
   }
 
-  if (input.operation && !operationAuthorized) {
-    blockers.push({ type: "operation", id: input.operation.id, message: "Referenced operation is not approved for this actor, task, session, and target resources." });
-  }
+  return blockers;
+}
 
-  if (blockers.length > 0) {
-    return { permitted: false, reason: WriteDecisionReason.BLOCKED, blockers, warnings };
-  }
+// ── Decision routing ────────────────────────────────
+
+function determinePermitReason(input: WriteDecisionInput): WriteDecision {
+  const operationAuthorized = isApprovedOperationAuthorized(input);
+  const coveringClaims = claimsCoveringAllResources(input);
 
   if (operationAuthorized && coveringClaims.length === 0) {
-    return { permitted: true, reason: WriteDecisionReason.APPROVED_OPERATION, blockers, warnings };
+    return { permitted: true, reason: WriteDecisionReason.APPROVED_OPERATION, blockers: [], warnings: [] };
   }
 
   const hasExclusive = coveringClaims.some(claim => claim.mode === ResourceClaimMode.EXCLUSIVE);
   return {
     permitted: true,
     reason: hasExclusive ? WriteDecisionReason.OWNED_CLAIM : WriteDecisionReason.SHARED_CLAIM,
-    blockers,
-    warnings,
+    blockers: [],
+    warnings: [],
   };
+}
+
+const CHECKS: CheckFn[] = [
+  validateResources,
+  checkExternalConflicts,
+  checkConstraintRuntime,
+  checkAuthorization,
+];
+
+export function evaluateWriteDecision(input: WriteDecisionInput): WriteDecision {
+  const warnings: WriteDecisionWarning[] = [];
+
+  for (const check of CHECKS) {
+    const blockers = check(input);
+    if (blockers.length > 0) {
+      return { permitted: false, reason: WriteDecisionReason.BLOCKED, blockers, warnings };
+    }
+  }
+
+  return determinePermitReason(input);
 }
 
 function relevantBlockingGates(input: WriteDecisionInput): SyncGate[] {
@@ -186,7 +236,7 @@ function relevantBlockingGates(input: WriteDecisionInput): SyncGate[] {
     if (!isGateBlocking(gate)) return false;
     if (gate.taskId && gate.taskId !== input.taskId) return false;
     if (input.sessionId && gate.sessionId && gate.sessionId !== input.sessionId) return false;
-    if (parseIdList(gate.requiredAgentIds).includes(input.actorId)) return true;
+    if (gate.requiredAgentIds.includes(input.actorId)) return true;
     return input.resources.some(resource => gateOverlapsResource(gate, resource));
   });
 }
@@ -196,14 +246,6 @@ function gateOverlapsResource(gate: SyncGate, resource: ResourceRef): boolean {
   if (related.some(candidate => resourceLocatorsOverlap(candidate, resource))) return true;
   if (resource.type !== "file") return false;
   return parseRelatedFileLocators(gate.relatedFiles).some(locator => resourceLocatorsOverlap({ type: "file", scope: "file", locator, metadata: "" }, resource));
-}
-
-function parseRelatedFileLocators(value: string[] | string): string[] {
-  const parts = Array.isArray(value) ? value : value.split(",");
-  return parts
-    .flatMap(part => part.split("↔"))
-    .map(part => part.trim())
-    .filter(Boolean);
 }
 
 function conflictingExclusiveClaims(input: WriteDecisionInput): ResourceClaim[] {

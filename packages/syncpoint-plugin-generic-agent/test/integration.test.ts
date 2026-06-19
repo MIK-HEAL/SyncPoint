@@ -29,7 +29,6 @@ import type {
 } from "syncpoint-core";
 import {
   registerGenericAgentPlugin,
-  _resetGenericAgentPlugin,
   isGenericAgentPluginRegistered,
 } from "../src/index.js";
 
@@ -105,7 +104,8 @@ beforeEach(() => {
   clearResourceMatcherRegistry();
   clearConstraintEvaluatorRegistry();
   clearScopeMatcherRegistry();
-  _resetGenericAgentPlugin();
+  clearValidatorRegistry();
+  clearResourceMatcherRegistry();
 });
 
 // ── Registration ─────────────────────────────────────
@@ -161,7 +161,8 @@ describe("registerGenericAgentPlugin", () => {
     registerGenericAgentPlugin();
     clearValidatorRegistry();
     clearResourceMatcherRegistry();
-    _resetGenericAgentPlugin();
+    clearValidatorRegistry();
+  clearResourceMatcherRegistry();
     registerGenericAgentPlugin();
     expect(getResourceMatcher("artifact")).toBeDefined();
     const vs = getValidatorsForOperation("artifact_update", ["artifact"]);

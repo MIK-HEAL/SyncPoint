@@ -13,22 +13,22 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { closeDb, getDb, getRawDb, isWalEnabled } from "../../src/db.js";
+import {  } from "../../src/db.js";
 import { ensureApplicationBootstrap } from "../../src/application/index.js";
 
 let tmpDir = "";
 
 beforeEach(() => {
-  closeDb();
+  defaultContext.destroy();
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-stress-"));
   process.env.SYNCPOINT_DB_DIR = tmpDir;
   process.env.SYNCPOINT_PROJECT_ROOT = tmpDir;
   ensureApplicationBootstrap();
-  getDb();
+  defaultContext.db;
 });
 
 afterEach(() => {
-  closeDb();
+  defaultContext.destroy();
   delete process.env.SYNCPOINT_DB_DIR;
   delete process.env.SYNCPOINT_PROJECT_ROOT;
   if (tmpDir) {
@@ -38,7 +38,7 @@ afterEach(() => {
 
 describe("concurrent write stress test", () => {
   it("handles 50 rapid sequential agent creations without errors", () => {
-    const db = getRawDb();
+    const db = defaultContext.raw;
     const CONCURRENT = 50;
 
     // Verify WAL is active
@@ -66,7 +66,7 @@ describe("concurrent write stress test", () => {
   });
 
   it("handles 50 interleaved transactions for resource claims", () => {
-    const db = getRawDb();
+    const db = defaultContext.raw;
     const ts = new Date().toISOString();
 
     // Pre-create agents and tasks
@@ -96,7 +96,7 @@ describe("concurrent write stress test", () => {
   });
 
   it("handles 50 rapid state transition log writes", () => {
-    const db = getRawDb();
+    const db = defaultContext.raw;
     const CONCURRENT = 50;
     const ts = new Date().toISOString();
 
@@ -127,6 +127,6 @@ describe("concurrent write stress test", () => {
   });
 
   it("reports WAL mode as enabled", () => {
-    expect(isWalEnabled()).toBe(true);
+    expect(defaultContext.walEnabled).toBe(true);
   });
 });

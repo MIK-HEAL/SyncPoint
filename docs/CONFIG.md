@@ -28,7 +28,7 @@ database:
 
 # File Guard
 guard:
-  mode: L2_warn          # off | L1_audit | L2_warn | L3_block
+  mode: L1_controlled    # off | L0_audit | L1_controlled | L2_editor_guard | L3_proxy
   fileWatcher: native     # native | @parcel/watcher
   debounceMs: 300
   maxWatchers: 5000
@@ -73,7 +73,7 @@ log:
 | `SYNCPOINT_DB_DIR` | Database directory path |
 | `SYNCPOINT_NO_WAL` | Set to `true` to disable WAL mode |
 | `SYNCPOINT_SHARED_SECRET` | Auth shared secret |
-| `SYNCPOINT_GUARD_MODE` | Guard mode (off/L1_audit/L2_warn/L3_block) |
+| `SYNCPOINT_GUARD_MODE` | Guard mode (off/L0_audit/L1_controlled/L2_editor_guard/L3_proxy) |
 | `SYNCPOINT_DEFAULT_POLICY` | Default constraint policy |
 | `SYNCPOINT_HTTPS` | Set to `true` for HTTPS mode |
 | `SYNCPOINT_MAX_BODY_SIZE` | Max request body size in bytes (default 5MB) |

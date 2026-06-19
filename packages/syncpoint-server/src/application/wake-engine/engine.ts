@@ -5,7 +5,7 @@ import type {
   WakeTarget,
   WakeContext,
 } from "syncpoint-governance";
-import { SyncPointEventBus } from "../../event-bus.js";
+import { _getBus } from "../../repositories/_shared.js";
 import type { SyncPointEventData } from "../../event-bus.js";
 import {
   createWakeRequest,
@@ -34,7 +34,7 @@ export function wakeEngineStart(options?: WakeEngineOptions): void {
   wakeEngineState.options = { enabled: true, defaultRunnerMode: "manual", ...options };
   wakeEngineState.stats = { eventsProcessed: 0, wakeRequestsCreated: 0, wakeRequestsSkipped: 0, running: true };
 
-  const bus = SyncPointEventBus.getInstance();
+  const bus = _getBus();
   wakeEngineState.listener = (data: SyncPointEventData) => {
     if (!wakeEngineState.options.enabled) return;
     if (wakeEngineState.processing) return;
@@ -49,7 +49,7 @@ export function wakeEngineStart(options?: WakeEngineOptions): void {
 
 export function wakeEngineStop(): void {
   if (!wakeEngineState.listener) return;
-  const bus = SyncPointEventBus.getInstance();
+  const bus = _getBus();
   bus.off("event", wakeEngineState.listener);
   wakeEngineState.listener = null;
   wakeEngineState.stats.running = false;

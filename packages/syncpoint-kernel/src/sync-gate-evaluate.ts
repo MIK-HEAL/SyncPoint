@@ -23,19 +23,11 @@ export { GateVoteKind };
 // ── Pure helpers ────────────────────────────────────
 
 /**
- * Parse a comma-separated ID list into an array.
- */
-export function parseIdList(ids: string[] | string): string[] {
-  if (Array.isArray(ids)) return ids.map(s => s.trim()).filter(s => s.length > 0);
-  return ids.split(",").map(s => s.trim()).filter(s => s.length > 0);
-}
-
-/**
  * Check if all required agents have acknowledged.
  */
 export function allAcked(gate: SyncGate): boolean {
-  const required = parseIdList(gate.requiredAgentIds);
-  const acked = parseIdList(gate.ackedAgentIds);
+  const required = gate.requiredAgentIds;
+  const acked = gate.ackedAgentIds;
   return required.length > 0 && required.every(id => acked.includes(id));
 }
 
@@ -43,8 +35,7 @@ export function allAcked(gate: SyncGate): boolean {
  * Check if quorum is met (N acks out of M required).
  */
 export function quorumMet(gate: SyncGate, quorum: number): boolean {
-  const acked = parseIdList(gate.ackedAgentIds);
-  return acked.length >= quorum;
+  return gate.ackedAgentIds.length >= quorum;
 }
 
 /**
@@ -85,10 +76,6 @@ export enum LivenessAction {
   ESCALATE = "escalate",
   /** Quorum met — allow resolve */
   ALLOW_QUORUM_RESOLVE = "allow_quorum_resolve",
-  /** Majority voted to cancel waiting */
-  ALLOW_CANCEL = "allow_cancel",
-  /** Must be resolved by human */
-  REQUIRE_HUMAN_OVERRIDE = "require_human_override",
   /** Conflict no longer exists — auto-resolve */
   AUTO_RESOLVE = "auto_resolve",
 }
@@ -122,27 +109,19 @@ export function evaluateGateLiveness(
 
   const policy = parseGatePolicy(gate);
 
-  // Check deadline timeout first — applies to all policy kinds
+  // Check deadline timeout — applies to all policy kinds
   if (policy.deadlineAt) {
     const deadline = new Date(policy.deadlineAt);
     if (now >= deadline) {
-      switch (policy.timeoutAction) {
-        case GateTimeoutAction.ESCALATE:
-          return {
-            action: LivenessAction.ESCALATE,
-            reason: `Deadline passed (${policy.deadlineAt})`,
-            escalateTo: policy.escalationAgentIds,
-          };
-        case GateTimeoutAction.CANCEL:
-          return { action: LivenessAction.ALLOW_CANCEL, reason: `Deadline passed — cancel` };
-        case GateTimeoutAction.AWAIT_DECISION:
-        default:
-          return {
-            action: LivenessAction.REQUIRE_HUMAN_OVERRIDE,
-            reason: `Deadline passed — awaiting decision`,
-            escalateTo: policy.escalationAgentIds,
-          };
+      if (policy.timeoutAction === GateTimeoutAction.CANCEL) {
+        return { action: LivenessAction.AUTO_RESOLVE, reason: `Deadline passed — auto-cancel` };
       }
+      // Default: escalate
+      return {
+        action: LivenessAction.ESCALATE,
+        reason: `Deadline passed (${policy.deadlineAt})`,
+        escalateTo: policy.escalationAgentIds,
+      };
     }
   }
 
@@ -169,49 +148,11 @@ export function evaluateGateLiveness(
     }
 
     case GatePolicyKind.QUORUM_ACK: {
-      const q = policy.quorum ?? Math.ceil(parseIdList(gate.requiredAgentIds).length / 2);
+      const q = policy.quorum ?? Math.ceil(gate.requiredAgentIds.length / 2);
       if (quorumMet(gate, q)) {
-        return { action: LivenessAction.ALLOW_QUORUM_RESOLVE, reason: `Quorum met (${parseIdList(gate.ackedAgentIds).length}/${q})` };
+        return { action: LivenessAction.ALLOW_QUORUM_RESOLVE, reason: `Quorum met (${gate.ackedAgentIds.length}/${q})` };
       }
-      return { action: LivenessAction.CONTINUE_BLOCKING, reason: `Quorum not met (${parseIdList(gate.ackedAgentIds).length}/${q})` };
-    }
-
-    case GatePolicyKind.MAJORITY_VETO: {
-      const required = parseIdList(gate.requiredAgentIds);
-      const voteCounts = countVotes(votes);
-      const majority = Math.floor(required.length / 2) + 1;
-      if (voteCounts[GateVoteKind.REJECT] >= majority && voteCounts[GateVoteKind.REJECT] > voteCounts[GateVoteKind.APPROVE]) {
-        return {
-          action: LivenessAction.ESCALATE,
-          reason: `Majority rejected continued waiting (${voteCounts[GateVoteKind.REJECT]}/${majority})`,
-          escalateTo: policy.escalationAgentIds,
-        };
-      }
-      if (voteCounts[GateVoteKind.APPROVE] >= majority && voteCounts[GateVoteKind.APPROVE] > voteCounts[GateVoteKind.REJECT]) {
-        return { action: LivenessAction.ALLOW_QUORUM_RESOLVE, reason: `Majority approved (${voteCounts[GateVoteKind.APPROVE]}/${majority})` };
-      }
-      return { action: LivenessAction.CONTINUE_BLOCKING, reason: "Voting in progress" };
-    }
-
-    case GatePolicyKind.OWNER_OVERRIDE: {
-      const lastVoteByAgent = new Map<string, GateVoteKind>();
-      for (const v of votes) lastVoteByAgent.set(v.agentId, v.vote);
-      const ownerLatest = lastVoteByAgent.get(gate.requestedByAgentId);
-      if (ownerLatest === GateVoteKind.APPROVE) {
-        return { action: LivenessAction.AUTO_RESOLVE, reason: "Owner approved override" };
-      }
-      if (allAcked(gate)) {
-        return { action: LivenessAction.AUTO_RESOLVE, reason: "All required agents acked" };
-      }
-      return { action: LivenessAction.CONTINUE_BLOCKING, reason: "Waiting for owner override or full ack" };
-    }
-
-    case GatePolicyKind.HUMAN_REQUIRED: {
-      return {
-        action: LivenessAction.REQUIRE_HUMAN_OVERRIDE,
-        reason: "Human confirmation required",
-        escalateTo: policy.escalationAgentIds,
-      };
+      return { action: LivenessAction.CONTINUE_BLOCKING, reason: `Quorum not met (${gate.ackedAgentIds.length}/${q})` };
     }
   }
 }
@@ -220,9 +161,7 @@ export function evaluateGateLiveness(
  * List agents who have not yet acknowledged.
  */
 export function pendingAgents(gate: SyncGate): string[] {
-  const required = parseIdList(gate.requiredAgentIds);
-  const acked = parseIdList(gate.ackedAgentIds);
-  return required.filter(id => !acked.includes(id));
+  return gate.requiredAgentIds.filter(id => !gate.ackedAgentIds.includes(id));
 }
 
 /**
@@ -235,8 +174,7 @@ export function isAgentBlocked(gate: SyncGate, agentId: string): boolean {
   ) {
     return false;
   }
-  const required = parseIdList(gate.requiredAgentIds);
-  return required.includes(agentId);
+  return gate.requiredAgentIds.includes(agentId);
 }
 
 /**
@@ -253,8 +191,7 @@ export function isGateBlocking(gate: SyncGate): boolean {
  * Check if a gate has any acks but not all — useful for PARTIALLY_ACKED detection.
  */
 export function hasPartialAcks(gate: SyncGate): boolean {
-  const acked = parseIdList(gate.ackedAgentIds);
-  return acked.length > 0 && !allAcked(gate);
+  return gate.ackedAgentIds.length > 0 && !allAcked(gate);
 }
 
 // ── Gate Detailed Status ─────────────────────────────
@@ -263,9 +200,9 @@ export type GateAction =
   | "ack"
   | "vote"
   | "change_vote"
-  | "owner_override"
   | "resolve"
   | "cancel"
+  | "escalate"
   | "request_more_info"
   | "view_only";
 
@@ -296,8 +233,8 @@ export function computeAvailableActions(
   if (!isGateBlocking(gate)) return ["view_only"];
 
   const policy = parseGatePolicy(gate);
-  const required = parseIdList(gate.requiredAgentIds);
-  const acked = parseIdList(gate.ackedAgentIds);
+  const required = gate.requiredAgentIds;
+  const acked = gate.ackedAgentIds;
   const isRequired = required.includes(agentId);
   const isOwner = gate.requestedByAgentId === agentId;
   const isEscalation = (policy.escalationAgentIds ?? []).includes(agentId);
@@ -318,12 +255,8 @@ export function computeAvailableActions(
     actions.push(hasVoted ? "change_vote" : "vote");
   }
 
-  if (isOwner && policy.kind === GatePolicyKind.OWNER_OVERRIDE) {
-    actions.push("owner_override");
-  }
-
   if (isEscalation || isOwner) {
-    actions.push("resolve", "cancel", "request_more_info");
+    actions.push("resolve", "cancel", "escalate", "request_more_info");
   }
 
   return actions.length > 0 ? actions : ["view_only"];
@@ -339,8 +272,8 @@ export function computeGateDetails(
   now?: Date,
 ): GateDetailedStatus {
   const policy = parseGatePolicy(gate);
-  const required = parseIdList(gate.requiredAgentIds);
-  const acked = parseIdList(gate.ackedAgentIds);
+  const required = gate.requiredAgentIds;
+  const acked = gate.ackedAgentIds;
   const pending = required.filter(id => !acked.includes(id));
   const voteCts = countVotes(votes);
 
@@ -352,10 +285,7 @@ export function computeGateDetails(
 
   const livenessPreview = evaluateGateLiveness(gate, votes, now ?? new Date());
 
-  const requiresHuman =
-    gate.status === SyncGateStatus.TIMED_OUT ||
-    gate.status === SyncGateStatus.ESCALATED ||
-    policy.kind === GatePolicyKind.HUMAN_REQUIRED;
+  const requiresHuman = gate.escalated;
 
   return {
     gate,
