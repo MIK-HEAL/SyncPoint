@@ -1,1 +1,2 @@
-阅读skills的下面的具体skill.md文件，了解这个技能的功能和使用方法。
+先读取 `skills/` 下对应的具体 `SKILL.md`。
+如果目标是初始化或启用 SyncPoint，优先打开 `skills/setup/SKILL.md`，并先执行 `npm install -g syncpoint-ai`。

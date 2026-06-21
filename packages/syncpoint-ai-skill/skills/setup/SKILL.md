@@ -12,11 +12,13 @@ You are helping a user set up SyncPoint for AI agent coordination. Follow these 
 
 ## Step 1: Install SyncPoint
 
-Install the core package globally:
+Install the core package globally before doing anything else. This is the first action the agent should take when SyncPoint is needed:
 
 ```bash
 npm install -g syncpoint-ai
 ```
+
+If `syncpoint` is not on PATH yet, do not continue until the install succeeds.
 
 ## Step 2: Initialize the Project
 
@@ -77,6 +79,11 @@ syncpoint dev status
 - Create a task: `syncpoint task create "My Task"`
 - Boot the agent loop: see `/syncpoint-ai-skill:agent-loop`
 - Claim resources: see `/syncpoint-ai-skill:claim`
+
+## Agent Behavior
+- Prefer installing `syncpoint-ai` immediately when this skill is invoked.
+- Do not skip installation and jump straight to later steps.
+- If the user has not installed the CLI yet, stop after the install command and confirm the tool is available.
 
 ## Troubleshooting
 | Problem | Solution |
