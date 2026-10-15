@@ -8,7 +8,7 @@ description: "Claim and release resource ownership in SyncPoint. Use when an age
 
 ```bash
 syncpoint status
-syncpoint status --task <taskId>
+syncpoint sync status --task <taskId>
 syncpoint dev status
 ```
 
@@ -16,25 +16,24 @@ syncpoint dev status
 
 ```bash
 syncpoint claim <file> --task <taskId> --agent <agentId>
-syncpoint claim <file1> <file2> --mode exclusive
-syncpoint claim <file> --mode shared
+syncpoint claim "<file1>,<file2>" --mode exclusive --agent <agentId> --task <taskId>
+syncpoint claim <file> --mode shared --agent <agentId> --task <taskId>
 ```
 
 ## Step 3: Handle Conflicts
 
 Check what's blocking:
 ```bash
-syncpoint status --blockers
+syncpoint sync status --task <taskId> --agent <agentId>
 ```
 
 Force-release a stale claim if needed:
 ```bash
-syncpoint release <file> --force
+syncpoint release --claim <claimId>
 ```
 
 ## Step 4: Release Resources
 
 ```bash
-syncpoint release <file> --agent <agentId>
-syncpoint release --task <taskId>
+syncpoint release --all --task <taskId> --agent <agentId>
 ```

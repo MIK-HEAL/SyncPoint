@@ -1,7 +1,7 @@
 {
   "name": "syncpoint-ai-skill",
   "displayName": "SyncPoint AI Skill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Skills for SyncPoint — AI agent coordination protocol. Setup multi-agent projects, claim resources, manage sync gates, hand off work, review checkpoints, and guard files.",
   "author": {
     "name": "MIKHEAL"
@@ -15,8 +15,5 @@
     "resource-claims",
     "sync-gates"
   ],
-  "skills": "./skills/",
-  "dependencies": [
-    "syncpoint-ai"
-  ]
+  "repository": "https://github.com/MIK-HEAL/SyncPoint"
 }

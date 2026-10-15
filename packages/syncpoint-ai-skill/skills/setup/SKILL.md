@@ -81,9 +81,9 @@ syncpoint dev status
 - Claim resources: see `/syncpoint-ai-skill:claim`
 
 ## Agent Behavior
-- Prefer installing `syncpoint-ai` immediately when this skill is invoked.
-- Do not skip installation and jump straight to later steps.
-- If the user has not installed the CLI yet, stop after the install command and confirm the tool is available.
+- Only install `syncpoint-ai` after the user asks to set up or enable SyncPoint.
+- After installation, verify that `syncpoint --version` succeeds before continuing.
+- If installation fails or `syncpoint` is not on PATH, stop and report the failure.
 
 ## Troubleshooting
 | Problem | Solution |

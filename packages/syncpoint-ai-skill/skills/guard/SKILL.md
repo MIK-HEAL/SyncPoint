@@ -8,7 +8,6 @@ description: "Manage file guards in SyncPoint — create guard sessions, validat
 
 ```bash
 syncpoint guard status
-syncpoint guard status --verbose
 ```
 
 ## Step 2: Create Guard Session
@@ -22,7 +21,7 @@ Save the returned token — it is required for file operations.
 ## Step 3: Validate Token
 
 ```bash
-syncpoint guard validate-token --token <token>
+syncpoint guard validate-token <token>
 ```
 
 ## Step 4: Revoke Session
@@ -34,16 +33,16 @@ syncpoint guard revoke <sessionId>
 ## Step 5: Audit for Unauthorized Writes
 
 ```bash
-syncpoint guard reconcile
+syncpoint guard reconcile --task <taskId>
 ```
 
 ## Emergency Access
 ```bash
-syncpoint guard unlock
+syncpoint guard unlock --all
 ```
 
 ## Verification
 ```bash
 syncpoint guard status
-syncpoint guard validate-token --token <token>
+syncpoint guard validate-token <token>
 ```

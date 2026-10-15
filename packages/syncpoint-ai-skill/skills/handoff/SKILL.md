@@ -7,33 +7,33 @@ description: "Hand off work between AI agents in SyncPoint — checkpoint progre
 ## Step 1: Create Checkpoint
 
 ```bash
-syncpoint loop checkpoint --task <taskId> --agent <sourceAgentId>
-syncpoint checkpoint list --task <taskId>
+syncpoint loop checkpoint --task <taskId> --agent <sourceAgentId> --summary "Progress summary"
+syncpoint loop status --agent <sourceAgentId> --task <taskId>
 ```
 
 ## Step 2: Initiate Handoff
 
 ```bash
-syncpoint loop handoff --task <taskId> --agent <sourceAgentId> --target <targetAgentId>
-syncpoint handoff create --task <taskId> --from <sourceAgentId> --to <targetAgentId>
+syncpoint loop handoff --task <taskId> --from <sourceAgentId> --to <targetAgentId> --context "Handoff summary"
+syncpoint handoff create --task <taskId> --from <sourceAgentId> --to <targetAgentId> --context "Handoff summary"
 ```
 
 ## Step 3: Accept or Reject
 
 ```bash
 syncpoint handoff accept <handoffId>
-syncpoint handoff reject <handoffId> --reason "Not my domain"
+syncpoint handoff reject <handoffId>
 ```
 
 ## Step 4: Resume
 
 ```bash
 syncpoint loop resume --task <taskId> --agent <targetAgentId>
-syncpoint loop status
+syncpoint loop status --agent <targetAgentId> --task <taskId>
 ```
 
 ## Verification
 ```bash
-syncpoint loop status
-syncpoint status --task <taskId>
+syncpoint loop status --agent <targetAgentId> --task <taskId>
+syncpoint sync status --task <taskId>
 ```

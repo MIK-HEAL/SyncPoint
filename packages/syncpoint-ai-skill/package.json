@@ -1,6 +1,6 @@
 {
   "name": "syncpoint-ai-skill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claude Code skill plugin for SyncPoint — AI agent coordination protocol. Guides setup, resource claims, sync gates, handoffs, reviews, and file guards.",
   "type": "module",
   "files": [

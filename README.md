@@ -263,18 +263,17 @@ Available MCP tools: `syncpoint_sync_request`, `syncpoint_sync_ack`, `syncpoint_
 
 The `syncpoint-ai-skill` package gives Claude Code direct knowledge of SyncPoint workflows. Install once, then Claude handles coordination automatically.
 
+From a checkout of this repository, install the plugin directory with Claude
+Code's plugin installer:
+
 ```bash
-# Install the skill plugin
-claude plugins install syncpoint-ai-skill
+claude plugin install ./packages/syncpoint-ai-skill
 ```
 
-Or add to `.claude/plugins/plugin.json`:
-
-```json
-{
-  "plugins": ["syncpoint-ai-skill"]
-}
-```
+The package can also be distributed through a Claude Code marketplace. Merely
+publishing `syncpoint-ai-skill` to npm does not register it with Claude Code;
+users still need to install the extracted plugin directory or a
+marketplace-qualified plugin.
 
 **What the skill teaches Claude to do:**
 

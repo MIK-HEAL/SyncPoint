@@ -7,13 +7,13 @@ description: "Safe write with permit in SyncPoint — check viability, prepare a
 ## Step 1: Dry-Run Check
 
 ```bash
-syncpoint write check --task <taskId> --agent <agentId> --resources <file>
+syncpoint write check <file> --task <taskId> --agent <agentId>
 ```
 
 ## Step 2: Prepare Permit
 
 ```bash
-syncpoint write prepare --task <taskId> --agent <agentId> --resources <file> --intent modify
+syncpoint write prepare <file> --task <taskId> --agent <agentId> --intent modify
 ```
 
 The permit captures file hashes for later verification.
@@ -21,12 +21,12 @@ The permit captures file hashes for later verification.
 ## Step 3: Apply Mutation
 
 ```bash
-syncpoint write apply --permit <permitId> --resource <file> --content "new content"
+syncpoint write apply <file> --permit <permitId> --content "new content"
 ```
 
 ## Error Recovery
 - **File changed since permit**: Re-prepare permit
-- **Resource not claimed**: Run `syncpoint claim <file>` first
+- **Resource not claimed**: Run `syncpoint claim <file> --agent <agentId> --task <taskId>` first
 - **Constraint blocked**: Check constraints with `/syncpoint-ai-skill:guard`
 
 ## Verification

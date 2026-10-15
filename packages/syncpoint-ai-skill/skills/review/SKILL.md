@@ -6,38 +6,40 @@ description: "Review checkpoints in SyncPoint — create review requests, add ch
 
 ## Step 1: Create Review
 
+Create a review request from a session:
+
 ```bash
-syncpoint review create --checkpoint <checkpointId> --reviewer <agentId>
+syncpoint session review --session <sessionId> --task <taskId> --reviewer <agentId>
 ```
 
 ## Step 2: Add Checklist Items
 
 ```bash
-syncpoint review checklist-add --review <reviewId> --item "All tests pass"
-syncpoint review checklist-add --review <reviewId> --item "No security regressions"
+syncpoint review checklist-add --review <reviewId> --title "All tests pass"
+syncpoint review checklist-add --review <reviewId> --title "No security regressions"
 syncpoint review checklist-list --review <reviewId>
 ```
 
 ## Step 3: Submit Evidence
 
 ```bash
-syncpoint review evidence-add --review <reviewId> --item <checklistItemId> --content "evidence text"
+syncpoint review evidence-add --review <reviewId> --kind note --title "Evidence" --content "evidence text"
 syncpoint review evidence-list --review <reviewId>
 ```
 
 ## Step 4: Evaluate
 
 ```bash
-syncpoint review checklist-pass <checklistItemId>
-syncpoint review checklist-fail <checklistItemId> --reason "why"
+syncpoint review checklist-pass --item <checklistItemId> --notes "why"
+syncpoint review checklist-fail --item <checklistItemId> --notes "why"
 ```
 
 ## Step 5: Decision
 
 ```bash
-syncpoint review approve <reviewId>
-syncpoint review block <reviewId> --reason "blocking issues"
-syncpoint review changes-request <reviewId> --reason "what to fix"
+syncpoint review approve --review <reviewId> --summary "Approved"
+syncpoint review block --review <reviewId> --summary "Blocking issues"
+syncpoint review changes-request --review <reviewId> --summary "What to fix"
 ```
 
 ## Verification

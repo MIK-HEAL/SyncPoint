@@ -10,7 +10,7 @@ The core SyncPoint cycle: boot → claim resources → work → checkpoint → h
 
 ```bash
 syncpoint loop boot --task <taskId> --agent <agentId>
-syncpoint loop status
+syncpoint loop status --agent <agentId> --task <taskId>
 ```
 
 ## Step 2: Claim Resources
@@ -29,15 +29,15 @@ If a SyncGate is created due to conflict, use `/syncpoint-ai-skill:sync` to reso
 Do your work, then save progress:
 
 ```bash
-syncpoint loop checkpoint --task <taskId> --agent <agentId>
-syncpoint checkpoint list --task <taskId>
+syncpoint loop checkpoint --task <taskId> --agent <agentId> --summary "Progress summary"
+syncpoint loop status --agent <agentId> --task <taskId>
 ```
 
 ## Step 4: Handoff or Resume
 
 Transfer to another agent:
 ```bash
-syncpoint loop handoff --task <taskId> --agent <agentId> --target <otherAgentId>
+syncpoint loop handoff --task <taskId> --from <agentId> --to <otherAgentId> --context "Handoff summary"
 ```
 
 Or resume from latest checkpoint:
@@ -48,12 +48,11 @@ syncpoint loop resume --task <taskId> --agent <agentId>
 ## Step 5: Release Resources
 
 ```bash
-syncpoint release <file> --agent <agentId>
-syncpoint release --task <taskId> --agent <agentId>
+syncpoint release --all --task <taskId> --agent <agentId>
 ```
 
 ## Verification
 ```bash
-syncpoint loop status
+syncpoint loop status --agent <agentId> --task <taskId>
 syncpoint status
 ```
