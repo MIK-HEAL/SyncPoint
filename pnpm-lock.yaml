@@ -210,6 +210,9 @@ importers:
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      syncpoint-kernel:
+        specifier: workspace:*
+        version: link:../syncpoint-kernel
       syncpoint-sdk:
         specifier: workspace:*
         version: link:../syncpoint-sdk

@@ -15,6 +15,7 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "../schema.js";
 import { runMigrations as runCurrentMigrations } from "../db.js";
+import { InternalError } from "syncpoint-kernel";
 
 function runMigrations(db: Database.Database): void {
   runCurrentMigrations(db);
@@ -83,7 +84,7 @@ export async function getRandomPort(): Promise<number> {
         const port = addr.port;
         server.close(() => resolve(port));
       } else {
-        server.close(() => reject(new Error("Failed to get port")));
+        server.close(() => reject(new InternalError("Failed to get port")));
       }
     });
     server.on("error", reject);
@@ -131,15 +132,15 @@ export async function trpcFetch(
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`Non-JSON response (${r.status}): ${text.slice(0, 200)}`);
+    throw new InternalError(`Non-JSON response (${r.status}): ${text.slice(0, 200)}`);
   }
   if (json.error) {
     // tRPC standalone adapter wraps errors: { error: { json: { message } } }
     const msg = json.error?.json?.message ?? json.error?.message ?? JSON.stringify(json.error);
-    throw new Error(msg);
+    throw new InternalError(msg);
   }
   if (!r.ok) {
-    throw new Error(`HTTP ${r.status}: ${text.slice(0, 200)}`);
+    throw new InternalError(`HTTP ${r.status}: ${text.slice(0, 200)}`);
   }
   return json.result?.data;
 }

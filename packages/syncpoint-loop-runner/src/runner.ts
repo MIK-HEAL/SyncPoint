@@ -5,6 +5,7 @@ import { TaskSource, type SyncPointClient } from "./task-source.js";
 import { ClaudeCodeRunner } from "./agent-runner.js";
 import { SafetyGuard } from "./safety.js";
 import { AgentWorker, type WorkerState, type WorkerSyncPointClient } from "./worker.js";
+import { InternalError } from "syncpoint-kernel";
 
 // ---------------------------------------------------------------------------
 // Runner status (public)
@@ -64,7 +65,7 @@ export class AutonomousLoopRunner {
    * Start the runner. Creates agents, spawns workers, connects SSE.
    */
   async start(): Promise<void> {
-    if (this.running) throw new Error("Runner is already running");
+    if (this.running) throw new InternalError("Runner is already running");
 
     this.running = true;
     this.startedAt = Date.now();
@@ -283,7 +284,7 @@ function createMinimalClient(baseUrl: string): MinimalSyncPointClient {
     });
 
     if (!response.ok) {
-      throw new Error(`tRPC ${type} ${path} failed: ${response.status}`);
+      throw new InternalError(`tRPC ${type} ${path} failed: ${response.status}`);
     }
 
     const json = (await response.json()) as { result?: { data?: unknown } };

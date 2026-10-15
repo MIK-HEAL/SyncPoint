@@ -17,6 +17,7 @@ import { RuntimeKind, type AgentProvider, type AgentRole } from "syncpoint-adapt
 import { InternalError } from "syncpoint-kernel";
 import { initSyncpointDir, getSyncpointDir, isProjectLocal, defaultContext } from "syncpoint-server";
 import * as repo from "syncpoint-server/repositories";
+import { walkDir, formatBytes } from "./connect-helpers.js";
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -421,28 +422,6 @@ export function registerConnectCommands(program: Command): void {
       }
     });
 }
-
-function walkDir(dir: string): string[] {
-  const results: string[] = [];
-  try {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...walkDir(full));
-      } else {
-        results.push(full);
-      }
-    }
-  } catch { /* best-effort */ }
-  return results;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function outputConfig(
   agent: { id: string; name: string; runtimeId?: string | null },
   projectRoot: string,

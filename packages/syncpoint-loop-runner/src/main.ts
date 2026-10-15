@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { AutonomousLoopRunner } from "./runner.js";
 import { RunnerConfigSchema } from "./config.js";
+import { InternalError } from "syncpoint-kernel";
 
 // ---------------------------------------------------------------------------
 // CLI entry point
@@ -78,7 +79,7 @@ program
 
       async function query(path: string) {
         const res = await fetch(`${trpcUrl}/${path}`);
-        if (!res.ok) throw new Error(`Failed: ${res.status}`);
+        if (!res.ok) throw new InternalError(`Failed: ${res.status}`);
         const json = (await res.json()) as { result?: { data?: unknown } };
         return json.result?.data;
       }

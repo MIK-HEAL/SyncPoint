@@ -24,11 +24,20 @@ AI coding agents fail because they **continue from different realities**.
 - A checkpoint goes stale. Another agent resumes from it and builds on wrong assumptions.
 - A constraint says "don't touch the auth module." The agent touches it. Nothing stops it.
 
-SyncPoint checks whether an agent's continuation path is safe **before** the agent proceeds. If it isn't, SyncPoint **blocks** — not with a warning in a prompt, but with a hard protocol gate the agent cannot skip.
+SyncPoint checks whether an agent's continuation path is safe **before** the agent proceeds. If it isn't, SyncPoint **blocks** through a hard protocol gate. Hard blocking applies when the agent uses SyncPoint's controlled write/API, MCP, SDK, or guarded editor path; direct shell, git, or editor writes bypass that boundary and are handled by post-write audit until a guarded workspace is used. See [`docs/mcp-client-support.md`](docs/mcp-client-support.md).
 
 ---
 
 ## Quick Start
+
+The fastest proof of the core loop, without a global install, is:
+
+```bash
+npx syncpoint-ai demo conflict --stage blocked
+```
+
+It creates two agents, makes them claim the same file, and shows the blocking
+gate. For a persistent local setup:
 
 ```bash
 # Install globally

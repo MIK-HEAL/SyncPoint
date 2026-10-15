@@ -2,13 +2,24 @@
 // Safety guards — prevent runaway execution
 // ---------------------------------------------------------------------------
 
-export class SafetyError extends Error {
+import { SyncPointError } from "syncpoint-kernel";
+
+export class SafetyError extends SyncPointError {
+  readonly code = "LOOP_SAFETY_LIMIT";
+  readonly httpStatus = 429;
+  readonly retryable = false;
+  readonly suggestion = "Reduce the workload or increase the configured safety limit before retrying.";
+  readonly userMessage: string;
+
   constructor(
     public readonly reason: "max_iterations" | "max_task_failures",
     message: string,
   ) {
     super(message);
     this.name = "SafetyError";
+    this.userMessage = reason === "max_iterations"
+      ? "The loop stopped after reaching its iteration safety limit"
+      : "The loop stopped after a task exceeded its failure safety limit";
   }
 }
 

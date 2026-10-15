@@ -22,6 +22,10 @@ PLan/
 .kiro/
 .workbuddy/
 scripts/
+scripts/*
+!scripts/
+!scripts/release-npm.mjs
+!scripts/publish-npm.mjs
 
 MD-TODO/
 TASK/

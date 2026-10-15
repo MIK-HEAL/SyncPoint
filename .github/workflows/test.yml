@@ -131,4 +131,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Run E2E tests
-        run: echo "E2E tests will be added as tests/e2e/ scenarios are implemented."
+        run: pnpm release:npm -- --skip-tests

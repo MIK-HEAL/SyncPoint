@@ -36,6 +36,7 @@
     "prepublishOnly": "pnpm run build && pnpm run typecheck && pnpm run test"
   },
   "dependencies": {
+    "syncpoint-kernel": "workspace:*",
     "syncpoint-sdk": "workspace:*",
     "commander": "^12.1.0",
     "zod": "^3.23.0"

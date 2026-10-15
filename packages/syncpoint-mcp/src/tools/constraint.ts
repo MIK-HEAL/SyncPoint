@@ -15,6 +15,7 @@ import {
 } from "syncpoint-server/application";
 import { resolveBoundAgentId } from "../identity.js";
 import { fail, ok } from "./_shared.js";
+import { matchesGlob } from "./constraint-glob.js";
 
 export function registerConstraintTools(server: McpServer): void {
   // ── Constraint list ──────────────────────────────────
@@ -444,23 +445,4 @@ export function registerConstraintTools(server: McpServer): void {
       }
     }
   );
-}
-
-// ── Simple glob matcher ───────────────────────────────
-
-function matchesGlob(filePath: string, pattern: string): boolean {
-  // Convert glob pattern to regex
-  const regexStr = pattern
-    .replace(/\./g, "\\.")
-    .replace(/\*\*/g, "___DOUBLESTAR___")
-    .replace(/\*/g, "[^/]*")
-    .replace(/___DOUBLESTAR___/g, ".*")
-    .replace(/\?/g, ".");
-  try {
-    const regex = new RegExp(`^${regexStr}$`);
-    return regex.test(filePath);
-  } catch {
-    // If regex fails, fall back to simple includes match
-    return filePath.includes(pattern.replace(/\*\*/g, "").replace(/\*/g, ""));
-  }
 }

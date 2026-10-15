@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { SafetyGuard, SafetyError } from "../src/safety.js";
+import { SyncPointError } from "syncpoint-kernel";
 
 describe("SafetyGuard", () => {
   describe("iteration tracking", () => {
@@ -22,6 +23,8 @@ describe("SafetyGuard", () => {
         guard.incrementIteration();
       } catch (err) {
         expect(err).toBeInstanceOf(SafetyError);
+      expect(err).toBeInstanceOf(SyncPointError);
+      expect((err as SafetyError).code).toBe("LOOP_SAFETY_LIMIT");
         expect((err as SafetyError).reason).toBe("max_iterations");
       }
     });
@@ -47,6 +50,8 @@ describe("SafetyGuard", () => {
         guard.recordFailure("task-1", failures); // 2 — triggers
       } catch (err) {
         expect(err).toBeInstanceOf(SafetyError);
+      expect(err).toBeInstanceOf(SyncPointError);
+      expect((err as SafetyError).code).toBe("LOOP_SAFETY_LIMIT");
         expect((err as SafetyError).reason).toBe("max_task_failures");
       }
     });

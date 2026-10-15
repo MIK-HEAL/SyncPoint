@@ -132,7 +132,12 @@ export function runDisasterDemo(opts: {
   const blockedSnapshot = buildSnapshot({ sessionId: sessionResult.session.id }) as Snapshot;
 
   if (isJson && stage === "blocked") {
-    console.log(JSON.stringify(blockedSnapshot, null, 2));
+    console.log(JSON.stringify({
+      stage: "blocked",
+      conflict: claimB.conflicts.length > 0,
+      gateId: claimB.gateId ?? null,
+      snapshot: blockedSnapshot,
+    }, null, 2));
     return;
   }
 
