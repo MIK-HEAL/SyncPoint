@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import {  } from "../db.js";
+import {  } from "../../src/db.js";
 import {
   createRuntime,
   getRuntime,
@@ -14,8 +14,8 @@ import {
   updateRuntimeAgent,
   updateRuntimeStatus,
   getAgentIdForRuntime,
-} from "../repositories/runtime-repository.js";
-import { createAgent } from "../repositories/agent-repository.js";
+} from "../../src/repositories/runtime-repository.js";
+import { createAgent } from "../../src/repositories/agent-repository.js";
 import { RuntimeStatus } from "syncpoint-adapters";
 
 let tmpDir: string;

@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { DEFAULT_NEGOTIATION_CONFIG } from "syncpoint-adapters";
+import type { NegotiationConfig, UserAgentManifest } from "syncpoint-adapters";
 
 // ── Runtime ────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ export const agentRegistryEntries = sqliteTable("agent_registry_entry", {
   agentId: text("agent_id"),
   sourceFormat: text("source_format").notNull().default(""),
   contentHash: text("content_hash").notNull().default(""),
-  manifestJson: text("manifest_json", { mode: "json" }).$type<import("syncpoint-core").UserAgentManifest | null>().default(null),
+  manifestJson: text("manifest_json", { mode: "json" }).$type<UserAgentManifest | null>().default(null),
   status: text("status").notNull().default("pending"),
   errorMessage: text("error_message").notNull().default(""),
   lastSyncAt: text("last_sync_at").notNull(),
@@ -51,7 +52,7 @@ export const negotiationSessions = sqliteTable("negotiation_session", {
   gateId: text("gate_id").notNull(),
   status: text("status").notNull().default("OPEN"),
   currentRound: integer("current_round").notNull().default(0),
-  configJson: text("config_json", { mode: "json" }).$type<import("syncpoint-core").NegotiationConfig>().notNull().default({ maxRounds: DEFAULT_NEGOTIATION_CONFIG.maxRounds, roundDeadlineMinutes: DEFAULT_NEGOTIATION_CONFIG.roundDeadlineMinutes, negotiationDeadlineMinutes: DEFAULT_NEGOTIATION_CONFIG.negotiationDeadlineMinutes }),
+  configJson: text("config_json", { mode: "json" }).$type<NegotiationConfig>().notNull().default({ maxRounds: DEFAULT_NEGOTIATION_CONFIG.maxRounds, roundDeadlineMinutes: DEFAULT_NEGOTIATION_CONFIG.roundDeadlineMinutes, negotiationDeadlineMinutes: DEFAULT_NEGOTIATION_CONFIG.negotiationDeadlineMinutes }),
   roundStartedAt: text("round_started_at"),
   deadlineAt: text("deadline_at"),
   resolvedByAgentId: text("resolved_by_agent_id"),

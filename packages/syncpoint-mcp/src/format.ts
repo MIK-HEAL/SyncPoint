@@ -38,7 +38,7 @@ export function formatContextSnapshotSummary(snapshot: {
   const lines = [
     `## Snapshot ${snapshot.id}`,
     "",
-    `- **Agent**: ${snapshot.agentId}`,
+    `- Agent: ${snapshot.agentId}`,
     `- **Created**: ${snapshot.createdAt}`,
     `- **Goal**: ${goal || "(empty)"}`,
     `- **Phase**: ${payload.currentPhase || "(empty)"}`,

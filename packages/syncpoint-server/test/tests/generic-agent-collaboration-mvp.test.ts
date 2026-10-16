@@ -12,9 +12,9 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { __createTestContext, __resetContext, _getDb } from "../repositories/_shared.js";
-import * as repo from "../repositories/index.js";
-import { ensureApplicationBootstrap } from "../application/bootstrap.js";
+import { __createTestContext, __resetContext, _getDb } from "../../src/repositories/_shared.js";
+import * as repo from "../../src/repositories/index.js";
+import { ensureApplicationBootstrap } from "../../src/application/bootstrap.js";
 import {
   ProjectMemoryScope,
   ProjectMemoryCategory,
@@ -26,19 +26,19 @@ import {
 } from "syncpoint-context";
 import {
   rcClaim,
-} from "../application/resource-claim-service.js";
+} from "../../src/application/resource-claim-service.js";
 import {
   opCreate,
   opSubmit,
   opCheck,
   opApprove,
   opApply,
-} from "../application/operation-service.js";
+} from "../../src/application/operation-service.js";
 import {
   pmAdd,
   pmUpdate,
   pmApprove,
-} from "../application/project-memory-service.js";
+} from "../../src/application/project-memory-service.js";
 
 let agentA: string;
 let agentB: string;

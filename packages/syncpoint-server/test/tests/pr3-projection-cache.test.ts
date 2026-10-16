@@ -21,12 +21,12 @@ async function createAndApprove(fields: Record<string, unknown>) {
 
 async function getCacheStats(): Promise<any> {
   // Access cache stats via the service — we import dynamically to use the same module state
-  const { getProjectionCacheStats } = await import("../application/reality-projection-service.js");
+  const { getProjectionCacheStats } = await import("../../src/application/reality-projection-service.js");
   return getProjectionCacheStats();
 }
 
 async function clearCache(): Promise<void> {
-  const { clearProjectionCache } = await import("../application/reality-projection-service.js");
+  const { clearProjectionCache } = await import("../../src/application/reality-projection-service.js");
   clearProjectionCache();
 }
 
@@ -125,7 +125,7 @@ describe("PR3: Projection Cache", () => {
   });
 
   it("LRU eviction when cache exceeds max size", async () => {
-    const { setProjectionCacheMaxSize } = await import("../application/reality-projection-service.js");
+    const { setProjectionCacheMaxSize } = await import("../../src/application/reality-projection-service.js");
     setProjectionCacheMaxSize(2);
 
     // Fill cache with 3 entries → should evict oldest

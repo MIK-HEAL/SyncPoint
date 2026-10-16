@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import type { ContextSnapshotPayload } from "syncpoint-context";
 import { agents, tasks } from "./foundation.js";
 
 // ── Checkpoint ─────────────────────────────────────────
@@ -117,7 +118,7 @@ export const contextSnapshots = sqliteTable("context_snapshot", {
   checkpointId: text("checkpoint_id").notNull().references(() => checkpoints.id),
   kind: text("kind").notNull().default("checkpoint"),
   summary: text("summary").notNull().default(""),
-  payloadJson: text("payload_json", { mode: "json" }).$type<import("syncpoint-core").ContextSnapshotPayload>().notNull().default({}),
+  payloadJson: text("payload_json", { mode: "json" }).$type<ContextSnapshotPayload>().notNull().default({}),
   version: integer("version").notNull().default(1),
   contentHash: text("content_hash").notNull().default(""),
   isDelta: integer("is_delta", { mode: "boolean" }).notNull().default(false),

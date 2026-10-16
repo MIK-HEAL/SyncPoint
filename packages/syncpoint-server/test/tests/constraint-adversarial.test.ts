@@ -15,19 +15,19 @@ import fs from "node:fs";
 import path from "node:path";
 import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
-import { ensureApplicationBootstrap } from "../application/bootstrap.js";
-import { loopResume } from "../application/loop-service.js";
+import { ensureApplicationBootstrap } from "../../src/application/bootstrap.js";
+import { loopResume } from "../../src/application/loop-service.js";
 import {
   orchCreateSession,
   orchAssignRole,
   orchPlanTask,
   orchAcceptAssignment,
   orchStartAssignment,
-} from "../application/orchestration-service.js";
-import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../application/wake-engine-service.js";
-import { sgRequest, sgAck, sgResolve, sgCheckAgent } from "../application/sync-gate-service.js";
-import { opCreate, opSubmit, opApprove, opApply } from "../application/operation-service.js";
-import { pmAdd, pmApprove } from "../application/project-memory-service.js";
+} from "../../src/application/orchestration-service.js";
+import { wakeNext, wakeStart, wakeEngineStart, wakeEngineStop } from "../../src/application/wake-engine-service.js";
+import { sgRequest, sgAck, sgResolve, sgCheckAgent } from "../../src/application/sync-gate-service.js";
+import { opCreate, opSubmit, opApprove, opApply } from "../../src/application/operation-service.js";
+import { pmAdd, pmApprove } from "../../src/application/project-memory-service.js";
 import { TaskStatus } from "syncpoint-adapters";
 import { MemoryKind } from "syncpoint-context";
 import { WakeRequestStatus } from "syncpoint-governance";

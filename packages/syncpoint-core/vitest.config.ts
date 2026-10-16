@@ -6,6 +6,9 @@ const ROOT = (p: string) => resolve(__dirname, p);
 export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
+    coverage: {
+      reporter: ["text", "html", "json-summary"],
+    },
   },
   resolve: {
     alias: [

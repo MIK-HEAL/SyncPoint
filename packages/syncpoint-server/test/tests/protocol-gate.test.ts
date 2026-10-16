@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "../schema.js";
+import * as schema from "../../src/schema.js";
 import { TaskStatus, ContractStatus } from "syncpoint-adapters";
 
 function readPayload(snapshot: { payload?: Record<string, unknown> }) {
@@ -53,14 +53,15 @@ function createTestDb() {
 
 let testDb: ReturnType<typeof drizzle<typeof schema>>;
 
-vi.mock("../db.js", () => ({
+vi.mock("../../src/db.js", () => ({
+  defaultContext: { get db() { return testDb; }, get raw() { return null; }, destroy() {}, walEnabled: false },
   getDb: () => testDb,
   closeDb: () => {},
   runMigrations: () => {},
 }));
 
-const repo = await import("../repositories/index.js");
-const { validateSnapshot } = await import("../application/protocol-gate-service.js");
+const repo = await import("../../src/repositories/index.js");
+const { validateSnapshot } = await import("../../src/application/protocol-gate-service.js");
 
 describe("P12 Snapshot Validation", () => {
   beforeEach(() => { testDb = createTestDb(); });

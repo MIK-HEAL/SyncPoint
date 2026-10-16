@@ -73,6 +73,8 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.39)(tsx@4.21.0)(yaml@2.9.0)
 
+  packages/syncpoint-ai-skill: {}
+
   packages/syncpoint-adapters:
     dependencies:
       syncpoint-context:

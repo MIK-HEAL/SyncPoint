@@ -26,13 +26,13 @@ export type {
 // ── Constraint evaluation ─────────────────────────────
 export {
   evaluateConstraints,
-  buildConstraintManifest,
   resolveRuntimeSpec,
   registerConstraintEvaluator,
   getConstraintEvaluator,
   clearConstraintEvaluatorRegistry,
   isConstraintRuleKnown,
 } from "./constraint-evaluation.js";
+export { buildConstraintManifest } from "./constraint-types.js";
 export type {
   ConstraintAction,
   ConstraintViolation,

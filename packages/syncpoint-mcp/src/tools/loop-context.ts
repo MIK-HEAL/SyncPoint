@@ -37,7 +37,7 @@ export function registerLoopContextTools(server: McpServer): void {
       description: "Resume a task — enforces context policy, generates adapter files and prompt. agentId is optional if connection is identity-bound. contextMode: snapshot-first (default), snapshot-only (no raw checkpoint/project memory), snapshot-locked (hard-block on any validation failure).",
       inputSchema: {
         agentId: z.string().optional(),
-        taskId: z.string(),
+        taskId: z.string().min(1),
         provider: z.string().optional(),
         format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),
         contextMode: z.enum(["snapshot-first", "snapshot-only", "snapshot-locked"]).optional(),

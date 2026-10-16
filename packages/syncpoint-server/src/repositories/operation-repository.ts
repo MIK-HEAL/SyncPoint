@@ -10,13 +10,13 @@ import { _getDb, now, createId } from "./_shared.js";
 
 // ── Internal helpers ────────────────────────────────
 
-function hydrateCheckResult(value: import("syncpoint-core").OperationCheckResult | null | undefined): OperationCheckResult | null {
+function hydrateCheckResult(value: OperationCheckResult | null | undefined): OperationCheckResult | null {
   if (!value) return null;
   const result = OperationSchema.shape.checkResult.safeParse(value);
   return result.success ? result.data : null;
 }
 
-function serializeCheckResult(value: Operation["checkResult"]): import("syncpoint-core").OperationCheckResult | null {
+function serializeCheckResult(value: Operation["checkResult"]): OperationCheckResult | null {
   return value ?? null;
 }
 

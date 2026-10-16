@@ -172,7 +172,7 @@ export function listSyncGates(opts?: {
   return rows.map(row => hydrateGate(db, row));
 }
 
-export function updateSyncGatePolicyJson(id: string, policyJson: import("syncpoint-core").GatePolicy): SyncGate {
+export function updateSyncGatePolicyJson(id: string, policyJson: import("syncpoint-kernel").GatePolicy): SyncGate {
   const db = _getDb();
   db.update(s.syncGates).set({ policyJson, updatedAt: now() }).where(eq(s.syncGates.id, id)).run();
   return getSyncGate(id);

@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { GatePolicyKind, GateTimeoutAction } from "syncpoint-kernel";
+import type { GatePolicy, OperationCheckResult, WriteDecision } from "syncpoint-kernel";
 import { agents, tasks } from "./foundation.js";
 
 // ── ResourceClaim (generic) ───────────────────────────
@@ -47,7 +48,7 @@ export const syncGates = sqliteTable("sync_gate", {
   relatedCheckpointId: text("related_checkpoint_id").notNull().default(""),
   status: text("status").notNull().default("NEEDS_SYNC"),
   decisionSummary: text("decision_summary").notNull().default(""),
-  policyJson: text("policy_json", { mode: "json" }).$type<import("syncpoint-core").GatePolicy>().notNull().default({ kind: GatePolicyKind.ALL_REQUIRED, timeoutAction: GateTimeoutAction.ESCALATE }),
+  policyJson: text("policy_json", { mode: "json" }).$type<GatePolicy>().notNull().default({ kind: GatePolicyKind.ALL_REQUIRED, timeoutAction: GateTimeoutAction.ESCALATE }),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 }, (table) => ({
@@ -159,7 +160,7 @@ export const operations = sqliteTable("operation", {
   summary: text("summary").notNull().default(""),
   payloadRef: text("payload_ref").notNull().default(""),
   status: text("status").notNull().default("DRAFT"),
-  checkResultJson: text("check_result", { mode: "json" }).$type<import("syncpoint-core").OperationCheckResult | null>().default(null),
+  checkResultJson: text("check_result", { mode: "json" }).$type<OperationCheckResult | null>().default(null),
   decisionSummary: text("decision_summary").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -191,7 +192,7 @@ export const writePermits = sqliteTable("write_permit", {
   expiresAt: text("expires_at").notNull(),
   singleUse: integer("single_use", { mode: "boolean" }).notNull().default(true),
   status: text("status").notNull(),
-  decisionJson: text("decision_json", { mode: "json" }).$type<import("syncpoint-core").WriteDecision>().notNull(),
+  decisionJson: text("decision_json", { mode: "json" }).$type<WriteDecision>().notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   consumedAt: text("consumed_at").notNull().default(""),

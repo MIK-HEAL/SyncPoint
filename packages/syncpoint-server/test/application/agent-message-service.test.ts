@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { __createTestContext, __resetContext } from "../repositories/_shared.js";
+import { __createTestContext, __resetContext } from "../../src/repositories/_shared.js";
 import {
   msgSend,
   msgRead,

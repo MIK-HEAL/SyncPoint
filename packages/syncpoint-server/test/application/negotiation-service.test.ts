@@ -6,9 +6,9 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import {  } from "../db.js";
-import { createAgent, createTask } from "../repositories/index.js";
-import { listNegotiationSessions, updateNegotiationSession } from "../repositories/negotiation-repository.js";
+import {  } from "../../src/db.js";
+import { createAgent, createTask } from "../../src/repositories/index.js";
+import { listNegotiationSessions, updateNegotiationSession } from "../../src/repositories/negotiation-repository.js";
 import { sgRequest, sgStatus, sgResolve } from "../../src/application/sync-gate-service.js";
 import { SyncGateStatus } from "syncpoint-kernel";
 import {

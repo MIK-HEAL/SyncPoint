@@ -8,14 +8,14 @@
 import { eq } from "drizzle-orm";
 import { OperationStatus } from "syncpoint-kernel";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { __createTestContext, __resetContext, _getDb } from "../repositories/_shared.js";
-import * as repo from "../repositories/index.js";
+import { __createTestContext, __resetContext, _getDb } from "../../src/repositories/_shared.js";
+import * as repo from "../../src/repositories/index.js";
 import {
   rcClaim, rcRelease, rcList, rcDetectConflicts,
-} from "../application/resource-claim-service.js";
+} from "../../src/application/resource-claim-service.js";
 import {
   opCreate, opSubmit, opCheck, opApprove, opApply, opCancel, opStatus, opList,
-} from "../application/operation-service.js";
+} from "../../src/application/operation-service.js";
 
 let agentId: string;
 let taskId: string;

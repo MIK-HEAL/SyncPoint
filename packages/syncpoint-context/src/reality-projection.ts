@@ -185,6 +185,7 @@ function detectConflicts(items: ProjectedMemoryItem[], parsedScopes: Map<string,
 
 
 import { resolveProjectionRoute } from "./reality-projection-routing.js";
+import { projectionReasonForKind } from "./reality-projection-routing.js";
 import type { BucketName } from "./reality-projection-routing.js";
 export { resolveProjectionRoute } from "./reality-projection-routing.js";
 export type { ProjectionRoute } from "./reality-projection-routing.js";
@@ -280,11 +281,11 @@ export function buildRealityProjection(
     let isFirst = true;
     for (const bucket of route.buckets) {
       if (isFirst) {
-        bucketMap[bucket].push(item);
+        bucketMap[bucket]!.push(item);
         isFirst = false;
       } else {
         // Subsequent buckets get a copy with adjusted reason (dual-write)
-        bucketMap[bucket].push({
+        bucketMap[bucket]!.push({
           ...item,
           source: { ...source, projectionReason: `${route.reason} (dual-write)` },
         });

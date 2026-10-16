@@ -17,12 +17,12 @@ import {
   orchStartAssignment,
   orchAdvanceSession,
   orchRequestReview,
-} from "../application/orchestration-service.js";
-import { rcClaim } from "../application/resource-claim-service.js";
-import { opCreate, opSubmit } from "../application/operation-service.js";
-import { sgRequest } from "../application/sync-gate-service.js";
+} from "../../src/application/orchestration-service.js";
+import { rcClaim } from "../../src/application/resource-claim-service.js";
+import { opCreate, opSubmit } from "../../src/application/operation-service.js";
+import { sgRequest } from "../../src/application/sync-gate-service.js";
 import { appRouter } from "../../src/router.js";
-import { resetPathResolverCache } from "../application/path-resolver.js";
+import { resetPathResolverCache } from "../../src/application/path-resolver.js";
 
 let tmpDir: string;
 let archId: string;

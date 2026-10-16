@@ -8,8 +8,8 @@ import { z } from "zod";
 // ── Prompt argument Zod schemas (mirrors prompts-system.ts + prompts-task.ts + prompts-review.ts) ──
 
 const ResumeArgsSchema = z.object({
-  taskId: z.string().describe("Task ID"),
-  agentId: z.string().describe("Agent ID"),
+  taskId: z.string().min(1).describe("Task ID"),
+  agentId: z.string().min(1).describe("Agent ID"),
 });
 
 const CheckpointArgsSchema = z.object({

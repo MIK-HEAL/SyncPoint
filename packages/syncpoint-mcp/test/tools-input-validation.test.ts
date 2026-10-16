@@ -44,7 +44,7 @@ const ProjectMemoryAddArgsSchema = z.object({
 
 // ── Project memory search args ──
 const ProjectMemorySearchArgsSchema = z.object({
-  query: z.string(),
+  query: z.string().min(1),
   category: z.string().optional(),
   status: z.string().optional(),
   limit: z.number().int().min(1).max(100).default(20),
@@ -76,7 +76,7 @@ const SyncGateRequestArgsSchema = z.object({
 
 // ── Loop resume args ──
 const LoopResumeArgsSchema = z.object({
-  taskId: z.string(),
+  taskId: z.string().min(1),
   agentId: z.string().optional(),
   provider: z.string().optional(),
   format: z.enum(["system-prompt", "cursorrules", "agents-md", "checkpoint-md", "clipboard"]).optional(),

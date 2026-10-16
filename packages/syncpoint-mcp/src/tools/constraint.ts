@@ -91,12 +91,12 @@ export function registerConstraintTools(server: McpServer): void {
 
   // ── Constraint check ─────────────────────────────────
   server.registerTool(
-    "syncpoint_constraint_check",
+    "syncpoint_constraint_path_check",
     {
       title: "Check Constraints",
       description: "Check whether a specific file or path matches any active constraints. Returns warnings if the file is restricted.",
       inputSchema: {
-        locator: z.string().describe("File path or glob pattern to check against constraints"),
+        locator: z.string().min(1).describe("File path or glob pattern to check against constraints"),
         sessionId: z.string().optional(),
       },
     },

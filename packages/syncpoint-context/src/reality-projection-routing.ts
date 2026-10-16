@@ -2,7 +2,7 @@
 
 // ── Kind → bucket mapping ────────────────────────────────
 
-type BucketName = "verifiedFacts" | "activeConstraints" | "risks" | "doNotTouch" | "protocolRules" | "constraintRules";
+export type BucketName = "verifiedFacts" | "activeConstraints" | "risks" | "doNotTouch" | "protocolRules" | "constraintRules";
 
 /** Default kind→bucket mapping (used when projectionTarget is null). */
 function kindToBucket(kind: string): BucketName {
@@ -80,7 +80,7 @@ export function resolveProjectionRoute(kind: string, projectionTarget: string | 
   };
 }
 
-function projectionReasonForKind(kind: string): string {
+export function projectionReasonForKind(kind: string): string {
   switch (kind) {
     case "fact":             return "fact → contextPatch.verifiedFacts";
     case "soft_convention":  return "soft_convention → contextPatch.activeConstraints";

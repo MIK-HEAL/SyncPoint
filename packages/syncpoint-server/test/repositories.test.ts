@@ -40,13 +40,13 @@ function createTestDb() {
 
 let testDb: ReturnType<typeof drizzle<typeof schema>>;
 
-vi.mock("./db.js", () => ({
+vi.mock("../src/db.js", () => ({
   defaultContext: { get db() { return testDb; }, get raw() { return null; }, destroy() {}, walEnabled: false },
   runMigrations: () => {},
 }));
 
 // Import after mock is set up — use explicit source path
-const repo = await import("./repositories/index.js");
+const repo = await import("../src/repositories/index.js");
 
 describe("Repositories", () => {
   beforeEach(() => {

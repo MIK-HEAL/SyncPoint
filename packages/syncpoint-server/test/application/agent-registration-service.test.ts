@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {  } from "../db.js";
+import {  } from "../../src/db.js";
 import {
   diagnoseAgentRegistry,
   exportAgentCards,
@@ -17,10 +17,10 @@ import {
 } from "../../src/application/index.js";
 import {
   createAgent,
-} from "../repositories/_exports/foundation.js";
+} from "../../src/repositories/_exports/foundation.js";
 import {
   upsertAgentManifest,
-} from "../repositories/_exports/runtime.js";
+} from "../../src/repositories/_exports/runtime.js";
 
 let projectRoot = "";
 let syncpointDir = "";

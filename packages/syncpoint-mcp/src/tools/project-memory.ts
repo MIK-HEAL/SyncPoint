@@ -20,7 +20,7 @@ export function registerProjectMemoryTools(server: McpServer): void {
     {
       title: "Search Project Memory",
       description: "Search approved project memories by keyword",
-      inputSchema: { query: z.string() },
+      inputSchema: { query: z.string().min(1) },
     },
     async ({ query }) => {
       try {

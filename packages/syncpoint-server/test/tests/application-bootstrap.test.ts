@@ -6,11 +6,11 @@ import {
   ensureApplicationBootstrap,
   getApplicationBootstrapStatus,
   resetApplicationBootstrapForTest,
-} from "../application/bootstrap.js";
+} from "../../src/application/bootstrap.js";
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
-const applicationDir = path.resolve(testDir, "../application");
-const mainPath = path.resolve(testDir, "../main.ts");
+const applicationDir = path.resolve(testDir, "../../src/application");
+const mainPath = path.resolve(testDir, "../../src/main.ts");
 
 const serviceEntryFiles = [
   "constraint-evaluation-service.ts",
@@ -56,10 +56,10 @@ describe("application bootstrap", () => {
 
   it("exposes the bootstrap API from the application barrel and server startup", () => {
     const barrelSource = fs.readFileSync(path.join(applicationDir, "index.ts"), "utf8");
-    expect(barrelSource).toContain('export * from "../../src/tests/bootstrap.js"');
+    expect(barrelSource).toContain('export * from "./bootstrap.js"');
 
     const mainSource = fs.readFileSync(mainPath, "utf8");
-    expect(mainSource).toContain('import { ensureApplicationBootstrap } from "../../src/tests/application/bootstrap.js";');
+    expect(mainSource).toContain('import { ensureApplicationBootstrap } from "./application/bootstrap.js";');
     expect(mainSource).toContain("ensureApplicationBootstrap();");
   });
 

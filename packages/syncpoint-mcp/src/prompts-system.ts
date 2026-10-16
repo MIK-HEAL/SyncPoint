@@ -16,7 +16,7 @@ export function registerSystemPrompts(server: McpServer): void {
     {
       title: "Resume Task",
       description: "Generate a synchronization-aware resume prompt for an agent.",
-      argsSchema: { taskId: z.string().describe("Task ID"), agentId: z.string().describe("Agent ID") },
+      argsSchema: { taskId: z.string().min(1).describe("Task ID"), agentId: z.string().min(1).describe("Agent ID") },
     },
     ({ taskId, agentId }) => {
       const ctx = getResumeContext(taskId, agentId);

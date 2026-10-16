@@ -7,11 +7,11 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import {  } from "../db.js";
-import * as schema from "../schema.js";
-import { createAgent, createTask } from "../repositories/index.js";
+import {  } from "../../src/db.js";
+import * as schema from "../../src/schema.js";
+import { createAgent, createTask } from "../../src/repositories/index.js";
 import { sgRequest } from "../../src/application/sync-gate-service.js";
-import { updateSyncGateStatus } from "../repositories/sync-gate-repository.js";
+import { updateSyncGateStatus } from "../../src/repositories/sync-gate-repository.js";
 import { AgentAvailability, EscalationOptIn } from "syncpoint-adapters";
 import { SyncGateStatus, GatePolicyKind, GateTimeoutAction } from "syncpoint-kernel";
 import {

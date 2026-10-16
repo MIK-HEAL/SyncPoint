@@ -32,7 +32,7 @@ interface UpsertAgentRegistryEntryInput {
   lastSyncAt?: string;
 }
 
-function parseManifestJson(value: import("syncpoint-core").UserAgentManifest | null): import("syncpoint-core").UserAgentManifest | null {
+function parseManifestJson(value: UserAgentManifest | null): UserAgentManifest | null {
   if (!value) return null;
   try {
     return UserAgentManifestSchema.parse(value);

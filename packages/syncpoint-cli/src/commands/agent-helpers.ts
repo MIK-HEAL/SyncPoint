@@ -4,7 +4,7 @@ import readline from "node:readline/promises";
 import { ResourceNotFoundError, ValidationError } from "syncpoint-kernel";
 import type { AgentManifestFileFormat, UserAgentProvider } from "syncpoint-adapters";
 import type { AgentDeclarationValidationRecord, DeclaredAgentRecord } from "syncpoint-server/application";
-import { resolveAgent } from "../connect.js";
+import { resolveAgent } from "./connect.js";
 export function printDeclaredAgents(records: DeclaredAgentRecord[]): void {
   if (!records.length) {
     console.log("No declared agents found.");

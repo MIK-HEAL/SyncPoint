@@ -293,6 +293,19 @@ export function createTestDatabaseContext(): DatabaseContext {
 /** Default project database context. Created lazily on first access. */
 export const defaultContext = new DatabaseContext();
 
+/** Compatibility accessors for transports and tests that use the legacy DB API. */
+export function getDb(): SyncPointDb {
+  return defaultContext.db;
+}
+
+export function getRawDb(): Database.Database {
+  return defaultContext.raw;
+}
+
+export function closeDb(): void {
+  defaultContext.destroy();
+}
+
 // ── Utilities ─────────────────────────────────────────
 
 export function initSyncpointDir(baseDir: string = process.cwd()): string {

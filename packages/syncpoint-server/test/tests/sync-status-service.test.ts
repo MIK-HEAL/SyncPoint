@@ -6,21 +6,21 @@ import { TaskStatus } from "syncpoint-adapters";
 import { MemoryKind } from "syncpoint-context";
 import {  } from "../../src/db.js";
 import * as repo from "../../src/repositories/index.js";
-import { ensureApplicationBootstrap } from "../application/bootstrap.js";
+import { ensureApplicationBootstrap } from "../../src/application/bootstrap.js";
 import {
   orchAcceptAssignment,
   orchAssignRole,
   orchCreateSession,
   orchPlanTask,
   orchRequestReview,
-} from "../application/orchestration-service.js";
-import { stxCreate } from "../application/checkpoint-review-service.js";
-import { opCreate, opSubmit } from "../application/operation-service.js";
-import { pmAdd, pmApprove } from "../application/project-memory-service.js";
-import { rcClaim } from "../application/resource-claim-service.js";
-import { buildScopeFilter, buildSnapshot } from "../application/sync-status-service.js";
-import { sgRequest } from "../application/sync-gate-service.js";
-import { resetPathResolverCache } from "../application/path-resolver.js";
+} from "../../src/application/orchestration-service.js";
+import { stxCreate } from "../../src/application/checkpoint-review-service.js";
+import { opCreate, opSubmit } from "../../src/application/operation-service.js";
+import { pmAdd, pmApprove } from "../../src/application/project-memory-service.js";
+import { rcClaim } from "../../src/application/resource-claim-service.js";
+import { buildScopeFilter, buildSnapshot } from "../../src/application/sync-status-service.js";
+import { sgRequest } from "../../src/application/sync-gate-service.js";
+import { resetPathResolverCache } from "../../src/application/path-resolver.js";
 
 let tmpDir: string;
 let sessionId: string;
